@@ -21,4 +21,4 @@ Open:
 3. 체험단이 참여 신청 후 리뷰 URL을 완료 제출합니다.
 4. 사장님용 완료 확인 목록에 해당 제출 건이 표시됩니다.
 
-The API is intentionally a virtual in-memory server for prototype review. For a production build, replace `src/lib/catchpass-store.mjs` with a durable database adapter.
+The API uses `CATCHPASS_BLOB_URL` when it is present, so Vercel deployments can share a small JSONBlob-backed virtual server. Without that env var it falls back to in-memory state for local prototype review. For a production build, replace `src/lib/catchpass-store.mjs` with a durable database adapter.
