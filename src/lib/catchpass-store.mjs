@@ -3,7 +3,9 @@ import {
   applyCampaign,
   completeApplication,
   createCampaign,
-  createInitialState
+  createInitialState,
+  markPassUsed,
+  normalizeState
 } from "./catchpass-core.mjs";
 
 const globalKey = "__catchpass_virtual_server_state__";
@@ -17,7 +19,7 @@ async function readRemoteState() {
   });
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error("원격 가상 서버 상태를 불러오지 못했습니다.");
+    throw new Error("가상 서버 상태를 불러오지 못했습니다.");
   }
   return response.json();
 }
@@ -33,16 +35,24 @@ async function writeRemoteState(state) {
     body: JSON.stringify(state)
   });
   if (!response.ok) {
-    throw new Error("원격 가상 서버 상태를 저장하지 못했습니다.");
+    throw new Error("가상 서버 상태를 저장하지 못했습니다.");
   }
+}
+
+function hasStateChanged(previous, next) {
+  return JSON.stringify(previous) !== JSON.stringify(next);
 }
 
 export async function getState() {
   if (blobUrl) {
     const remoteState = await readRemoteState();
     if (remoteState) {
-      globalThis[globalKey] = remoteState;
-      return remoteState;
+      const normalized = normalizeState(remoteState);
+      globalThis[globalKey] = normalized;
+      if (hasStateChanged(remoteState, normalized)) {
+        await writeRemoteState(normalized);
+      }
+      return normalized;
     }
   }
 
@@ -50,6 +60,7 @@ export async function getState() {
     globalThis[globalKey] = createInitialState();
     await writeRemoteState(globalThis[globalKey]);
   }
+  globalThis[globalKey] = normalizeState(globalThis[globalKey]);
   return globalThis[globalKey];
 }
 
@@ -68,6 +79,9 @@ export async function mutateState(action, payload) {
       break;
     case "applyCampaign":
       next = applyCampaign(current, payload);
+      break;
+    case "markPassUsed":
+      next = markPassUsed(current, payload);
       break;
     case "completeApplication":
       next = completeApplication(current, payload);
