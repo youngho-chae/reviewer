@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { background:#fff; color:#222; }
+body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+* { -webkit-font-smoothing: antialiased; }
+button, a { touch-action: manipulation; }
+
+/* mobile viewport scaffolding */
+.mobile-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  background: #fff;
+  position: relative;
+}
+.safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
