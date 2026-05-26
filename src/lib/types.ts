@@ -42,6 +42,11 @@ export interface Store {
   rating: number;
   reviewCount: number;
   hours: string;
+  // 지도/외부 링크
+  lat?: number;
+  lng?: number;
+  address?: string;
+  naverPlaceId?: string; // m.place.naver.com/place/<id> 의 id
 }
 
 export type CampaignKind = "visit" | "press";

@@ -33,7 +33,20 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
 
       <div className="px-5 pt-5">
         <h1 className="text-[22px] font-medium leading-tight">{store.name}</h1>
-        <div className="mt-1 text-[14px] text-muted">{store.area} · {store.category} · ★ {store.rating} ({store.reviewCount})</div>
+        <div className="mt-1 text-[14px] text-muted">{store.area} · {store.category} · ★ {store.rating} ({store.reviewCount.toLocaleString()})</div>
+        {store.address && (
+          <div className="mt-1 text-[13px] text-muted">📍 {store.address}</div>
+        )}
+        {store.naverPlaceId && (
+          <a
+            href={`https://m.place.naver.com/place/${store.naverPlaceId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block mt-2 text-[12px] text-ink underline"
+          >
+            네이버 플레이스에서 보기 →
+          </a>
+        )}
 
         <div className="mt-5 rounded-md border border-hairline p-4">
           <div className="text-[12px] text-muted">지원금</div>
