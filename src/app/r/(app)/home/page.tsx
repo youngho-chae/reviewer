@@ -50,8 +50,8 @@ export default async function ReviewerHome() {
   // env var는 사용자 본인 키로 override 하고 싶을 때만 사용
   const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "xucmechng0";
 
-  return (
-    <div>
+  const header = (
+    <>
       <div className="px-5 pt-12 pb-3">
         <div className="text-[12px] text-muted">서울 전역</div>
         <div className="mt-1 text-[20px] font-bold">안녕하세요, {me.nickname}님</div>
@@ -77,10 +77,8 @@ export default async function ReviewerHome() {
           </div>
         </div>
       </div>
-
-      <div className="mt-6">
-        <HomeStoreList cards={cards} mapClientId={mapClientId} />
-      </div>
-    </div>
+    </>
   );
+
+  return <HomeStoreList cards={cards} mapClientId={mapClientId} header={header} />;
 }

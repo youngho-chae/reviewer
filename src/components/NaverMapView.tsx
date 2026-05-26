@@ -53,7 +53,7 @@ function lngLatToPixel(
   return { x: width / 2 + dx, y: height / 2 + dy };
 }
 
-export default function NaverMapView({ pins, clientId }: { pins: MapStorePin[]; clientId: string }) {
+export default function NaverMapView({ pins, clientId, fullscreen = false }: { pins: MapStorePin[]; clientId: string; fullscreen?: boolean }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const [sdkReady, setSdkReady] = useState(false);
@@ -128,11 +128,15 @@ export default function NaverMapView({ pins, clientId }: { pins: MapStorePin[]; 
         onLoad={() => setSdkReady(true)}
         onError={() => setSdkFailed(true)}
       />
-      <div className="relative">
+      <div className={fullscreen ? "relative w-full h-full" : "relative"}>
         {sdkFailed ? (
-          <StaticMapFallback pins={pins} onSelect={setSelected} />
+          <StaticMapFallback pins={pins} onSelect={setSelected} fullscreen={fullscreen} />
         ) : (
-          <div ref={mapEl} className="w-full bg-surfaceSoft" style={{ height: "calc(100dvh - 240px)", minHeight: 400 }} />
+          <div
+            ref={mapEl}
+            className="w-full bg-surfaceSoft"
+            style={fullscreen ? { height: "100%" } : { height: "calc(100dvh - 240px)", minHeight: 400 }}
+          />
         )}
         {!sdkReady && !sdkFailed && (
           <div className="absolute inset-0 grid place-items-center bg-surfaceSoft text-muted text-[13px] pointer-events-none">
@@ -176,9 +180,11 @@ export default function NaverMapView({ pins, clientId }: { pins: MapStorePin[]; 
 function StaticMapFallback({
   pins,
   onSelect,
+  fullscreen = false,
 }: {
   pins: MapStorePin[];
   onSelect: (p: MapStorePin) => void;
+  fullscreen?: boolean;
 }) {
   const [size, setSize] = useState({ w: 800, h: 600 });
   const ref = useRef<HTMLDivElement | null>(null);
@@ -213,7 +219,7 @@ function StaticMapFallback({
     <div
       ref={ref}
       className="relative w-full overflow-hidden bg-surfaceSoft"
-      style={{ height: "calc(100dvh - 240px)", minHeight: 400 }}
+      style={fullscreen ? { height: "100%" } : { height: "calc(100dvh - 240px)", minHeight: 400 }}
     >
       {/* Static Map 배경 이미지 */}
       <img

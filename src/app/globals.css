@@ -16,3 +16,9 @@ button, a { touch-action: manipulation; }
   position: relative;
 }
 .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+
+/* 바텀 네비게이션 실제 높이 — 풀스크린 지도/FAB 위치 계산에 사용
+   icon(20) + gap(2) + label(14) + py-2.5(20) + safe-bottom(16 + safe-area) = ~72px + safe-area */
+:root {
+  --bottom-nav-h: calc(env(safe-area-inset-bottom, 0px) + 72px);
+}
