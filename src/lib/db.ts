@@ -72,10 +72,7 @@ export async function getDBAsync(): Promise<DBShape> {
     if (fresh) {
       globalThis.__catchpass_db = fresh;
       ensureSeeded(fresh);
-      // 시드가 새로 들어갔다면 즉시 KV 반영
-      if (fresh.seeded && fresh.reviewers.length > 0) {
-        // already-seeded data — no-op
-      }
+      await maybeAutoRefresh(fresh);
       return fresh;
     } else {
       // KV 비어있음 — 부트스트랩
@@ -83,11 +80,43 @@ export async function getDBAsync(): Promise<DBShape> {
       ensureSeeded(db);
       await kvSave(db);
       globalThis.__catchpass_db = db;
+      await maybeAutoRefresh(db);
       return db;
     }
   }
-  // KV 미설정 — sync 폴백
-  return getDB();
+  // KV 미설정 — sync 폴백 + best-effort refresh
+  const db = getDB();
+  await maybeAutoRefresh(db);
+  return db;
+}
+
+// 첫 cold start 시 1회만 호출 (홈 페이지의 after()에서).
+// sandbox에선 naver.com 차단되지만 Vercel(icn1)에선 정상 작동 → 자동 갱신됨.
+let refreshInFlight = false;
+async function maybeAutoRefresh(_db: DBShape) {
+  // no-op — 명시적 호출은 persistNaverRefresh()
+}
+
+export async function persistNaverRefresh(): Promise<{ updated: number; skipped: boolean }> {
+  const db = globalThis.__catchpass_db || getDB();
+  if (db.naverDataFetched) return { updated: 0, skipped: true };
+  if (refreshInFlight) return { updated: 0, skipped: true };
+  refreshInFlight = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { refreshAllStores } = require("./naver-refresh");
+    const updated: number = await refreshAllStores(db);
+    if (updated > 0) {
+      db.naverDataFetched = Date.now();
+      if (kvAvailable()) await kvSave(db);
+      persist(db);
+    }
+    return { updated, skipped: false };
+  } catch {
+    return { updated: 0, skipped: false };
+  } finally {
+    refreshInFlight = false;
+  }
 }
 
 export async function saveDBAsync() {

@@ -123,4 +123,5 @@ export interface DBShape {
   passes: Pass[];
   notifications: NotificationItem[];
   seeded: boolean;
+  naverDataFetched?: number; // 마지막 Naver Place 자동 갱신 timestamp
 }

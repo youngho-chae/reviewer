@@ -1,14 +1,22 @@
+import { after } from "next/server";
 import { getCurrentReviewer } from "@/lib/server-helpers";
-import { getDBAsync } from "@/lib/db";
+import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
 import { gradeMeets } from "@/lib/grade";
 import HomeStoreList, { StoreCardData } from "./HomeStoreList";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function ReviewerHome() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
+  // 응답 후 백그라운드로 Naver 실데이터 fetch (한 번만)
+  if (!db.naverDataFetched) {
+    after(async () => {
+      await persistNaverRefresh();
+    });
+  }
   const now = Date.now();
 
   const cards: StoreCardData[] = db.campaigns
@@ -38,7 +46,8 @@ export default async function ReviewerHome() {
       };
     });
 
-  const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "";
+  // Client ID는 클라이언트 사이드 SDK용 — 공개 식별자라 임베드 OK
+  const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "xucmechng0";
 
   return (
     <div>
