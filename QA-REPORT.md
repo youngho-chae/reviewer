@@ -8,9 +8,9 @@
 
 | 진입 | URL |
 |---|---|
-| **랜딩** | https://reviewer-hgx1-2vggkx74v-codudgh0810-gmailcoms-projects.vercel.app/ |
-| **체험자 로그인** | https://reviewer-hgx1-2vggkx74v-codudgh0810-gmailcoms-projects.vercel.app/r/login |
-| **사장님 로그인** | https://reviewer-hgx1-2vggkx74v-codudgh0810-gmailcoms-projects.vercel.app/o/login |
+| **랜딩** | https://reviewer-hgx1.vercel.app/ |
+| **체험자 로그인** | https://reviewer-hgx1.vercel.app/r/login |
+| **사장님 로그인** | https://reviewer-hgx1.vercel.app/o/login |
 | 브랜치 별칭 | https://reviewer-hgx1-git-vercel-07d480-codudgh0810-gmailcoms-projects.vercel.app/ |
 
 > 동일 도메인에서 path로 양면 분기 (`/r/*` 체험자, `/o/*` 사장님). 모바일 사파리/크롬 최적화.
@@ -66,7 +66,7 @@
 ## 내부 테스터 안내문 (그대로 공유 가능)
 
 > **CATCHPASS 내부 테스트 환경**
-> - 입구: https://reviewer-hgx1-2vggkx74v-codudgh0810-gmailcoms-projects.vercel.app/
+> - 입구: https://reviewer-hgx1.vercel.app/
 > - 체험자 데모: `demo@reviewer.com` / `demo1234`
 > - 사장님 데모: `demo@store.com` / `demo1234`
 > - 두 데모 계정을 다른 디바이스(또는 시크릿 창)에서 동시에 열어 한 명은 매장 참여 → QR 발급, 다른 한 명은 QR 코드를 입력해 사용 처리하는 흐름을 시연 가능.
