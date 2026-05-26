@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
 import ParticipateButton from "./ParticipateButton";
 
@@ -11,7 +11,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const me = await getCurrentReviewer();
   const { id } = await params;
   const { campaign: campaignId } = await searchParams;
-  const db = getDB();
+  const db = await getDBAsync();
   const store = db.stores.find((s) => s.id === id);
   if (!store) return notFound();
   const campaigns = db.campaigns.filter((c) => c.storeId === store.id && c.endAt > Date.now());

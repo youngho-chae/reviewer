@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDB, saveDB } from "@/lib/db";
+import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "owner") return NextResponse.json({ error: "사장님 로그인 필요" }, { status: 401 });
   const { code, paidAmount } = await req.json();
-  const db = getDB();
+  const db = await getDBAsync();
   const pass = db.passes.find((p) => p.code === code);
   if (!pass) return NextResponse.json({ error: "유효하지 않은 체험권 코드입니다" }, { status: 404 });
   if (pass.ownerId !== s.userId) return NextResponse.json({ error: "다른 매장의 체험권입니다" }, { status: 403 });
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (pass.status !== "active") return NextResponse.json({ error: "사용할 수 없는 체험권입니다" }, { status: 400 });
   if (Date.now() > pass.expiresAt) {
     pass.status = "expired";
-    saveDB();
+    await saveDBAsync();
     return NextResponse.json({ error: "만료된 체험권입니다" }, { status: 400 });
   }
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
@@ -40,6 +40,6 @@ export async function POST(req: NextRequest) {
     read: false,
     link: `/r/passes/${pass.id}`,
   });
-  saveDB();
+  await saveDBAsync();
   return NextResponse.json({ ok: true, support });
 }

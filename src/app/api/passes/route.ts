@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDB, saveDB } from "@/lib/db";
+import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
 import { Pass } from "@/lib/types";
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
   const { campaignId } = await req.json();
-  const db = getDB();
+  const db = await getDBAsync();
   const me = db.reviewers.find((r) => r.id === s.userId);
   const c = db.campaigns.find((x) => x.id === campaignId);
   if (!me || !c) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -73,6 +73,6 @@ export async function POST(req: NextRequest) {
     read: false,
     link: "/o/home",
   });
-  saveDB();
+  await saveDBAsync();
   return NextResponse.json({ passId: pass.id });
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDB, saveDB } from "@/lib/db";
+import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
   const { passId, reviewUrl, reviewBody, reviewChannel } = await req.json();
-  const db = getDB();
+  const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === passId);
   if (!pass || pass.reviewerId !== s.userId) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   if (pass.status !== "used") return NextResponse.json({ error: "사용 후에만 리뷰 등록 가능" }, { status: 400 });
@@ -33,6 +33,6 @@ export async function POST(req: NextRequest) {
     read: false,
     link: "/o/reviews",
   });
-  saveDB();
+  await saveDBAsync();
   return NextResponse.json({ ok: true });
 }

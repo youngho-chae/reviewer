@@ -1,7 +1,7 @@
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ const ch_label: any = {
 
 export default async function Me() {
   const me = await getCurrentReviewer();
-  const db = getDB();
+  const db = await getDBAsync();
   const completed = db.passes.filter((p) => p.reviewerId === me.id && p.status === "completed").length;
   const totalSupport = db.passes
     .filter((p) => p.reviewerId === me.id && p.supportApplied)

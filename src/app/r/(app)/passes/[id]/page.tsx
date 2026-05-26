@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function PassDetail({ params }: { params: Promise<{ id: string }> }) {
   const me = await getCurrentReviewer();
   const { id } = await params;
-  const db = getDB();
+  const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === id);
   if (!pass || pass.reviewerId !== me.id) return notFound();
   const store = db.stores.find((s) => s.id === pass.storeId);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDB, saveDB } from "@/lib/db";
+import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "owner") return NextResponse.json({ error: "사장님 로그인 필요" }, { status: 401 });
   const { passId, decision } = await req.json(); // decision: "approve" | "reject"
-  const db = getDB();
+  const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === passId);
   if (!pass || pass.ownerId !== s.userId) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   if (pass.status !== "review_submitted") return NextResponse.json({ error: "검수 대기 상태가 아닙니다" }, { status: 400 });
@@ -49,6 +49,6 @@ export async function POST(req: NextRequest) {
       link: "/r/passes",
     });
   }
-  saveDB();
+  await saveDBAsync();
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 import ReviewActions from "./ReviewActions";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const ch_label: any = {
 
 export default async function OwnerReviews() {
   const me = await getCurrentOwner();
-  const db = getDB();
+  const db = await getDBAsync();
   const passes = db.passes
     .filter((p) => p.ownerId === me.id && (p.status === "review_submitted" || p.status === "completed" || p.status === "rejected"))
     .sort((a, b) => (b.reviewSubmittedAt || 0) - (a.reviewSubmittedAt || 0));

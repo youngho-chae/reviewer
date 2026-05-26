@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 import { createSession } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const { role, email, password } = await req.json();
-  const db = getDB();
+  const db = await getDBAsync();
   const lower = String(email || "").trim().toLowerCase();
   if (role === "reviewer") {
     const r = db.reviewers.find((x) => x.email === lower);

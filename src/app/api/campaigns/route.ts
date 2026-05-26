@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDB, saveDB } from "@/lib/db";
+import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { Campaign, SnsKind } from "@/lib/types";
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "owner") return NextResponse.json({ error: "사장님 로그인 필요" }, { status: 401 });
   const body = await req.json();
-  const db = getDB();
+  const db = await getDBAsync();
   const store = db.stores.find((x) => x.id === body.storeId && x.ownerId === s.userId);
   if (!store) return NextResponse.json({ error: "잘못된 매장" }, { status: 400 });
   const now = Date.now();
@@ -36,6 +36,6 @@ export async function POST(req: NextRequest) {
   };
   if (!c.title) return NextResponse.json({ error: "제목을 입력해주세요" }, { status: 400 });
   db.campaigns.push(c);
-  saveDB();
+  await saveDBAsync();
   return NextResponse.json({ ok: true, id: c.id });
 }

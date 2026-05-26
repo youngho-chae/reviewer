@@ -1,6 +1,5 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { ensureSeed } from "@/lib/seed";
 
 export const metadata: Metadata = {
   title: "CATCHPASS",
@@ -13,9 +12,7 @@ export const viewport: Viewport = {
   userScalable: false,
   themeColor: "#ffffff",
 };
-
-// seed on first import (server-side)
-ensureSeed();
+// 시드는 db.ts의 getDB/getDBAsync 내부에서 lazy 처리 — 별도 호출 불필요
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
 import { gradeMeets } from "@/lib/grade";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReviewerHome() {
   const me = await getCurrentReviewer();
-  const db = getDB();
+  const db = await getDBAsync();
   const now = Date.now();
   const campaigns = db.campaigns
     .filter((c) => c.kind === "visit" && c.endAt > now)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getDB, saveDB } from "@/lib/db";
+import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid } from "@/lib/ids";
 import { createSession } from "@/lib/auth";
 import { gradeFromSns } from "@/lib/grade";
@@ -26,7 +26,7 @@ interface OwnerSignup {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ReviewerSignup | OwnerSignup;
-  const db = getDB();
+  const db = await getDBAsync();
 
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       noShowCount: 0,
     };
     db.reviewers.push(reviewer);
-    saveDB();
+    await saveDBAsync();
     await createSession({ userId: reviewer.id, role: "reviewer" });
     return NextResponse.json({ ok: true, grade });
   } else {
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       hours: "11:00 - 21:00",
     };
     db.stores.push(store);
-    saveDB();
+    await saveDBAsync();
     await createSession({ userId: owner.id, role: "owner" });
     return NextResponse.json({ ok: true });
   }

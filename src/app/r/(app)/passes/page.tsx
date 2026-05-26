@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ const statusColor = (s: string) => ({
 
 export default async function MyPasses() {
   const me = await getCurrentReviewer();
-  const db = getDB();
+  const db = await getDBAsync();
   const passes = db.passes
     .filter((p) => p.reviewerId === me.id)
     .sort((a, b) => b.issuedAt - a.issuedAt);

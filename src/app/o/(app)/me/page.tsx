@@ -1,12 +1,12 @@
 import { getCurrentOwner } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function OwnerMe() {
   const me = await getCurrentOwner();
-  const db = getDB();
+  const db = await getDBAsync();
   const stores = db.stores.filter((s) => s.ownerId === me.id);
   const passes = db.passes.filter((p) => p.ownerId === me.id);
   const totalReviews = passes.filter((p) => p.status === "completed").length;

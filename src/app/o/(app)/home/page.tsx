@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
-import { getDB } from "@/lib/db";
+import { getDBAsync } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function OwnerHome() {
   const me = await getCurrentOwner();
-  const db = getDB();
+  const db = await getDBAsync();
   const myStores = db.stores.filter((s) => s.ownerId === me.id);
   const storeIds = myStores.map((s) => s.id);
   const myCampaigns = db.campaigns.filter((c) => storeIds.includes(c.storeId));
