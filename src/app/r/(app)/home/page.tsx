@@ -46,7 +46,8 @@ export default async function ReviewerHome() {
       };
     });
 
-  // Client ID는 클라이언트 사이드 SDK용 — 공개 식별자라 임베드 OK
+  // Client ID는 공개 식별자 (브라우저 URL에 그대로 노출됨) — 코드 임베드 OK
+  // env var는 사용자 본인 키로 override 하고 싶을 때만 사용
   const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "xucmechng0";
 
   return (

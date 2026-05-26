@@ -68,6 +68,15 @@ export default function NaverMapView({ pins, clientId }: { pins: MapStorePin[]; 
     return () => clearTimeout(t);
   }, [sdkReady]);
 
+  // Naver Maps SDK가 인증 실패 시 호출하는 글로벌 콜백 등록
+  // (도메인 화이트리스트 미등록 등) → 즉시 Static Map 폴백 전환
+  useEffect(() => {
+    (window as any).navermap_authFailure = () => {
+      // SDK가 띄우는 alert 막기 위해 즉시 폴백
+      setSdkFailed(true);
+    };
+  }, []);
+
   useEffect(() => {
     if (!sdkReady || sdkFailed) return;
     if (!mapEl.current || !window.naver?.maps) return;
