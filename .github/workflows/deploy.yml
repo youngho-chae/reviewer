@@ -7,8 +7,8 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+permissions:
+  contents: write
 
 jobs:
   deploy:
@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -26,6 +29,13 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
+      - name: Verify Vercel token
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "::error::VERCEL_TOKEN secret is not set. Add it at: https://github.com/${{ github.repository }}/settings/secrets/actions/new"
+            exit 1
+          fi
+
       - name: Install deps
         run: npm ci --no-audit --no-fund
 
@@ -34,37 +44,44 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          set -e
-          # AUTH_SECRET for JWT signing — random per deploy if not set
+          set -euo pipefail
           AUTH_SECRET="${{ secrets.AUTH_SECRET }}"
           if [ -z "$AUTH_SECRET" ]; then
             AUTH_SECRET="$(openssl rand -hex 32)"
           fi
+          echo "::add-mask::$AUTH_SECRET"
 
-          echo "::group::vercel link/deploy"
-          # First-time link or existing — let vercel deploy figure it out via --yes
-          DEPLOY_URL=$(vercel deploy \
+          # 첫 배포 시 프로젝트 자동 생성
+          set +e
+          OUT=$(vercel deploy \
             --prod \
             --yes \
             --token="$VERCEL_TOKEN" \
             --name=catchpass \
             --env AUTH_SECRET="$AUTH_SECRET" \
             --build-env AUTH_SECRET="$AUTH_SECRET" \
-            2>&1 | tee /tmp/vercel.log | tail -1 || true)
-          echo "::endgroup::"
-
-          echo "URL from CLI: $DEPLOY_URL"
-          echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+            2>&1)
+          RC=$?
+          set -e
+          echo "$OUT"
+          # 마지막에 URL 라인이 나옴
+          URL=$(echo "$OUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' | tail -1)
+          if [ -z "$URL" ]; then
+            echo "❌ URL 추출 실패 (vercel exit=$RC)"
+            exit 1
+          fi
+          echo "DEPLOY_URL=$URL" >> "$GITHUB_ENV"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## ✅ CATCHPASS Deployed"
+            echo "## ✅ Vercel Deployed"
             echo ""
-            echo "**Production URL:** $DEPLOY_URL"
+            echo "**Production URL:** $URL"
             echo ""
             echo "### 입구"
-            echo "- 랜딩: ${DEPLOY_URL}/"
-            echo "- 체험자 로그인: ${DEPLOY_URL}/r/login"
-            echo "- 사장님 로그인: ${DEPLOY_URL}/o/login"
+            echo "- 랜딩: ${URL}/"
+            echo "- 체험자 로그인: ${URL}/r/login"
+            echo "- 사장님 로그인: ${URL}/o/login"
             echo ""
             echo "### 데모 계정"
             echo "- 체험자: demo@reviewer.com / demo1234"
@@ -75,42 +92,34 @@ jobs:
         env:
           URL: ${{ steps.deploy.outputs.url }}
         run: |
-          set -e
+          set -euo pipefail
           echo "Smoke testing $URL"
-          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL")
-          echo "Landing: $code"
-          test "$code" = "200" || { echo "Landing returned $code"; exit 1; }
+          sleep 5
+          for path in / /r/login /o/login; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL$path")
+            echo "$path → $code"
+            test "$code" = "200" || { echo "FAIL $path"; exit 1; }
+          done
 
-          # Reviewer login (HTML)
-          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL/r/login")
-          echo "Reviewer login: $code"
-          test "$code" = "200" || exit 1
-
-          # Owner login (HTML)
-          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL/o/login")
-          echo "Owner login: $code"
-          test "$code" = "200" || exit 1
-
-          # Full e2e flow via API
           R=/tmp/r.txt; O=/tmp/o.txt
-          rm -f $R $O
-
-          curl -sS -c $R -X POST -H 'Content-Type: application/json' \
-            "$URL/api/auth/login" \
+          curl -sS -c $R -X POST -H 'Content-Type: application/json' "$URL/api/auth/login" \
             -d '{"role":"reviewer","email":"demo@reviewer.com","password":"demo1234"}' | tee /tmp/r-login.json
           grep -q '"ok":true' /tmp/r-login.json
 
-          curl -sS -c $O -X POST -H 'Content-Type: application/json' \
-            "$URL/api/auth/login" \
+          curl -sS -c $O -X POST -H 'Content-Type: application/json' "$URL/api/auth/login" \
             -d '{"role":"owner","email":"demo@store.com","password":"demo1234"}' | tee /tmp/o-login.json
           grep -q '"ok":true' /tmp/o-login.json
 
-          echo "✓ smoke tests passed"
-          {
-            echo ""
-            echo "### 🟢 Smoke test"
-            echo "- Landing $URL → 200"
-            echo "- /r/login → 200"
-            echo "- /o/login → 200"
-            echo "- 체험자/사장님 데모 로그인 OK"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "✓ smoke ok"
+
+      - name: Write deploy URL back to repo
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -e
+          echo "$URL" > .deploy-url
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .deploy-url
+          git diff --cached --quiet || git commit -m "deploy: $URL [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
