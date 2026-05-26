@@ -1,0 +1,116 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - claude/create-planning-prd-wdoZK
+      - main
+  workflow_dispatch:
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Deploy (production)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -e
+          # AUTH_SECRET for JWT signing — random per deploy if not set
+          AUTH_SECRET="${{ secrets.AUTH_SECRET }}"
+          if [ -z "$AUTH_SECRET" ]; then
+            AUTH_SECRET="$(openssl rand -hex 32)"
+          fi
+
+          echo "::group::vercel link/deploy"
+          # First-time link or existing — let vercel deploy figure it out via --yes
+          DEPLOY_URL=$(vercel deploy \
+            --prod \
+            --yes \
+            --token="$VERCEL_TOKEN" \
+            --name=catchpass \
+            --env AUTH_SECRET="$AUTH_SECRET" \
+            --build-env AUTH_SECRET="$AUTH_SECRET" \
+            2>&1 | tee /tmp/vercel.log | tail -1 || true)
+          echo "::endgroup::"
+
+          echo "URL from CLI: $DEPLOY_URL"
+          echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## ✅ CATCHPASS Deployed"
+            echo ""
+            echo "**Production URL:** $DEPLOY_URL"
+            echo ""
+            echo "### 입구"
+            echo "- 랜딩: ${DEPLOY_URL}/"
+            echo "- 체험자 로그인: ${DEPLOY_URL}/r/login"
+            echo "- 사장님 로그인: ${DEPLOY_URL}/o/login"
+            echo ""
+            echo "### 데모 계정"
+            echo "- 체험자: demo@reviewer.com / demo1234"
+            echo "- 사장님: demo@store.com / demo1234"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -e
+          echo "Smoke testing $URL"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL")
+          echo "Landing: $code"
+          test "$code" = "200" || { echo "Landing returned $code"; exit 1; }
+
+          # Reviewer login (HTML)
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL/r/login")
+          echo "Reviewer login: $code"
+          test "$code" = "200" || exit 1
+
+          # Owner login (HTML)
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL/o/login")
+          echo "Owner login: $code"
+          test "$code" = "200" || exit 1
+
+          # Full e2e flow via API
+          R=/tmp/r.txt; O=/tmp/o.txt
+          rm -f $R $O
+
+          curl -sS -c $R -X POST -H 'Content-Type: application/json' \
+            "$URL/api/auth/login" \
+            -d '{"role":"reviewer","email":"demo@reviewer.com","password":"demo1234"}' | tee /tmp/r-login.json
+          grep -q '"ok":true' /tmp/r-login.json
+
+          curl -sS -c $O -X POST -H 'Content-Type: application/json' \
+            "$URL/api/auth/login" \
+            -d '{"role":"owner","email":"demo@store.com","password":"demo1234"}' | tee /tmp/o-login.json
+          grep -q '"ok":true' /tmp/o-login.json
+
+          echo "✓ smoke tests passed"
+          {
+            echo ""
+            echo "### 🟢 Smoke test"
+            echo "- Landing $URL → 200"
+            echo "- /r/login → 200"
+            echo "- /o/login → 200"
+            echo "- 체험자/사장님 데모 로그인 OK"
+          } >> "$GITHUB_STEP_SUMMARY"
