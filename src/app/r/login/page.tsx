@@ -35,10 +35,10 @@ export default function ReviewerLogin() {
       <p className="mt-2 text-[14px] text-muted">CATCHPASS 등급으로 체험권을 받아보세요.</p>
 
       <form onSubmit={submit} className="mt-8 space-y-3">
-        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-14 px-4 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[16px]" />
-        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="비밀번호" className="w-full h-14 px-4 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[16px]" />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-14 px-4 rounded-md border border-hairline focus:border-ink focus:outline-none text-[15px]" />
+        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="비밀번호" className="w-full h-14 px-4 rounded-md border border-hairline focus:border-ink focus:outline-none text-[15px]" />
         {err && <div className="text-error text-[14px]">{err}</div>}
-        <button disabled={loading} type="submit" className="w-full h-14 rounded-sm bg-brand text-white text-[16px] font-medium disabled:opacity-50">{loading ? "로그인 중..." : "로그인"}</button>
+        <button disabled={loading} type="submit" className="w-full h-14 rounded-full bg-ink text-white text-[16px] font-bold disabled:opacity-50">{loading ? "로그인 중..." : "로그인"}</button>
       </form>
 
       <div className="mt-6 text-center text-[14px] text-muted">

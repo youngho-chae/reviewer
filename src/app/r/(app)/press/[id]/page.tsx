@@ -26,37 +26,58 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
     c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
   const accessible = gradeMeets(me.grade, minNeededGrade);
   const myPass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && p.status !== "expired" && p.status !== "rejected");
+  const daysLeft = Math.max(0, Math.ceil((c.endAt - Date.now()) / 86400000));
+  const slotsLow = remain > 0 && remain <= 2;
+  const closed = remain === 0;
 
   return (
-    <div className="pb-10">
-      <Link href="/r/press" className="absolute left-4 top-4 z-10 w-9 h-9 rounded-full bg-white/90 backdrop-blur grid place-items-center text-[18px]">←</Link>
-      <div className="h-44 bg-surfaceSoft flex items-center justify-center text-[72px]">{store.coverEmoji}</div>
+    <div className="pb-32 bg-canvas min-h-[100dvh]">
+      {/* Top bar */}
+      <div className="px-5 pt-12 pb-2 flex items-center gap-3">
+        <Link href="/r/home" className="w-9 h-9 rounded-full bg-surfaceSoft grid place-items-center text-[18px]">←</Link>
+        <div className="text-[13px] font-bold text-muted tracking-wide">기자단 캠페인 · 신청 전 확인</div>
+      </div>
 
-      <div className="px-5 pt-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[20px] font-bold">{store.name}</h1>
-          <GradeBadge grade={minNeededGrade} size="sm" />
+      {/* Hero card (dark) */}
+      <div className="mx-5 mt-2 p-5 rounded-lg bg-ink text-white relative overflow-hidden">
+        <div className="flex items-center gap-2 mb-2.5">
+          <GradeBadge grade={minNeededGrade} size="sm" inverted />
+          <span className="text-[11px] font-bold tracking-wider text-white/70">기자단 · {minNeededGrade}등급 · 비방문</span>
         </div>
-        <div className="mt-1 text-[14px] text-muted">{c.title}</div>
+        <div className="text-[22px] font-extrabold tracking-tight">{store.name}</div>
+        <div className="text-[13px] text-white/60 mt-1">{store.area} · {store.category}</div>
 
-        <div className="mt-5 rounded-md border border-hairline p-4">
-          <div className="text-[12px] text-muted">정산 예정금</div>
-          <div className="text-[28px] font-bold text-ink mt-1">₩{c.supportAmount.toLocaleString()}</div>
-          <div className="text-[11px] text-muted mt-1">검수 통과 시 익월 25일 입금</div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
-            <div>
-              <div className="text-muted">잔여</div>
-              <div className="text-ink font-medium">{remain}매</div>
+        <div className="mt-4 pt-3.5 border-t border-white/10 grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10.5px] text-white/55 font-semibold tracking-wide">정산 예정금</div>
+            <div className="text-[22px] font-extrabold mt-0.5 tracking-tight">
+              {c.supportAmount.toLocaleString()}<span className="text-[12px] font-semibold">원</span>
             </div>
-            <div>
-              <div className="text-muted">최소 본문</div>
-              <div className="text-ink font-medium">{c.pressMinChars?.toLocaleString() || 1000}자 이상</div>
-            </div>
+            <div className="text-[10px] text-white/45 mt-0.5">3.3% 원천징수 후 입금</div>
+          </div>
+          <div>
+            <div className="text-[10.5px] text-white/55 font-semibold tracking-wide">모집 마감</div>
+            <div className={`text-[18px] font-bold mt-1 ${daysLeft <= 1 ? "text-brand" : "text-white"}`}>D-{daysLeft}</div>
+            <div className="text-[10px] text-white/45 mt-0.5">신청 후 자료 즉시 전달</div>
           </div>
         </div>
 
-        <h2 className="mt-6 text-[18px] font-bold">자료팩 미리보기</h2>
-        <div className="mt-3 rounded-md border border-hairline overflow-hidden">
+        <div className={`mt-3.5 px-3 py-2.5 rounded-md flex items-center justify-between ${closed ? "bg-error/20" : slotsLow ? "bg-brand/20" : "bg-white/[0.06]"}`}>
+          <div className="flex items-center gap-2">
+            <span className={`w-1.5 h-1.5 rounded-full ${closed ? "bg-error" : slotsLow ? "bg-brand" : "bg-success"}`} />
+            <span className="text-[12px] font-bold">{closed ? "모집 마감" : `잔여 ${remain}자리 / 총 ${totalQ}명`}</span>
+          </div>
+          {!closed && slotsLow && <span className="text-[10.5px] font-bold text-brand tracking-wide">곧 마감</span>}
+        </div>
+      </div>
+
+      {/* 자료팩 */}
+      <div className="px-5 mt-5">
+        <div className="flex items-baseline justify-between mb-2.5">
+          <h3 className="text-[15px] font-extrabold tracking-tight">📦 자료팩 미리보기</h3>
+          <span className="text-[11px] font-semibold text-muted">총 {c.pressMaterials?.length || 0}장 · 신청 후 다운로드</span>
+        </div>
+        <div className="rounded-md border border-hairline overflow-hidden">
           {(c.pressMaterials || []).map((m, i) => (
             <div key={i} className={`flex items-center gap-3 px-4 py-3 ${myPass ? "" : "blur-[2px] select-none"} ${i > 0 ? "border-t border-hairline" : ""}`}>
               <div className="text-[18px]">📎</div>
@@ -68,37 +89,56 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
             <div className="px-4 py-6 text-center text-muted text-[13px]">자료가 등록되지 않았습니다</div>
           )}
         </div>
-        {!myPass && (
-          <div className="mt-2 text-[11px] text-muted">참여 신청 후 자료팩이 풀공개됩니다</div>
-        )}
-
-        <h2 className="mt-6 text-[18px] font-bold">필수 키워드</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(c.pressKeywords || []).map((k) => (
-            <span key={k} className="px-3 py-1.5 rounded-full bg-surfaceSoft text-[13px]">#{k}</span>
-          ))}
-        </div>
-
-        <h2 className="mt-6 text-[18px] font-bold">필수 채널</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {c.requiredChannels.map((ch) => (
-            <span key={ch} className="px-3 py-1.5 rounded-full bg-surfaceSoft text-[13px]">{ch_label[ch]}</span>
-          ))}
-        </div>
-
-        <h2 className="mt-6 text-[18px] font-bold">캠페인 설명</h2>
-        <p className="mt-2 text-[14px] text-body leading-relaxed">{c.description}</p>
       </div>
 
-      <div className="sticky bottom-16 inset-x-0 px-5 mt-8">
+      {/* 매장 정보 */}
+      <div className="px-5 mt-5">
+        <h3 className="text-[15px] font-extrabold tracking-tight mb-2.5">🏪 매장 정보</h3>
+        <div className="p-3.5 bg-surfaceSoft border border-hairline rounded-md text-[13px] leading-7 text-ink">
+          <div><span className="text-muted font-semibold mr-2">위치</span>{store.area} · {store.category}</div>
+          <div><span className="text-muted font-semibold mr-2">영업시간</span>{store.hours}</div>
+          <div><span className="text-muted font-semibold mr-2">최소 본문</span>{(c.pressMinChars || 1000).toLocaleString()}자 이상</div>
+        </div>
+      </div>
+
+      {/* 필수 키워드 */}
+      <div className="px-5 mt-5">
+        <h3 className="text-[15px] font-extrabold tracking-tight">✓ 필수 키워드</h3>
+        <p className="text-[12px] text-muted mt-1 leading-relaxed">아래 키워드를 모두 포함해 작성해야 검수를 통과합니다.</p>
+        <div className="flex gap-1.5 flex-wrap mt-2.5">
+          {(c.pressKeywords || []).map((k) => (
+            <span key={k} className="text-[12px] font-bold px-3 py-1.5 rounded-full bg-ink text-white"># {k}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* 채널 */}
+      <div className="px-5 mt-5">
+        <h3 className="text-[15px] font-extrabold tracking-tight mb-2.5">📣 리뷰 게시 채널</h3>
+        <div className="flex gap-2 flex-wrap">
+          {c.requiredChannels.map((ch) => (
+            <span key={ch} className="text-[12px] font-semibold px-3 py-2 rounded-md bg-white border border-hairline">{ch_label[ch]}</span>
+          ))}
+        </div>
+        <div className="text-[11px] text-muted mt-2 leading-relaxed">위 중 1개 이상 채널에 게시. 광고 표시 문구는 자동 안내됩니다.</div>
+      </div>
+
+      {/* 캠페인 설명 */}
+      <div className="px-5 mt-5">
+        <h3 className="text-[15px] font-extrabold tracking-tight mb-2.5">📝 캠페인 설명</h3>
+        <p className="text-[14px] text-body leading-relaxed">{c.description}</p>
+      </div>
+
+      {/* Sticky CTA */}
+      <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] px-5 py-3.5 bg-white/95 backdrop-blur border-t border-hairline z-20">
         {myPass ? (
-          <Link href={`/r/press/${c.id}/write?pass=${myPass.id}`} className="block h-14 rounded-sm bg-ink text-white grid place-items-center text-[16px] font-medium">
+          <Link href={`/r/press/${c.id}/write?pass=${myPass.id}`} className="block h-14 rounded-full bg-ink text-white grid place-items-center text-[16px] font-bold">
             기자단 작성하기 →
           </Link>
-        ) : remain <= 0 ? (
-          <button disabled className="w-full h-14 rounded-sm bg-surfaceStrong text-muted text-[16px] font-medium">마감되었습니다</button>
+        ) : closed ? (
+          <button disabled className="w-full h-14 rounded-full bg-surfaceStrong text-muted text-[16px] font-bold">마감되었습니다</button>
         ) : !accessible ? (
-          <button disabled className="w-full h-14 rounded-sm bg-surfaceStrong text-muted text-[16px] font-medium">{minNeededGrade}등급부터 이용 가능합니다</button>
+          <button disabled className="w-full h-14 rounded-full bg-surfaceStrong text-muted text-[16px] font-bold">{minNeededGrade}등급부터 이용 가능합니다</button>
         ) : (
           <PressApplyButton campaignId={c.id} />
         )}

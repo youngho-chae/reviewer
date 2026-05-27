@@ -12,6 +12,13 @@ const ch_label: any = {
   youtube: "유튜브",
   tiktok: "틱톡",
 };
+const ch_metric: any = {
+  naver_blog: "일방문자",
+  instagram: "팔로워",
+  youtube: "구독자",
+  tiktok: "팔로워",
+};
+const ALL_CH = ["naver_blog", "instagram", "youtube", "tiktok"];
 
 export default async function Me() {
   const me = await getCurrentReviewer();
@@ -21,83 +28,88 @@ export default async function Me() {
     .filter((p) => p.reviewerId === me.id && p.supportApplied)
     .reduce((s, p) => s + (p.supportApplied || 0), 0);
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
-  const pressBookmarks = db.campaigns.filter((c) => c.kind === "press" && c.endAt > Date.now()).length;
 
   return (
     <div className="pb-24">
-      <div className="px-5 pt-12 pb-3">
-        <h1 className="text-[22px] font-bold">MY</h1>
+      <div className="px-5 pt-12 pb-5">
+        <h1 className="text-[28px] font-extrabold tracking-tight">MY</h1>
       </div>
 
       <div className="px-5">
+        {/* 프로필 카드 */}
         <div className="rounded-md border border-hairline p-5 flex items-center gap-4">
-          <GradeBadge grade={me.grade} size="lg" />
+          <div className="w-16 h-16 rounded-full bg-surfaceSoft border border-hairline grid place-items-center text-[22px] font-bold text-muted">
+            {me.nickname.slice(0, 1)}
+          </div>
           <div className="flex-1">
-            <div className="text-[16px] font-semibold">{me.nickname}</div>
-            <div className="text-[12px] text-muted">{me.email}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-[17px] font-bold">{me.nickname}</span>
+              <GradeBadge grade={me.grade} size="sm" />
+            </div>
+            <div className="text-[12px] text-muted mt-1">{me.email}</div>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 rounded-md border border-hairline p-4 text-center">
-          <div>
-            <div className="text-[11px] text-muted">완료 리뷰</div>
-            <div className="text-[18px] font-bold">{completed}</div>
+        {/* 통계 strip */}
+        <div className="mt-3.5 p-5 rounded-md bg-ink text-white flex justify-around">
+          <div className="text-center">
+            <div className="text-[22px] font-extrabold tracking-tight">{completed}</div>
+            <div className="text-[11px] text-white/60 mt-1">완료 리뷰</div>
           </div>
-          <div>
-            <div className="text-[11px] text-muted">리뷰 점수</div>
-            <div className="text-[18px] font-bold">{me.qualityScore || "-"}</div>
+          <div className="text-center">
+            <div className="text-[22px] font-extrabold tracking-tight">{me.qualityScore || "-"}</div>
+            <div className="text-[11px] text-white/60 mt-1">리뷰 점수</div>
           </div>
-          <div>
-            <div className="text-[11px] text-muted">누적 혜택</div>
-            <div className="text-[18px] font-bold">₩{totalSupport.toLocaleString()}</div>
+          <div className="text-center">
+            <div className="text-[22px] font-extrabold tracking-tight">₩{Math.round(totalSupport / 1000)}K</div>
+            <div className="text-[11px] text-white/60 mt-1">누적 혜택</div>
           </div>
         </div>
 
-        <div className="mt-4 rounded-md border border-hairline divide-y divide-hairline overflow-hidden">
-          <Link href="/r/grade" className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
-            <div className="text-[20px] w-7 text-center">🎖️</div>
-            <div className="flex-1">
-              <div className="text-[14px] font-medium">내 등급 자세히</div>
-              <div className="text-[12px] text-muted mt-0.5">진행률 · 혜택 사다리 · 4지표</div>
-            </div>
-            <div className="text-muted">→</div>
-          </Link>
-          <Link href="/r/press" className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
-            <div className="text-[20px] w-7 text-center">✍️</div>
-            <div className="flex-1">
-              <div className="text-[14px] font-medium">기자단 보관소</div>
-              <div className="text-[12px] text-muted mt-0.5">{pressBookmarks}개 진행중</div>
-            </div>
-            <div className="text-muted">→</div>
-          </Link>
-          <Link href="/r/notifications" className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
-            <div className="text-[20px] w-7 text-center">🔔</div>
-            <div className="flex-1">
-              <div className="text-[14px] font-medium flex items-center gap-2">
-                알림함
-                {unread ? <span className="text-[10px] bg-error text-white px-1.5 py-0.5 rounded-full">{unread}</span> : null}
+        {/* 연동 채널 */}
+        <h2 className="mt-6 text-[14px] font-bold text-muted">연동된 채널</h2>
+        <div className="mt-2.5 rounded-md border border-hairline overflow-hidden divide-y divide-hairline">
+          {ALL_CH.map((k) => {
+            const linked = me.sns.find((s) => s.kind === k);
+            return (
+              <div key={k} className="px-4 py-3.5 flex items-center justify-between">
+                <div>
+                  <div className="text-[14px] font-semibold">{ch_label[k]}</div>
+                  <div className="text-[12px] text-muted mt-0.5">
+                    {linked ? `${ch_metric[k]} ${linked.influence.toLocaleString()}명` : "연동 안 됨"}
+                  </div>
+                </div>
+                {linked ? (
+                  <span className="text-[11px] font-bold text-success px-2.5 py-1 bg-success/10 rounded-full">연동됨</span>
+                ) : (
+                  <button className="text-[12px] font-semibold px-3 py-1.5 bg-ink text-white rounded-full">연동</button>
+                )}
               </div>
-              <div className="text-[12px] text-muted mt-0.5">{unread ? `${unread}건 새 알림` : "모두 읽음"}</div>
-            </div>
-            <div className="text-muted">→</div>
-          </Link>
+            );
+          })}
         </div>
 
-        <h2 className="mt-6 text-[16px] font-bold">연동 채널</h2>
-        <div className="mt-3 space-y-2">
-          {me.sns.length === 0 ? (
-            <div className="rounded-md border border-dashed border-hairline p-4 text-center text-[13px] text-muted">
-              연동된 채널이 없습니다. 연동하면 등급이 자동 산정됩니다.
-            </div>
-          ) : me.sns.map((s) => (
-            <div key={s.kind} className="rounded-md border border-hairline p-3">
-              <div className="flex items-center justify-between">
-                <div className="text-[14px] font-medium">{ch_label[s.kind]}</div>
-                <div className="text-[12px] text-muted">{s.influence.toLocaleString()}</div>
-              </div>
-              <div className="text-[12px] text-muted truncate mt-1">{s.url}</div>
-            </div>
-          ))}
+        {/* 메뉴 */}
+        <div className="mt-5 rounded-md border border-hairline overflow-hidden divide-y divide-hairline">
+          <Link href="/r/passes" className="flex items-center justify-between px-4 py-3.5 active:bg-surfaceSoft text-[14px] font-medium">
+            <span>이용한 매장 / 작성한 리뷰</span>
+            <span className="text-mutedSoft">→</span>
+          </Link>
+          <Link href="/r/notifications" className="flex items-center justify-between px-4 py-3.5 active:bg-surfaceSoft text-[14px] font-medium">
+            <span className="flex items-center gap-2">
+              알림 설정
+              {unread > 0 && <span className="text-[10px] bg-error text-white px-1.5 py-0.5 rounded-full">{unread}</span>}
+            </span>
+            <span className="text-mutedSoft">→</span>
+          </Link>
+          <div className="flex items-center justify-between px-4 py-3.5 text-[14px] font-medium text-muted">
+            <span>리뷰어 프로필 공개 설정</span>
+            <span className="text-mutedSoft">→</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3.5 text-[14px] font-medium text-muted">
+            <span>고객센터</span>
+            <span className="text-mutedSoft">→</span>
+          </div>
         </div>
 
         <div className="mt-8">

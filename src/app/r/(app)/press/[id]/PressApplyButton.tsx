@@ -30,7 +30,7 @@ export default function PressApplyButton({ campaignId }: { campaignId: string })
       <button
         onClick={apply}
         disabled={busy}
-        className="w-full h-14 rounded-sm bg-ink text-white text-[16px] font-medium disabled:opacity-50"
+        className="w-full h-14 rounded-full bg-ink text-white text-[16px] font-bold disabled:opacity-50"
       >
         {busy ? "신청 중..." : "참여 신청하기"}
       </button>
