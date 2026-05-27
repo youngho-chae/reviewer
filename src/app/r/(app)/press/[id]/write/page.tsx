@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import PressWriteForm from "./PressWriteForm";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +20,30 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
   const { id } = await params;
   const { pass: passId } = await searchParams;
   const db = await getDBAsync();
-  const c = db.campaigns.find((x) => x.id === id && x.kind === "press");
+
+  let c: any = db.campaigns.find((x) => x.id === id && x.kind === "press");
+  let store: any = c ? db.stores.find((s) => s.id === c.storeId) : null;
+  let pass: any = passId ? db.passes.find((p) => p.id === passId && p.reviewerId === me.id) : null;
+
+  // 쿠키 stopgap — db에 없으면 쿠키에서 보충
+  if (!pass || !c || !store) {
+    const recent = await readRecentPasses();
+    if (!pass && passId) {
+      const hit = recent.find((r) => r.pass.id === passId && r.pass.reviewerId === me.id);
+      if (hit) pass = hit.pass;
+    }
+    if (!c) {
+      const hit = recent.find((r) => r.campaign?.id === id && r.campaign?.kind === "press");
+      if (hit) c = hit.campaign;
+    }
+    if (!store && c) {
+      const hit = recent.find((r) => r.store?.id === c.storeId);
+      if (hit) store = hit.store;
+    }
+  }
+
   if (!c) return notFound();
-  const store = db.stores.find((s) => s.id === c.storeId);
   if (!store) return notFound();
-  const pass = passId ? db.passes.find((p) => p.id === passId && p.reviewerId === me.id) : null;
-  // 멀티 인스턴스에서 KV 미연결 시 방금 발급된 패스가 다른 인스턴스에서 안 보일 수 있음.
-  // 404 대신 체험권 보관소(기자단 탭)로 보내고 polling으로 동기화.
   if (!pass) {
     if (passId) redirect(`/r/passes?pending=${encodeURIComponent(passId)}`);
     return notFound();
@@ -50,7 +68,7 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
       {/* 자료팩 풀공개 */}
       <h2 className="px-5 mt-6 text-[16px] font-bold">📦 자료팩 (풀공개)</h2>
       <div className="mx-5 mt-3 rounded-md border border-hairline overflow-hidden divide-y divide-hairline">
-        {(c.pressMaterials || []).map((m, i) => (
+        {((c.pressMaterials as string[] | undefined) || []).map((m: string, i: number) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3">
             <div className="text-[18px]">📎</div>
             <div className="flex-1 text-[13px]">{m}</div>
@@ -62,7 +80,7 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
       {/* 키워드 체크 */}
       <h2 className="px-5 mt-6 text-[16px] font-bold">🏷️ 필수 키워드</h2>
       <div className="px-5 mt-3 flex flex-wrap gap-2">
-        {(c.pressKeywords || []).map((k) => (
+        {((c.pressKeywords as string[] | undefined) || []).map((k: string) => (
           <span key={k} className="px-3 py-1.5 rounded-full bg-surfaceSoft text-[13px]">#{k}</span>
         ))}
       </div>
@@ -71,7 +89,7 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
       {/* 광고 표시 문구 */}
       <h2 className="px-5 mt-6 text-[16px] font-bold">📌 광고 표시 문구 (필수)</h2>
       <div className="mx-5 mt-3 rounded-md border border-warning/30 bg-warning/10 p-4">
-        {c.requiredChannels.map((ch) => (
+        {(c.requiredChannels as string[]).map((ch: string) => (
           <div key={ch} className="text-[13px] py-1">
             <span className="font-medium">{ch_label[ch]}:</span>{" "}
             <span className="text-body">{(ad_label[ch] as string).replace("[매장명]", store.name)}</span>
