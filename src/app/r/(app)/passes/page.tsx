@@ -58,6 +58,14 @@ export default async function MyPasses({
     if (p.status === "active" && now > p.expiresAt) p.status = "expired";
   }
 
+  // just_issued=passId — 발급 직후 진입. 현재 인스턴스에서 보이지 않으면
+  // 멀티 인스턴스/KV 미연결로 인한 동기화 지연이므로 폴링 배너 노출.
+  // 보이면 visitItems의 highlight 로직이 자동으로 강조.
+  const justIssuedVisible = justIssued
+    ? allPasses.some((p) => p.id === justIssued)
+    : true;
+  const showJustIssuedBanner = !!justIssued && !justIssuedVisible;
+
   const visit = allPasses.filter((p) => {
     const c = db.campaigns.find((x) => x.id === p.campaignId);
     return c?.kind !== "press";
@@ -113,6 +121,9 @@ export default async function MyPasses({
       </div>
 
       {pending && <PassPendingBanner pendingId={pending} />}
+      {showJustIssuedBanner && justIssued && (
+        <PassPendingBanner pendingId={justIssued} />
+      )}
 
       <PassesTabs
         visitCount={visit.length}

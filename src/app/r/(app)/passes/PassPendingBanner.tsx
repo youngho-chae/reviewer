@@ -4,19 +4,21 @@ import { useRouter } from "next/navigation";
 
 // 멀티 인스턴스 환경에서 KV 미연결 시 발생할 수 있는
 // "방금 발급한 체험권이 다른 인스턴스에 안 보임" 상황에 대한
-// 점진적 동기화 폴링 + 안내. 1초 간격으로 router.refresh() 시도해
-// 데이터가 보이는 인스턴스로 라우팅 되기를 기다린다.
+// 점진적 동기화 폴링 + 안내.
 export default function PassPendingBanner({ pendingId }: { pendingId: string }) {
   const router = useRouter();
   const [attempts, setAttempts] = useState(0);
-  const maxAttempts = 6; // 약 6초 시도
+  const maxAttempts = 8;
+  // 초반에 빠르게, 점점 길게 시도 (총 약 12초)
+  const delays = [400, 700, 1000, 1500, 1800, 2000, 2200, 2400];
 
   useEffect(() => {
     if (attempts >= maxAttempts) return;
+    const delay = delays[attempts] ?? 2000;
     const t = setTimeout(() => {
       router.refresh();
       setAttempts((a) => a + 1);
-    }, 1000);
+    }, delay);
     return () => clearTimeout(t);
   }, [attempts, router]);
 
@@ -42,13 +44,27 @@ export default function PassPendingBanner({ pendingId }: { pendingId: string }) 
             {exhausted ? "체험권 동기화에 시간이 걸리고 있어요" : "방금 발급한 체험권을 동기화 중이에요"}
           </div>
           <div className="text-[12px] text-muted mt-1 leading-[1.5]">
-            {exhausted
-              ? "잠시 후 새로고침하시거나, 사장님 매장 캠페인을 다시 확인해주세요. 발급 처리는 정상 완료되었습니다."
-              : "잠시만 기다려주세요. 자동으로 상세 화면으로 이동합니다."}
+            {exhausted ? (
+              <>
+                서버 인스턴스 간 데이터 동기화가 지연되고 있습니다.
+                새로고침해주세요 — 발급 처리는 정상 완료되었습니다.
+              </>
+            ) : (
+              "잠시만 기다려주세요. 자동으로 목록에 반영됩니다."
+            )}
           </div>
-          <div className="text-[10px] text-mutedSoft mt-1 font-mono break-all">
-            ID: {pendingId}
-          </div>
+          {exhausted && (
+            <button
+              type="button"
+              onClick={() => {
+                setAttempts(0);
+                router.refresh();
+              }}
+              className="mt-2 text-[12px] text-brand font-semibold"
+            >
+              다시 시도
+            </button>
+          )}
         </div>
       </div>
     </div>

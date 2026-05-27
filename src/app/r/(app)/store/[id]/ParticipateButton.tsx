@@ -27,9 +27,10 @@ export default function ParticipateButton({ campaignId, myGrade }: { campaignId:
       setBusy(false);
       return;
     }
-    // 발급 후 내 체험권 목록으로 이동, 발급된 카드를 하이라이트.
-    router.refresh();
-    router.push(`/r/passes?just_issued=${passId}`);
+    // 발급 후 내 체험권 목록으로 이동 (force-dynamic이라 push 자체가 fresh fetch 유발).
+    // 다른 인스턴스로 라우팅되어 새 패스가 안 보이는 경우 목록 페이지의
+    // PassPendingBanner가 1초 폴링으로 동기화 시도.
+    router.push(`/r/passes?just_issued=${encodeURIComponent(passId)}`);
   }
 
   return (
