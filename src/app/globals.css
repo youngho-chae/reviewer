@@ -2,10 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body { background:#fff; color:#222; }
-body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+/* Apple design system — SF Pro stack, near-black ink, 17px body */
+html, body { background:#ffffff; color:#1d1d1f; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+}
 * { -webkit-font-smoothing: antialiased; }
 button, a { touch-action: manipulation; }
+
+/* Apple system-wide micro-interaction: scale(0.95) on press */
+button, a[role="button"], a.cp-action {
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+button:active:not(:disabled), a[role="button"]:active, a.cp-action:active {
+  transform: scale(0.95);
+}
+
+/* Display headings — SF Pro Display 600 with negative letter-spacing */
+.font-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.026em;
+}
+
+/* Product shadow — single drop-shadow reserved for photographic surfaces (emoji cover plates) */
+.product-shadow {
+  filter: drop-shadow(rgba(0,0,0,0.22) 3px 5px 30px);
+}
+
+/* Frosted parchment sub-nav surface */
+.frosted-parchment {
+  background: rgba(245, 245, 247, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
 
 /* mobile viewport scaffolding */
 .mobile-shell {
@@ -17,8 +51,6 @@ button, a { touch-action: manipulation; }
 }
 .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
 
-/* 바텀 네비게이션 실제 높이 — 풀스크린 지도/FAB 위치 계산에 사용
-   icon(20) + gap(2) + label(14) + py-2.5(20) + safe-bottom(16 + safe-area) = ~72px + safe-area */
 :root {
   --bottom-nav-h: calc(env(safe-area-inset-bottom, 0px) + 72px);
 }

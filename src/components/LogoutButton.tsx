@@ -9,6 +9,6 @@ export default function LogoutButton() {
     router.refresh();
   }
   return (
-    <button onClick={go} className="w-full h-12 rounded-sm border border-hairline text-muted text-[14px]">로그아웃</button>
+    <button onClick={go} className="w-full h-11 rounded-pill border border-brand text-brand text-[15px]">로그아웃</button>
   );
 }

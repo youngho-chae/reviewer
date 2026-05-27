@@ -18,9 +18,9 @@ export default function Countdown({ expiresAt }: { expiresAt: number }) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms / 60000) % 60);
   const s = Math.floor((ms / 1000) % 60);
-  if (ms === 0) return <div className="text-error font-bold text-[14px]">⌛ 만료</div>;
+  if (ms === 0) return <div className="text-error text-[14px]">만료</div>;
   return (
-    <div className="font-mono text-[14px] font-bold text-ink tracking-wider">
+    <div className="font-display text-[19px] text-ink tracking-[-0.022em]">
       {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
     </div>
   );

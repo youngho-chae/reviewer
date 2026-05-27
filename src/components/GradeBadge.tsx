@@ -1,15 +1,17 @@
 import { Grade } from "@/lib/types";
 
-// V3 prototype palette — circular badge, serif glyph
+// Apple-style grade badge — quiet grayscale ladder, SF Pro Display 600.
+// No decorative serif, no glow. S anchors the system in ink; the ladder
+// descends through ink → ink-muted-80 → ink-muted-48 → hairline.
 const PAL: Record<Grade, { bg: string; fg: string; border?: string }> = {
-  S: { bg: "#002720", fg: "#E1FF51" },
-  A: { bg: "#002720", fg: "#FFFFFF" },
-  B: { bg: "#5B6E6A", fg: "#FFFFFF" },
-  C: { bg: "#9AA6A3", fg: "#FFFFFF" },
-  N: { bg: "#FFFFFF", fg: "#002720", border: "1px solid #002720" },
+  S: { bg: "#1d1d1f", fg: "#ffffff" },
+  A: { bg: "#333333", fg: "#ffffff" },
+  B: { bg: "#7a7a7a", fg: "#ffffff" },
+  C: { bg: "#cccccc", fg: "#1d1d1f" },
+  N: { bg: "#ffffff", fg: "#1d1d1f", border: "1px solid #1d1d1f" },
 };
 
-const INVERTED = { bg: "#E1FF51", fg: "#002720" };
+const INVERTED = { bg: "#ffffff", fg: "#1d1d1f", border: "1px solid rgba(255,255,255,0.4)" };
 
 export default function GradeBadge({
   grade,
@@ -24,17 +26,18 @@ export default function GradeBadge({
   const p = inverted ? INVERTED : PAL[grade];
   return (
     <span
-      className="inline-flex items-center justify-center rounded-full font-bold flex-shrink-0"
+      className="inline-flex items-center justify-center rounded-full flex-shrink-0"
       style={{
         width: px,
         height: px,
         background: p.bg,
         color: p.fg,
         border: (p as any).border || "none",
-        fontFamily: '"Times New Roman", "Noto Serif KR", Georgia, serif',
-        fontSize: px * 0.5,
-        letterSpacing: "0.01em",
-        fontWeight: 700,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif',
+        fontSize: px * 0.46,
+        letterSpacing: "-0.022em",
+        fontWeight: 600,
+        lineHeight: 1,
       }}
     >
       {grade}

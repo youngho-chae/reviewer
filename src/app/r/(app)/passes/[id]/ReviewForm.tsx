@@ -43,16 +43,16 @@ export default function ReviewForm({ passId, channels }: { passId: string; chann
   }
 
   return (
-    <div className="mt-4 space-y-5">
+    <div className="mt-6 space-y-8">
       {/* 1. 채널 선택 */}
       <div>
-        <h3 className="text-[14px] font-bold text-muted mb-2.5">1 · 작성한 채널 선택</h3>
-        <div className="flex gap-2">
+        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">1 · 작성 채널</h3>
+        <div className="flex gap-2 flex-wrap">
           {channels.map((ch) => (
             <button
               key={ch}
               onClick={() => setReviewChannel(ch)}
-              className={`flex-1 py-3.5 rounded-md border-[1.5px] text-[12px] font-semibold ${reviewChannel === ch ? "bg-ink text-white border-ink" : "border-hairline text-ink"}`}
+              className={`h-9 px-4 rounded-pill text-[14px] border ${reviewChannel === ch ? "bg-ink text-white border-ink" : "bg-canvas text-ink border-hairline"}`}
             >
               {ch_label[ch]}
             </button>
@@ -62,23 +62,23 @@ export default function ReviewForm({ passId, channels }: { passId: string; chann
 
       {/* 2. 광고 표시 문구 */}
       <div>
-        <h3 className="text-[14px] font-bold text-muted mb-2.5">2 · 광고 표시 문구 (필수)</h3>
-        <div className="p-4 rounded-md bg-brand/20 border border-brand">
-          <label className="flex items-start gap-2.5 cursor-pointer">
+        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">2 · 광고 표시 문구 (필수)</h3>
+        <div className="rounded-lg border border-hairline bg-parchment p-5">
+          <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={adChecked}
               onChange={(e) => setAdChecked(e.target.checked)}
-              className="mt-1 accent-ink"
+              className="mt-1.5 w-4 h-4 accent-brand"
             />
             <div className="flex-1">
-              <div className="text-[13px] font-bold text-ink mb-1.5">아래 문구를 게시물에 포함했습니다</div>
-              <div className="p-3 bg-white rounded text-[13px] leading-relaxed">
+              <div className="text-[15px] font-semibold text-ink mb-2">아래 문구를 게시물에 포함했습니다</div>
+              <div className="p-3 bg-canvas rounded-sm text-[14px] text-ink leading-[1.5]">
                 {reviewChannel ? ad_notice[reviewChannel as SnsKind] : "채널을 먼저 선택해주세요"}
               </div>
             </div>
           </label>
-          <div className="text-[11px] text-ink2 mt-2.5 pt-2.5 border-t border-dashed border-brand/60">
+          <div className="text-[12px] text-muted mt-3 pt-3 border-t border-hairline">
             공정거래위원회 추천·보증 광고 안내에 따라 경제적 이해관계는 명확히 표시되어야 합니다.
           </div>
         </div>
@@ -86,33 +86,33 @@ export default function ReviewForm({ passId, channels }: { passId: string; chann
 
       {/* 3. URL */}
       <div>
-        <h3 className="text-[14px] font-bold text-muted mb-2.5">3 · 리뷰 URL 제출</h3>
+        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">3 · 리뷰 URL</h3>
         <input
           value={reviewUrl}
           onChange={(e) => setReviewUrl(e.target.value)}
           placeholder="https://blog.naver.com/..."
-          className={`w-full h-13 px-4 rounded-md border-[1.5px] text-[15px] outline-none ${reviewUrl ? "border-ink" : "border-hairline focus:border-ink"}`}
+          className="w-full h-12 px-4 rounded-pill border border-hairline focus:border-brand focus:outline-none text-[17px]"
         />
       </div>
 
       {/* 4. 본문 */}
       <div>
-        <h3 className="text-[14px] font-bold text-muted mb-2.5">4 · 리뷰 본문 (요약)</h3>
+        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">4 · 리뷰 본문 (요약)</h3>
         <textarea
           value={reviewBody}
           onChange={(e) => setReviewBody(e.target.value)}
           placeholder="실제 리뷰의 50자 이상 본문을 발췌해 붙여넣어주세요"
           rows={5}
-          className="w-full px-4 py-3.5 rounded-md border border-hairline focus:border-ink focus:outline-none text-[14px]"
+          className="w-full px-4 py-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] leading-[1.47]"
         />
-        <div className="text-[11px] text-muted mt-1.5">{reviewBody.length}자</div>
+        <div className="text-[12px] text-muted mt-1.5">{reviewBody.length}자</div>
       </div>
 
-      {err && <div className="text-error text-[13px]">{err}</div>}
+      {err && <div className="text-error text-[14px]">{err}</div>}
       <button
         onClick={submit}
         disabled={loading || !reviewChannel || !reviewUrl || !adChecked || reviewBody.length < 50}
-        className="w-full h-14 rounded-full bg-ink text-white text-[15px] font-bold disabled:opacity-40"
+        className="w-full h-12 rounded-pill bg-brand text-white text-[17px] disabled:opacity-40"
       >
         {loading ? "등록 중..." : "제출하고 인증 받기"}
       </button>

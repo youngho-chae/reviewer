@@ -53,30 +53,29 @@ export default function ReviewerSignup() {
     setStep(2);
   }
 
-  // Step 0 — Hero onboarding (V3 dark)
+  // Step 0 — Apple-style hero (light canvas, display-lg headline, blue pill CTA)
   if (step === 0) {
     return (
-      <main className="mobile-shell flex flex-col min-h-[100dvh] bg-ink text-white">
-        <div className="flex-1 px-7 pt-20 pb-8 flex flex-col justify-center">
-          <div className="text-[14px] font-bold text-brand tracking-wider">CATCHPASS</div>
-          <h1 className="mt-3.5 text-[40px] font-extrabold leading-[1.15] tracking-tight">
-            선정 기다리는<br />체험단 말고,<br />
-            <span className="text-brand">등급으로 받는<br />체험권.</span>
+      <main className="mobile-shell bg-canvas min-h-[100dvh] flex flex-col">
+        <div className="flex-1 flex flex-col justify-center px-7 py-16">
+          <div className="text-[12px] tracking-[0.18em] text-muted uppercase mb-5">CATCHPASS</div>
+          <h1 className="font-display text-[40px] leading-[1.07] text-ink">
+            선정 기다리는<br />체험단 말고,<br />등급으로 받는<br />체험권.
           </h1>
-          <p className="mt-5 text-[16px] text-white/70 leading-relaxed">
-            체험단 티 내지 않고, 사장님 눈치 보지 않고. 평소처럼 이용하고 리뷰로 인증하세요.
+          <p className="mt-5 text-[19px] leading-[1.4] text-ink2 max-w-[300px]">
+            평소처럼 이용하고 리뷰로 인증하세요.
           </p>
         </div>
         <div className="px-7 pb-10">
           <button
             onClick={() => setStep(1)}
-            className="w-full h-14 rounded-full bg-brand text-brandInk text-[16px] font-bold"
+            className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal"
           >
             시작하기
           </button>
-          <div className="text-center mt-3.5">
-            <span className="text-[13px] text-white/55">이미 계정이 있어요 </span>
-            <Link href="/r/login" className="text-[13px] font-semibold underline">로그인</Link>
+          <div className="text-center mt-4">
+            <span className="text-[14px] text-muted">이미 계정이 있어요 </span>
+            <Link href="/r/login" className="text-[14px] text-brand">로그인</Link>
           </div>
         </div>
       </main>
@@ -84,55 +83,55 @@ export default function ReviewerSignup() {
   }
 
   return (
-    <main className="mobile-shell px-6 pt-12 pb-10">
-      <button onClick={() => setStep(step === 2 ? 1 : 0)} className="text-muted text-[14px]">← 이전</button>
+    <main className="mobile-shell px-6 pt-12 pb-10 bg-canvas">
+      <button onClick={() => setStep(step === 2 ? 1 : 0)} className="text-brand text-[14px]">← 이전</button>
       <div className="mt-4 text-[12px] text-muted">{step} / 2</div>
 
       {step === 1 && (
         <>
-          <h1 className="mt-2 text-[26px] font-extrabold tracking-tight">계정 만들기</h1>
-          <p className="mt-2 text-[14px] text-muted">이메일과 닉네임만 있으면 바로 시작할 수 있어요.</p>
-          <div className="mt-7 space-y-3">
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-14 px-4 rounded-md border border-hairline focus:border-ink focus:outline-none text-[15px]" />
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="비밀번호 (6자 이상)" className="w-full h-14 px-4 rounded-md border border-hairline focus:border-ink focus:outline-none text-[15px]" />
-            <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" className="w-full h-14 px-4 rounded-md border border-hairline focus:border-ink focus:outline-none text-[15px]" />
+          <h1 className="mt-2 font-display text-[34px] leading-[1.1] text-ink">계정 만들기</h1>
+          <p className="mt-3 text-[17px] text-ink2 leading-[1.4]">이메일과 닉네임만 있으면 바로 시작할 수 있어요.</p>
+          <div className="mt-8 space-y-3">
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="비밀번호 (6자 이상)" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
+            <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
             {err && <div className="text-error text-[14px]">{err}</div>}
-            <button onClick={next} className="w-full h-14 rounded-full bg-ink text-white text-[16px] font-bold">다음</button>
+            <button onClick={next} className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal">다음</button>
           </div>
         </>
       )}
 
       {step === 2 && (
         <>
-          <h1 className="mt-2 text-[26px] font-extrabold tracking-tight">SNS 채널을 연동해 주세요</h1>
-          <p className="mt-2 text-[14px] text-muted leading-relaxed">캐치랭크는 채널 영향력을 분석해 등급을 산정합니다. 1개 이상 연동을 권장합니다.</p>
+          <h1 className="mt-2 font-display text-[34px] leading-[1.1] text-ink">SNS 채널 연동</h1>
+          <p className="mt-3 text-[17px] text-ink2 leading-[1.4]">채널 영향력을 분석해 등급을 산정합니다. 1개 이상 연동을 권장합니다.</p>
 
-          <div className="mt-6 space-y-2.5">
+          <div className="mt-6 space-y-2">
             {CHANNELS.map((c) => {
               const on = !!sns[c.kind].url.trim();
               return (
-                <div key={c.kind} className={`rounded-md border-[1.5px] p-4 ${on ? "border-ink bg-surfaceSoft" : "border-hairline"}`}>
-                  <div className="flex items-center justify-between mb-2">
+                <div key={c.kind} className={`rounded-lg border p-5 ${on ? "border-brand" : "border-hairline"}`}>
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <div className="text-[15px] font-bold">{c.label}</div>
-                      <div className="text-[12px] text-muted mt-0.5">{c.metric} 수치 기반 분석</div>
+                      <div className="text-[17px] font-semibold text-ink">{c.label}</div>
+                      <div className="text-[14px] text-muted mt-0.5">{c.metric} 수치 기반 분석</div>
                     </div>
-                    <div className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center ${on ? "bg-ink border-ink" : "border-hairline"}`}>
-                      {on && <span className="text-white text-[10px] font-bold">✓</span>}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${on ? "bg-brand" : "border border-hairline"}`}>
+                      {on && <span className="text-white text-[11px] font-semibold">✓</span>}
                     </div>
                   </div>
                   <input
                     value={sns[c.kind].url}
                     onChange={(e) => setSns({ ...sns, [c.kind]: { ...sns[c.kind], url: e.target.value } })}
                     placeholder={c.placeholder}
-                    className="w-full h-11 px-3 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[13px]"
+                    className="w-full h-11 px-3 rounded-sm border border-hairline focus:border-brand focus:outline-none text-[14px]"
                   />
                   <input
                     value={sns[c.kind].influence}
                     onChange={(e) => setSns({ ...sns, [c.kind]: { ...sns[c.kind], influence: e.target.value.replace(/\D/g, "") } })}
                     placeholder={`${c.metric} 수 (숫자만)`}
                     inputMode="numeric"
-                    className="w-full h-11 px-3 mt-2 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[13px]"
+                    className="w-full h-11 px-3 mt-2 rounded-sm border border-hairline focus:border-brand focus:outline-none text-[14px]"
                   />
                 </div>
               );
@@ -142,8 +141,8 @@ export default function ReviewerSignup() {
           {err && <div className="text-error text-[14px] mt-3">{err}</div>}
 
           <div className="mt-6 space-y-2">
-            <button disabled={loading} onClick={() => submit(false)} className="w-full h-14 rounded-full bg-ink text-white text-[16px] font-bold disabled:opacity-50">{loading ? "처리 중..." : "연동 후 시작하기"}</button>
-            <button disabled={loading} onClick={() => submit(true)} className="w-full h-12 text-muted text-[13px] underline">연동 없이 시작하기 (N등급으로 시작)</button>
+            <button disabled={loading} onClick={() => submit(false)} className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal disabled:opacity-50">{loading ? "처리 중..." : "연동 후 시작하기"}</button>
+            <button disabled={loading} onClick={() => submit(true)} className="w-full h-12 text-brand text-[15px]">연동 없이 시작 (N등급)</button>
           </div>
         </>
       )}
