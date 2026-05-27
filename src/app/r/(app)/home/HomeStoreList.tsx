@@ -296,7 +296,7 @@ export default function HomeStoreList({
           )}
         </div>
       ) : (
-        // Map view — fullscreen + floating search input overlay at top
+        // Map view — fullscreen + floating search + category chips overlay
         <div className="fixed inset-x-0 top-0 z-20 mx-auto max-w-[480px] bg-canvas" style={{ bottom: "var(--bottom-nav-h, 72px)" }}>
           {/* Floating search bar over the map */}
           <div className="absolute top-3 left-3 right-3 z-30">
@@ -324,7 +324,23 @@ export default function HomeStoreList({
                 </button>
               )}
             </div>
-            {search && (
+
+            {/* Category chips — 리스트뷰와 동일한 cat 상태 공유 */}
+            <div className="mt-2 -mx-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              <div className="flex gap-2 px-1 pb-1">
+                {cats.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCat(c)}
+                    className={`h-8 px-3.5 rounded-pill text-[13px] font-semibold whitespace-nowrap border shadow-sm backdrop-blur ${cat === c ? "bg-ink text-white border-ink" : "bg-canvas/95 text-ink border-hairline"}`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(search || cat !== "전체") && (
               <div className="mt-2 px-3 py-1.5 bg-canvas/95 backdrop-blur rounded-pill border border-hairline text-[12px] text-muted text-center shadow-sm">
                 {filtered.length}곳 일치
               </div>

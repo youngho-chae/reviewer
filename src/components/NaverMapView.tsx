@@ -1,7 +1,9 @@
 "use client";
 import Script from "next/script";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { photoForStore } from "@/lib/store-photo";
 
 export interface MapStorePin {
   storeId: string;
@@ -24,24 +26,25 @@ declare global {
   }
 }
 
+// Apple 팔레트와 일치 — 등급별 강조 컬러 (어두운 톤 위주)
 const GRADE_COLOR: Record<string, string> = {
-  S: "#1a1a1a",
-  A: "#9333ea",
-  B: "#2563eb",
-  C: "#16a34a",
+  S: "#1d1d1f",
+  A: "#0066cc",
+  B: "#5b6e6a",
+  C: "#9aa6a3",
 };
 
-// Web Mercator → 픽셀 변환 (Naver Static Map 좌표계와 호환)
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]
+  );
+}
+
+// Web Mercator → 픽셀 변환 (Static Map 폴백용)
 function lngLatToPixel(
-  lng: number,
-  lat: number,
-  centerLng: number,
-  centerLat: number,
-  level: number,
-  width: number,
-  height: number
+  lng: number, lat: number, centerLng: number, centerLat: number,
+  level: number, width: number, height: number
 ): { x: number; y: number } {
-  // Naver "level"은 zoom 1~14 (level↑ = 확대)
   const scale = Math.pow(2, level) * 256;
   const projX = (l: number) => (l + 180) / 360;
   const projY = (la: number) => {
@@ -53,78 +56,158 @@ function lngLatToPixel(
   return { x: width / 2 + dx, y: height / 2 + dy };
 }
 
-export default function NaverMapView({ pins, clientId, fullscreen = false }: { pins: MapStorePin[]; clientId: string; fullscreen?: boolean }) {
+export default function NaverMapView({
+  pins,
+  clientId,
+  fullscreen = false,
+}: {
+  pins: MapStorePin[];
+  clientId: string;
+  fullscreen?: boolean;
+}) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const [sdkReady, setSdkReady] = useState(false);
+  const markersRef = useRef<any[]>([]);
+  // 재진입 안전: window.naver.maps가 이미 로드돼 있으면 즉시 ready
+  const [sdkReady, setSdkReady] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return !!window.naver?.maps;
+  });
   const [sdkFailed, setSdkFailed] = useState(false);
   const [selected, setSelected] = useState<MapStorePin | null>(null);
 
-  // 5초 내 SDK 로드 안 되면 Static Map 폴백
+  // SDK 인증 실패 글로벌 콜백
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (!sdkReady) setSdkFailed(true);
-    }, 5000);
-    return () => clearTimeout(t);
-  }, [sdkReady]);
-
-  // Naver Maps SDK가 인증 실패 시 호출하는 글로벌 콜백 등록
-  // (도메인 화이트리스트 미등록 등) → 즉시 Static Map 폴백 전환
-  useEffect(() => {
-    (window as any).navermap_authFailure = () => {
-      // SDK가 띄우는 alert 막기 위해 즉시 폴백
-      setSdkFailed(true);
-    };
+    (window as any).navermap_authFailure = () => setSdkFailed(true);
   }, []);
 
+  // SDK 로드 폴링 (Next.js Script가 cached load에서 onLoad 미발화하는 경우 보완)
+  useEffect(() => {
+    if (sdkReady || sdkFailed) return;
+    if (typeof window !== "undefined" && window.naver?.maps) {
+      setSdkReady(true);
+      return;
+    }
+    const poll = setInterval(() => {
+      if (window.naver?.maps) {
+        setSdkReady(true);
+        clearInterval(poll);
+      }
+    }, 120);
+    const failTimer = setTimeout(() => {
+      if (!window.naver?.maps) setSdkFailed(true);
+    }, 6000);
+    return () => {
+      clearInterval(poll);
+      clearTimeout(failTimer);
+    };
+  }, [sdkReady, sdkFailed]);
+
+  // 지도 초기화 — 마운트당 1회
   useEffect(() => {
     if (!sdkReady || sdkFailed) return;
     if (!mapEl.current || !window.naver?.maps) return;
     if (mapRef.current) return;
     try {
       const naver = window.naver;
-      const avg = pins.reduce((acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }), { lat: 0, lng: 0 });
+      const avg = pins.reduce(
+        (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
+        { lat: 0, lng: 0 }
+      );
       const center = pins.length
         ? new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
         : new naver.maps.LatLng(37.5665, 126.978);
 
-      const map = new naver.maps.Map(mapEl.current, {
+      mapRef.current = new naver.maps.Map(mapEl.current, {
         center,
         zoom: 12,
         mapTypeControl: false,
         logoControl: true,
         scaleControl: false,
         zoomControl: true,
-        zoomControlOptions: { position: naver.maps.Position.RIGHT_CENTER, style: naver.maps.ZoomControlStyle.SMALL },
+        zoomControlOptions: {
+          position: naver.maps.Position.RIGHT_CENTER,
+          style: naver.maps.ZoomControlStyle.SMALL,
+        },
       });
-      mapRef.current = map;
-
-      for (const p of pins) {
-        const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#929292";
-        const html = `
-          <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
-            <div style="background:${color};color:#fff;font-weight:700;font-size:11px;padding:4px 8px;border-radius:9999px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.18);white-space:nowrap;">
-              ${p.grade} · ${p.supportAmount.toLocaleString()}원
-            </div>
-            <div style="font-size:22px;line-height:1;margin-top:-2px;">📍</div>
-          </div>`;
-        const marker = new naver.maps.Marker({
-          position: new naver.maps.LatLng(p.lat, p.lng),
-          map,
-          icon: { content: html, anchor: new naver.maps.Point(40, 38) },
-        });
-        naver.maps.Event.addListener(marker, "click", () => setSelected(p));
-      }
     } catch {
       setSdkFailed(true);
     }
-  }, [sdkReady, sdkFailed, pins]);
+    // pins는 마커 갱신 effect에서 처리; 여기서는 deps에 넣지 않음
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sdkReady, sdkFailed]);
+
+  // 마커 동기화 — pins 또는 mapRef 준비 시점에 갱신
+  useEffect(() => {
+    if (!sdkReady || sdkFailed) return;
+    if (!mapRef.current || !window.naver?.maps) return;
+    const naver = window.naver;
+
+    // 기존 마커 정리
+    for (const m of markersRef.current) {
+      try { m.setMap(null); } catch {}
+    }
+    markersRef.current = [];
+
+    for (const p of pins) {
+      const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#9aa6a3";
+      const name = escapeHtml(p.name);
+      const html = `
+        <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;transform:translateY(-4px);">
+          <div style="background:#ffffff;color:#1d1d1f;font-weight:600;font-size:11px;padding:3px 9px;border-radius:9999px;border:1.5px solid ${color};box-shadow:0 2px 8px rgba(0,18,14,.15);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;">
+            ${name}
+          </div>
+          <div style="background:${color};color:#ffffff;font-weight:700;font-size:11px;padding:3px 9px;border-radius:9999px;border:2px solid #ffffff;box-shadow:0 2px 6px rgba(0,18,14,.2);white-space:nowrap;margin-top:-3px;line-height:1.4;">
+            ${p.grade} · ${p.supportAmount.toLocaleString()}원
+          </div>
+          <svg width="14" height="12" viewBox="0 0 14 12" style="margin-top:-2px;"><path d="M7 12 L0 0 L14 0 Z" fill="${color}" stroke="#ffffff" stroke-width="1.5" /></svg>
+        </div>`;
+      const marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(p.lat, p.lng),
+        map: mapRef.current,
+        icon: { content: html, anchor: new naver.maps.Point(80, 70) },
+      });
+      naver.maps.Event.addListener(marker, "click", () => setSelected(p));
+      markersRef.current.push(marker);
+    }
+
+    // 핀 집합 바뀌면 중심도 따라감
+    if (pins.length > 0) {
+      const avg = pins.reduce(
+        (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
+        { lat: 0, lng: 0 }
+      );
+      try {
+        mapRef.current.setCenter(
+          new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
+        );
+      } catch {}
+    }
+  }, [pins, sdkReady, sdkFailed]);
+
+  // unmount 시 마커/맵 정리
+  useEffect(() => {
+    const markers = markersRef;
+    const map = mapRef;
+    return () => {
+      for (const m of markers.current) {
+        try { m.setMap(null); } catch {}
+      }
+      markers.current = [];
+      try { (map.current as any)?.destroy?.(); } catch {}
+      map.current = null;
+    };
+  }, []);
 
   return (
     <>
       <Script
+        id="naver-maps-sdk"
         strategy="afterInteractive"
         src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}`}
+        onReady={() => {
+          if (typeof window !== "undefined" && window.naver?.maps) setSdkReady(true);
+        }}
         onLoad={() => setSdkReady(true)}
         onError={() => setSdkFailed(true)}
       />
@@ -134,34 +217,42 @@ export default function NaverMapView({ pins, clientId, fullscreen = false }: { p
         ) : (
           <div
             ref={mapEl}
-            className="w-full bg-surfaceSoft"
+            className="w-full bg-parchment"
             style={fullscreen ? { height: "100%" } : { height: "calc(100dvh - 240px)", minHeight: 400 }}
           />
         )}
         {!sdkReady && !sdkFailed && (
-          <div className="absolute inset-0 grid place-items-center bg-surfaceSoft text-muted text-[13px] pointer-events-none">
+          <div className="absolute inset-0 grid place-items-center bg-parchment text-muted text-[13px] pointer-events-none">
             지도를 불러오는 중...
           </div>
         )}
         {selected && (
           <div className="absolute left-0 right-0 bottom-0 mx-auto max-w-[480px] p-3" onClick={() => setSelected(null)}>
-            <div className="rounded-md bg-white shadow-card overflow-hidden border border-hairline" onClick={(e) => e.stopPropagation()}>
+            <div className="rounded-lg bg-white shadow-card overflow-hidden border border-hairline" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-stretch">
-                <div className="w-20 bg-surfaceSoft grid place-items-center text-[36px]">{selected.coverEmoji}</div>
-                <div className="flex-1 p-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-[15px] font-semibold">{selected.name}</div>
-                      <div className="text-[12px] text-muted mt-0.5">{selected.area} · {selected.category}</div>
+                <div className="w-24 bg-parchment relative">
+                  <Image
+                    src={photoForStore(selected.storeId)}
+                    alt={selected.name}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex-1 p-3 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[15px] font-semibold truncate">{selected.name}</div>
+                      <div className="text-[12px] text-muted mt-0.5 truncate">{selected.area} · {selected.category}</div>
                     </div>
-                    <button onClick={() => setSelected(null)} className="text-muted text-[12px] px-2">닫기</button>
+                    <button onClick={() => setSelected(null)} className="text-muted text-[12px] px-2 flex-shrink-0">닫기</button>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-[13px] font-medium">지원 ₩{selected.supportAmount.toLocaleString()} · 잔여 {selected.remain}매</div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="text-[13px] font-medium truncate">지원 ₩{selected.supportAmount.toLocaleString()} · 잔여 {selected.remain}매</div>
                     {selected.accessible ? (
-                      <Link href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`} className="text-[12px] bg-ink text-white px-3 py-1.5 rounded-full">매장 상세 →</Link>
+                      <Link href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`} className="text-[12px] bg-ink text-white px-3 py-1.5 rounded-full whitespace-nowrap">매장 상세 →</Link>
                     ) : (
-                      <span className="text-[11px] text-error">{selected.grade}등급부터 가능</span>
+                      <span className="text-[11px] text-error whitespace-nowrap">{selected.grade}등급부터 가능</span>
                     )}
                   </div>
                 </div>
@@ -174,9 +265,7 @@ export default function NaverMapView({ pins, clientId, fullscreen = false }: { p
   );
 }
 
-// SDK 로드 실패 시 (도메인 화이트리스트 미등록 등) Static Map 폴백.
-// 서버사이드 API 라우트로 Naver Static Maps에 프록시 호출 → PNG 반환.
-// 그 위에 마커를 절대 위치로 오버레이.
+// SDK 로드 실패 시 Static Map 폴백
 function StaticMapFallback({
   pins,
   onSelect,
@@ -209,7 +298,7 @@ function StaticMapFallback({
   const markerParams = pins
     .slice(0, 15)
     .map((p, i) => {
-      const labelChar = String.fromCharCode(65 + i); // A,B,C...
+      const labelChar = String.fromCharCode(65 + i);
       return `marker=${encodeURIComponent(`type:t|size:mid|pos:${p.lng} ${p.lat}|label:${labelChar}`)}`;
     })
     .join("&");
@@ -218,24 +307,20 @@ function StaticMapFallback({
   return (
     <div
       ref={ref}
-      className="relative w-full overflow-hidden bg-surfaceSoft"
+      className="relative w-full overflow-hidden bg-parchment"
       style={fullscreen ? { height: "100%" } : { height: "calc(100dvh - 240px)", minHeight: 400 }}
     >
-      {/* Static Map 배경 이미지 */}
       <img
         src={staticUrl}
         alt="매장 위치 지도"
         className="absolute inset-0 w-full h-full object-cover"
         loading="eager"
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.display = "none";
-        }}
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
       />
-      {/* 마커 오버레이 (클릭 가능) */}
       <div className="absolute inset-0">
-        {pins.map((p, i) => {
+        {pins.map((p) => {
           const { x, y } = lngLatToPixel(p.lng, p.lat, centerLng, centerLat, level, size.w, size.h);
-          const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#929292";
+          const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#9aa6a3";
           return (
             <button
               key={p.storeId}
@@ -243,13 +328,13 @@ function StaticMapFallback({
               className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center"
               style={{ left: `${x}px`, top: `${y}px` }}
             >
-              <div
-                className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full border-2 border-white shadow"
-                style={{ background: color, whiteSpace: "nowrap" }}
-              >
-                {String.fromCharCode(65 + i)} · {p.grade}
+              <div className="text-[11px] font-semibold text-ink bg-white px-2 py-0.5 rounded-full border max-w-[140px] truncate shadow-sm" style={{ borderColor: color }}>
+                {p.name}
               </div>
-              <div className="text-[18px] -mt-0.5 leading-none">📍</div>
+              <div className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full border-2 border-white shadow -mt-0.5" style={{ background: color, whiteSpace: "nowrap" }}>
+                {p.grade} · {p.supportAmount.toLocaleString()}원
+              </div>
+              <div className="text-[16px] -mt-0.5 leading-none">📍</div>
             </button>
           );
         })}
