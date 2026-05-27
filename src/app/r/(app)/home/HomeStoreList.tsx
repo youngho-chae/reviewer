@@ -65,6 +65,8 @@ export default function HomeStoreList({
   const [cat, setCat] = useState<string>("전체");
   const [layout, setLayout] = useState<"row" | "grid">("row");
   const [search, setSearch] = useState("");
+  // 지도뷰에서 핀 선택 시 토스트가 뜨므로 FAB를 위로 띄움
+  const [mapSelected, setMapSelected] = useState(false);
 
   const cats = useMemo(
     () => ["전체", ...Array.from(new Set(cards.map((c) => c.category)))],
@@ -348,20 +350,33 @@ export default function HomeStoreList({
           </div>
 
           {mapClientId ? (
-            <NaverMapView pins={filtered} clientId={mapClientId} fullscreen />
+            <NaverMapView
+              pins={filtered}
+              clientId={mapClientId}
+              fullscreen
+              onSelectionChange={setMapSelected}
+            />
           ) : (
             <div className="px-5 py-16 text-center text-error text-[14px]">지도 클라이언트 ID가 설정되지 않았습니다.</div>
           )}
         </div>
       )}
 
-      {/* Floating sticky map/list toggle */}
+      {/* Floating sticky map/list toggle — 지도뷰에서 핀 선택 시 토스트 위로 자리 양보 */}
       {tab === "visit" && (
         <button
           type="button"
-          onClick={() => setMode((m) => (m === "list" ? "map" : "list"))}
-          className="cp-action fixed left-1/2 -translate-x-1/2 z-30 frosted-parchment text-ink text-[14px] font-medium px-5 h-11 rounded-pill flex items-center gap-2 border border-hairline"
-          style={{ bottom: "calc(var(--bottom-nav-h, 72px) + 16px)" }}
+          onClick={() => {
+            if (mode === "map") setMapSelected(false);
+            setMode((m) => (m === "list" ? "map" : "list"));
+          }}
+          className="cp-action fixed left-1/2 -translate-x-1/2 z-40 frosted-parchment text-ink text-[14px] font-medium px-5 h-11 rounded-pill flex items-center gap-2 border border-hairline transition-[bottom] duration-200 ease-out"
+          style={{
+            bottom:
+              mode === "map" && mapSelected
+                ? "calc(var(--bottom-nav-h, 72px) + 132px)"
+                : "calc(var(--bottom-nav-h, 72px) + 16px)",
+          }}
           aria-label={mode === "list" ? "지도 보기로 전환" : "리스트 보기로 전환"}
         >
           {mode === "list" ? (

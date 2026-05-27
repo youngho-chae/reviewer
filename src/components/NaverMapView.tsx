@@ -60,10 +60,12 @@ export default function NaverMapView({
   pins,
   clientId,
   fullscreen = false,
+  onSelectionChange,
 }: {
   pins: MapStorePin[];
   clientId: string;
   fullscreen?: boolean;
+  onSelectionChange?: (hasSelection: boolean) => void;
 }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -75,6 +77,11 @@ export default function NaverMapView({
   });
   const [sdkFailed, setSdkFailed] = useState(false);
   const [selected, setSelected] = useState<MapStorePin | null>(null);
+
+  // 선택 상태가 변하면 부모에 알림 (FAB 위치 조정 등)
+  useEffect(() => {
+    onSelectionChange?.(!!selected);
+  }, [selected, onSelectionChange]);
 
   // SDK 인증 실패 글로벌 콜백
   useEffect(() => {
@@ -152,20 +159,22 @@ export default function NaverMapView({
     for (const p of pins) {
       const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#9aa6a3";
       const name = escapeHtml(p.name);
+      // 단일 섹션 — grade letter · 매장명 · 지원금 한 줄, 보더 컬러로 등급 인코딩
       const html = `
-        <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;transform:translateY(-4px);">
-          <div style="background:#ffffff;color:#1d1d1f;font-weight:600;font-size:11px;padding:3px 9px;border-radius:9999px;border:1.5px solid ${color};box-shadow:0 2px 8px rgba(0,18,14,.15);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;">
-            ${name}
+        <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:#ffffff;border:1.5px solid ${color};border-radius:9999px;box-shadow:0 3px 10px rgba(0,18,14,.18);font-size:11.5px;line-height:1.3;font-weight:600;white-space:nowrap;max-width:240px;">
+            <span style="color:${color};font-weight:700;flex-shrink:0;">${p.grade}</span>
+            <span style="color:#cccccc;flex-shrink:0;">·</span>
+            <span style="color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;min-width:0;">${name}</span>
+            <span style="color:#cccccc;flex-shrink:0;">·</span>
+            <span style="color:#1d1d1f;font-weight:700;flex-shrink:0;">${p.supportAmount.toLocaleString()}원</span>
           </div>
-          <div style="background:${color};color:#ffffff;font-weight:700;font-size:11px;padding:3px 9px;border-radius:9999px;border:2px solid #ffffff;box-shadow:0 2px 6px rgba(0,18,14,.2);white-space:nowrap;margin-top:-3px;line-height:1.4;">
-            ${p.grade} · ${p.supportAmount.toLocaleString()}원
-          </div>
-          <svg width="14" height="12" viewBox="0 0 14 12" style="margin-top:-2px;"><path d="M7 12 L0 0 L14 0 Z" fill="${color}" stroke="#ffffff" stroke-width="1.5" /></svg>
+          <svg width="14" height="10" viewBox="0 0 14 10" style="margin-top:-1px;display:block;"><path d="M7 10 L0 0 L14 0 Z" fill="#ffffff" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" /><path d="M2 1 L12 1" stroke="#ffffff" stroke-width="2" /></svg>
         </div>`;
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(p.lat, p.lng),
         map: mapRef.current,
-        icon: { content: html, anchor: new naver.maps.Point(80, 70) },
+        icon: { content: html, anchor: new naver.maps.Point(120, 36) },
       });
       naver.maps.Event.addListener(marker, "click", () => setSelected(p));
       markersRef.current.push(marker);
@@ -328,13 +337,17 @@ function StaticMapFallback({
               className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center"
               style={{ left: `${x}px`, top: `${y}px` }}
             >
-              <div className="text-[11px] font-semibold text-ink bg-white px-2 py-0.5 rounded-full border max-w-[140px] truncate shadow-sm" style={{ borderColor: color }}>
-                {p.name}
+              <div
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white shadow-sm border text-[11px] font-semibold max-w-[220px] whitespace-nowrap"
+                style={{ borderColor: color }}
+              >
+                <span style={{ color, fontWeight: 700 }}>{p.grade}</span>
+                <span className="text-mutedSoft">·</span>
+                <span className="text-ink truncate min-w-0">{p.name}</span>
+                <span className="text-mutedSoft">·</span>
+                <span className="text-ink font-bold">{p.supportAmount.toLocaleString()}원</span>
               </div>
-              <div className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full border-2 border-white shadow -mt-0.5" style={{ background: color, whiteSpace: "nowrap" }}>
-                {p.grade} · {p.supportAmount.toLocaleString()}원
-              </div>
-              <div className="text-[16px] -mt-0.5 leading-none">📍</div>
+              <div className="text-[14px] -mt-0.5 leading-none">▼</div>
             </button>
           );
         })}
