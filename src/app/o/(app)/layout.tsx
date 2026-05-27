@@ -10,10 +10,10 @@ export default async function OwnerAppLayout({ children }: { children: React.Rea
       <div className="flex-1">{children}</div>
       <BottomNav
         items={[
-          { href: "/o/home", label: "홈", icon: "🏠" },
-          { href: "/o/scan", label: "QR 스캔", icon: "📷" },
-          { href: "/o/reviews", label: "리뷰", icon: "📝" },
-          { href: "/o/me", label: "MY", icon: "👤" },
+          { href: "/o/home", label: "홈", icon: "home" },
+          { href: "/o/scan", label: "QR 스캔", icon: "camera" },
+          { href: "/o/reviews", label: "리뷰", icon: "clipboard" },
+          { href: "/o/me", label: "MY", icon: "user" },
         ]}
       />
     </div>

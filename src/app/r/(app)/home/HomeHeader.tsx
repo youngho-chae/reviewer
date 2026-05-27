@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import GradeBadge from "@/components/GradeBadge";
+import Icon from "@/components/Icon";
 import { Grade } from "@/lib/types";
 
 interface Props {
@@ -91,18 +92,12 @@ export default function HomeHeader({
             <span className="text-[15px] text-ink">내 정보 보기</span>
             <span className="text-[12px] text-muted">{grade}등급 · 완료 {completedReviews}건</span>
           </div>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#7a7a7a"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <Icon
+            name="chevron-down"
+            variant={open ? "bold" : "border"}
+            size={16}
+            className={`transition-transform duration-200 text-muted ${open ? "rotate-180 text-ink" : ""}`}
+          />
         </button>
 
         {open && (
@@ -143,12 +138,14 @@ export default function HomeHeader({
       <div className="px-6 pt-10">
         <h2 className="font-display text-[28px] leading-[1.14] text-ink">안녕하세요, {nickname}님.</h2>
 
-        {/* GPS location chip */}
+        {/* GPS location chip — GPS 획득 시 bold, 그 외 border */}
         <div className="mt-2 flex items-center gap-1.5 text-[14px] text-muted">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12z" />
-            <circle cx="12" cy="9" r="2.5" />
-          </svg>
+          <Icon
+            name="pin"
+            variant={loc.state === "ok" ? "bold" : "border"}
+            size={14}
+            className={loc.state === "ok" ? "text-brand" : ""}
+          />
           <span>{locText()}</span>
           {loc.state === "denied" && (
             <button
@@ -162,22 +159,15 @@ export default function HomeHeader({
         </div>
       </div>
 
-      {/* Search input */}
+      {/* Search input — search 아이콘은 focus/입력 시 bold */}
       <div className="px-6 mt-4">
         <div className="relative">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#7a7a7a"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            className="absolute left-4 top-1/2 -translate-y-1/2"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M21 21l-4.3-4.3" />
-          </svg>
+          <Icon
+            name="search"
+            variant={search ? "bold" : "border"}
+            size={16}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 ${search ? "text-ink" : "text-muted"}`}
+          />
           <input
             ref={searchRef}
             value={search}
@@ -190,12 +180,9 @@ export default function HomeHeader({
               type="button"
               onClick={() => onSearchChange("")}
               aria-label="검색어 지우기"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-mutedSoft/40 flex items-center justify-center"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-mutedSoft/40 flex items-center justify-center text-ink"
             >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="6" y1="6" x2="18" y2="18" />
-                <line x1="18" y1="6" x2="6" y2="18" />
-              </svg>
+              <Icon name="x" variant="bold" size={10} />
             </button>
           )}
         </div>

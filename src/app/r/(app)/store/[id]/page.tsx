@@ -4,6 +4,7 @@ import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
+import Icon from "@/components/Icon";
 import ParticipateButton from "./ParticipateButton";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,10 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
       {/* Frosted parchment top nav (Apple sub-nav-frosted) */}
       <div className="sticky top-0 z-10 frosted-parchment border-b border-hairlineSoft">
         <div className="h-13 px-5 flex items-center justify-between">
-          <Link href="/r/home" className="cp-action text-[17px] text-brand">← 홈</Link>
+          <Link href="/r/home" className="cp-action inline-flex items-center gap-1 text-[17px] text-brand">
+            <Icon name="chevron-left" variant="border" size={18} />
+            <span>홈</span>
+          </Link>
           <div className="text-[14px] text-ink font-medium">{store.category}</div>
         </div>
       </div>

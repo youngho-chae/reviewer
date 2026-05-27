@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
+import Icon from "@/components/Icon";
 import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
@@ -32,7 +33,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         {/* Frosted dark top bar */}
         <div className="sticky top-0 bg-tile1/90 backdrop-blur-md border-b border-white/10">
           <div className="h-13 px-5 flex items-center justify-between">
-            <Link href="/r/passes" className="cp-action text-[17px]" style={{ color: "#2997ff" }}>← 닫기</Link>
+            <Link href="/r/passes" className="cp-action inline-flex items-center gap-1 text-[17px]" style={{ color: "#2997ff" }}>
+              <Icon name="chevron-left" variant="border" size={18} />
+              <span>닫기</span>
+            </Link>
             <div className="text-[13px] text-mutedSoft">화면 밝기를 최대로</div>
           </div>
         </div>
@@ -96,7 +100,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
     <div className="pb-24 bg-canvas min-h-[100dvh]">
       <div className="sticky top-0 z-10 frosted-parchment border-b border-hairlineSoft">
         <div className="h-13 px-5 flex items-center justify-between">
-          <Link href="/r/passes" className="cp-action text-[17px] text-brand">← 내 체험권</Link>
+          <Link href="/r/passes" className="cp-action inline-flex items-center gap-1 text-[17px] text-brand">
+            <Icon name="chevron-left" variant="border" size={18} />
+            <span>내 체험권</span>
+          </Link>
           <div className="text-[14px] text-ink font-medium">체험권 상세</div>
         </div>
       </div>

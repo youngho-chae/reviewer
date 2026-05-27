@@ -10,10 +10,10 @@ export default async function ReviewerAppLayout({ children }: { children: React.
       <div className="flex-1">{children}</div>
       <BottomNav
         items={[
-          { href: "/r/home", label: "홈", icon: "🏠" },
-          { href: "/r/passes", label: "내 체험권", icon: "🎟️" },
-          { href: "/r/grade", label: "등급", icon: "🏆" },
-          { href: "/r/me", label: "MY", icon: "👤" },
+          { href: "/r/home", label: "홈", icon: "home" },
+          { href: "/r/passes", label: "내 체험권", icon: "ticket" },
+          { href: "/r/grade", label: "등급", icon: "trophy" },
+          { href: "/r/me", label: "MY", icon: "user" },
         ]}
       />
     </div>

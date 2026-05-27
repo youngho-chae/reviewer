@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { gradeMeets } from "@/lib/grade";
+import Icon from "@/components/Icon";
 import HomeStoreList, { StoreCardData, PressCardData } from "./HomeStoreList";
 
 export const dynamic = "force-dynamic";
@@ -90,13 +91,10 @@ export default async function ReviewerHome() {
         <div className="text-[21px] font-semibold text-ink tracking-[-0.011em]">CATCHPASS</div>
         <Link
           href="/r/notifications"
-          className="cp-action relative w-9 h-9 rounded-full flex items-center justify-center"
+          className="cp-action relative w-9 h-9 rounded-full flex items-center justify-center text-ink"
           aria-label="알림"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-          </svg>
+          <Icon name="bell" variant={unread > 0 ? "bold" : "border"} size={22} />
           {unread > 0 && (
             <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />
           )}

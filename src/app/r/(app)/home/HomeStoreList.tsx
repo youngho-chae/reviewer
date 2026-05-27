@@ -3,6 +3,7 @@ import { useState, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
+import Icon from "@/components/Icon";
 import HomeHeader from "./HomeHeader";
 import { photoForStore } from "@/lib/store-photo";
 import { Grade } from "@/lib/types";
@@ -153,11 +154,7 @@ export default function HomeStoreList({
                     aria-pressed={layout === "row"}
                     className={`w-9 h-9 rounded-pill flex items-center justify-center ${layout === "row" ? "bg-canvas text-ink" : "text-muted"}`}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                      <line x1="4" y1="7" x2="20" y2="7" />
-                      <line x1="4" y1="12" x2="20" y2="12" />
-                      <line x1="4" y1="17" x2="20" y2="17" />
-                    </svg>
+                    <Icon name="list" variant={layout === "row" ? "bold" : "border"} size={18} />
                   </button>
                   <button
                     onClick={() => setLayout("grid")}
@@ -165,12 +162,7 @@ export default function HomeStoreList({
                     aria-pressed={layout === "grid"}
                     className={`w-9 h-9 rounded-pill flex items-center justify-center ${layout === "grid" ? "bg-canvas text-ink" : "text-muted"}`}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="4" y="4" width="7" height="7" rx="1" />
-                      <rect x="13" y="4" width="7" height="7" rx="1" />
-                      <rect x="4" y="13" width="7" height="7" rx="1" />
-                      <rect x="13" y="13" width="7" height="7" rx="1" />
-                    </svg>
+                    <Icon name="grid" variant={layout === "grid" ? "bold" : "border"} size={18} />
                   </button>
                 </div>
               </div>
@@ -198,7 +190,8 @@ export default function HomeStoreList({
                       )}
                       {!p.accessible && (
                         <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[13px] font-semibold gap-1.5">
-                          🔒 등급 부족
+                          <Icon name="lock" variant="bold" size={14} />
+                          <span>등급 부족</span>
                         </div>
                       )}
                     </div>
@@ -268,7 +261,8 @@ export default function HomeStoreList({
                       />
                       {!p.accessible && (
                         <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[13px] font-semibold gap-1.5">
-                          🔒 등급 부족
+                          <Icon name="lock" variant="bold" size={14} />
+                          <span>등급 부족</span>
                         </div>
                       )}
                     </div>
@@ -307,19 +301,12 @@ export default function HomeStoreList({
           {/* Floating search bar over the map */}
           <div className="absolute top-3 left-3 right-3 z-30">
             <div className="relative">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#7a7a7a"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                className="absolute left-4 top-1/2 -translate-y-1/2"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="M21 21l-4.3-4.3" />
-              </svg>
+              <Icon
+                name="search"
+                variant={search ? "bold" : "border"}
+                size={16}
+                className={`absolute left-4 top-1/2 -translate-y-1/2 ${search ? "text-ink" : "text-muted"}`}
+              />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -331,12 +318,9 @@ export default function HomeStoreList({
                   type="button"
                   onClick={() => setSearch("")}
                   aria-label="검색어 지우기"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-mutedSoft/40 flex items-center justify-center"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-mutedSoft/40 flex items-center justify-center text-ink"
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                  </svg>
+                  <Icon name="x" variant="bold" size={10} />
                 </button>
               )}
             </div>
@@ -364,7 +348,17 @@ export default function HomeStoreList({
           style={{ bottom: "calc(var(--bottom-nav-h, 72px) + 16px)" }}
           aria-label={mode === "list" ? "지도 보기로 전환" : "리스트 보기로 전환"}
         >
-          {mode === "list" ? "📍 지도" : "☰ 리스트"}
+          {mode === "list" ? (
+            <>
+              <Icon name="pin" variant="bold" size={16} />
+              <span>지도</span>
+            </>
+          ) : (
+            <>
+              <Icon name="list" variant="bold" size={16} />
+              <span>리스트</span>
+            </>
+          )}
         </button>
       )}
     </>
