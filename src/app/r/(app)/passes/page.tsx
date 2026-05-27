@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
 import PassesTabs from "./PassesTabs";
+import PassPendingBanner from "./PassPendingBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +26,17 @@ const statusCls = (s: string) => ({
   rejected: "text-error",
 } as any)[s] || "text-muted";
 
-export default async function MyPasses() {
+export default async function MyPasses({ searchParams }: { searchParams: Promise<{ pending?: string }> }) {
   const me = await getCurrentReviewer();
+  const { pending } = await searchParams;
   const db = await getDBAsync();
+
+  // pending=passId가 있으면 우리 인스턴스에서 보이는지 확인 후 발견 시 상세로 즉시 이동.
+  if (pending) {
+    const found = db.passes.find((p) => p.id === pending && p.reviewerId === me.id);
+    if (found) redirect(`/r/passes/${found.id}`);
+  }
+
   const allPasses = db.passes
     .filter((p) => p.reviewerId === me.id)
     .sort((a, b) => b.issuedAt - a.issuedAt);
@@ -75,6 +85,8 @@ export default async function MyPasses() {
           <h1 className="text-[21px] font-semibold text-ink tracking-[-0.011em]">내 체험권</h1>
         </div>
       </div>
+
+      {pending && <PassPendingBanner pendingId={pending} />}
 
       <PassesTabs
         visitCount={visit.length}

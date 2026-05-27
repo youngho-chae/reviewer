@@ -22,6 +22,13 @@ export default function ParticipateButton({ campaignId, myGrade }: { campaignId:
       return;
     }
     const { passId } = await res.json();
+    if (!passId) {
+      setErr("발급에 실패했어요. 다시 시도해주세요.");
+      setBusy(false);
+      return;
+    }
+    // 인스턴스 간 동기화를 위한 1회 새로고침 후 이동.
+    router.refresh();
     router.push(`/r/passes/${passId}`);
   }
 

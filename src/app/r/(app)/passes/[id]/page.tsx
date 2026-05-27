@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
@@ -14,7 +14,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === id);
-  if (!pass || pass.reviewerId !== me.id) return notFound();
+  // 멀티 인스턴스 환경에서 KV 미연결 시 방금 생성된 패스가 다른 인스턴스에서 안 보일 수 있음.
+  // 404 대신 목록 페이지로 리다이렉트하고, 동기화 안내를 노출.
+  if (!pass) redirect(`/r/passes?pending=${encodeURIComponent(id)}`);
+  if (pass.reviewerId !== me.id) return notFound();
   const store = db.stores.find((s) => s.id === pass.storeId);
   const campaign = db.campaigns.find((c) => c.id === pass.campaignId);
 
