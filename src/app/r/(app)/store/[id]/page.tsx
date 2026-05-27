@@ -6,6 +6,7 @@ import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
 import Icon from "@/components/Icon";
 import ParticipateButton from "./ParticipateButton";
+import NaverMapButton from "./NaverMapButton";
 
 export const dynamic = "force-dynamic";
 
@@ -67,11 +68,6 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           {store.category} · ★ {store.rating} <span className="text-muted">({store.reviewCount.toLocaleString()}건)</span>
         </p>
         {store.address && <p className="mt-2 text-[14px] text-muted">{store.address}</p>}
-        {store.naverPlaceId && (
-          <a href={`https://m.place.naver.com/place/${store.naverPlaceId}`} target="_blank" rel="noreferrer" className="cp-action inline-block mt-4 text-[15px] text-brand">
-            네이버 플레이스에서 보기 →
-          </a>
-        )}
       </section>
 
       {/* Dark product tile — pricing hero */}
@@ -158,6 +154,22 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
         </details>
       </section>
+
+      {/* Floating 길찾기 FAB — sticky CTA 바 위 우측, 네이버 지도 deep link */}
+      <div
+        className="fixed inset-x-0 mx-auto max-w-[480px] z-20 pointer-events-none"
+        style={{ bottom: "calc(var(--bottom-nav-h, 72px) + 80px)" }}
+      >
+        <div className="flex justify-end px-5 pointer-events-auto">
+          <NaverMapButton
+            storeName={store.name}
+            lat={store.lat}
+            lng={store.lng}
+            naverPlaceId={store.naverPlaceId}
+            address={store.address}
+          />
+        </div>
+      </div>
 
       {/* Sticky CTA bar — Apple floating-sticky-bar */}
       <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] frosted-parchment border-t border-hairline z-20">

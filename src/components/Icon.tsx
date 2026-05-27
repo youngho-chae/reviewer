@@ -27,7 +27,8 @@ export type IconName =
   | "arrow-right"
   | "camera"
   | "clipboard"
-  | "store";
+  | "store"
+  | "navigation";
 
 export type IconVariant = "border" | "bold";
 
@@ -73,6 +74,8 @@ const PATHS: Record<IconName, string> = {
     "M9 5h6a1 1 0 0 1 1 1v1H8V6a1 1 0 0 1 1-1ZM6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7ZM9 12h6M9 16h4",
   store:
     "M4.5 9.5h15v9.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V9.5ZM4 9.5L5.5 5h13L20 9.5M10 21v-5h4v5",
+  // Paper-plane style 화살표 — 길찾기/내비게이션 신호
+  navigation: "M3.5 11.5L20.5 3.5l-8 17-2.5-7-6.5-2Z",
 };
 
 // 아이콘 별로 bold 모드에서 fill을 쓸지(닫힌 형태) stroke만 굵게 쓸지(선형) 결정.
@@ -88,6 +91,7 @@ const FILLED_BOLD: Partial<Record<IconName, boolean>> = {
   camera: true,
   clipboard: true,
   store: true,
+  navigation: true,
 };
 
 export default function Icon({ name, variant = "border", size = 22, className, ...rest }: Props) {
