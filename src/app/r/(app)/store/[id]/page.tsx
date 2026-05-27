@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import { photoForStore } from "@/lib/store-photo";
 import ParticipateButton from "./ParticipateButton";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +41,16 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      {/* Hero — full-bleed photographic tile (parchment + emoji product render) */}
-      <section className="bg-parchment py-16 px-6 flex items-center justify-center">
-        <span className="text-[140px] leading-none product-shadow">{store.coverEmoji}</span>
+      {/* Hero — full-bleed photographic tile (real store photo) */}
+      <section className="relative aspect-[4/3] bg-parchment overflow-hidden">
+        <Image
+          src={photoForStore(store.id)}
+          alt={store.name}
+          fill
+          priority
+          sizes="(max-width: 480px) 100vw, 480px"
+          className="object-cover"
+        />
       </section>
 
       {/* Light product-tile content */}

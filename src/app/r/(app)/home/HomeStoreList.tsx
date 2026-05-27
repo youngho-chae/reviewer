@@ -1,8 +1,10 @@
 "use client";
 import { useState, useMemo, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
 import HomeHeader from "./HomeHeader";
+import { photoForStore } from "@/lib/store-photo";
 import { Grade } from "@/lib/types";
 
 export interface StoreCardData extends MapStorePin {
@@ -181,15 +183,23 @@ export default function HomeStoreList({
                     href={p.accessible ? `/r/store/${p.storeId}?campaign=${p.campaignId}` : "/r/grade"}
                     className={`cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
                   >
-                    <div className="aspect-[4/3] bg-parchment flex items-center justify-center relative">
-                      <span className={`product-shadow leading-none ${layout === "grid" ? "text-[56px]" : "text-[88px]"}`}>{p.coverEmoji}</span>
+                    <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
+                      <Image
+                        src={photoForStore(p.storeId)}
+                        alt={p.name}
+                        fill
+                        sizes={layout === "grid" ? "(max-width: 480px) 50vw, 240px" : "(max-width: 480px) 100vw, 480px"}
+                        className="object-cover"
+                      />
                       {p.remain <= 3 && (
                         <div className="absolute top-2.5 left-2.5">
-                          <span className="text-[11px] font-semibold text-brand">잔여 {p.remain}매</span>
+                          <span className="text-[11px] font-semibold text-white bg-ink/80 px-2 py-1 rounded-pill backdrop-blur-sm">잔여 {p.remain}매</span>
                         </div>
                       )}
                       {!p.accessible && (
-                        <div className="absolute top-2.5 right-2.5 text-[11px] text-ink2 bg-canvas/90 px-1.5 py-0.5 rounded-sm">등급 부족</div>
+                        <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[13px] font-semibold gap-1.5">
+                          🔒 등급 부족
+                        </div>
                       )}
                     </div>
                     {layout === "grid" ? (
@@ -248,10 +258,18 @@ export default function HomeStoreList({
                     href={p.accessible ? `/r/press/${p.campaignId}` : "/r/grade"}
                     className={`cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
                   >
-                    <div className="aspect-[4/3] bg-parchment flex items-center justify-center relative">
-                      <span className="text-[80px] product-shadow leading-none">{p.coverEmoji}</span>
+                    <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
+                      <Image
+                        src={photoForStore(p.storeId)}
+                        alt={p.storeName}
+                        fill
+                        sizes="(max-width: 480px) 100vw, 480px"
+                        className="object-cover"
+                      />
                       {!p.accessible && (
-                        <div className="absolute top-3 right-3 text-[12px] text-ink2 bg-canvas/90 px-2 py-1 rounded-sm">등급 부족</div>
+                        <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[13px] font-semibold gap-1.5">
+                          🔒 등급 부족
+                        </div>
                       )}
                     </div>
                     <div className="p-6">
