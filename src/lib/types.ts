@@ -105,6 +105,13 @@ export interface Pass {
   reviewBody?: string;
   reviewChannel?: SnsKind;
   reviewStatus?: "pending" | "approved" | "rejected";
+  // 자가점검 (방문형 리뷰 인증 시 사용자가 직접 체크)
+  reviewSelfCheck?: {
+    photos: boolean; // 사진 5장 이상
+    body500: boolean; // 본문 500자 이상
+    menus: boolean; // 메뉴/매장/분위기 사진 포함
+    days30: boolean; // 30일 이상 게시 유지 동의
+  };
   status: PassStatus;
 }
 

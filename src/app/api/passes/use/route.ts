@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
-import { rid } from "@/lib/ids";
+import { rid, normalizePassCode } from "@/lib/ids";
 
 export const runtime = "nodejs";
 
@@ -10,8 +10,9 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "owner") return NextResponse.json({ error: "사장님 로그인 필요" }, { status: 401 });
   const { code, paidAmount } = await req.json();
+  const norm = normalizePassCode(String(code || ""));
   const db = await getDBAsync();
-  const pass = db.passes.find((p) => p.code === code);
+  const pass = db.passes.find((p) => normalizePassCode(p.code) === norm);
   if (!pass) return NextResponse.json({ error: "유효하지 않은 체험권 코드입니다" }, { status: 404 });
   if (pass.ownerId !== s.userId) return NextResponse.json({ error: "다른 매장의 체험권입니다" }, { status: 403 });
   if (pass.status === "used" || pass.status === "review_submitted" || pass.status === "completed") {

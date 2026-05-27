@@ -4,9 +4,12 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
+import { formatPassCode } from "@/lib/ids";
 import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
+
+const REVIEW_DEADLINE_MS = 72 * 60 * 60 * 1000;
 
 export const dynamic = "force-dynamic";
 
@@ -81,13 +84,24 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <div className="p-4 bg-canvas border border-hairline rounded-md">
                 <QRView code={pass.code} />
               </div>
-              <div className="font-mono text-[12px] text-muted mt-4 tracking-widest">
-                CP · {pass.code}
-              </div>
+
               <p className="mt-5 text-center text-[15px] text-ink leading-[1.5]">
                 결제 시 사장님께 보여주세요<br />
                 <span className="text-muted">&ldquo;캐치랭크 멤버십 쿠폰 사용할게요&rdquo;</span>
               </p>
+
+              {/* 8자 영문/숫자 단축 코드 — 스캔 실패 시 사장님이 직접 입력 */}
+              <div className="mt-7 w-full pt-6 border-t border-dashed border-hairline">
+                <div className="text-[11px] text-muted tracking-[0.18em] uppercase text-center">
+                  사장님 직접 입력 코드
+                </div>
+                <div className="mt-2 font-display text-[28px] text-ink tracking-[0.2em] text-center select-all">
+                  {formatPassCode(pass.code)}
+                </div>
+                <div className="mt-1.5 text-[11px] text-muted text-center">
+                  대소문자 구분 없음
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -122,14 +136,31 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         {pass.status === "used" && (
           <div className="mt-8">
             <div className="rounded-md bg-brandSoft border border-brand/20 px-4 py-4">
-              <div className="text-[15px] font-semibold text-ink">사용 완료</div>
-              <div className="mt-1 text-[14px] text-ink2">결제 ₩{pass.paidAmount?.toLocaleString()} · 지원 ₩{pass.supportApplied?.toLocaleString()}</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[15px] font-semibold text-ink">사용 완료</div>
+                  <div className="mt-1 text-[14px] text-ink2">결제 ₩{pass.paidAmount?.toLocaleString()} · 지원 ₩{pass.supportApplied?.toLocaleString()}</div>
+                </div>
+                {pass.usedAt && (
+                  <div className="text-right">
+                    <div className="text-[11px] text-muted tracking-[0.1em] uppercase">리뷰 마감</div>
+                    <Countdown
+                      expiresAt={pass.usedAt + REVIEW_DEADLINE_MS}
+                      mode="dhm"
+                      className="!text-[15px] mt-1"
+                      expiredText="마감 지남"
+                    />
+                  </div>
+                )}
+              </div>
               {pass.paidAmount && pass.supportApplied !== undefined && pass.paidAmount > pass.supportApplied && (
-                <div className="mt-1 text-[12px] text-muted">초과분 ₩{(pass.paidAmount - pass.supportApplied).toLocaleString()}은 직접 결제하셨습니다</div>
+                <div className="mt-2 text-[12px] text-muted">초과분 ₩{(pass.paidAmount - pass.supportApplied).toLocaleString()}은 직접 결제하셨습니다</div>
               )}
             </div>
             <h2 className="mt-10 font-display text-[28px] leading-[1.14] text-ink">리뷰 인증</h2>
-            <p className="mt-2 text-[15px] text-ink2 leading-[1.47]">사진 5장 이상, 본문 500자 이상 권장 · 60일 이상 게시</p>
+            <p className="mt-2 text-[15px] text-ink2 leading-[1.47]">
+              실제 게시 후 URL을 제출해주세요. 작성 조건은 본인이 직접 점검합니다.
+            </p>
             <ReviewForm passId={pass.id} channels={campaign?.requiredChannels || []} />
           </div>
         )}

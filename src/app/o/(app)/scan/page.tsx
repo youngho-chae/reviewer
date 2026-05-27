@@ -73,10 +73,16 @@ export default function ScanPage() {
         )}
 
         <div className="mt-4">
-          <div className="text-[13px] text-muted mb-2">또는 코드 직접 입력</div>
+          <div className="text-[13px] text-muted mb-2">또는 코드 직접 입력 (8자, 대소문자 무관)</div>
           <div className="flex gap-2">
-            <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="CPS-XXXXXX-XXXX" className="flex-1 h-12 px-3 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[14px] tracking-wider" />
-            <button onClick={() => lookup(code)} className="h-12 px-4 rounded-sm bg-ink text-white text-[14px] font-medium">조회</button>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+              placeholder="예) XK7H3M9P"
+              maxLength={8}
+              className="flex-1 h-12 px-3 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[16px] font-mono tracking-[0.2em] uppercase"
+            />
+            <button onClick={() => lookup(code)} disabled={code.length !== 8} className="h-12 px-4 rounded-sm bg-ink text-white text-[14px] font-medium disabled:opacity-40">조회</button>
           </div>
         </div>
 

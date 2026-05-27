@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
-import { rid } from "@/lib/ids";
+import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
 import { Pass } from "@/lib/types";
 import { gradeMeets } from "@/lib/grade";
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   const pass: Pass = {
     id: rid("ps"),
-    code: `CPS-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+    code: passCode(),
     reviewerId: me.id,
     campaignId: c.id,
     storeId: c.storeId,

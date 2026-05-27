@@ -27,9 +27,9 @@ export default function ParticipateButton({ campaignId, myGrade }: { campaignId:
       setBusy(false);
       return;
     }
-    // 인스턴스 간 동기화를 위한 1회 새로고침 후 이동.
+    // 발급 후 내 체험권 목록으로 이동, 발급된 카드를 하이라이트.
     router.refresh();
-    router.push(`/r/passes/${passId}`);
+    router.push(`/r/passes?just_issued=${passId}`);
   }
 
   return (
