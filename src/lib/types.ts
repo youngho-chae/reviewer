@@ -65,13 +65,17 @@ export interface Campaign {
   title: string;
   startAt: number;
   endAt: number;
-  supportAmount: number; // 방문형 지원금 한도
+  supportAmount: number; // 방문형 지원금 한도 (기자단의 경우 정산 예정금)
   quota: CampaignGradeQuota;
   used: { S: number; A: number; B: number; C: number };
   requiredChannels: SnsKind[];
   requiredMenus: string[];
   description: string;
   createdAt: number;
+  // 기자단 전용
+  pressKeywords?: string[];
+  pressMaterials?: string[]; // 자료팩 — 파일명/요약 텍스트
+  pressMinChars?: number; // 최소 본문자 수
 }
 
 export type PassStatus =

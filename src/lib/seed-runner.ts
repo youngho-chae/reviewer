@@ -240,6 +240,35 @@ export function runSeed(db: DBShape) {
     db.campaigns.push(campaign);
   }
 
+  // 기자단 캠페인 1건 (첫 매장 기준) — Press 플로우 데모용
+  const pressStore = db.stores[0];
+  if (pressStore) {
+    const pressCampaign: Campaign = {
+      id: detId("cp", `${pressStore.id}-press`),
+      storeId: pressStore.id,
+      kind: "press",
+      title: `${pressStore.name} 기자단 모집`,
+      startAt: now - 1000 * 60 * 60 * 24,
+      endAt: now + 1000 * 60 * 60 * 24 * 21,
+      supportAmount: 150000, // 정산 예정금
+      quota: { S: 1, A: 2, B: 3, C: 0 },
+      used: { S: 0, A: 0, B: 0, C: 0 },
+      requiredChannels: ["naver_blog", "instagram"],
+      requiredMenus: [],
+      description: `${pressStore.name}의 신메뉴 출시 보도용 콘텐츠를 작성해주세요. 자료팩(제품 사진/매장 사진/브랜드 스토리)을 참고하여 자연스러운 후기 형태로 작성해주시면 됩니다.`,
+      createdAt: now - 1000 * 60 * 60 * 24,
+      pressKeywords: ["가을 신메뉴", "프리미엄 다이닝", "한남 맛집"],
+      pressMaterials: [
+        "신메뉴 상세 사진 8장 (.zip)",
+        "브랜드 스토리 텍스트 (2,400자)",
+        "사장님 인터뷰 영상 (3분)",
+        "로고/심볼 가이드 (PDF)",
+      ],
+      pressMinChars: 1500,
+    };
+    db.campaigns.push(pressCampaign);
+  }
+
   // 데모 체험자
   const reviewer: Reviewer = {
     id: detId("rv", "demo@reviewer.com"),

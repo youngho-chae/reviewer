@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
@@ -19,6 +20,8 @@ export default async function Me() {
   const totalSupport = db.passes
     .filter((p) => p.reviewerId === me.id && p.supportApplied)
     .reduce((s, p) => s + (p.supportApplied || 0), 0);
+  const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
+  const pressBookmarks = db.campaigns.filter((c) => c.kind === "press" && c.endAt > Date.now()).length;
 
   return (
     <div className="pb-24">
@@ -48,6 +51,36 @@ export default async function Me() {
             <div className="text-[11px] text-muted">누적 혜택</div>
             <div className="text-[18px] font-bold">₩{totalSupport.toLocaleString()}</div>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-hairline divide-y divide-hairline overflow-hidden">
+          <Link href="/r/grade" className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
+            <div className="text-[20px] w-7 text-center">🎖️</div>
+            <div className="flex-1">
+              <div className="text-[14px] font-medium">내 등급 자세히</div>
+              <div className="text-[12px] text-muted mt-0.5">진행률 · 혜택 사다리 · 4지표</div>
+            </div>
+            <div className="text-muted">→</div>
+          </Link>
+          <Link href="/r/press" className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
+            <div className="text-[20px] w-7 text-center">✍️</div>
+            <div className="flex-1">
+              <div className="text-[14px] font-medium">기자단 보관소</div>
+              <div className="text-[12px] text-muted mt-0.5">{pressBookmarks}개 진행중</div>
+            </div>
+            <div className="text-muted">→</div>
+          </Link>
+          <Link href="/r/notifications" className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
+            <div className="text-[20px] w-7 text-center">🔔</div>
+            <div className="flex-1">
+              <div className="text-[14px] font-medium flex items-center gap-2">
+                알림함
+                {unread ? <span className="text-[10px] bg-error text-white px-1.5 py-0.5 rounded-full">{unread}</span> : null}
+              </div>
+              <div className="text-[12px] text-muted mt-0.5">{unread ? `${unread}건 새 알림` : "모두 읽음"}</div>
+            </div>
+            <div className="text-muted">→</div>
+          </Link>
         </div>
 
         <h2 className="mt-6 text-[16px] font-bold">연동 채널</h2>
