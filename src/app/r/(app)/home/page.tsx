@@ -2,7 +2,6 @@ import { after } from "next/server";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
-import GradeBadge from "@/components/GradeBadge";
 import { gradeMeets } from "@/lib/grade";
 import HomeStoreList, { StoreCardData, PressCardData } from "./HomeStoreList";
 
@@ -84,69 +83,40 @@ export default async function ReviewerHome() {
   const activeNow = db.passes.filter((p) => p.reviewerId === me.id && (p.status === "active" || p.status === "used")).length;
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
-  const header = (
-    <>
-      {/* Frosted parchment sub-nav (Apple sub-nav-frosted token) */}
-      <div className="sticky top-0 z-30 frosted-parchment border-b border-hairlineSoft">
-        <div className="h-13 px-5 flex items-center justify-between">
-          <div className="text-[21px] font-semibold text-ink tracking-[-0.011em]">CATCHPASS</div>
-          <Link
-            href="/r/notifications"
-            className="cp-action relative w-9 h-9 rounded-full flex items-center justify-center"
-            aria-label="알림"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-            </svg>
-            {unread > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />
-            )}
-          </Link>
-        </div>
+  // Frosted top nav (server-rendered; static across home modes)
+  const topBar = (
+    <div className="sticky top-0 z-30 frosted-parchment border-b border-hairlineSoft">
+      <div className="h-13 px-5 flex items-center justify-between">
+        <div className="text-[21px] font-semibold text-ink tracking-[-0.011em]">CATCHPASS</div>
+        <Link
+          href="/r/notifications"
+          className="cp-action relative w-9 h-9 rounded-full flex items-center justify-center"
+          aria-label="알림"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+          </svg>
+          {unread > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />
+          )}
+        </Link>
       </div>
-
-      {/* Parchment hero tile — grade story (Apple product-tile-parchment) */}
-      <section className="bg-parchment px-6 pt-14 pb-10 text-center">
-        <div className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">내 등급</div>
-        <div className="flex justify-center mb-4">
-          <GradeBadge grade={me.grade} size="xl" />
-        </div>
-        <h1 className="font-display text-[40px] leading-[1.07] text-ink">
-          {me.grade}등급
-        </h1>
-        <p className="mt-2 text-[19px] text-ink2 leading-[1.4]">{tierDesc[me.grade]}</p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link
-            href="/r/grade"
-            className="cp-action inline-flex items-center h-11 px-5 rounded-pill bg-brand text-white text-[17px]"
-          >
-            등급 자세히 보기
-          </Link>
-        </div>
-
-        {/* Stats row */}
-        <div className="mt-10 max-w-[360px] mx-auto grid grid-cols-3 gap-2 text-left">
-          <div className="text-center">
-            <div className="text-[28px] font-semibold text-ink tracking-[-0.022em] leading-none">{me.completedReviews}</div>
-            <div className="text-[12px] text-muted mt-1.5">완료 리뷰</div>
-          </div>
-          <div className="text-center border-l border-r border-hairline">
-            <div className="text-[28px] font-semibold text-ink tracking-[-0.022em] leading-none">{me.qualityScore || "—"}</div>
-            <div className="text-[12px] text-muted mt-1.5">리뷰 점수</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[28px] font-semibold text-ink tracking-[-0.022em] leading-none">{activeNow}</div>
-            <div className="text-[12px] text-muted mt-1.5">진행 중</div>
-          </div>
-        </div>
-      </section>
-
-      <div className="px-6 pt-10 pb-1">
-        <h2 className="font-display text-[28px] leading-[1.14] text-ink">안녕하세요, {me.nickname}님.</h2>
-      </div>
-    </>
+    </div>
   );
 
-  return <HomeStoreList cards={cards} pressCards={pressCards} mapClientId={mapClientId} header={header} />;
+  return (
+    <HomeStoreList
+      cards={cards}
+      pressCards={pressCards}
+      mapClientId={mapClientId}
+      topBar={topBar}
+      nickname={me.nickname}
+      grade={me.grade}
+      tierDesc={tierDesc[me.grade]}
+      completedReviews={me.completedReviews}
+      qualityScore={me.qualityScore}
+      activeNow={activeNow}
+    />
+  );
 }

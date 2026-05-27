@@ -1,7 +1,9 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
+import HomeHeader from "./HomeHeader";
+import { Grade } from "@/lib/types";
 
 export interface StoreCardData extends MapStorePin {
   rating: number;
@@ -24,43 +26,93 @@ export interface PressCardData {
   daysLeft: number;
 }
 
+interface Props {
+  cards: StoreCardData[];
+  pressCards: PressCardData[];
+  mapClientId: string;
+  topBar: ReactNode;
+  // user info — drives HomeHeader
+  nickname: string;
+  grade: Grade;
+  tierDesc: string;
+  completedReviews: number;
+  qualityScore: number;
+  activeNow: number;
+}
+
+function matchesSearch(text: string, q: string) {
+  if (!q.trim()) return true;
+  return text.toLowerCase().includes(q.trim().toLowerCase());
+}
+
 export default function HomeStoreList({
   cards,
   pressCards,
   mapClientId,
-  header,
-}: {
-  cards: StoreCardData[];
-  pressCards: PressCardData[];
-  mapClientId: string;
-  header: ReactNode;
-}) {
+  topBar,
+  nickname,
+  grade,
+  tierDesc,
+  completedReviews,
+  qualityScore,
+  activeNow,
+}: Props) {
   const [mode, setMode] = useState<"list" | "map">("list");
   const [tab, setTab] = useState<"visit" | "press">("visit");
   const [cat, setCat] = useState<string>("전체");
   const [layout, setLayout] = useState<"row" | "grid">("row");
+  const [search, setSearch] = useState("");
 
-  const cats = ["전체", ...Array.from(new Set(cards.map((c) => c.category)))];
-  const filtered = cat === "전체" ? cards : cards.filter((c) => c.category === cat);
+  const cats = useMemo(
+    () => ["전체", ...Array.from(new Set(cards.map((c) => c.category)))],
+    [cards]
+  );
+
+  // 검색은 매장명·지역·카테고리에서 부분 일치 — 카테고리 chip과 AND로 결합
+  const filtered = useMemo(() => {
+    return cards.filter((p) => {
+      if (cat !== "전체" && p.category !== cat) return false;
+      const haystack = `${p.name} ${p.area} ${p.category}`;
+      return matchesSearch(haystack, search);
+    });
+  }, [cards, cat, search]);
+
+  // 기자단도 같은 검색어 적용
+  const filteredPress = useMemo(() => {
+    return pressCards.filter((p) => {
+      const haystack = `${p.storeName} ${p.area} ${p.category}`;
+      return matchesSearch(haystack, search);
+    });
+  }, [pressCards, search]);
 
   return (
     <>
       {mode === "list" ? (
         <div>
-          {header}
+          {topBar}
+          <HomeHeader
+            nickname={nickname}
+            grade={grade}
+            tierDesc={tierDesc}
+            completedReviews={completedReviews}
+            qualityScore={qualityScore}
+            activeNow={activeNow}
+            search={search}
+            onSearchChange={setSearch}
+          />
 
           {/* Mode toggle — Apple configurator-chip grammar */}
           <div className="px-6 mt-7">
             <div className="inline-flex bg-parchment rounded-pill p-1 gap-1 border border-hairline">
               <button
                 onClick={() => setTab("visit")}
-                className={`px-4 h-9 rounded-pill text-[14px] ${tab === "visit" ? "bg-canvas text-ink shadow-sm" : "text-muted"}`}
+                className={`px-4 h-9 rounded-pill text-[14px] ${tab === "visit" ? "bg-canvas text-ink" : "text-muted"}`}
               >
                 방문형
               </button>
               <button
                 onClick={() => setTab("press")}
-                className={`px-4 h-9 rounded-pill text-[14px] ${tab === "press" ? "bg-canvas text-ink shadow-sm" : "text-muted"}`}
+                className={`px-4 h-9 rounded-pill text-[14px] ${tab === "press" ? "bg-canvas text-ink" : "text-muted"}`}
               >
                 기자단
               </button>
@@ -69,7 +121,7 @@ export default function HomeStoreList({
 
           {tab === "visit" ? (
             <>
-              {/* Category chips — pill, single Action Blue when selected */}
+              {/* Category chips */}
               <div className="px-6 mt-5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
                 <div className="flex gap-2 pb-1">
                   {cats.map((c) => (
@@ -88,7 +140,9 @@ export default function HomeStoreList({
               <div className="px-6 mt-8 mb-5 flex items-end justify-between">
                 <div>
                   <h2 className="font-display text-[28px] leading-[1.14] text-ink">방문 가능한 매장</h2>
-                  <div className="text-[14px] text-muted mt-1">{filtered.length}곳</div>
+                  <div className="text-[14px] text-muted mt-1">
+                    {search ? `“${search}” 검색 결과 ${filtered.length}곳` : `${filtered.length}곳`}
+                  </div>
                 </div>
                 <div className="inline-flex bg-parchment rounded-pill p-1 border border-hairline">
                   <button
@@ -119,7 +173,7 @@ export default function HomeStoreList({
                 </div>
               </div>
 
-              {/* Store cards — Apple store-utility-card. layout=row: 1xN, layout=grid: 2xN */}
+              {/* Store cards */}
               <div className={`px-6 pb-32 ${layout === "grid" ? "grid grid-cols-2 gap-3" : "space-y-4"}`}>
                 {filtered.map((p) => (
                   <Link
@@ -127,7 +181,6 @@ export default function HomeStoreList({
                     href={p.accessible ? `/r/store/${p.storeId}?campaign=${p.campaignId}` : "/r/grade"}
                     className={`cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
                   >
-                    {/* Photo plate — emoji on parchment with product-shadow */}
                     <div className="aspect-[4/3] bg-parchment flex items-center justify-center relative">
                       <span className={`product-shadow leading-none ${layout === "grid" ? "text-[56px]" : "text-[88px]"}`}>{p.coverEmoji}</span>
                       {p.remain <= 3 && (
@@ -139,7 +192,6 @@ export default function HomeStoreList({
                         <div className="absolute top-2.5 right-2.5 text-[11px] text-ink2 bg-canvas/90 px-1.5 py-0.5 rounded-sm">등급 부족</div>
                       )}
                     </div>
-                    {/* Card content */}
                     {layout === "grid" ? (
                       <div className="p-4">
                         <div className="text-[10px] text-muted uppercase tracking-wider mb-1">{p.category}</div>
@@ -174,7 +226,9 @@ export default function HomeStoreList({
                   </Link>
                 ))}
                 {filtered.length === 0 && (
-                  <div className={`py-16 text-center text-muted text-[17px] ${layout === "grid" ? "col-span-2" : ""}`}>현재 모집 중인 캠페인이 없어요</div>
+                  <div className={`py-16 text-center text-muted text-[17px] ${layout === "grid" ? "col-span-2" : ""}`}>
+                    {search ? `“${search}”에 일치하는 매장이 없어요` : "현재 모집 중인 캠페인이 없어요"}
+                  </div>
                 )}
               </div>
             </>
@@ -183,10 +237,12 @@ export default function HomeStoreList({
             <>
               <div className="px-6 mt-8 mb-5">
                 <h2 className="font-display text-[28px] leading-[1.14] text-ink">참여 가능한 기자단</h2>
-                <div className="text-[14px] text-muted mt-1">{pressCards.length}건 · 자료팩 기반 재택 작성</div>
+                <div className="text-[14px] text-muted mt-1">
+                  {search ? `“${search}” 검색 결과 ${filteredPress.length}건` : `${filteredPress.length}건 · 자료팩 기반 재택 작성`}
+                </div>
               </div>
               <div className="px-6 space-y-4 pb-32">
-                {pressCards.map((p) => (
+                {filteredPress.map((p) => (
                   <Link
                     key={p.campaignId}
                     href={p.accessible ? `/r/press/${p.campaignId}` : "/r/grade"}
@@ -218,24 +274,70 @@ export default function HomeStoreList({
                     </div>
                   </Link>
                 ))}
-                {pressCards.length === 0 && (
-                  <div className="py-16 text-center text-muted text-[17px]">모집 중인 기자단이 없어요</div>
+                {filteredPress.length === 0 && (
+                  <div className="py-16 text-center text-muted text-[17px]">
+                    {search ? `“${search}”에 일치하는 기자단이 없어요` : "모집 중인 기자단이 없어요"}
+                  </div>
                 )}
               </div>
             </>
           )}
         </div>
       ) : (
+        // Map view — fullscreen + floating search input overlay at top
         <div className="fixed inset-x-0 top-0 z-20 mx-auto max-w-[480px] bg-canvas" style={{ bottom: "var(--bottom-nav-h, 72px)" }}>
+          {/* Floating search bar over the map */}
+          <div className="absolute top-3 left-3 right-3 z-30">
+            <div className="relative">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#7a7a7a"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                className="absolute left-4 top-1/2 -translate-y-1/2"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="동네·지역명 또는 매장명 검색"
+                className="w-full h-11 pl-11 pr-10 rounded-pill bg-canvas/95 backdrop-blur border border-hairline text-[15px] focus:border-brand focus:outline-none shadow-sm"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="검색어 지우기"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-mutedSoft/40 flex items-center justify-center"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {search && (
+              <div className="mt-2 px-3 py-1.5 bg-canvas/95 backdrop-blur rounded-pill border border-hairline text-[12px] text-muted text-center shadow-sm">
+                {filtered.length}곳 일치
+              </div>
+            )}
+          </div>
+
           {mapClientId ? (
-            <NaverMapView pins={cards} clientId={mapClientId} fullscreen />
+            <NaverMapView pins={filtered} clientId={mapClientId} fullscreen />
           ) : (
             <div className="px-5 py-16 text-center text-error text-[14px]">지도 클라이언트 ID가 설정되지 않았습니다.</div>
           )}
         </div>
       )}
 
-      {/* Floating sticky bar — Apple floating-sticky-bar */}
+      {/* Floating sticky map/list toggle */}
       {tab === "visit" && (
         <button
           type="button"
