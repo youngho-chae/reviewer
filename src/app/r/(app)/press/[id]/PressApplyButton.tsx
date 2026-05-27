@@ -21,8 +21,14 @@ export default function PressApplyButton({ campaignId }: { campaignId: string })
       return;
     }
     const { passId } = await res.json();
-    router.push(`/r/press/${campaignId}/write?pass=${passId}`);
+    if (!passId) {
+      setErr("발급에 실패했어요. 다시 시도해주세요.");
+      setBusy(false);
+      return;
+    }
+    // 인스턴스 간 동기화를 위한 1회 새로고침 후 이동.
     router.refresh();
+    router.push(`/r/press/${campaignId}/write?pass=${passId}`);
   }
 
   return (

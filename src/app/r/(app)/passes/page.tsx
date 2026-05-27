@@ -31,10 +31,17 @@ export default async function MyPasses({ searchParams }: { searchParams: Promise
   const { pending } = await searchParams;
   const db = await getDBAsync();
 
-  // pending=passId가 있으면 우리 인스턴스에서 보이는지 확인 후 발견 시 상세로 즉시 이동.
+  // pending=passId가 있으면 우리 인스턴스에서 보이는지 확인 후 발견 시 적절한 상세로 즉시 이동.
+  // 방문형 → /r/passes/{id} (QR 티켓), 기자단 → /r/press/{campaignId}/write?pass={id}
   if (pending) {
     const found = db.passes.find((p) => p.id === pending && p.reviewerId === me.id);
-    if (found) redirect(`/r/passes/${found.id}`);
+    if (found) {
+      const camp = db.campaigns.find((x) => x.id === found.campaignId);
+      if (camp?.kind === "press") {
+        redirect(`/r/press/${camp.id}/write?pass=${found.id}`);
+      }
+      redirect(`/r/passes/${found.id}`);
+    }
   }
 
   const allPasses = db.passes

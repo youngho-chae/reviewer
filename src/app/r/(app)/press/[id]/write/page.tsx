@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
@@ -24,7 +24,12 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
   const store = db.stores.find((s) => s.id === c.storeId);
   if (!store) return notFound();
   const pass = passId ? db.passes.find((p) => p.id === passId && p.reviewerId === me.id) : null;
-  if (!pass) return notFound();
+  // 멀티 인스턴스에서 KV 미연결 시 방금 발급된 패스가 다른 인스턴스에서 안 보일 수 있음.
+  // 404 대신 체험권 보관소(기자단 탭)로 보내고 polling으로 동기화.
+  if (!pass) {
+    if (passId) redirect(`/r/passes?pending=${encodeURIComponent(passId)}`);
+    return notFound();
+  }
 
   const statusLabel = ({
     active: "작성 가능",
