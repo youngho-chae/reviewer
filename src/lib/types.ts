@@ -134,5 +134,6 @@ export interface DBShape {
   passes: Pass[];
   notifications: NotificationItem[];
   seeded: boolean;
+  seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거
   naverDataFetched?: number; // 마지막 Naver Place 자동 갱신 timestamp
 }

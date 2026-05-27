@@ -181,7 +181,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
 
         {pass.status === "review_submitted" && (
           <div className="mt-8 rounded-md bg-parchment border border-hairline p-5 text-[15px] text-ink">
-            ✓ 리뷰가 등록되었습니다. 사장님/운영팀 검수를 기다려주세요.
+            ✓ 리뷰가 등록되었습니다. 운영팀이 광고 표시·작성 조건을 검수합니다 (최대 72시간).
           </div>
         )}
         {pass.status === "completed" && (
@@ -196,7 +196,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         )}
         {pass.status === "rejected" && (
           <div className="mt-8 rounded-md bg-error/5 border border-error/20 p-5 text-[15px] text-ink">
-            반려된 리뷰입니다. 운영팀 검수가 진행됩니다 (최대 72시간).
+            반려된 리뷰입니다. 사유 안내와 재작성 가능 여부는 채널톡으로 문의해주세요.
           </div>
         )}
       </div>

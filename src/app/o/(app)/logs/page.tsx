@@ -10,7 +10,7 @@ const statusChip = (s: string) => ({
   review_submitted: { label: "검수", cls: "bg-surfaceStrong text-ink" },
   completed: { label: "완료", cls: "bg-success text-white" },
   expired: { label: "만료", cls: "bg-surfaceStrong text-muted" },
-  rejected: { label: "회수", cls: "bg-error text-white" },
+  rejected: { label: "반려", cls: "bg-error text-white" },
 } as any)[s] || { label: s, cls: "bg-surfaceStrong text-muted" };
 
 function dayKey(ts: number) {

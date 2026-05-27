@@ -255,7 +255,7 @@ export default async function MyPasses({
                       </Link>
                     ) : p.status === "review_submitted" ? (
                       <div className="mt-5 p-3 bg-parchment rounded-sm text-[13px] text-muted text-center">
-                        사장님 검수 중 · 최대 72시간
+                        운영팀 검수 중 · 최대 72시간
                       </div>
                     ) : null}
                   </div>

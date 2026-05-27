@@ -241,7 +241,7 @@ export default function NaverMapView({
               <div className="flex items-stretch">
                 <div className="w-24 bg-parchment relative">
                   <Image
-                    src={photoForStore(selected.storeId)}
+                    src={photoForStore(selected.storeId, selected.category)}
                     alt={selected.name}
                     fill
                     sizes="96px"

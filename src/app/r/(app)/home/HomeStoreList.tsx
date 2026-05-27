@@ -179,7 +179,7 @@ export default function HomeStoreList({
                   >
                     <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
                       <Image
-                        src={photoForStore(p.storeId)}
+                        src={photoForStore(p.storeId, p.category)}
                         alt={p.name}
                         fill
                         sizes={layout === "grid" ? "(max-width: 480px) 50vw, 240px" : "(max-width: 480px) 100vw, 480px"}
@@ -255,7 +255,7 @@ export default function HomeStoreList({
                   >
                     <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
                       <Image
-                        src={photoForStore(p.storeId)}
+                        src={photoForStore(p.storeId, p.category)}
                         alt={p.storeName}
                         fill
                         sizes="(max-width: 480px) 100vw, 480px"

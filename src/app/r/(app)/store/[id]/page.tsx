@@ -49,7 +49,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
       {/* Hero — full-bleed photographic tile (real store photo) */}
       <section className="relative aspect-[4/3] bg-parchment overflow-hidden">
         <Image
-          src={photoForStore(store.id)}
+          src={photoForStore(store.id, store.category)}
           alt={store.name}
           fill
           priority

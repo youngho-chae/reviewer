@@ -23,11 +23,11 @@ export default async function OwnerHome() {
         <div className="text-[20px] font-bold mt-1">안녕하세요, 사장님</div>
       </div>
 
-      {/* 오늘 할 일 */}
+      {/* 신규 리뷰 모니터링 — 운영팀이 검수하며 사장님은 조회만 */}
       <Link href="/o/reviews" className="block mx-5 rounded-md bg-ink text-white p-5">
-        <div className="text-[13px] text-white/70">오늘 할 일</div>
-        <div className="text-[24px] font-bold mt-1">{pendingReviews}건의 리뷰가 검수 대기 중</div>
-        <div className="text-[13px] text-white/70 mt-1">→ 리뷰 검수하기</div>
+        <div className="text-[13px] text-white/70">최근 등록된 후기</div>
+        <div className="text-[24px] font-bold mt-1">{pendingReviews}건이 운영팀 검수 중</div>
+        <div className="text-[13px] text-white/70 mt-1">→ 후기 모니터링</div>
       </Link>
 
       {/* 멤버십 스트립 */}
