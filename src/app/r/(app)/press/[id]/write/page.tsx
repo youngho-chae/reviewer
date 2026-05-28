@@ -102,20 +102,17 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
       <div className="px-5 mt-3">
         <div className="mb-3 text-[12px] text-muted">
           상태: <span className="text-ink font-medium">{statusLabel}</span>
-          {c.pressMinChars && <span> · 최소 {c.pressMinChars.toLocaleString()}자</span>}
         </div>
         {pass.status === "active" ? (
           <PressWriteForm
             passId={pass.id}
             channels={c.requiredChannels}
-            minChars={c.pressMinChars || 1000}
             keywords={c.pressKeywords || []}
           />
         ) : (
           <div className="rounded-md border border-hairline p-4">
             <div className="text-[13px] font-medium">제출된 URL</div>
             <a href={pass.reviewUrl} target="_blank" rel="noreferrer" className="block mt-1 text-[13px] text-ink underline truncate">{pass.reviewUrl}</a>
-            <div className="mt-3 text-[12px] text-muted">{pass.reviewBody?.length || 0}자 작성</div>
           </div>
         )}
       </div>

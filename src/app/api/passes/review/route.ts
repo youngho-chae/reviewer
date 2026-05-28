@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { passId, reviewUrl, reviewBody, reviewChannel, selfCheck } = await req.json();
+  const { passId, reviewUrl, reviewChannel, selfCheck, pressSelfCheck } = await req.json();
   const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === passId);
   if (!pass || pass.reviewerId !== s.userId) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -18,12 +18,13 @@ export async function POST(req: NextRequest) {
 
   if (isPress) {
     if (pass.status !== "active") return NextResponse.json({ error: "이미 제출되었거나 만료된 패스" }, { status: 400 });
-    // 기자단은 본문 자체를 자료팩 기반으로 작성하므로 본문 길이 검증
-    if (campaign?.pressMinChars && String(reviewBody || "").length < campaign.pressMinChars) {
-      return NextResponse.json({ error: `최소 ${campaign.pressMinChars.toLocaleString()}자 이상 작성해주세요` }, { status: 400 });
-    }
-    if (!reviewUrl) {
-      return NextResponse.json({ error: "URL을 입력해주세요" }, { status: 400 });
+    // 기자단도 방문형과 동일하게 본인 채널에 작성한 URL만 제출.
+    // 본문은 본인 채널에 게시되므로 시스템에서 검증하지 않고 자가 점검만 받음.
+    if (!reviewUrl) return NextResponse.json({ error: "URL을 입력해주세요" }, { status: 400 });
+    if (!reviewChannel) return NextResponse.json({ error: "작성 채널을 선택해주세요" }, { status: 400 });
+    const needsKeywordCheck = (campaign?.pressKeywords?.length || 0) > 0;
+    if (!pressSelfCheck || !pressSelfCheck.ad || !pressSelfCheck.kit || (needsKeywordCheck && !pressSelfCheck.keywords)) {
+      return NextResponse.json({ error: "자가 점검 항목을 모두 체크해주세요" }, { status: 400 });
     }
   } else {
     if (pass.status !== "used") return NextResponse.json({ error: "사용 후에만 리뷰 등록 가능" }, { status: 400 });
@@ -46,7 +47,6 @@ export async function POST(req: NextRequest) {
   }
 
   pass.reviewUrl = reviewUrl;
-  if (reviewBody) pass.reviewBody = reviewBody;
   pass.reviewChannel = reviewChannel;
   pass.reviewSubmittedAt = Date.now();
   pass.reviewStatus = "pending";

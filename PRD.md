@@ -39,7 +39,7 @@ CATCHPASS의 해결:
 
 | 구분 | 방문형 (visit) | 기자단 (press) |
 |---|---|---|
-| 흐름 | 매장 방문 → QR 또는 8자 단축 코드 제시 → 결제 할인 → 리뷰 작성 | 자료팩 수령 → 본문 1,000~1,500자 작성 → URL 제출 |
+| 흐름 | 매장 방문 → QR 또는 8자 단축 코드 제시 → 결제 할인 → 리뷰 작성 | 자료팩 수령 → 본인 채널에 작성 → URL 제출 |
 | 사장님 비용 | 멤버십 정액 (월 구독) | 종량제 선결제 (운영팀 처리) |
 | 정산 | 즉시 (할인은 매장에서 제공) | 검수 통과 후 송금 (3.3% 원천징수) |
 | 리뷰어 대상 | 등급 충족 시 누구나 | 등급 충족 + 자료팩 활용 작성 |
@@ -223,12 +223,16 @@ N  검증 전 (SNS 미연동)
 
 [/r/press/[id]/write?pass=...] 기자단 작성 (R-09)
     · 자료팩 풀공개 (다운로드 표시)
-    · 필수 키워드 pill (입력란에 모두 포함되어야 통과)
-    · 광고 표시 문구 노란 박스
-    · 작성 폼 (PressWriteForm): 채널 / URL / 본문(min 1,000~1,500자) / 광고 체크
-    · 키워드 누락 또는 본문 부족 시 CTA disabled
+    · 필수 키워드 안내 (자가 점검 항목에서 포함 여부 체크)
+    · 광고 표시 문구 박스 (브랜드 컬러) + [📋 문구 복사]
+    · 작성 폼 (PressWriteForm) 4단계:
+      1. 작성한 채널 선택
+      2. 광고 표시 문구 포함 체크 (필수)
+      3. 게시한 콘텐츠 URL 입력 — 본인 채널(블로그/인스타 등)에 작성 후 URL 그대로 붙여넣기
+      4. 자가 점검: 필수 키워드 모두 포함 / 자료팩 활용 (체크박스)
+    · 본문 입력 UI 없음 (본문은 본인 채널에 게시되므로 시스템 검증하지 않음, 운영팀 표본 검수)
 
-→ POST /api/passes/review (reviewBody 포함) → review_submitted → 운영팀 검수 → completed (정산)
+→ POST /api/passes/review { reviewChannel, reviewUrl, pressSelfCheck } → review_submitted → 운영팀 검수 → completed (정산)
 ```
 
 ### 시나리오 C — 사장님, 첫 진입부터 캠페인 오픈
@@ -406,11 +410,14 @@ N  검증 전 (SNS 미연동)
 - **광고 표시 문구**: 채널별 표준 문구 박스 + 복사 버튼 + "본 문구를 게시물에 포함했습니다" 체크 필수
 - **자동 검수(시스템)는 데모 미구현** — 사용자가 직접 자가 점검. 운영팀이 표본 검수
 
-### 6.5 리뷰 작성 규칙 (기자단)
-- 폼 입력: 채널 / URL / 본문 / 광고 체크
-- 본문 최소자수: `campaign.pressMinChars` (시드 데이터 기준 1,200~1,500자)
-- 필수 키워드(`campaign.pressKeywords`) 모두 본문에 포함되어야 제출 가능 (`PressWriteForm`에서 누락 키워드 표기)
-- 정산은 검수 통과 후 운영팀이 처리 (D+7 송금, 3.3% 원천징수)
+### 6.5 리뷰 작성 규칙 (기자단) — 방문형과 동일한 URL+자가점검 모델
+- 폼 입력: 채널 / URL / 자가 점검 (광고 표시 + 필수 키워드 포함 + 자료팩 활용)
+- 체험자는 자료팩을 받아 **본인 채널(블로그/인스타/유튜브/틱톡)에 직접 작성**하고, 게시 URL만 제출
+- 본문 입력 UI 폐기 — 본문은 본인 채널에 게시되므로 시스템이 길이/키워드를 검증하지 않음
+- 필수 키워드(`campaign.pressKeywords`)는 자가 점검 체크박스에서 포함 여부를 본인이 직접 확인
+- 광고 표시 문구는 기자단 표준 문구 박스 제공 + 복사 버튼 (`PressWriteForm` 2단계)
+- `campaign.pressMinChars` 필드는 데이터 모델·시드에만 존재(레거시), 제출 검증에는 사용하지 않음
+- 정산은 운영팀이 표본 검수 후 처리 (D+7 송금, 3.3% 원천징수)
 
 ### 6.6 익명성 정책
 - 사장님 화면에서는 `reviewer.id.slice(-4)`만 노출 ("익명 #1242" 패턴)
@@ -467,7 +474,7 @@ N  검증 전 (SNS 미연동)
 - quota: { S, A, B, C }, used: { S, A, B, C }
 - requiredChannels: SnsKind[], requiredMenus: string[]
 - description, createdAt
-- press 전용: pressKeywords[], pressMaterials[], pressMinChars
+- press 전용: pressKeywords[], pressMaterials[], pressMinChars (레거시 — 제출 검증에 미사용)
 
 ### 7.5 Pass (status 6단계 라이프사이클)
 - id, code (8자 영숫자), reviewerId, campaignId, storeId, ownerId
@@ -511,7 +518,7 @@ N  검증 전 (SNS 미연동)
 | POST | `/api/passes` | 체험권 발급 (등급+quota 검증, 쿠키 stopgap) |
 | POST | `/api/passes/lookup` | 코드/QR 기반 패스 조회 (사장님 스캔용) |
 | POST | `/api/passes/use` | 사용 처리 (status active→used, paidAmount 기록) |
-| POST | `/api/passes/review` | 리뷰 제출 (status used→review_submitted, 방문형 자가 점검 검증 / 기자단 본문/키워드 검증) |
+| POST | `/api/passes/review` | 리뷰 제출 (status active|used → review_submitted). 방문형은 자가 점검 4종, 기자단은 자가 점검 3종(광고/키워드/자료팩) + URL 검증 |
 | POST | `/api/passes/approve` | **410 Gone** — 사장님 직접 검수 폐기 |
 | GET | `/api/map/reverse-geocode?lat&lng` | GPS → 동네명 (Naver Reverse Geocode API 프록시) |
 | GET | `/api/map/static?...` | 정적 지도 이미지 프록시 |
@@ -580,3 +587,4 @@ N  검증 전 (SNS 미연동)
 |  |  | ⑩ 자동 검수 폐기 — 자가 점검 4종 체크박스 모델 |
 |  |  | ⑪ 8자 영문/숫자 단축 코드 (QR 보완) |
 |  |  | ⑫ 길찾기 FAB (Naver Map nmap:// + 웹 fallback) |
+| v2.1 | 2026-05-28 | 기자단 제출 폼 본문 입력 제거. 방문형과 동일하게 URL + 자가 점검(광고/키워드/자료팩 3종) 모델로 통일. `/api/passes/review`는 기자단도 `pressSelfCheck` 객체 + URL만 받음(`reviewBody`/`pressMinChars` 검증 제거). 기자단 브리프 "최소 본문 N자" → "제출 방식: 본인 채널에 작성 후 URL 제출"로 카피 변경. |

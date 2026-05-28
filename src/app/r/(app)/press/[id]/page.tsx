@@ -97,7 +97,7 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
         <div className="p-3.5 bg-surfaceSoft border border-hairline rounded-md text-[13px] leading-7 text-ink">
           <div><span className="text-muted font-semibold mr-2">위치</span>{store.area} · {store.category}</div>
           <div><span className="text-muted font-semibold mr-2">영업시간</span>{store.hours}</div>
-          <div><span className="text-muted font-semibold mr-2">최소 본문</span>{(c.pressMinChars || 1000).toLocaleString()}자 이상</div>
+          <div><span className="text-muted font-semibold mr-2">제출 방식</span>본인 채널에 작성 후 URL 제출</div>
         </div>
       </div>
 

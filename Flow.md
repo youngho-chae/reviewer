@@ -53,12 +53,12 @@
         │ │ /r/passes/[id]      │  │ /r/press/[id]/write │
         │ │ (R-04a / R-05)      │  │ ?pass=<id> (R-09)   │
         │ │ status 분기:        │  │ 자료팩 풀공개       │
-        │ │  active = QR티켓    │  │ + 키워드 체크       │
-        │ │  used = 리뷰폼      │  │ + 본문 minChars     │
-        │ │  review_submitted   │  │ + 광고문구 체크     │
-        │ │  completed/rejected │  └──────┬──────────────┘
-        │ │  expired            │         │
-        │ └──┬──────────────────┘         │
+        │ │  active = QR티켓    │  │ 채널 + 광고문구체크 │
+        │ │  used = 리뷰폼      │  │ + URL 제출          │
+        │ │  review_submitted   │  │ + 자가점검 3종      │
+        │ │  completed/rejected │  │  (광고/키워드/자료팩)│
+        │ │  expired            │  │ ※ 본문 입력 없음    │
+        │ └──┬──────────────────┘  └──────┬──────────────┘
         │    │ POST /api/passes/review    │
         │    └────────────┬───────────────┘
         │                 ▼
@@ -117,8 +117,9 @@
   │ (작성 중)    │
   └──────┬───────┘
          │ /r/press/[id]/write
-         │ POST /api/passes/review
-         │ (reviewBody minChars + 키워드 모두 포함)
+         │  본인 채널에 작성 후 URL만 제출
+         │  POST /api/passes/review
+         │  { reviewChannel, reviewUrl, pressSelfCheck:{ad,keywords,kit} }
          ▼
   ┌──────────────────┐
   │ review_submitted │ 운영팀 검수 (≤72h)
@@ -419,6 +420,7 @@ POST /api/passes → 응답 { passId }
 | 새 캠페인 폼 | Step 0~5 마법사 + 등급별 인원 4행 | 단일 폼, 제목 자동(매장명), 총 모집 1입력, 자동 분배, 메뉴 +추가 |
 | 멤버십 등급 범위 | Basic C·B / Standard C·B·A / Premium C·B·A·S | Basic A·B·C 균등 / Standard A우선 / Premium S우선 |
 | 광고 표시 / 자동 검수 | 자동 시스템 검수 + 사장님 확인 | 자가 점검 4종 체크박스 + 운영팀 표본 검수 |
+| 기자단 제출 폼 | 자료팩 + 키워드 + 본문(N자) + URL + 광고 체크 (자동 검수) | 채널 + URL + 자가 점검 3종(광고/키워드/자료팩). **본문 입력 UI 제거** — 본인 채널 게시 후 URL만 제출 |
 | 사장님 알림 카피 | "오늘 할 일 N건의 리뷰 검수 대기" | "최근 등록된 후기 N건이 운영팀 검수 중" |
 | SNS 인증 | OAuth + URL 하이브리드 (기획) | URL + 영향력 수치 직접 입력 (OAuth는 로드맵) |
 | 디자인 시스템 | 베이지(`paper`) + 검정(`ink`) | Apple 톤(Action Blue `#0066cc` + parchment `#f5f5f7` + SF Pro) |
