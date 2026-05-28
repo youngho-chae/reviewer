@@ -3,6 +3,8 @@ import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
 import { PLAN_POLICY } from "@/lib/plan-policy";
+import type { Campaign } from "@/lib/types";
+import CampaignTabs from "./CampaignTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -67,23 +69,19 @@ export default async function OwnerHome() {
         <h2 className="text-[18px] font-bold">진행 중 캠페인</h2>
         <Link href="/o/campaign/new" className="text-[13px] text-brand font-medium">+ 새 캠페인</Link>
       </div>
-      <div className="px-5 mt-3 space-y-3">
-        {myCampaigns.map((c) => {
+      {(() => {
+        const allowedGrades = new Set(PLAN_POLICY[me.plan].grades);
+        const renderCard = (c: Campaign) => {
           const store = db.stores.find((s) => s.id === c.storeId);
           const totalQuota = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
-          // 캠페인에 속한 본인 매장 패스 집계
           const campaignPasses = db.passes.filter((p) => p.campaignId === c.id);
-          // 방문 예정 = active (발급됨, 아직 사용 전)
           const pendingCnt = campaignPasses.filter((p) => p.status === "active").length;
-          // 방문 완료 = used/review_submitted/completed (사용 처리 완료된 누적)
           const visitedCnt = campaignPasses.filter((p) =>
             ["used", "review_submitted", "completed"].includes(p.status),
           ).length;
           const isPress = c.kind === "press";
           const pendingLabel = isPress ? "작성 중" : "방문 예정";
           const completedLabel = isPress ? "작성 완료" : "방문 완료";
-          // 현재 플랜에서 모집 가능한 등급 — 그 외(주로 S)는 자물쇠 표시
-          const allowedGrades = new Set(PLAN_POLICY[me.plan].grades);
           return (
             <div key={c.id} className="rounded-md border border-hairline p-4">
               <div className="flex items-start justify-between">
@@ -109,7 +107,6 @@ export default async function OwnerHome() {
                   );
                 })}
               </div>
-              {/* 모집 현황 뱃지 — 방문 예정 / 방문 완료 / 총 모집 인원 */}
               <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-parchment border border-hairline text-[12px] text-muted">
                 <span>{pendingLabel} <span className="font-semibold text-ink">{pendingCnt}명</span></span>
                 <span className="text-mutedSoft">/</span>
@@ -122,13 +119,41 @@ export default async function OwnerHome() {
               )}
             </div>
           );
-        })}
-        {myCampaigns.length === 0 && (
-          <Link href="/o/campaign/new" className="block rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
-            + 첫 캠페인 만들기
-          </Link>
-        )}
-      </div>
+        };
+
+        const visitCampaigns = myCampaigns.filter((c) => c.kind === "visit");
+        const pressCampaigns = myCampaigns.filter((c) => c.kind === "press");
+
+        const visitView = (
+          <div className="px-5 space-y-3">
+            {visitCampaigns.map(renderCard)}
+            {visitCampaigns.length === 0 && (
+              <Link href="/o/campaign/new" className="block rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
+                + 첫 체험단 캠페인 만들기
+              </Link>
+            )}
+          </div>
+        );
+        const pressView = (
+          <div className="px-5 space-y-3">
+            {pressCampaigns.map(renderCard)}
+            {pressCampaigns.length === 0 && (
+              <div className="rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
+                진행 중인 기자단 캠페인이 없습니다.
+              </div>
+            )}
+          </div>
+        );
+
+        return (
+          <CampaignTabs
+            visitCount={visitCampaigns.length}
+            pressCount={pressCampaigns.length}
+            visitView={visitView}
+            pressView={pressView}
+          />
+        );
+      })()}
     </div>
   );
 }
