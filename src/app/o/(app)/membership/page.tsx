@@ -5,9 +5,9 @@ import PlanPicker from "./PlanPicker";
 export const dynamic = "force-dynamic";
 
 const PLANS = [
-  { key: "Basic", price: "13,900", grades: "C·B", desc: "초기 진입 — 진성 리뷰어 확보" },
-  { key: "Standard", price: "25,900", grades: "C·B·A", desc: "안정적 캠페인 운영" },
-  { key: "Premium", price: "38,900", grades: "C·B·A·S", desc: "프리미엄 — 상위 등급 노출 포함" },
+  { key: "Basic", price: "13,900", grades: "A·B·C 랜덤", desc: "초기 진입 — 진성 리뷰어 확보" },
+  { key: "Standard", price: "25,900", grades: "A·B·C · A등급 우선", desc: "안정적 캠페인 운영" },
+  { key: "Premium", price: "38,900", grades: "S·A·B·C · S등급 우선", desc: "프리미엄 — 상위 등급 우선 노출" },
 ] as const;
 
 export default async function MembershipPage() {
@@ -23,7 +23,7 @@ export default async function MembershipPage() {
         <div className="text-[12px] text-white/70">현재 플랜</div>
         <div className="mt-1 text-[24px] font-bold">{me.plan}</div>
         <div className="text-[13px] text-white/80 mt-1">
-          ₩{({Basic:"13,900",Standard:"25,900",Premium:"38,900"} as any)[me.plan]}/월 · 활성 등급 {({Basic:"C·B",Standard:"C·B·A",Premium:"C·B·A·S"} as any)[me.plan]}
+          ₩{({Basic:"13,900",Standard:"25,900",Premium:"38,900"} as any)[me.plan]}/월 · {({Basic:"A·B·C 랜덤 노출",Standard:"A·B·C · A등급 우선",Premium:"S·A·B·C · S등급 우선"} as any)[me.plan]}
         </div>
       </div>
 
