@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import Icon from "@/components/Icon";
+import { PLAN_POLICY } from "@/lib/plan-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -68,8 +70,9 @@ export default async function OwnerHome() {
       <div className="px-5 mt-3 space-y-3">
         {myCampaigns.map((c) => {
           const store = db.stores.find((s) => s.id === c.storeId);
-          const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
           const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
+          // 현재 플랜에서 모집 가능한 등급 — 그 외(주로 S)는 자물쇠 표시
+          const allowedGrades = new Set(PLAN_POLICY[me.plan].grades);
           return (
             <div key={c.id} className="rounded-md border border-hairline p-4">
               <div className="flex items-start justify-between">
@@ -80,14 +83,25 @@ export default async function OwnerHome() {
                 <div className="text-[12px] text-muted">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
               </div>
               <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-                {(["S","A","B","C"] as const).map((g) => (
-                  <div key={g} className="rounded-sm bg-surfaceSoft py-2">
-                    <div className="text-[11px] text-muted">{g}</div>
-                    <div className="text-[13px] font-semibold">{c.used[g]}/{c.quota[g]}</div>
-                  </div>
-                ))}
+                {(["S","A","B","C"] as const).map((g) => {
+                  const locked = !allowedGrades.has(g);
+                  return (
+                    <div key={g} className={`rounded-sm py-2 ${locked ? "bg-parchment text-muted" : "bg-surfaceSoft"}`}>
+                      <div className="text-[11px] text-muted flex items-center justify-center gap-1">
+                        {g}
+                        {locked && <Icon name="lock" variant="bold" size={10} />}
+                      </div>
+                      <div className="text-[13px] font-semibold mt-0.5">
+                        {locked ? <span className="text-mutedSoft">—</span> : c.used[g]}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="mt-3 text-[12px] text-muted">총 {usedQ}/{totalQ}</div>
+              <div className="mt-3 text-[12px] text-muted">모집 {usedQ}명</div>
+              {!allowedGrades.has("S") && (
+                <div className="mt-1 text-[11px] text-muted">S등급 모집은 Premium 플랜부터 가능합니다.</div>
+              )}
             </div>
           );
         })}
