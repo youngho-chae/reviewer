@@ -251,7 +251,14 @@ N  검증 전 (SNS 미연동)
       - S/A/B/C 등급별 슬롯 — 실제 모집된 인원수만 단일 숫자로 표기
       - 현재 플랜에서 모집 불가한 등급(주로 S)은 자물쇠 아이콘 + `—` 표시 +
         하단 "S등급 모집은 Premium 플랜부터 가능합니다" 안내
-      - 하단 "모집 N명" 누적 카운터
+      - 모집 현황 뱃지 (rounded-pill, parchment 배경) — 3구간 카운터:
+        · visit: "방문 예정 N명 / 방문 완료 N명 / 총 모집 인원 N명"
+        · press: "작성 중 N명 / 작성 완료 N명 / 총 모집 인원 N명"
+        · N명 부분만 볼드(text-ink), 라벨·슬래시는 muted
+        · 분류: 방문 예정/작성 중 = pass.status === "active",
+                방문 완료/작성 완료 = used + review_submitted + completed,
+                총 모집 인원 = campaign 생성 시 totalQuota (S+A+B+C 합)
+        · expired·rejected는 두 분류 모두에서 제외
     · [+ 새 캠페인]
 
 [/o/campaign/new] 새 캠페인
@@ -594,3 +601,4 @@ N  검증 전 (SNS 미연동)
 |  |  | ⑫ 길찾기 FAB (Naver Map nmap:// + 웹 fallback) |
 | v2.1 | 2026-05-28 | 기자단 제출 폼 본문 입력 제거. 방문형과 동일하게 URL + 자가 점검(광고/키워드/자료팩 3종) 모델로 통일. `/api/passes/review`는 기자단도 `pressSelfCheck` 객체 + URL만 받음(`reviewBody`/`pressMinChars` 검증 제거). 기자단 브리프 "최소 본문 N자" → "제출 방식: 본인 채널에 작성 후 URL 제출"로 카피 변경. |
 | v2.2 | 2026-05-28 | 사장님 홈 진행 중 캠페인 카드 표기 단순화. 등급별 슬롯이 "사용/정원"이 아니라 실제 모집된 인원수만 노출(quota 비율 제거). 현재 플랜에서 모집 불가한 등급(Basic·Standard의 S)은 자물쇠 + `—`로 잠금 표시 + 카드 하단에 Premium 안내 카피. |
+| v2.3 | 2026-05-28 | 카드 하단 "모집 N명" 단일 카운터를 3구간 뱃지로 확장: "방문 예정 / 방문 완료 / 총 모집 인원" (visit) 또는 "작성 중 / 작성 완료 / 총 모집 인원" (press). 캠페인 kind에 따라 라벨 자동 분기, N명 부분만 볼드, parchment 배경 rounded-pill 단일 뱃지. expired·rejected는 카운트 제외. |

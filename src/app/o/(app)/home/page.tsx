@@ -70,7 +70,18 @@ export default async function OwnerHome() {
       <div className="px-5 mt-3 space-y-3">
         {myCampaigns.map((c) => {
           const store = db.stores.find((s) => s.id === c.storeId);
-          const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
+          const totalQuota = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
+          // 캠페인에 속한 본인 매장 패스 집계
+          const campaignPasses = db.passes.filter((p) => p.campaignId === c.id);
+          // 방문 예정 = active (발급됨, 아직 사용 전)
+          const pendingCnt = campaignPasses.filter((p) => p.status === "active").length;
+          // 방문 완료 = used/review_submitted/completed (사용 처리 완료된 누적)
+          const visitedCnt = campaignPasses.filter((p) =>
+            ["used", "review_submitted", "completed"].includes(p.status),
+          ).length;
+          const isPress = c.kind === "press";
+          const pendingLabel = isPress ? "작성 중" : "방문 예정";
+          const completedLabel = isPress ? "작성 완료" : "방문 완료";
           // 현재 플랜에서 모집 가능한 등급 — 그 외(주로 S)는 자물쇠 표시
           const allowedGrades = new Set(PLAN_POLICY[me.plan].grades);
           return (
@@ -98,9 +109,16 @@ export default async function OwnerHome() {
                   );
                 })}
               </div>
-              <div className="mt-3 text-[12px] text-muted">모집 {usedQ}명</div>
+              {/* 모집 현황 뱃지 — 방문 예정 / 방문 완료 / 총 모집 인원 */}
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-parchment border border-hairline text-[12px] text-muted">
+                <span>{pendingLabel} <span className="font-semibold text-ink">{pendingCnt}명</span></span>
+                <span className="text-mutedSoft">/</span>
+                <span>{completedLabel} <span className="font-semibold text-ink">{visitedCnt}명</span></span>
+                <span className="text-mutedSoft">/</span>
+                <span>총 모집 인원 <span className="font-semibold text-ink">{totalQuota}명</span></span>
+              </div>
               {!allowedGrades.has("S") && (
-                <div className="mt-1 text-[11px] text-muted">S등급 모집은 Premium 플랜부터 가능합니다.</div>
+                <div className="mt-2 text-[11px] text-muted">S등급 모집은 Premium 플랜부터 가능합니다.</div>
               )}
             </div>
           );

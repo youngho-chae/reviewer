@@ -422,6 +422,7 @@ POST /api/passes → 응답 { passId }
 | 광고 표시 / 자동 검수 | 자동 시스템 검수 + 사장님 확인 | 자가 점검 4종 체크박스 + 운영팀 표본 검수 |
 | 기자단 제출 폼 | 자료팩 + 키워드 + 본문(N자) + URL + 광고 체크 (자동 검수) | 채널 + URL + 자가 점검 3종(광고/키워드/자료팩). **본문 입력 UI 제거** — 본인 채널 게시 후 URL만 제출 |
 | 사장님 홈 캠페인 카드 등급 슬롯 | `S 0/2 · A 4/5 · B 5/10 · C 2/20` (used/quota 비율) + Premium에서만 S 활성 | 실제 모집된 인원수만 단일 숫자로 (`A 4 · B 5 · C 2`). Basic·Standard에서는 S 슬롯을 자물쇠 + `—`로 잠금 표시 + "S등급 모집은 Premium 플랜부터" 안내 |
+| 사장님 홈 캠페인 카드 모집 현황 | "총 N/N" 단일 카운터 | 3구간 뱃지: "방문 예정 N명 / 방문 완료 N명 / 총 모집 인원 N명" (press는 작성 중/작성 완료 라벨). 분류: 방문 예정 = active, 방문 완료 = used+review_submitted+completed. N명만 볼드, 단일 parchment pill |
 | 사장님 알림 카피 | "오늘 할 일 N건의 리뷰 검수 대기" | "최근 등록된 후기 N건이 운영팀 검수 중" |
 | SNS 인증 | OAuth + URL 하이브리드 (기획) | URL + 영향력 수치 직접 입력 (OAuth는 로드맵) |
 | 디자인 시스템 | 베이지(`paper`) + 검정(`ink`) | Apple 톤(Action Blue `#0066cc` + parchment `#f5f5f7` + SF Pro) |
