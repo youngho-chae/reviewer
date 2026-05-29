@@ -5,3 +5,4 @@ node_modules
 .env*.local
 catchpass-db.json
 next-env.d.ts
+tsconfig.tsbuildinfo
