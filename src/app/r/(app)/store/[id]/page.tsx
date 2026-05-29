@@ -129,12 +129,22 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
             <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">필수 주문 메뉴 (택 1)</h3>
             <div className="space-y-2">
               {c.requiredMenus.map((m, i) => (
-                <div key={m} className="bg-canvas border border-hairline rounded-md px-4 py-3 flex items-center gap-3">
-                  <span className="text-[12px] text-muted">{i + 1}</span>
-                  <span className="text-[15px] text-ink">{m}</span>
+                <div key={`${m.name}-${i}`} className="bg-canvas border border-hairline rounded-md px-4 py-3 flex items-center gap-3">
+                  <span className="text-[12px] text-muted w-4 flex-shrink-0">{i + 1}</span>
+                  <span className="text-[15px] text-ink flex-1">{m.name}</span>
+                  {typeof m.price === "number" && m.price > 0 && (
+                    <span className="text-[14px] font-medium text-ink tabular-nums">
+                      ₩{m.price.toLocaleString()}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
+            {c.requiredMenus.some((m) => typeof m.price === "number" && m.price > 0) && (
+              <p className="mt-3 text-[12px] text-muted leading-[1.5]">
+                위 메뉴 결제 금액 대비 지원금 <span className="text-ink font-medium">₩{c.supportAmount.toLocaleString()}</span>이 즉시 차감됩니다.
+              </p>
+            )}
           </>
         )}
       </section>

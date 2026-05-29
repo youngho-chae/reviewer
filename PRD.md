@@ -251,8 +251,9 @@ N  검증 전 (SNS 미연동)
     · 카드 (공통 레이아웃):
       - 매장명/캠페인 제목/D-N
       - S/A/B/C 등급별 슬롯 — 실제 모집된 인원수만 단일 숫자로 표기
-      - 현재 플랜에서 모집 불가한 등급(주로 S)은 자물쇠 아이콘 + `—` 표시 +
-        하단 "S등급 모집은 Premium 플랜부터 가능합니다" 안내
+        (모든 플랜이 S~C 모집 가능 — v2.5부터 등급 자물쇠 제거)
+      - 카드 하단 한 줄: "{Plan} 플랜: {priorityGrade}등급 우선 모집" 또는
+        "{Plan} 플랜: 등급 랜덤 노출" (Basic·Free)
       - 모집 현황 뱃지 (rounded-pill, parchment 배경) — 3구간 카운터:
         · visit: "방문 예정 N명 / 방문 완료 N명 / 총 모집 인원 N명"
         · press: "작성 중 N명 / 작성 완료 N명 / 총 모집 인원 N명"
@@ -268,15 +269,21 @@ N  검증 전 (SNS 미연동)
       "캠페인 제목은 매장명 「{매장명}」으로 자동 표기됩니다."
     · 진행 일수 / 지원금 (원)
     · 총 모집 인원 — 단일 입력
-      안내 카드: "{Plan} 플랜 · 등급 배분 자동 — Premium은 S우선, Standard는 A우선, Basic은 A·B·C 균등(랜덤)"
+      안내 카드:
+        - "{Plan} 플랜 · 등급 배분 자동" (priorityGrade 또는 랜덤 노출 안내)
+        - 이번 달 모집 현황 라인 — "{used}팀 사용 / 월 한도 {limit|무제한}"
+        - 잔여 모집 가능 인원 표시 + 입력값이 잔여를 초과하면 빨간 카피 + 제출 비활성
+        - 무제한이 아닌 플랜은 "월 모집 한도를 늘리려면 멤버십 업그레이드" 링크
     · 필수 채널 pill 토글 (네이버 블로그/인스타/유튜브/틱톡)
     · 필수 주문 메뉴 — '+ 메뉴 추가' 버튼으로 동적 인풋 추가/삭제
+      각 행: 메뉴명 인풋 + 가격(원) 인풋 (가격은 선택값)
     · 캠페인 설명 textarea
     · [캠페인 생성]
 
-→ POST /api/campaigns { storeId, days, supportAmount, totalQuota, requiredMenus[], requiredChannels[], description }
+→ POST /api/campaigns { storeId, days, supportAmount, totalQuota, requiredMenus[{name,price?}], requiredChannels[], description }
     · title은 store.name으로 자동 설정
     · distributeQuota(owner.plan, totalQuota)로 등급별 quota 자동 분배
+    · 월간 모집 팀 수 초과 시 400 — PLAN_POLICY[plan].monthlyTeamLimit 검증
     · 즉시 활성 → 체험자 /r/home 리스트에 노출
 ```
 
@@ -390,20 +397,27 @@ N  검증 전 (SNS 미연동)
 - 가입 시 [연동 없이 시작] 선택 → N등급 부여 (`/r/grade` 페이지에 안내)
 - 추후 MY → 채널 추가는 **로드맵** (현재는 가입 시점에만 입력)
 
-### 6.2 멤버십 플랜 + 등급 모집 자동 분배 (**핵심 변경**)
+### 6.2 멤버십 플랜 + 등급 모집 자동 분배 (**v2.5 정책 갱신**)
 
-| 플랜 | 가격(월) | 모집 가능 등급 | 분배 방식 |
-|---|---|---|---|
-| Basic | ₩13,900 | A·B·C | 균등 분배 (랜덤 노출) |
-| Standard ⭐ 가장 인기 | ₩25,900 | A·B·C | A 우선 (½) + 나머지 균등 |
-| Premium | ₩38,900 | S·A·B·C | S 우선 (½) + 나머지 균등 |
+| 플랜 | 가격(월) | 모집 가능 등급 | 우선 등급 | 월간 모집 한도 |
+|---|---|---|---|---|
+| Free | ₩0 | S·A·B·C | — (랜덤) | 월 5팀 |
+| Basic | ₩13,900 | S·A·B·C | — (랜덤) | 월 15팀 |
+| Standard | ₩25,900 | S·A·B·C | A 우선 (½) | 월 50팀 |
+| Premium | ₩38,900 | S·A·B·C | S 우선 (½) | 무제한 |
 
+- **모든 플랜이 S~C 등급을 모집**할 수 있음 (기존 "Premium 전용 S 등급" 제한 제거 — v2.5)
+- 플랜 차이는 ① 우선 등급(priorityGrade)과 ② **월간 모집 가능 팀 수**(monthlyTeamLimit)
 - 사장님은 **총 모집 인원**만 입력 (등급별 인원 수동 설정 폐기)
 - `distributeQuota(plan, total)` (`src/lib/plan-policy.ts`)이 정책에 따라 자동 분배
-  - 예: Standard·총 12명 → S=0, A=6, B=3, C=3
-  - 예: Premium·총 12명 → S=6, A=2, B=2, C=2
-  - 예: Basic·총 12명 → S=0, A=4, B=4, C=4
-- 멤버십 페이지에 정책 설명 노출 ("A·B·C 랜덤" / "A등급 우선" / "S등급 우선")
+  - 예: Premium·총 12명 → S=6, A=2, B=2, C=2 (S 우선 절반)
+  - 예: Standard·총 12명 → S=2, A=6, B=2, C=2 (A 우선 절반)
+  - 예: Basic·총 12명 → S=3, A=3, B=3, C=3 (균등)
+  - 예: Free·총 5명 → S=2, A=1, B=1, C=1 (균등, 잔여는 첫 등급부터)
+- 월간 한도 검증: `POST /api/campaigns`에서 현재 캘린더 월(`currentMonthStart`) 이후
+  생성된 캠페인의 quota 합 + 신규 totalQuota ≤ monthlyTeamLimit
+- 멤버십 페이지: 4개 플랜 카드(Free/Basic/Standard/Premium) + 정책 요약(우선 등급 · 월 한도)
+- 신규 사장님 가입 기본값: **Free 플랜** (기존 Standard 기본값 폐기)
 - 플랜 변경: `POST /api/owner/plan`. 진행 중 캠페인의 quota 재분배는 적용하지 않음(생성 시점 정책 고정)
 
 ### 6.3 체험권 유효기간 & 사용
@@ -473,7 +487,7 @@ N  검증 전 (SNS 미연동)
 
 ### 7.2 Owner
 - id, email, passwordHash, storeName, category, area
-- plan: "Basic" | "Standard" | "Premium"
+- plan: "Free" | "Basic" | "Standard" | "Premium" (가입 기본값 "Free")
 - createdAt
 
 ### 7.3 Store
@@ -486,7 +500,8 @@ N  검증 전 (SNS 미연동)
 - title (visit은 매장명 자동, press는 사용자 입력 또는 시드)
 - startAt, endAt, supportAmount
 - quota: { S, A, B, C }, used: { S, A, B, C }
-- requiredChannels: SnsKind[], requiredMenus: string[]
+- requiredChannels: SnsKind[]
+- requiredMenus: Array<{name: string, price?: number}> — v2.5부터 가격 선택 입력
 - description, createdAt
 - press 전용: pressKeywords[], pressMaterials[], pressMinChars (레거시 — 제출 검증에 미사용)
 
@@ -605,3 +620,4 @@ N  검증 전 (SNS 미연동)
 | v2.2 | 2026-05-28 | 사장님 홈 진행 중 캠페인 카드 표기 단순화. 등급별 슬롯이 "사용/정원"이 아니라 실제 모집된 인원수만 노출(quota 비율 제거). 현재 플랜에서 모집 불가한 등급(Basic·Standard의 S)은 자물쇠 + `—`로 잠금 표시 + 카드 하단에 Premium 안내 카피. |
 | v2.3 | 2026-05-28 | 카드 하단 "모집 N명" 단일 카운터를 3구간 뱃지로 확장: "방문 예정 / 방문 완료 / 총 모집 인원" (visit) 또는 "작성 중 / 작성 완료 / 총 모집 인원" (press). 캠페인 kind에 따라 라벨 자동 분기, N명 부분만 볼드, parchment 배경 rounded-pill 단일 뱃지. expired·rejected는 카운트 제외. |
 | v2.4 | 2026-05-28 | 사장님 홈 "진행 중 캠페인" 섹션을 [체험단 N] / [기자단 N] 탭으로 분리 (`CampaignTabs`). visit·press 카드가 한 리스트에 섞이지 않도록 정리. 빈 상태도 탭별 카피 분기 ("+ 첫 체험단 캠페인 만들기" / "진행 중인 기자단 캠페인이 없습니다"). |
+| v2.5 | 2026-05-29 | 멤버십·메뉴 가격 개편. ① 필수 주문 메뉴에 메뉴명과 함께 가격(원, 선택값) 입력 UI 추가 — 캠페인 생성 폼/체험자 매장 상세에 함께 노출되어 혜택 크기 비교 지원. `Campaign.requiredMenus` 타입을 `string[]` → `Array<{name, price?}>`로 변경, 시드/리프레시 핸들러 마이그레이션, SEED_VERSION 3으로 bump. ② 플랜 정책 재설계: 멤버십 등급별 모집 인원 차이가 아닌 **월간 모집 팀 수**로 차별화 — Free 5팀 / Basic 15팀 / Standard 50팀 / Premium 무제한. 가입 기본값 Standard → Free. ③ "Premium 전용 S 등급" 제한 폐기 — 모든 플랜이 S~C 모집 가능, priority 등급만 플랜별로 분기 (Premium S우선 / Standard A우선 / Basic·Free 랜덤). 사장님 홈 카드에서 S 등급 자물쇠 표시 제거. 캠페인 생성 폼에 이번 달 사용량/잔여 모집 가능 인원 카드 추가, 한도 초과 시 제출 비활성. |

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
@@ -12,6 +12,11 @@ interface OwnerStore {
   category?: string;
 }
 
+interface MenuRow {
+  name: string;
+  price: string; // 화면 입력값 — 숫자만 허용
+}
+
 const CHANNELS: { key: "naver_blog" | "instagram" | "youtube" | "tiktok"; label: string }[] = [
   { key: "naver_blog", label: "네이버 블로그" },
   { key: "instagram", label: "인스타" },
@@ -22,14 +27,16 @@ const CHANNELS: { key: "naver_blog" | "instagram" | "youtube" | "tiktok"; label:
 export default function NewCampaign() {
   const router = useRouter();
   const [stores, setStores] = useState<OwnerStore[]>([]);
-  const [plan, setPlan] = useState<PlanKey>("Basic");
+  const [plan, setPlan] = useState<PlanKey>("Free");
   const [storeId, setStoreId] = useState("");
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
-  const [menus, setMenus] = useState<string[]>([""]);
+  const [menus, setMenus] = useState<MenuRow[]>([{ name: "", price: "" }]);
   const [channels, setChannels] = useState<string[]>(["naver_blog", "instagram"]);
   const [description, setDescription] = useState("");
+  const [monthlyUsed, setMonthlyUsed] = useState(0);
+  const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,31 +47,46 @@ export default function NewCampaign() {
         setStores(d.stores || []);
         if (d.stores?.[0]) setStoreId(d.stores[0].id);
         if (d.owner?.plan) setPlan(d.owner.plan as PlanKey);
+        if (d.monthly) {
+          setMonthlyUsed(Number(d.monthly.used) || 0);
+          setMonthlyLimit(d.monthly.limit === null || d.monthly.limit === undefined ? null : Number(d.monthly.limit));
+        }
       });
   }, []);
 
   const policy = PLAN_POLICY[plan];
   const selectedStore = stores.find((s) => s.id === storeId);
+  const remaining = monthlyLimit === null ? null : Math.max(0, monthlyLimit - monthlyUsed);
+  const totalQuotaNum = Math.max(0, Number(totalQuota.replace(/\D/g, "")) || 0);
+  const overLimit = remaining !== null && totalQuotaNum > remaining;
+
+  const formattedMonthlyLimit = useMemo(() => (monthlyLimit === null ? "무제한" : `${monthlyLimit}팀`), [monthlyLimit]);
 
   function toggleChannel(c: string) {
     setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
   }
 
-  function setMenuAt(i: number, v: string) {
-    setMenus((arr) => arr.map((x, idx) => (idx === i ? v : x)));
+  function setMenuNameAt(i: number, v: string) {
+    setMenus((arr) => arr.map((row, idx) => (idx === i ? { ...row, name: v } : row)));
+  }
+  function setMenuPriceAt(i: number, v: string) {
+    const cleaned = v.replace(/\D/g, "");
+    setMenus((arr) => arr.map((row, idx) => (idx === i ? { ...row, price: cleaned } : row)));
   }
   function removeMenuAt(i: number) {
-    setMenus((arr) => (arr.length === 1 ? [""] : arr.filter((_, idx) => idx !== i)));
+    setMenus((arr) => (arr.length === 1 ? [{ name: "", price: "" }] : arr.filter((_, idx) => idx !== i)));
   }
   function addMenu() {
-    setMenus((arr) => [...arr, ""]);
+    setMenus((arr) => [...arr, { name: "", price: "" }]);
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    const cleanMenus = menus.map((m) => m.trim()).filter(Boolean);
+    const cleanMenus = menus
+      .map((m) => ({ name: m.name.trim(), price: m.price.trim() ? Number(m.price) : undefined }))
+      .filter((m) => m.name.length > 0);
     const res = await fetch("/api/campaigns", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -72,7 +94,7 @@ export default function NewCampaign() {
         storeId,
         days: Number(days),
         supportAmount: Number(supportAmount),
-        totalQuota: Number(totalQuota),
+        totalQuota: totalQuotaNum,
         requiredMenus: cleanMenus,
         requiredChannels: channels,
         description,
@@ -144,7 +166,7 @@ export default function NewCampaign() {
           </div>
         </section>
 
-        {/* 총 모집 인원 — 등급별이 아닌 통합 입력 */}
+        {/* 총 모집 인원 — 등급별이 아닌 통합 입력 + 월간 한도 안내 */}
         <section>
           <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">총 모집 인원</div>
           <input
@@ -152,7 +174,7 @@ export default function NewCampaign() {
             onChange={(e) => setTotalQuota(e.target.value.replace(/\D/g, ""))}
             inputMode="numeric"
             placeholder="예: 20"
-            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+            className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[15px] ${overLimit ? "border-error focus:border-error" : "border-hairline focus:border-brand"}`}
           />
           <div className="mt-3 rounded-md bg-parchment border border-hairline p-3.5">
             <div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.18em] text-muted">
@@ -161,13 +183,35 @@ export default function NewCampaign() {
               <span>등급 배분 자동</span>
             </div>
             <p className="mt-2 text-[13px] text-ink leading-[1.55]">
-              {policy.description}. 사장님은 총 모집 인원만 설정하시면, 멤버십 등급에 맞춰 높은 등급이 우선
-              모집되도록 시스템이 자동 배분합니다.
+              {policy.description}. 사장님은 총 모집 인원만 설정하시면, 멤버십 등급에 맞춰 시스템이 자동으로 등급을 배분합니다.
             </p>
             <p className="mt-1.5 text-[11px] text-muted">
               모집 가능 등급: {policy.grades.join(" · ")}
               {policy.priorityGrade ? ` (${policy.priorityGrade}등급 우선)` : " (랜덤 노출)"}
             </p>
+            <div className="mt-3 pt-3 border-t border-hairline flex items-center justify-between text-[12px]">
+              <span className="text-muted">이번 달 모집 현황</span>
+              <span className={overLimit ? "text-error font-semibold" : "text-ink font-medium"}>
+                {monthlyUsed}팀 사용
+                {monthlyLimit !== null && (
+                  <>
+                    {" / "}
+                    <span className="text-muted font-normal">월 한도 {formattedMonthlyLimit}</span>
+                  </>
+                )}
+              </span>
+            </div>
+            {remaining !== null && (
+              <p className="mt-1 text-[11px] text-muted">
+                이번 달 잔여 모집 가능 인원: <span className="text-ink font-medium">{remaining}팀</span>
+                {overLimit && <span className="text-error"> · 입력값이 한도를 초과합니다</span>}
+              </p>
+            )}
+            {monthlyLimit !== null && (
+              <p className="mt-2 text-[11px] text-muted leading-[1.5]">
+                월 모집 한도를 늘리려면 <Link href="/o/membership" className="text-brand font-medium">멤버십 업그레이드</Link>를 이용하세요.
+              </p>
+            )}
           </div>
         </section>
 
@@ -188,27 +232,37 @@ export default function NewCampaign() {
           </div>
         </section>
 
-        {/* 필수 주문 메뉴 — 동적 입력 */}
+        {/* 필수 주문 메뉴 — 동적 입력 (메뉴명 + 가격) */}
         <section>
           <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">필수 주문 메뉴</div>
           <p className="text-[12px] text-muted mb-3 leading-[1.5]">
-            체험자가 방문 시 주문해야 하는 메뉴 (택 1). 메뉴 한 줄에 하나씩 추가하세요.
+            체험자가 방문 시 주문해야 하는 메뉴 (택 1). 메뉴명과 함께 가격을 입력하면 체험자에게 함께 노출됩니다.
           </p>
           <div className="space-y-2">
             {menus.map((m, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="text-[11px] text-muted w-5 text-center">{i + 1}</span>
                 <input
-                  value={m}
-                  onChange={(e) => setMenuAt(i, e.target.value)}
+                  value={m.name}
+                  onChange={(e) => setMenuNameAt(i, e.target.value)}
                   placeholder={i === 0 ? "예: 트러플 파스타" : "메뉴명"}
                   className="flex-1 h-11 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
                 />
+                <div className="relative w-[120px]">
+                  <input
+                    value={m.price}
+                    onChange={(e) => setMenuPriceAt(i, e.target.value)}
+                    placeholder="가격"
+                    inputMode="numeric"
+                    className="w-full h-11 pl-3 pr-7 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] text-right"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] text-muted pointer-events-none">원</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeMenuAt(i)}
                   aria-label="메뉴 삭제"
-                  disabled={menus.length === 1 && !menus[0]}
+                  disabled={menus.length === 1 && !menus[0].name && !menus[0].price}
                   className="cp-action w-10 h-11 rounded-md border border-hairline grid place-items-center text-muted disabled:opacity-40"
                 >
                   <Icon name="x" variant="border" size={14} />
@@ -240,11 +294,11 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId}
+          disabled={busy || !storeId || overLimit}
           type="submit"
           className="w-full h-12 rounded-pill bg-brand text-white text-[16px] font-semibold disabled:opacity-50"
         >
-          {busy ? "생성 중..." : "캠페인 생성"}
+          {busy ? "생성 중..." : overLimit ? "월 한도 초과" : "캠페인 생성"}
         </button>
       </form>
     </div>

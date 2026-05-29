@@ -1,10 +1,14 @@
-// 사장님 멤버십 플랜에 따른 등급별 모집 quota 분배 정책.
-// 사장님은 총 모집 인원만 결정하고, 플랜별로 우선 등급이 자동 배분됨.
+// 사장님 멤버십 플랜 정책.
 //
-// 정책 요약
-// - Premium  : S·A·B·C — S 우선 (절반을 S에 배정 후 나머지 A·B·C에 분배)
-// - Standard : A·B·C   — A 우선 (절반을 A에 배정 후 나머지 B·C에 분배)
-// - Basic    : A·B·C   — 균등 분배 (랜덤 노출)
+// 모든 플랜은 S~C 등급을 모집할 수 있으며, 플랜에 따라 차이가 나는 것은
+//   1) 우선 모집 등급 (priorityGrade)
+//   2) 월간 모집 가능 팀 수 (monthlyTeamLimit) — 캠페인 총 모집 인원의 월간 합산 상한
+//
+// 플랜별 정책:
+// - Premium  : S 우선 노출 · 월간 무제한
+// - Standard : A 우선 노출 · 월간 50팀
+// - Basic    : 랜덤 노출    · 월간 15팀
+// - Free     : 랜덤 노출    · 월간 5팀 (멤버십 미가입 기본 상태)
 
 import { CampaignGradeQuota, Owner } from "./types";
 
@@ -14,6 +18,7 @@ export interface PlanGradePolicy {
   plan: PlanKey;
   grades: Array<"S" | "A" | "B" | "C">;
   priorityGrade: "S" | "A" | "B" | "C" | null; // null = 균등(랜덤)
+  monthlyTeamLimit: number | null; // null = 무제한
   description: string;
 }
 
@@ -22,25 +27,35 @@ export const PLAN_POLICY: Record<PlanKey, PlanGradePolicy> = {
     plan: "Premium",
     grades: ["S", "A", "B", "C"],
     priorityGrade: "S",
-    description: "S~C등급 모집 · S등급 우선 노출",
+    monthlyTeamLimit: null,
+    description: "S등급 우선 노출 · 월간 무제한 모집",
   },
   Standard: {
     plan: "Standard",
-    grades: ["A", "B", "C"],
+    grades: ["S", "A", "B", "C"],
     priorityGrade: "A",
-    description: "A~C등급 모집 · A등급 우선 노출",
+    monthlyTeamLimit: 50,
+    description: "A등급 우선 노출 · 월 50팀까지 모집",
   },
   Basic: {
     plan: "Basic",
-    grades: ["A", "B", "C"],
+    grades: ["S", "A", "B", "C"],
     priorityGrade: null,
-    description: "A~C등급 모집 · 랜덤 노출",
+    monthlyTeamLimit: 15,
+    description: "랜덤 노출 · 월 15팀까지 모집",
+  },
+  Free: {
+    plan: "Free",
+    grades: ["S", "A", "B", "C"],
+    priorityGrade: null,
+    monthlyTeamLimit: 5,
+    description: "랜덤 노출 · 월 5팀까지 모집 (멤버십 미가입)",
   },
 };
 
 // 총 모집 인원을 정책에 맞춰 등급별 quota로 분배.
-// - priorityGrade가 있으면: ceil(total/2)를 우선 등급에, 나머지를 나머지 등급에 균등 + 우선 등급에 잔여를 추가
-// - priorityGrade가 null이면: 균등 분배 (남는 1~2명은 첫 등급부터 채움)
+// - priorityGrade가 있으면: ceil(total/2)를 우선 등급에, 나머지를 나머지 등급에 균등 분배
+// - priorityGrade가 null이면: 균등 분배 (남는 인원은 첫 등급부터 채움)
 export function distributeQuota(plan: PlanKey, total: number): CampaignGradeQuota {
   const policy = PLAN_POLICY[plan];
   const q: CampaignGradeQuota = { S: 0, A: 0, B: 0, C: 0 };
@@ -67,4 +82,10 @@ export function distributeQuota(plan: PlanKey, total: number): CampaignGradeQuot
     }
   }
   return q;
+}
+
+// 이번 달(현재 캘린더 월) 시작 시각.
+export function currentMonthStart(now: number = Date.now()): number {
+  const d = new Date(now);
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 }

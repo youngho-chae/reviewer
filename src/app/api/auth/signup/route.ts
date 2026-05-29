@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       storeName: body.storeName,
       category: body.category,
       area: body.area,
-      plan: "Standard",
+      plan: "Free",
       createdAt: Date.now(),
     };
     db.owners.push(owner);

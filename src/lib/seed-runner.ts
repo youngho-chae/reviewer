@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { Campaign, DBShape, Owner, Pass, Reviewer, SnsKind, Store } from "./types";
+import { Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
 
 // 결정론적 ID — 서버리스 인스턴스 간 동일 ID 보장
 function detId(prefix: string, seed: string): string {
@@ -323,6 +323,38 @@ function pickMenus(pool: string[], seed: string): string[] {
   return shuffled.slice(0, 2);
 }
 
+// 데모용 가격 시드 — 카테고리별 합리적 범위에서 시드 기반으로 결정.
+function seededPrice(seed: string, base: number, span: number): number {
+  const h = crypto.createHash("sha256").update(seed).digest();
+  const offset = h[0] % Math.max(1, Math.floor(span / 1000));
+  const price = base + offset * 1000;
+  return Math.round(price / 1000) * 1000; // 천원 단위 반올림
+}
+
+function priceForCategory(category: string, menuName: string): number {
+  const seed = `${category}::${menuName}`;
+  switch (category) {
+    case "양식": return seededPrice(seed, 22000, 18000);
+    case "한식": return seededPrice(seed, 18000, 22000);
+    case "일식": return seededPrice(seed, 28000, 32000);
+    case "카페": return seededPrice(seed, 6500, 5500);
+    case "주점": return seededPrice(seed, 24000, 26000);
+    case "분식": return seededPrice(seed, 7500, 6500);
+    case "디저트": return seededPrice(seed, 8500, 7500);
+    case "미용실": return seededPrice(seed, 35000, 65000);
+    case "네일아트": return seededPrice(seed, 45000, 35000);
+    case "피부과": return seededPrice(seed, 150000, 250000);
+    case "치과": return seededPrice(seed, 80000, 80000);
+    case "한의원": return seededPrice(seed, 50000, 50000);
+    case "애견미용": return seededPrice(seed, 45000, 35000);
+    case "동물병원": return seededPrice(seed, 80000, 100000);
+    case "PT": return seededPrice(seed, 70000, 80000);
+    case "필라테스": return seededPrice(seed, 55000, 45000);
+    case "마사지": return seededPrice(seed, 70000, 50000);
+    default: return seededPrice(seed, 25000, 25000);
+  }
+}
+
 export function runSeed(db: DBShape) {
   if (db.seeded) return;
   db.seeded = true;
@@ -362,7 +394,13 @@ export function runSeed(db: DBShape) {
     };
     db.stores.push(store);
 
-    const menus = pickMenus(s.menus, s.naverPlaceId);
+    const menuNames = pickMenus(s.menus, s.naverPlaceId);
+    const menus: RequiredMenu[] = menuNames.map((name) => ({
+      name,
+      price: priceForCategory(s.category, name),
+    }));
+    // 시드 캠페인은 지난 달에 생성된 것으로 처리 → 이번 달 monthlyTeamLimit 검증에 포함되지 않음.
+    // (실 데모에서 신규 캠페인 생성 / 월 한도 기능을 테스트할 수 있도록)
     const campaign: Campaign = {
       id: detId("cp", `${s.naverPlaceId}-default`),
       storeId,
@@ -375,8 +413,8 @@ export function runSeed(db: DBShape) {
       used: { S: 0, A: 0, B: 0, C: 0 },
       requiredChannels: s.requiredChannels,
       requiredMenus: menus,
-      description: s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menus.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
-      createdAt: now - 1000 * 60 * 60 * 24 * 2,
+      description: s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menuNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
+      createdAt: now - 1000 * 60 * 60 * 24 * 35,
     };
     db.campaigns.push(campaign);
   }
@@ -398,7 +436,7 @@ export function runSeed(db: DBShape) {
       requiredChannels: ["naver_blog", "instagram"],
       requiredMenus: [],
       description: `${pressStore.name}의 신메뉴 출시 보도용 콘텐츠를 작성해주세요. 자료팩(제품 사진/매장 사진/브랜드 스토리)을 참고하여 자연스러운 후기 형태로 작성해주시면 됩니다.`,
-      createdAt: now - 1000 * 60 * 60 * 24,
+      createdAt: now - 1000 * 60 * 60 * 24 * 35,
       pressKeywords: ["가을 신메뉴", "프리미엄 다이닝", "한남 맛집"],
       pressMaterials: [
         "신메뉴 상세 사진 8장 (.zip)",
@@ -425,7 +463,7 @@ export function runSeed(db: DBShape) {
       requiredChannels: ["instagram", "tiktok"],
       requiredMenus: [],
       description: `시즌 한정 컬렉션의 화보 컷을 활용해 SNS 콘텐츠를 작성합니다. 자료팩에서 디자인 14종 고해상도 사진과 브랜드 톤매뉴얼을 받아보실 수 있습니다.`,
-      createdAt: now - 1000 * 60 * 60 * 24 * 2,
+      createdAt: now - 1000 * 60 * 60 * 24 * 35,
       pressKeywords: ["압구정 네일", "시즌 컬렉션", "프리미엄 네일아트"],
       pressMaterials: [
         "디자인 14종 화보 (.zip)",

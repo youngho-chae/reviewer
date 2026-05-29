@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Plan = "Basic" | "Standard" | "Premium";
+type Plan = "Free" | "Basic" | "Standard" | "Premium";
 
 export default function PlanPicker({ current }: { current: Plan }) {
   const router = useRouter();
@@ -31,13 +31,13 @@ export default function PlanPicker({ current }: { current: Plan }) {
   return (
     <div>
       <div className="text-[13px] font-semibold mb-2">플랜 변경</div>
-      <div className="flex gap-2">
-        {(["Basic", "Standard", "Premium"] as Plan[]).map((p) => (
+      <div className="grid grid-cols-4 gap-2">
+        {(["Free", "Basic", "Standard", "Premium"] as Plan[]).map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setPlan(p)}
-            className={`flex-1 h-11 rounded-sm text-[13px] font-medium border ${plan === p ? "bg-ink text-white border-ink" : "border-hairline"}`}
+            className={`h-11 rounded-sm text-[13px] font-medium border ${plan === p ? "bg-ink text-white border-ink" : "border-hairline"}`}
           >
             {p}
           </button>

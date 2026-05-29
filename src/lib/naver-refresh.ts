@@ -55,9 +55,12 @@ export async function refreshAllStores(db: DBShape): Promise<number> {
     // 캠페인 필수 메뉴를 실제 메뉴에서 랜덤 2개
     const campaign = db.campaigns.find((c) => c.storeId === store.id);
     if (campaign && scraped.menus && scraped.menus.length > 0) {
-      campaign.requiredMenus = pickRandomMenus(scraped.menus, 2);
+      const pickedNames = pickRandomMenus(scraped.menus, 2);
+      // 기존 가격이 있으면 유지, 없으면 undefined
+      const prevByName = new Map(campaign.requiredMenus.map((m) => [m.name, m.price]));
+      campaign.requiredMenus = pickedNames.map((name) => ({ name, price: prevByName.get(name) }));
       campaign.title = `${store.name} 체험단`;
-      campaign.description = `${store.name}에서 시그니처 메뉴(${campaign.requiredMenus.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`;
+      campaign.description = `${store.name}에서 시그니처 메뉴(${pickedNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`;
     }
     updated++;
   }

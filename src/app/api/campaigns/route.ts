@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
-import { Campaign, SnsKind } from "@/lib/types";
-import { distributeQuota } from "@/lib/plan-policy";
+import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
+import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 
 export const runtime = "nodejs";
 
@@ -20,8 +20,45 @@ export async function POST(req: NextRequest) {
   const totalQuota = Math.max(0, Math.floor(Number(body.totalQuota) || 0));
   if (totalQuota <= 0) return NextResponse.json({ error: "모집 인원을 1명 이상 입력해주세요" }, { status: 400 });
 
-  const requiredMenus = Array.isArray(body.requiredMenus)
-    ? body.requiredMenus.map((m: unknown) => String(m).trim()).filter(Boolean)
+  // 월간 모집 팀 수 정책 검증
+  const policy = PLAN_POLICY[owner.plan];
+  if (policy.monthlyTeamLimit !== null) {
+    const monthStart = currentMonthStart();
+    const ownerStoreIds = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
+    const monthlyUsed = db.campaigns
+      .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
+      .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
+    const remaining = policy.monthlyTeamLimit - monthlyUsed;
+    if (totalQuota > remaining) {
+      return NextResponse.json(
+        {
+          error: `${owner.plan} 플랜은 월 ${policy.monthlyTeamLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용 · 잔여 ${Math.max(0, remaining)}팀).`,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  // 필수 주문 메뉴 — { name, price? } 형태로 정규화
+  const requiredMenus: RequiredMenu[] = Array.isArray(body.requiredMenus)
+    ? body.requiredMenus
+        .map((m: unknown) => {
+          if (typeof m === "string") return { name: m.trim() };
+          if (m && typeof m === "object") {
+            const obj = m as { name?: unknown; price?: unknown };
+            const name = String(obj.name ?? "").trim();
+            const priceNum =
+              typeof obj.price === "number"
+                ? obj.price
+                : typeof obj.price === "string" && obj.price.trim() !== ""
+                  ? Number(String(obj.price).replace(/\D/g, ""))
+                  : NaN;
+            const price = Number.isFinite(priceNum) && priceNum > 0 ? priceNum : undefined;
+            return { name, price };
+          }
+          return { name: "" };
+        })
+        .filter((m: RequiredMenu) => m.name.length > 0)
     : [];
 
   const now = Date.now();

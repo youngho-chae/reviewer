@@ -28,7 +28,7 @@ export interface Owner {
   storeName: string;
   category: string;
   area: string;
-  plan: "Basic" | "Standard" | "Premium";
+  plan: "Free" | "Basic" | "Standard" | "Premium";
   createdAt: number;
 }
 
@@ -58,6 +58,13 @@ export interface CampaignGradeQuota {
   C: number;
 }
 
+// 필수 주문 메뉴 — 사장님이 메뉴명과 함께 가격을 입력할 수 있음.
+// 가격은 체험자에게 노출되어 받게 될 혜택의 크기를 확인하는 용도.
+export interface RequiredMenu {
+  name: string;
+  price?: number; // 원 단위 (선택)
+}
+
 export interface Campaign {
   id: string;
   storeId: string;
@@ -69,7 +76,7 @@ export interface Campaign {
   quota: CampaignGradeQuota;
   used: { S: number; A: number; B: number; C: number };
   requiredChannels: SnsKind[];
-  requiredMenus: string[];
+  requiredMenus: RequiredMenu[];
   description: string;
   createdAt: number;
   // 기자단 전용

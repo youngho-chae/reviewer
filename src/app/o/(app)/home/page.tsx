@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import Icon from "@/components/Icon";
 import { PLAN_POLICY } from "@/lib/plan-policy";
 import type { Campaign } from "@/lib/types";
 import CampaignTabs from "./CampaignTabs";
@@ -39,7 +38,9 @@ export default async function OwnerHome() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[11px] text-muted">현재 플랜</div>
-            <div className="text-[16px] font-semibold mt-0.5">{me.plan} · 무제한 모집</div>
+            <div className="text-[16px] font-semibold mt-0.5">
+              {me.plan} · {PLAN_POLICY[me.plan].monthlyTeamLimit === null ? "무제한 모집" : `월 ${PLAN_POLICY[me.plan].monthlyTeamLimit}팀 모집`}
+            </div>
           </div>
           <Link href="/o/me" className="text-[13px] text-muted">관리 →</Link>
         </div>
@@ -70,7 +71,7 @@ export default async function OwnerHome() {
         <Link href="/o/campaign/new" className="text-[13px] text-brand font-medium">+ 새 캠페인</Link>
       </div>
       {(() => {
-        const allowedGrades = new Set(PLAN_POLICY[me.plan].grades);
+        // 모든 플랜이 S~C 모집 가능. 자물쇠 없음.
         const renderCard = (c: Campaign) => {
           const store = db.stores.find((s) => s.id === c.storeId);
           const totalQuota = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
@@ -92,20 +93,12 @@ export default async function OwnerHome() {
                 <div className="text-[12px] text-muted">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
               </div>
               <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-                {(["S","A","B","C"] as const).map((g) => {
-                  const locked = !allowedGrades.has(g);
-                  return (
-                    <div key={g} className={`rounded-sm py-2 ${locked ? "bg-parchment text-muted" : "bg-surfaceSoft"}`}>
-                      <div className="text-[11px] text-muted flex items-center justify-center gap-1">
-                        {g}
-                        {locked && <Icon name="lock" variant="bold" size={10} />}
-                      </div>
-                      <div className="text-[13px] font-semibold mt-0.5">
-                        {locked ? <span className="text-mutedSoft">—</span> : c.used[g]}
-                      </div>
-                    </div>
-                  );
-                })}
+                {(["S","A","B","C"] as const).map((g) => (
+                  <div key={g} className="rounded-sm py-2 bg-surfaceSoft">
+                    <div className="text-[11px] text-muted">{g}</div>
+                    <div className="text-[13px] font-semibold mt-0.5">{c.used[g]}</div>
+                  </div>
+                ))}
               </div>
               <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-parchment border border-hairline text-[12px] text-muted">
                 <span>{pendingLabel} <span className="font-semibold text-ink">{pendingCnt}명</span></span>
@@ -114,9 +107,19 @@ export default async function OwnerHome() {
                 <span className="text-mutedSoft">/</span>
                 <span>총 모집 인원 <span className="font-semibold text-ink">{totalQuota}명</span></span>
               </div>
-              {!allowedGrades.has("S") && (
-                <div className="mt-2 text-[11px] text-muted">S등급 모집은 Premium 플랜부터 가능합니다.</div>
-              )}
+              {(() => {
+                const policy = PLAN_POLICY[me.plan];
+                if (policy.priorityGrade) {
+                  return (
+                    <div className="mt-2 text-[11px] text-muted">
+                      {me.plan} 플랜: {policy.priorityGrade}등급 우선 모집.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="mt-2 text-[11px] text-muted">{me.plan} 플랜: 등급 랜덤 노출.</div>
+                );
+              })()}
             </div>
           );
         };

@@ -78,8 +78,11 @@ export async function GET(req: NextRequest) {
     // 캠페인의 필수 메뉴를 실제 매장 메뉴에서 랜덤 2개로 갱신
     const campaign = db.campaigns.find((c) => c.storeId === store.id);
     if (campaign && scraped.menus && scraped.menus.length > 0) {
-      campaign.requiredMenus = pickMenusRandom(scraped.menus, 2);
-      campaign.description = `${store.name}에서 시그니처 메뉴(${campaign.requiredMenus.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`;
+      const pickedNames = pickMenusRandom(scraped.menus, 2);
+      // 기존 가격이 있으면 유지, 없으면 undefined
+      const prevByName = new Map(campaign.requiredMenus.map((m) => [m.name, m.price]));
+      campaign.requiredMenus = pickedNames.map((name) => ({ name, price: prevByName.get(name) }));
+      campaign.description = `${store.name}에서 시그니처 메뉴(${pickedNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`;
       campaign.title = `${store.name} 체험단`;
     }
 
@@ -91,7 +94,7 @@ export async function GET(req: NextRequest) {
       address: store.address,
       lat: store.lat,
       lng: store.lng,
-      menus: campaign?.requiredMenus,
+      menus: campaign?.requiredMenus?.map((m) => m.name),
     });
   }
 

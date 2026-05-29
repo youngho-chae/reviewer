@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "owner") return NextResponse.json({ error: "사장님 로그인 필요" }, { status: 401 });
   const { plan } = await req.json();
-  if (!["Basic", "Standard", "Premium"].includes(plan)) {
+  if (!["Free", "Basic", "Standard", "Premium"].includes(plan)) {
     return NextResponse.json({ error: "잘못된 플랜" }, { status: 400 });
   }
   const db = await getDBAsync();

@@ -1,14 +1,29 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import PlanPicker from "./PlanPicker";
+import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
 
 export const dynamic = "force-dynamic";
 
-const PLANS = [
-  { key: "Basic", price: "13,900", grades: "A·B·C 랜덤", desc: "초기 진입 — 진성 리뷰어 확보" },
-  { key: "Standard", price: "25,900", grades: "A·B·C · A등급 우선", desc: "안정적 캠페인 운영" },
-  { key: "Premium", price: "38,900", grades: "S·A·B·C · S등급 우선", desc: "프리미엄 — 상위 등급 우선 노출" },
-] as const;
+interface PlanRow {
+  key: PlanKey;
+  price: string;
+  desc: string;
+}
+
+const PLANS: PlanRow[] = [
+  { key: "Free", price: "0", desc: "멤버십 미가입 — 최소 운영" },
+  { key: "Basic", price: "13,900", desc: "초기 진입 — 진성 리뷰어 확보" },
+  { key: "Standard", price: "25,900", desc: "안정적 캠페인 운영" },
+  { key: "Premium", price: "38,900", desc: "무제한 모집 — 상위 등급 우선 노출" },
+];
+
+function planSummary(plan: PlanKey): string {
+  const p = PLAN_POLICY[plan];
+  const grade = p.priorityGrade ? `${p.priorityGrade}등급 우선` : "등급 랜덤";
+  const limit = p.monthlyTeamLimit === null ? "월 무제한" : `월 ${p.monthlyTeamLimit}팀`;
+  return `${grade} · ${limit}`;
+}
 
 export default async function MembershipPage() {
   const me = await getCurrentOwner();
@@ -23,7 +38,7 @@ export default async function MembershipPage() {
         <div className="text-[12px] text-white/70">현재 플랜</div>
         <div className="mt-1 text-[24px] font-bold">{me.plan}</div>
         <div className="text-[13px] text-white/80 mt-1">
-          ₩{({Basic:"13,900",Standard:"25,900",Premium:"38,900"} as any)[me.plan]}/월 · {({Basic:"A·B·C 랜덤 노출",Standard:"A·B·C · A등급 우선",Premium:"S·A·B·C · S등급 우선"} as any)[me.plan]}
+          ₩{(PLANS.find((p) => p.key === me.plan)?.price ?? "0")}/월 · {planSummary(me.plan)}
         </div>
       </div>
 
@@ -43,7 +58,8 @@ export default async function MembershipPage() {
                   <div className="text-[11px] text-muted">/월</div>
                 </div>
               </div>
-              <div className="mt-3 text-[12px] text-body">활성 등급: <span className="font-medium">{p.grades}</span></div>
+              <div className="mt-3 text-[12px] text-body">정책: <span className="font-medium">{planSummary(p.key)}</span></div>
+              <div className="mt-1 text-[11px] text-muted">모집 등급 S·A·B·C 전등급</div>
               {isCurrent && <div className="mt-2 text-[12px] text-ink font-medium">✓ 현재 사용 중</div>}
             </div>
           );
