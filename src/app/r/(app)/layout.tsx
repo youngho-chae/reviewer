@@ -11,8 +11,8 @@ export default async function ReviewerAppLayout({ children }: { children: React.
       <BottomNav
         items={[
           { href: "/r/home", label: "홈", icon: "home" },
-          { href: "/r/passes", label: "내 체험권", icon: "ticket" },
-          { href: "/r/grade", label: "등급", icon: "trophy" },
+          { href: "/r/explore", label: "탐색", icon: "navigation" },
+          { href: "/r/rewards", label: "혜택", icon: "ticket" },
           { href: "/r/me", label: "MY", icon: "user" },
         ]}
       />
