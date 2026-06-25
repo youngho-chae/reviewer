@@ -86,14 +86,17 @@ function walkMinutes(storeId: string): number {
   return 3 + (h % 10);
 }
 
-// 카드 라벨 칩 결정 (NEW / 곧 마감 / 이번 주만)
+// 카드 라벨 칩 결정 (신상 / 곧 마감 / 이번 주만) — B급 톤
 function cardLabel(card: ExploreStoreCard): { text: string; tone: "new" | "closing" | "week" } | null {
   const now = Date.now();
   if (card.endAt - now < DAY) return { text: "곧 마감", tone: "closing" };
-  if (now - card.createdAt < SEVEN_DAYS) return { text: "NEW", tone: "new" };
+  if (now - card.createdAt < SEVEN_DAYS) return { text: "신상", tone: "new" };
   if (card.endAt - now < SEVEN_DAYS) return { text: "이번 주만", tone: "week" };
   return null;
 }
+
+// 곧 마감 카드용 B급 한 줄 카피 (txt 미팅 산출물)
+const CLOSING_TEASE = "지금 안 가면 남들 인스타에서 보게 됨";
 
 export default function ExploreView({
   cards,
@@ -166,14 +169,14 @@ export default function ExploreView({
         <div>
           {topBar}
 
-          {/* 헤더 — 이미지 2 상단 영역 */}
+          {/* 헤더 — B급 톤 */}
           <div className="px-6 pt-6">
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-[14px] text-muted">오늘 참여 가능한 체험</div>
-                <div className="font-display text-[36px] leading-[1.05] text-ink mt-1">
+                <div className="text-[12px] text-muted tracking-[-0.011em]">오늘 가볼 만한 곳</div>
+                <div className="font-display text-[40px] leading-[1.02] text-ink mt-1 tracking-[-0.028em]">
                   <span className="text-brand">{stats.total}</span>
-                  <span className="text-[24px] ml-1 text-ink2">개</span>
+                  <span className="text-[22px] ml-1 text-ink2">곳 발견</span>
                 </div>
               </div>
               <Link
@@ -185,7 +188,7 @@ export default function ExploreView({
                 </span>
                 <div className="text-left">
                   <div className="text-[11px] text-muted leading-none">내 체험권</div>
-                  <div className="text-[12px] font-semibold text-ink leading-tight mt-0.5">사용 가능 {activePassCount}개</div>
+                  <div className="text-[12px] font-semibold text-ink leading-tight mt-0.5">쓸 수 있는 거 {activePassCount}장</div>
                 </div>
                 <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
               </Link>
@@ -220,32 +223,32 @@ export default function ExploreView({
             </div>
           </div>
 
-          {/* 3-stat row */}
+          {/* 3-stat row — B급 톤 */}
           <div className="px-6 mt-4 grid grid-cols-3 gap-2">
             <div className="rounded-md border border-hairline bg-surfaceSoft px-3 py-3">
               <div className="text-[11px] text-muted flex items-center gap-1">
-                곧 마감 체험 <span aria-hidden>⏰</span>
+                지금 안 가면 <span aria-hidden>⏰</span>
               </div>
-              <div className="text-[22px] font-semibold text-ink leading-tight mt-1">
-                {stats.closing}<span className="text-[14px] text-muted ml-0.5">개</span>
+              <div className="text-[22px] font-bold text-ink leading-tight mt-1">
+                {stats.closing}<span className="text-[14px] text-muted ml-0.5">곳</span>
               </div>
-              <div className="text-[11px] text-muted mt-0.5">오늘 마감 {stats.closing}개</div>
+              <div className="text-[11px] text-error mt-0.5">곧 마감</div>
             </div>
             <div className="rounded-md border border-hairline bg-surfaceSoft px-3 py-3">
               <div className="text-[11px] text-muted flex items-center gap-1">
-                신규 체험 <span className="inline-flex items-center px-1.5 rounded-pill bg-brand/12 text-brand text-[9px] font-semibold">NEW</span>
+                방금 등록 <span className="inline-flex items-center px-1.5 rounded-pill bg-brand/12 text-brand text-[9px] font-bold">신상</span>
               </div>
-              <div className="text-[22px] font-semibold text-ink leading-tight mt-1">
-                {stats.newer}<span className="text-[14px] text-muted ml-0.5">개</span>
+              <div className="text-[22px] font-bold text-ink leading-tight mt-1">
+                {stats.newer}<span className="text-[14px] text-muted ml-0.5">곳</span>
               </div>
-              <div className="text-[11px] text-muted mt-0.5">최근 7일 이내</div>
+              <div className="text-[11px] text-muted mt-0.5">7일 이내 오픈</div>
             </div>
             <div className="rounded-md border border-hairline bg-surfaceSoft px-3 py-3">
-              <div className="text-[11px] text-muted">평균 지원금</div>
-              <div className="text-[18px] font-semibold text-ink leading-tight mt-1">
+              <div className="text-[11px] text-muted">평균 받아요</div>
+              <div className="text-[18px] font-bold text-ink leading-tight mt-1">
                 ₩{stats.avgSupport.toLocaleString()}
               </div>
-              <div className="text-[11px] text-muted mt-0.5">전체 평균</div>
+              <div className="text-[11px] text-success mt-0.5">체험 지원</div>
             </div>
           </div>
 
@@ -298,11 +301,11 @@ export default function ExploreView({
                   className="text-[12px] bg-transparent text-muted focus:outline-none"
                   aria-label="정렬"
                 >
-                  <option value="recommended">추천순 ▼</option>
-                  <option value="distance">거리순 ▼</option>
-                  <option value="new">신규순 ▼</option>
-                  <option value="topSupport">지원금 높은순 ▼</option>
-                  <option value="closing">마감임박순 ▼</option>
+                  <option value="recommended">우리 추천 ▼</option>
+                  <option value="distance">가까운 순 ▼</option>
+                  <option value="new">방금 등록 ▼</option>
+                  <option value="topSupport">많이 받는 순 ▼</option>
+                  <option value="closing">곧 마감 ▼</option>
                 </select>
                 <div className="inline-flex bg-parchment rounded-pill p-1 border border-hairline">
                   <button
@@ -335,7 +338,7 @@ export default function ExploreView({
                 )}
                 {filtered.length === 0 && (
                   <div className={`py-16 text-center text-muted text-[14px] ${layout === "grid" ? "col-span-2" : ""}`}>
-                    {search ? `"${search}"에 일치하는 매장이 없어요` : "현재 모집 중인 캠페인이 없어요"}
+                    {search ? `"${search}" 검색 결과 0곳 — 다른 동네 찾아볼까요?` : "지금은 동네가 잠깐 쉬는 중"}
                   </div>
                 )}
               </div>
@@ -349,7 +352,7 @@ export default function ExploreView({
                   <Icon name="ticket" variant="bold" size={18} />
                 </span>
                 <div className="flex-1">
-                  <div className="text-[13px] font-semibold text-ink">등급 올리고 더 많은 체험 혜택 받으세요!</div>
+                  <div className="text-[13px] font-semibold text-ink">A등급은 진짜 어디 가는지 궁금하지 않아요?</div>
                   <div className="text-[11px] text-muted mt-0.5">등급별 혜택과 조건 확인하기</div>
                 </div>
                 <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
@@ -512,7 +515,7 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
   return (
     <Link
       href={card.accessible ? `/r/store/${card.storeId}?campaign=${card.campaignId}` : "/r/grade"}
-      className={`cp-action flex bg-canvas border border-hairline rounded-md overflow-hidden ${card.accessible ? "" : "opacity-50"}`}
+      className={`cp-action flex bg-canvas border border-hairline rounded-md overflow-hidden ${card.accessible ? "" : "opacity-60"}`}
     >
       <div className="relative w-[104px] h-[104px] shrink-0 bg-parchment">
         <Image
@@ -523,9 +526,9 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
           className="object-cover"
         />
         {label && (
-          <div className="absolute top-1.5 left-1.5">
+          <div className="absolute top-1.5 left-1.5" style={{ transform: "rotate(-4deg)" }}>
             <span
-              className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-[-0.01em] shadow-sm ${
                 label.tone === "new"
                   ? "bg-success text-white"
                   : label.tone === "closing"
@@ -538,31 +541,39 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
           </div>
         )}
         {!card.accessible && (
-          <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[10px] font-semibold gap-1">
-            <Icon name="lock" variant="bold" size={10} />
-            <span>등급</span>
+          <div className="absolute inset-0 bg-ink/55 flex items-center justify-center text-white text-[10px] font-semibold text-center px-2 leading-tight">
+            <span>
+              <Icon name="lock" variant="bold" size={12} className="inline mb-0.5" />
+              <br />
+              {card.grade}등급
+              <br />
+              <span className="font-normal opacity-80">전용 🤫</span>
+            </span>
           </div>
         )}
       </div>
       <div className="flex-1 p-3 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-[15px] font-semibold text-ink truncate">{card.name}</div>
+            <div className="text-[16px] font-bold text-ink truncate tracking-[-0.022em]">{card.name}</div>
             <div className="text-[11px] text-muted mt-0.5 truncate">{card.category} · {card.area}</div>
             <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="inline-flex items-center text-[11px] text-muted">
+              <span className="inline-flex items-center text-[11px] text-ink font-medium">
                 <span className="mr-0.5" aria-hidden>🚶</span>도보 {walk}분
               </span>
               <span className="text-[11px] text-muted">·</span>
-              <span className="text-[11px] text-muted">{card.grade} 등급 이상</span>
+              <span className="text-[11px] text-muted">{card.grade}등급 이상</span>
             </div>
             <div className="text-[13px] text-success font-semibold mt-1.5">
-              체험 지원 ₩{card.supportAmount.toLocaleString()}
+              최대 ₩{card.supportAmount.toLocaleString()} 체험 지원
             </div>
+            {label?.tone === "closing" && (
+              <div className="text-[11px] text-error mt-1 italic">{CLOSING_TEASE}</div>
+            )}
           </div>
           <div className="text-right shrink-0">
-            <div className="text-[12px] text-ink2">잔여 <span className="font-semibold text-ink">{card.remain}자리</span></div>
-            <div className={`text-[11px] mt-1.5 ${remaining.urgent ? "text-error font-semibold" : "text-muted"}`}>
+            <div className="text-[12px] text-ink2">잔여 <span className="font-bold text-ink">{card.remain}자리</span></div>
+            <div className={`text-[11px] mt-1.5 ${remaining.urgent ? "text-error font-bold" : "text-muted"}`}>
               {remaining.label}
             </div>
           </div>
@@ -574,10 +585,11 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
 
 function GridCard({ card }: { card: ExploreStoreCard }) {
   const label = cardLabel(card);
+  const walk = walkMinutes(card.storeId);
   return (
     <Link
       href={card.accessible ? `/r/store/${card.storeId}?campaign=${card.campaignId}` : "/r/grade"}
-      className={`cp-action block bg-canvas border border-hairline rounded-md overflow-hidden ${card.accessible ? "" : "opacity-50"}`}
+      className={`cp-action block bg-canvas border border-hairline rounded-md overflow-hidden ${card.accessible ? "" : "opacity-60"}`}
     >
       <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
         <Image
@@ -588,9 +600,9 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
           className="object-cover"
         />
         {label && (
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2" style={{ transform: "rotate(-4deg)" }}>
             <span
-              className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-[-0.01em] shadow-sm ${
                 label.tone === "new"
                   ? "bg-success text-white"
                   : label.tone === "closing"
@@ -602,27 +614,29 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
             </span>
           </div>
         )}
-        {card.remain <= 3 && card.accessible && (
-          <div className="absolute top-2 right-2">
-            <span className="text-[10px] font-semibold text-white bg-ink/80 px-1.5 py-0.5 rounded-pill backdrop-blur-sm">
-              잔여 {card.remain}매
-            </span>
-          </div>
-        )}
+        <div className="absolute top-2 right-2">
+          <span className="text-[10px] font-semibold text-ink bg-canvas/95 px-1.5 py-0.5 rounded-pill backdrop-blur-sm">
+            도보 {walk}분
+          </span>
+        </div>
         {!card.accessible && (
-          <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[13px] font-semibold gap-1.5">
-            <Icon name="lock" variant="bold" size={14} />
-            <span>등급 부족</span>
+          <div className="absolute inset-0 bg-ink/55 flex flex-col items-center justify-center text-white text-[12px] font-semibold text-center px-3 leading-tight">
+            <Icon name="lock" variant="bold" size={16} />
+            <span className="mt-1">{card.grade}등급들만</span>
+            <span className="text-[11px] font-normal opacity-90">몰래 가는 중 🤫</span>
           </div>
         )}
       </div>
       <div className="p-3">
         <div className="text-[10px] text-muted uppercase tracking-wider mb-0.5">{card.category}</div>
-        <h3 className="text-[15px] font-semibold text-ink truncate">{card.name}</h3>
+        <h3 className="text-[15px] font-bold text-ink truncate tracking-[-0.022em]">{card.name}</h3>
         <p className="text-[11px] text-muted mt-0.5 truncate">{card.area} · ★ {card.rating}</p>
         <div className="text-[13px] text-success font-semibold mt-2">
-          체험 ₩{card.supportAmount.toLocaleString()}
+          최대 ₩{card.supportAmount.toLocaleString()}
         </div>
+        {label?.tone === "closing" && (
+          <div className="text-[10px] text-error mt-0.5 italic truncate">{CLOSING_TEASE}</div>
+        )}
       </div>
     </Link>
   );

@@ -111,12 +111,13 @@ export default async function ReviewerHome() {
       <section className="px-5 pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="font-display text-[32px] leading-[1.1] text-ink tracking-[-0.022em]">
+            <div className="text-[12px] text-muted">오늘 뭐 먹어요?</div>
+            <h1 className="font-display text-[34px] leading-[1.05] text-ink tracking-[-0.028em] mt-1">
               <HomeLocationChip fallbackArea={repArea} />
               <span> 어디 가볼까?</span>
             </h1>
             <p className="text-[14px] text-ink2 mt-2">
-              근처에 가볼 수 있는 곳 <strong className="text-ink">{totalCount}곳</strong>이 있어요
+              근처에 경험할 곳 <strong className="text-ink">{totalCount}곳</strong>이 있어요
             </p>
           </div>
           <Link
@@ -147,25 +148,25 @@ export default async function ReviewerHome() {
         </Link>
       </section>
 
-      {/* 동네 발견 배너 — 큰 일러스트 */}
+      {/* 동네 발견 배너 — B급 톤 ("이 집 아직 모르는 사람 많음" 류) */}
       <Link
         href="/r/explore?sort=new"
         className="cp-action mx-5 mt-6 rounded-2xl bg-gradient-to-br from-brand/8 to-brand/4 border border-brand/12 overflow-hidden block relative"
       >
         <div className="flex items-center px-5 py-6 gap-4">
           <div className="min-w-0 flex-1">
-            <div className="text-[12px] text-brand font-semibold tracking-[0.06em]">동네 발견</div>
-            <div className="font-display text-[24px] leading-[1.1] text-ink mt-1.5">
-              새로운 공간이<br />
-              <span className="text-brand">많이 생겼어요!</span>
+            <div className="text-[11px] text-brand font-semibold tracking-[0.08em] uppercase">오늘의 동네 발견</div>
+            <div className="font-display text-[24px] leading-[1.1] text-ink mt-1.5 tracking-[-0.022em]">
+              이 집 아직<br />
+              <span className="text-brand">모르는 사람 많음 🤫</span>
             </div>
-            <div className="mt-3 inline-flex items-center gap-1 px-3 h-8 rounded-pill bg-canvas border border-hairline text-[12px] text-ink">
-              신상 장소 보기
+            <div className="text-[12px] text-muted mt-2">새로 생긴 곳, 우리가 먼저 가져왔어요</div>
+            <div className="mt-3 inline-flex items-center gap-1 px-3 h-8 rounded-pill bg-canvas border border-hairline text-[12px] text-ink font-medium">
+              신상 보러가기
               <Icon name="chevron-right" variant="border" size={12} />
             </div>
           </div>
           <div className="shrink-0 w-[120px] h-[120px] flex items-end justify-center" aria-hidden>
-            {/* 도시 이모지 일러스트 */}
             <div className="relative w-full h-full">
               <span className="absolute left-2 top-4 text-[44px] opacity-90">🏢</span>
               <span className="absolute right-2 top-0 text-[36px] opacity-80">🏬</span>
@@ -184,34 +185,37 @@ export default async function ReviewerHome() {
           href="/r/explore?cat=카페&sort=new"
           tint="purple"
           ic="☕"
-          title="신상 카페"
-          sub="방금 등록됐어요"
+          title="갓 오픈 카페"
+          sub="방금 등록"
           count={cafeNew}
         />
         <CurationTile
           href="/r/explore?sort=topSupport"
           tint="pink"
           ic="🔥"
-          title="인기 맛집"
-          sub="평점 4.5 이상"
+          title="이미 다 안다"
+          sub="평점 4.5+"
           count={popular}
         />
         <CurationTile
           href="/r/explore?sort=topSupport"
           tint="green"
           ic="💲"
-          title="체험 지원 중"
+          title="공짜로 줘요"
           sub={`최대 ₩${maxSupport.toLocaleString()}`}
           count={totalSupportNow}
         />
       </section>
 
-      {/* 가까운 곳 2단 그리드 */}
+      {/* 가까운 곳 2단 그리드 — B급 톤 */}
       <section className="px-5 mt-8 mb-4 flex items-end justify-between">
-        <h2 className="font-display text-[22px] leading-[1.14] text-ink">
-          가까운 곳에 좋은 곳이 많아요 <span aria-hidden>👀</span>
-        </h2>
-        <Link href="/r/explore" className="text-[13px] text-brand">더보기 ›</Link>
+        <div>
+          <h2 className="font-display text-[22px] leading-[1.14] text-ink tracking-[-0.022em]">
+            걸어서 갈 수 있는 곳 <span aria-hidden>👀</span>
+          </h2>
+          <div className="text-[12px] text-muted mt-1">동네 한 바퀴 돌 김에 한 번 들러볼래요?</div>
+        </div>
+        <Link href="/r/explore" className="text-[13px] text-brand font-medium shrink-0 mb-1">전부 보기 ›</Link>
       </section>
 
       <section className="px-5 grid grid-cols-2 gap-3">
@@ -239,7 +243,7 @@ export default async function ReviewerHome() {
               <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
               <p className="text-[11px] text-muted mt-0.5 truncate">{p.category} · {p.area}</p>
               <div className="text-[13px] text-success font-semibold mt-1.5">
-                체험 지원 ₩{p.supportAmount.toLocaleString()}
+                최대 ₩{p.supportAmount.toLocaleString()} 체험 지원
               </div>
               <div className="text-[11px] text-muted mt-1">
                 <span className="text-[#ffa500]" aria-hidden>★</span>{" "}
@@ -265,11 +269,11 @@ export default async function ReviewerHome() {
           <Icon name="ticket" variant="bold" size={20} />
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-semibold text-ink">{me.grade} 등급 혜택이 넓어졌어요!</div>
-          <div className="text-[11px] text-muted mt-0.5">더 많은 체험 지원 매장을 만나보세요</div>
+          <div className="text-[14px] font-semibold text-ink">{me.grade}등급도 갈 수 있는 곳, 더 많아요</div>
+          <div className="text-[11px] text-muted mt-0.5">한 등급만 올려도 갈 수 있는 곳이 확 늘어남</div>
         </div>
-        <span className="inline-flex items-center gap-0.5 h-8 px-3 rounded-pill bg-canvas border border-hairline text-[12px] text-ink">
-          혜택 보러가기
+        <span className="inline-flex items-center gap-0.5 h-8 px-3 rounded-pill bg-canvas border border-hairline text-[12px] text-ink font-medium shrink-0">
+          확인하기
           <Icon name="chevron-right" variant="border" size={12} />
         </span>
       </Link>
