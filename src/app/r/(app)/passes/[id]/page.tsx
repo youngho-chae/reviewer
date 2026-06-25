@@ -171,6 +171,22 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                 <div className="mt-2 text-[12px] text-muted">초과분 ₩{(pass.paidAmount - pass.supportApplied).toLocaleString()}은 직접 결제하셨습니다</div>
               )}
             </div>
+
+            {/* T1 트리거 — 패스 사용 직후 친구 초대 카드 (viral) */}
+            <Link
+              href={`/r/invite/new?store=${encodeURIComponent(pass.storeId)}&campaign=${encodeURIComponent(pass.campaignId)}`}
+              className="cp-action mt-4 flex items-center gap-3 p-4 rounded-md border border-hairline bg-gradient-to-br from-brand/8 to-brand/4"
+            >
+              <span className="text-[28px]" aria-hidden>🎁</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[14px] font-semibold text-ink">
+                  ₩{(pass.supportApplied ?? 0).toLocaleString()} 절약 완료! 친구도 받게 해줄래요?
+                </div>
+                <div className="text-[11px] text-muted mt-0.5">친구 가입 즉시 내 행운 박스 오픈 + 친구는 첫 캠페인 +50% 지원금</div>
+              </div>
+              <span className="text-brand text-[18px] shrink-0">›</span>
+            </Link>
+
             <h2 className="mt-10 font-display text-[28px] leading-[1.14] text-ink">리뷰 인증</h2>
             <p className="mt-2 text-[15px] text-ink2 leading-[1.47]">
               실제 게시 후 URL을 제출해주세요. 작성 조건은 본인이 직접 점검합니다.
@@ -185,9 +201,23 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           </div>
         )}
         {pass.status === "completed" && (
-          <div className="mt-8 rounded-md bg-brandSoft border border-brand/20 p-5 text-[15px] text-ink">
-            ✓ 리뷰 검수 통과. 등급 점수가 반영되었습니다.
-          </div>
+          <>
+            <div className="mt-8 rounded-md bg-brandSoft border border-brand/20 p-5 text-[15px] text-ink">
+              ✓ 리뷰 검수 통과. 등급 점수가 반영되었습니다.
+            </div>
+            {/* T2 트리거 — 검수 통과 후 친구 초대 */}
+            <Link
+              href={`/r/invite/new?store=${encodeURIComponent(pass.storeId)}&campaign=${encodeURIComponent(pass.campaignId)}`}
+              className="cp-action mt-3 flex items-center gap-3 p-4 rounded-md border border-hairline bg-gradient-to-br from-brand/8 to-brand/4"
+            >
+              <span className="text-[28px]" aria-hidden>🎁</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[14px] font-semibold text-ink">검수 통과! 행운 박스 더 키우러 갈까요?</div>
+                <div className="text-[11px] text-muted mt-0.5">친구 3명 더 모으면 실버 박스 · 5명이면 골드 박스</div>
+              </div>
+              <span className="text-brand text-[18px] shrink-0">›</span>
+            </Link>
+          </>
         )}
         {pass.status === "expired" && (
           <div className="mt-8 rounded-md bg-parchment p-5 text-[15px] text-muted">

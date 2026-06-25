@@ -1,10 +1,20 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function OwnerSignup() {
+export default function OwnerSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <OwnerSignup />
+    </Suspense>
+  );
+}
+
+function OwnerSignup() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const inviteToken = sp.get("invite")?.trim() || null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [storeName, setStoreName] = useState("");
@@ -28,7 +38,11 @@ export default function OwnerSignup() {
       setLoading(false);
       return;
     }
-    router.push("/o/home");
+    if (inviteToken) {
+      router.push(`/welcome/box?token=${encodeURIComponent(inviteToken)}`);
+    } else {
+      router.push("/o/home");
+    }
     router.refresh();
   }
 

@@ -5,6 +5,9 @@ import { gradeMeets } from "@/lib/grade";
 import type { Grade } from "@/lib/types";
 import Icon from "@/components/Icon";
 import GradeBadge from "@/components/GradeBadge";
+import LiveCounter from "./LiveCounter";
+import ReferralBoxCard from "./ReferralBoxCard";
+import { counterWithNoise, defaultInviteStats, rewardEmoji, rewardLabel } from "@/lib/referral";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +51,12 @@ export default async function RewardsPage() {
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
   const activePasses = db.passes.filter((p) => p.reviewerId === me.id && (p.status === "active" || p.status === "used")).length;
 
+  // 바이럴 — 내 invite stats + 받은 보상 + 라이브 카운터
+  const inviteStats = me.inviteStats ?? defaultInviteStats();
+  const myRewards = (db.rewards ?? []).filter((r) => r.ownerUserId === me.id);
+  const myUnusedRewards = myRewards.filter((r) => !r.usedAt);
+  const counter = counterWithNoise(db);
+
   const tiers: Grade[] = ["S", "A", "B", "C", "N"];
 
   return (
@@ -66,8 +75,54 @@ export default async function RewardsPage() {
         </div>
       </div>
 
+      {/* 라이브 카운터 — 사회적 증거 */}
+      <section className="px-5 pt-5">
+        <LiveCounter initial={counter} />
+      </section>
+
+      {/* 친구 초대 박스 카드 — 바이럴 핵심 모듈 */}
+      <section className="px-5 mt-4">
+        <ReferralBoxCard stats={inviteStats} myKind="reviewer" />
+      </section>
+
+      {/* 내 보상 — 받은 박스/쿠폰 인벤토리 */}
+      {myRewards.length > 0 && (
+        <section className="px-5 mt-5">
+          <div className="flex items-end justify-between mb-2">
+            <h2 className="text-[15px] font-semibold text-ink">내 보상</h2>
+            <span className="text-[11px] text-muted">미사용 {myUnusedRewards.length}개</span>
+          </div>
+          <div className="rounded-md border border-hairline bg-canvas overflow-hidden">
+            {myRewards.slice(0, 5).map((r, idx) => (
+              <div
+                key={r.id}
+                className={`flex items-center gap-3 px-3 py-3 ${idx > 0 ? "border-t border-hairlineSoft" : ""}`}
+              >
+                <span className="w-9 h-9 rounded-md bg-parchment flex items-center justify-center text-[18px]" aria-hidden>
+                  {rewardEmoji(r)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-medium text-ink truncate">{rewardLabel(r)}</div>
+                  <div className="text-[11px] text-muted mt-0.5">
+                    {r.source === "referee_welcome" ? "환영 박스" : r.source === "referrer_box" ? "행운 박스" : "마일스톤"}
+                    {r.meta?.matrix && <span className="opacity-70"> · {r.meta.matrix}</span>}
+                  </div>
+                </div>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-pill ${
+                    r.usedAt ? "bg-parchment text-muted" : "bg-success/10 text-success"
+                  }`}
+                >
+                  {r.usedAt ? "사용 완료" : "미사용"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 내 등급 카드 */}
-      <section className="px-5 pt-6">
+      <section className="px-5 mt-6">
         <div className="rounded-2xl bg-ink text-white p-5">
           <div className="flex items-center justify-between">
             <div>

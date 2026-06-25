@@ -76,6 +76,60 @@
   ※ /r/grade 진입 = 혜택 탭 "내 등급 카드 → 상세"
 ```
 
+### 1.2 바이럴(레퍼럴) 흐름 (v2.8)
+
+```
+[추천자 측 — 트리거 또는 혜택 탭에서 시작]
+   T1 (used)     /r/passes/[id]  ─┐
+   T2 (completed)/r/passes/[id]  ─┼─►  /r/invite/new (R-10)
+   혜택 탭       /r/rewards      ─┘     · 매트릭스 자동 결정 (RR/RO/OR/OO)
+                                        · 4채널 그리드 [카톡/문자/인스타DM/링크복사]
+                                        ▼
+                            POST /api/referral/invite
+                                        ▼
+                            토큰 발급 (8자 base62, TTL 14일)
+                                        ▼
+                            Web Share API (or 클립보드)
+                                        ▼
+                            [수신자가 링크 받음]
+
+[수신자 측 — 비회원 또는 로그인 사용자]
+   /r/i/<token> (R-11) ─┐
+                        ├─ 비회원: 박스 미리보기 + [박스 받고 가입하기] → /r/signup?invite=<token>
+                        └─ 로그인: 자동 redirect → /welcome/box?token=<token>
+
+   /r/signup or /o/signup (invite 보존)
+                        ▼ 가입 완료
+                        router.push(/welcome/box?token=<token>)
+                        ▼
+   /welcome/box (W-01, 공용)  ─►  POST /api/referral/accept
+                                       ▼
+                              acceptInvite(db, ...)
+                                       ▼
+                  ┌───────────────────────────────────────┐
+                  │ 발신자: inviteStats.accepted +=1,     │
+                  │         boxGrade 갱신, 행운 박스 발행 │
+                  │ 수신자: 환영 박스 2개(확정 + 보너스)  │
+                  │ viralCounter: todayBoxCount +=2,      │
+                  │               liveStream unshift      │
+                  └───────────────────────────────────────┘
+                                       ▼
+                              슬롯 머신 박스 오픈
+                              결과 카드 + 컨페티
+                                       ▼
+                  ┌──────┐  ┌────────────┐
+                  │지금 사용│  │나도 친구 쏘기│  (다음 사이클)
+                  └──┬───┘  └──────┬─────┘
+                     ▼              ▼
+                  /r/explore     /r/invite/new
+
+[혜택 탭 — 발신자 시점]
+   /r/rewards
+     · LiveCounter (1.8s 폴링 /api/referral/counter)
+     · ReferralBoxCard (박스 등급 + 진행도)
+     · 내 보상 목록 (cash/+50%/할인/quota_bonus)
+```
+
 ### 1.1 방문형 Pass 라이프사이클
 
 ```
@@ -405,11 +459,14 @@ POST /api/passes → 응답 { passId }
 | R-04 | 내 체험권 (방문형/기자단 탭) | `/r/passes` |
 | R-04a / R-05 | 패스 상세 (status별 분기: QR/리뷰폼/안내) | `/r/passes/[id]` |
 | R-06 | 내 등급 | `/r/grade` |
-| R-06b | 혜택 (등급+체험권+등급별 혜택, v2.6 신설) | `/r/rewards` |
+| R-06b | 혜택 (등급+체험권+등급별 혜택 + viral 박스/카운터/보상, v2.6 신설 / v2.8 viral 흡수) | `/r/rewards` |
 | R-07 | MY | `/r/me` |
 | R-07a | 알림함 | `/r/notifications` |
 | R-08a | 기자단 브리프 | `/r/press/[id]` |
 | R-09 | 기자단 작성 | `/r/press/[id]/write?pass=<id>` |
+| R-10 | 친구에게 쏘기 (매트릭스 + 공유 시트, v2.8) | `/r/invite/new` |
+| R-11 | 피추천자 랜딩 (비회원, v2.8) | `/r/i/[token]` |
+| W-01 | 환영 박스 (가입 직후 슬롯, reviewer/owner 공용, v2.8) | `/welcome/box?token=<token>` |
 
 ### 사장님
 | 코드 | 화면명 | 라우트 |
@@ -436,7 +493,8 @@ POST /api/passes → 응답 { passId }
 | 체험자 홈 | 리스트+지도+카테고리 chip 모두 `/r/home`에서 처리 | **v2.6 분리** — `/r/home`은 큐레이팅 전용("{지역} 어디 가볼까?" + 동네 발견 배너 + 3-카드 큐레이션 + 가까운 곳 2단 그리드 + 등급 혜택 배너). 리스트/지도/카테고리/정렬은 모두 `/r/explore` |
 | 체험자 리스트 카드 | 단일 큰 1열 카드 (4:3 사진 + 멤버십 할인 ₩28pt) | **v2.6 1단 축약** — 좌 104px 정사각 썸네일 + 라벨 칩(NEW/곧 마감/이번 주만) + 매장명·카테고리·지역·도보·등급·체험지원, 우측 잔여/마감일(시급 빨강). 2단 그리드는 유지 (토글) |
 | 체험자 카테고리 | 19개+ 원본 카테고리 chip 그대로 노출 | **v2.6 6그룹 통합** — 전체/카페/맛집/뷰티/문화/액티비티. 내부 매처 함수로 원본 카테고리를 그룹에 매핑 |
-| 체험자 혜택 화면 | 별도 없음(등급은 홈 아코디언에서만 노출) | **v2.6 `/r/rewards` 신설** — 내 등급 ink 카드 + 3-stat(참여 가능 매장/최대 지원금/사용 가능 체험권) + 등급별 혜택 표(S~N) + 체험권 entry |
+| 체험자 혜택 화면 | 별도 없음(등급은 홈 아코디언에서만 노출) | **v2.6 `/r/rewards` 신설** — 내 등급 ink 카드 + 3-stat(참여 가능 매장/최대 지원금/사용 가능 체험권) + 등급별 혜택 표(S~N) + 체험권 entry, **v2.8 viral 통합** (라이브 카운터 + 친구 초대 박스 카드 + 내 보상 목록) |
+| 바이럴(레퍼럴) | 없음 | **v2.8 메인 흡수** — `/r/invite/new` 매트릭스 4종(RR/RO/OR/OO) + 4채널 공유 시트, `/r/i/[token]` 비회원 랜딩(만료/사용/유효 분기), `/welcome/box` 슬롯 머신 박스 오픈 (reviewer/owner 공용), POST `/api/referral/{invite,accept}` + GET `/api/referral/counter` (1.8s 폴링), `src/lib/referral.ts` 어댑터, T1·T2 트리거(/r/passes/[id] used·completed), Reviewer/Owner.inviteStats + DBShape.invites/rewards/viralCounter, SEED_VERSION 5 |
 | 사장님 BottomNav | 5탭 + 중앙 elevated [⎈ 스캔] | 4탭 평면 (홈/QR스캔/후기/MY), 리포트는 MY 허브 |
 | 홈 지도 모드 | R-01(리스트)와 R-02(지도) 별도 화면 | 단일 `/r/home` + FAB 토글 |
 | 매장 상세 길찾기 | sticky 좌측 작은 아이콘 | 우측 하단 FAB (Naver Map deep link + 800ms 폴백) |

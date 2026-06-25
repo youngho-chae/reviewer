@@ -489,6 +489,8 @@ export function runSeed(db: DBShape) {
     completedReviews: 3,
     qualityScore: 88,
     noShowCount: 0,
+    // 바이럴 — 이미 2명 초대해서 일반 박스 단계, 보너스 캐시 ₩4,000 누적
+    inviteStats: { sent: 3, clicked: 3, accepted: 2, boxGrade: "basic", cumulativeCash: 4000 },
   };
   db.reviewers.push(reviewer);
 
@@ -793,4 +795,78 @@ export function runSeed(db: DBShape) {
     read: false,
     link: "/r/passes",
   });
+
+  // ── 바이럴(레퍼럴) 시드 ──
+  // 라이브 카운터 초기값 (혜택 탭 상단 N명 카운터 + ticker)
+  db.viralCounter = {
+    date: new Date(now).toISOString().slice(0, 10),
+    todayBoxCount: 1283,
+    todayAvgReward: 4250,
+    liveStream: [
+      { nickname: "강남 박OO", reward: 8000, ts: now - 4_000, matrix: "RR" },
+      { nickname: "성수 김OO", reward: 3000, ts: now - 9_000, matrix: "RR" },
+      { nickname: "압구정 정OO 사장님", reward: 10000, ts: now - 16_000, matrix: "OO" },
+      { nickname: "한남 이OO", reward: 5500, ts: now - 28_000, matrix: "OR" },
+    ],
+  };
+
+  // 데모 invite — 북촌리뷰어가 이미 발송한 토큰들
+  db.invites = [
+    {
+      token: "DEMO2024",
+      referrerId: reviewer.id,
+      referrerKind: "reviewer",
+      targetKind: "reviewer",
+      channel: "kakao",
+      status: "signed_up",
+      createdAt: now - 3 * day,
+      expiresAt: now + 11 * day,
+      consumedAt: now - 2 * day,
+      consumedBy: reviewerA.id,
+    },
+    {
+      token: "WAITROOM",
+      referrerId: reviewer.id,
+      referrerKind: "reviewer",
+      targetKind: "reviewer",
+      channel: "sms",
+      status: "clicked",
+      createdAt: now - 1 * day,
+      expiresAt: now + 13 * day,
+    },
+    {
+      token: "TRYTODAY",
+      referrerId: reviewer.id,
+      referrerKind: "reviewer",
+      targetKind: "owner",
+      channel: "copy_link",
+      status: "issued",
+      createdAt: now - 6 * hour,
+      expiresAt: now + 14 * day - 6 * hour,
+    },
+  ];
+
+  // 데모 보상 — 북촌리뷰어가 행운 박스 2번 오픈
+  db.rewards = [
+    {
+      id: detId("rwd", "seed-1"),
+      ownerUserId: reviewer.id,
+      source: "referrer_box",
+      kind: "cash",
+      value: 2000,
+      issuedAt: now - 2 * day,
+      expiresAt: now + 28 * day,
+      meta: { matrix: "RR", accepted: 1 },
+    },
+    {
+      id: detId("rwd", "seed-2"),
+      ownerUserId: reviewer.id,
+      source: "referrer_box",
+      kind: "cash",
+      value: 2000,
+      issuedAt: now - 36 * hour,
+      expiresAt: now + 28 * day,
+      meta: { matrix: "RR", accepted: 2 },
+    },
+  ];
 }

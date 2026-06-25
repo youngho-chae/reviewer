@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { SnsKind } from "@/lib/types";
 
@@ -11,8 +11,18 @@ const CHANNELS: { kind: SnsKind; label: string; placeholder: string; metric: str
   { kind: "tiktok", label: "틱톡", placeholder: "https://tiktok.com/@...", metric: "팔로워" },
 ];
 
-export default function ReviewerSignup() {
+export default function ReviewerSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReviewerSignup />
+    </Suspense>
+  );
+}
+
+function ReviewerSignup() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const inviteToken = sp.get("invite")?.trim() || null;
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,7 +52,11 @@ export default function ReviewerSignup() {
       setLoading(false);
       return;
     }
-    router.push("/r/home");
+    if (inviteToken) {
+      router.push(`/welcome/box?token=${encodeURIComponent(inviteToken)}`);
+    } else {
+      router.push("/r/home");
+    }
     router.refresh();
   }
 

@@ -19,6 +19,7 @@ export interface Reviewer {
   completedReviews: number;
   qualityScore: number; // 0~100
   noShowCount: number;
+  inviteStats?: InviteStats; // 바이럴(레퍼럴) — 추천 발신/수락/박스 등급 누적
 }
 
 export interface Owner {
@@ -30,6 +31,7 @@ export interface Owner {
   area: string;
   plan: "Free" | "Basic" | "Standard" | "Premium";
   createdAt: number;
+  inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
 }
 
 export interface Store {
@@ -122,6 +124,67 @@ export interface Pass {
   status: PassStatus;
 }
 
+// ─────────────────────────────────────────────────────────────
+// 바이럴 (Referral) — Toss 6원리 적용 ("docs/viral-test/PRD-viral-referral.md")
+// 메인 통합 (v2.8): 어댑터 인터페이스(`src/lib/referral.ts`) + API 3종 + 혜택 탭 UI
+// ─────────────────────────────────────────────────────────────
+
+export type UserKind = "reviewer" | "owner";
+export type BoxGrade = "basic" | "silver" | "gold";
+
+export interface InviteStats {
+  sent: number;       // 토큰 발급 수
+  clicked: number;    // 토큰 클릭 수
+  accepted: number;   // 가입 완료(소비) 수
+  boxGrade: BoxGrade; // 누적 accepted 기반 단계 (1~2 basic / 3~4 silver / 5+ gold)
+  cumulativeCash: number; // 보너스 캐시 누적
+}
+
+export type InviteStatus = "issued" | "clicked" | "signed_up" | "expired";
+export type ShareChannel = "kakao" | "sms" | "instagram_dm" | "copy_link";
+export type MatrixKey = "RR" | "RO" | "OR" | "OO";
+
+export interface Invite {
+  token: string;          // 8자 base62, /r/i/<token>로 진입
+  referrerId: string;
+  referrerKind: UserKind;
+  targetKind: UserKind;
+  storeId?: string;        // OR 매트릭스에서 매장 컨텍스트 (선택)
+  campaignId?: string;     // T1 트리거에서 패스 컨텍스트 (선택)
+  channel?: ShareChannel;
+  status: InviteStatus;
+  createdAt: number;
+  expiresAt: number;       // 14일
+  consumedAt?: number;
+  consumedBy?: string;     // 신규 가입자(피추천자) id
+}
+
+export type RewardKind =
+  | "cash"                  // 보너스 캐시 (₩)
+  | "support_bonus_pct"     // 첫 캠페인 지원금 +N%
+  | "membership_discount"   // 멤버십 할인 (사장님: %)
+  | "quota_bonus"           // 캠페인 모집 한도 +N팀
+  | "spotlight_pass";       // 시그니처 우선 노출권
+
+export interface Reward {
+  id: string;
+  ownerUserId: string;      // 보상을 받는 사용자 id (reviewer 또는 owner)
+  source: "referrer_box" | "referee_welcome" | "milestone";
+  kind: RewardKind;
+  value: number;
+  issuedAt: number;
+  expiresAt: number;
+  usedAt?: number;
+  meta?: { matrix?: MatrixKey; accepted?: number; isBonus?: boolean };
+}
+
+export interface ViralCounter {
+  date: string;             // YYYY-MM-DD
+  todayBoxCount: number;
+  todayAvgReward: number;
+  liveStream: Array<{ nickname: string; reward: number; ts: number; matrix: MatrixKey }>;
+}
+
 export interface NotificationItem {
   id: string;
   userId: string;
@@ -140,6 +203,11 @@ export interface DBShape {
   campaigns: Campaign[];
   passes: Pass[];
   notifications: NotificationItem[];
+  // ── 바이럴(레퍼럴) ──
+  invites?: Invite[];
+  rewards?: Reward[];
+  viralCounter?: ViralCounter;
+  // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거
   naverDataFetched?: number; // 마지막 Naver Place 자동 갱신 timestamp
