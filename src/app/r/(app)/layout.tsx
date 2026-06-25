@@ -12,6 +12,7 @@ export default async function ReviewerAppLayout({ children }: { children: React.
         items={[
           { href: "/r/home", label: "홈", icon: "home" },
           { href: "/r/explore", label: "탐색", icon: "navigation" },
+          { href: "/r/grade", label: "등급", icon: "trophy" },
           { href: "/r/rewards", label: "혜택", icon: "ticket" },
           { href: "/r/me", label: "MY", icon: "user" },
         ]}

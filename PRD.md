@@ -88,8 +88,8 @@ N  검증 전 (SNS 미연동)
 | R-04 | 내 체험권 | `/r/passes` (방문형/기자단 탭) |
 | R-04a | 체험권 상세(QR 또는 상태 안내) | `/r/passes/[id]` |
 | R-05 | 리뷰 인증 폼 | `/r/passes/[id]` (used 상태일 때 같은 페이지에 폼 노출) |
-| R-06 | 내 등급 | `/r/grade` |
-| R-06b | **혜택 — 내 등급 + 등급별 혜택 + 박스/카운터/보상 + 체험권 entry** — v2.5 신설, v2.8 viral 통합 | `/r/rewards` |
+| R-06 | **등급 — 큰 배지 + 다음 등급 진행도 + 3-stat + 30일 성과 + 등급별 혜택 + 체험권 entry** — v2.9 등급 탭 신설 | `/r/grade` |
+| R-06b | **혜택 — 박스 카드 + 라이브 카운터 + 내 보상 + 보낸 초대** (v2.9 viral 전용 정리) | `/r/rewards` |
 | R-07 | MY | `/r/me` |
 | R-07a | 알림함 | `/r/notifications` |
 | R-08a | 기자단 브리프 | `/r/press/[id]` |
@@ -99,10 +99,10 @@ N  검증 전 (SNS 미연동)
 | R-11 | **피추천자 랜딩 (비회원 진입)** — v2.8 신설 | `/r/i/[token]` |
 | W-01 | **환영 박스 (가입 직후 슬롯 박스 오픈)** — v2.8 신설, reviewer/owner 공용 | `/welcome/box?token=<token>` |
 
-**BottomNav (4탭, v2.5 재구성)**: **홈 / 탐색 / 혜택 / MY**. (변경 전: 홈/내 체험권/등급/MY)
-- `내 체험권(/r/passes)`: 홈·탐색 헤더의 카드와 혜택 탭의 entry에서 진입 (라우트는 유지).
-- `등급(/r/grade)`: 혜택 탭 상단 "내 등급 카드 → 상세"에서 진입.
+**BottomNav (5탭, v2.9 재구성)**: **홈 / 탐색 / 등급 / 혜택 / MY**. (변경 이력: v1 5탭 → v2.5 4탭(홈/체험권/등급/MY) → v2.6 4탭(홈/탐색/혜택/MY) → v2.9 5탭)
+- `내 체험권(/r/passes)`: 홈·탐색·등급 탭의 헤더/엔트리 카드에서 진입 (라우트 유지, BottomNav에 직접 노출 안 함).
 - 알림은 모든 페이지 상단 종 아이콘 진입.
+- v2.9 분리 정책: **등급 탭**은 "내가 지금 받을 수 있는 정적 혜택(매장/지원금/등급별 권한)"을, **혜택 탭**은 "친구와 함께 키우는 동적 보상(박스/카운터/내 보상/보낸 초대)"을 책임진다.
 
 ### 3.2 사장님 (Owner) — `/o/...`
 
@@ -822,4 +822,5 @@ N  검증 전 (SNS 미연동)
 | v2.5 | 2026-05-29 | 멤버십·메뉴 가격 개편. ① 필수 주문 메뉴에 메뉴명과 함께 가격(원, 선택값) 입력 UI 추가 — 캠페인 생성 폼/체험자 매장 상세에 함께 노출되어 혜택 크기 비교 지원. `Campaign.requiredMenus` 타입을 `string[]` → `Array<{name, price?}>`로 변경, 시드/리프레시 핸들러 마이그레이션, SEED_VERSION 3으로 bump. ② 플랜 정책 재설계: 멤버십 등급별 모집 인원 차이가 아닌 **월간 모집 팀 수**로 차별화 — Free 5팀 / Basic 15팀 / Standard 50팀 / Premium 무제한. 가입 기본값 Standard → Free. ③ "Premium 전용 S 등급" 제한 폐기 — 모든 플랜이 S~C 모집 가능, priority 등급만 플랜별로 분기 (Premium S우선 / Standard A우선 / Basic·Free 랜덤). 사장님 홈 카드에서 S 등급 자물쇠 표시 제거. 캠페인 생성 폼에 이번 달 사용량/잔여 모집 가능 인원 카드 추가, 한도 초과 시 제출 비활성. |
 | v2.6 | 2026-06-16 | 체험자 IA 재구성 — 컨셉 미팅 산출물(첨부 이미지 2종) 반영. ① **`/r/home`을 큐레이팅 영역 전용으로 분리**: 지역 헤드라인("{동} 어디 가볼까?", GPS reverse-geocode), 검색 entry, 동네 발견 배너, 3-카드 큐레이션(신상 카페/인기 맛집/체험 지원 중), "가까운 곳" 2단 그리드(최대 4개), 등급 혜택 배너. ② **`/r/explore` 라우트 신설** — 기존 `/r/home`의 리스트/지도 토글 + 카테고리 chip + 정렬/레이아웃 토글을 모두 이전. 카테고리는 6그룹(전체/카페/맛집/뷰티/문화/액티비티)으로 통합. ③ **1단 축약 카드(RowCard)** 신설 — 좌 104px 정사각 썸네일 + 라벨 칩(NEW/곧 마감/이번 주만) + 매장명·카테고리·지역·도보·등급·체험지원, 우측 상단 잔여 자리 + 마감일(시급 빨강). 2단 그리드(GridCard)는 유지하고 토글로 전환. ④ **`/r/rewards` 라우트 신설** (R-06b) — 내 등급 ink 카드 + 3-stat + 체험권 entry + 등급별 혜택 표(S~N). ⑤ **BottomNav 4탭 재구성** — 홈/내 체험권/등급/MY → **홈/탐색/혜택/MY**. 내 체험권(/r/passes)은 홈·탐색·혜택 헤더 카드에서 entry, 등급(/r/grade)은 혜택 탭에서 entry. ⑥ 탐색 헤더에 3-stat(곧 마감/신규/평균 지원금) 카드, 정렬 셀렉트(추천/거리/신규/지원금/마감) 추가. |
 | v2.7 | 2026-06-16 | **B급 감성 카피·톤 적용** — 컨셉 미팅 텍스트 산출물(`docs/concept/2026-06-16-tone-of-voice.txt`) 반영. 레퍼런스: 오늘의집 초기 / 당근 초창기 / 여기어때. 정책: UI는 깔끔 유지, 카피만 유쾌·친근·발견의 재미·살짝 장난기. ① 홈 헤드라인 "오늘 뭐 먹어요? + {지역} 어디 가볼까?" + 서브 "근처에 경험할 곳 N곳이 있어요". ② 동네 발견 배너를 "오늘의 동네 발견 / 이 집 아직 모르는 사람 많음 🤫 / 새로 생긴 곳, 우리가 먼저 가져왔어요". ③ 3-카드 큐레이션: 갓 오픈 카페 / 이미 다 안다 / 공짜로 줘요. ④ 가까운 곳 섹션: "걸어서 갈 수 있는 곳 👀 / 동네 한 바퀴 돌 김에 한 번 들러볼래요?". ⑤ 탐색 헤더 "오늘 가볼 만한 곳 N곳 발견", 3-stat 카피("지금 안 가면 / 방금 등록 / 평균 받아요"). ⑥ **상태별 카피**: 라벨 칩 "신상(success)" / "곧 마감(error)" / "이번 주만(orange)" + 곧 마감 카드 본문에 "지금 안 가면 남들 인스타에서 보게 됨" italic 한 줄. **등급 부족 오버레이**: "{필요 등급}등급들만 / 몰래 가는 중 🤫" (RowCard 축약, GridCard 2줄). ⑦ 라벨 칩 스티커 느낌(`rotate(-4deg)` + drop shadow), 카드 매장명 16pt bold tracking 강조, 도보 N분 chip을 그리드 카드 우상단에 노출. ⑧ 정렬·필터 카피도 "우리 추천 / 가까운 순 / 방금 등록 / 많이 받는 순 / 곧 마감"으로 변환. ⑨ 빈 상태 "지금은 동네가 잠깐 쉬는 중", 검색 무결과 "다른 동네 찾아볼까요?". ⑩ PRD §5.5 B급 감성 카피 가이드 절 신설 (카피 변환 표 + 상태별 카피 + 시각 가이드 + 사용 금지 카피). |
+| v2.9 | 2026-06-25 | **등급/혜택 책임 분리** — v2.8 통합 후 혜택 탭이 등급 정보(정적)와 viral(동적)을 모두 떠안아 정보 밀도가 과해진 문제를 정리. ① **`/r/grade`를 등급 탭 메인으로 재구성** — 기존(큰 등급 배지 + 다음 등급 진행도 + 30일 성과 + 등급별 혜택 사다리)에 혜택 탭에서 옮겨온 콘텐츠 추가: ink 3-stat 카드(참여 가능 매장 / 최대 지원금 / 사용 가능 체험권), 내 체험권 entry → /r/passes, 등급별 혜택 사다리에 진입 조건(TIER_REQUIRE) 통합. ② **`/r/rewards`를 viral 전용으로 정리** — 등급 ink 카드/등급별 혜택 표 모두 제거, 새 헤더 "오늘은 N명이 받았어요"(B급 톤), 박스 카드 + 라이브 카운터 + 내 보상(전체 목록) + 보낸 초대 현황(매트릭스/토큰/상태 칩) + 등급 탭 entry 카드("등급 혜택은 따로 모아뒀어요"). ③ **BottomNav 5탭 재구성** — v2.6 4탭(홈/탐색/혜택/MY) → **홈/탐색/등급/혜택/MY**. 등급(trophy)과 혜택(ticket)을 각각 독립 탭으로. ④ 분리 정책 명문화: 등급 탭은 "지금 받을 수 있는 정적 혜택", 혜택 탭은 "친구와 함께 키우는 동적 보상". ⑤ PRD §3.1 R-06 등급 탭 정의 갱신, BottomNav 정책 명시. |
 | v2.8 | 2026-06-25 | **바이럴(레퍼럴) 메인 흡수** — `feature/viral-referral-test` 트랙의 viral 모듈을 메인 트리(`claude/create-planning-prd-wdoZK`)에 통합. ① **데이터 모델**: `Reviewer.inviteStats`·`Owner.inviteStats` + DBShape에 `invites`/`rewards`/`viralCounter` 추가. `Invite`·`Reward`·`ViralCounter`·`InviteStats`·`MatrixKey`·`BoxGrade` 타입 신설. SEED_VERSION 5 bump. ② **어댑터 라이브러리** `src/lib/referral.ts` — `matrixOf`·`computeBoxGrade`·`createInvite`·`markInviteClicked`·`acceptInvite`(양면 보상 발행)·`counterWithNoise`·`rewardLabel`/`rewardEmoji`·`refereePreview`. ③ **API 3개**: `POST /api/referral/invite` (토큰 발급), `POST /api/referral/accept` (mode: click/accept), `GET /api/referral/counter` (라이브 N + ticker). ④ **혜택 탭(`/r/rewards`) 통합**: 상단 `LiveCounter` 클라이언트 (1.8s 폴링) + `ReferralBoxCard` (박스 등급 + 진행도 + CTA) + 내 보상 목록(rewardLabel/Emoji) + 기존 등급 카드. ⑤ **신규 라우트 3개**: `/r/invite/new` R-10 (매트릭스 자동 결정 + 4채널 공유 시트 + Web Share API 폴백), `/r/i/[token]` R-11 (비회원 진입 허용 — (app) 그룹 바깥, 만료/사용/유효 분기, 로그인 시 자동 redirect), `/welcome/box` W-01 (reviewer/owner 공용, 가입 직후 슬롯 머신 0.6→1.8→2.2s + 컨페티 + 양면 보상 결과 카드). ⑥ **가입 폼 통합**: `/r/signup`·`/o/signup`에서 `?invite=<token>` 보존 → 가입 완료 시 `/welcome/box?token=...`으로 push (Suspense 경계 추가). ⑦ **T1 트리거**: `/r/passes/[id]` used 카드 하단에 "₩X 절약! 친구도 받게 해줄래요?" sticky 카드 + completed 카드 하단에 T2 "검수 통과! 박스 더 키우러" 카드. ⑧ **시드** (`seed-runner.ts`): demo reviewer에 inviteStats 초기화(sent3/clicked3/accepted2/basic/₩4k), 데모 invite 3건(signed_up/clicked/issued + RR/RR/RO 매트릭스), reward 2개, viralCounter 1,283명·평균 ₩4,250·ticker 4건. ⑨ **PRD/Flow**: §3.1에 R-10/R-11/W-01 라우트 추가, §4 시나리오 G(레퍼럴 흐름) 신설, §6.10 바이럴 정책 절 신설 (매트릭스 4종 표 / 박스 등급 / 토큰 정책 / 보상 정책 / 트리거 매핑 / 라이브 카운터 / 어뷰징 가드). ⑩ end-to-end QA — 토큰 발급 → 신규 가입 → accept → 양면 보상 발행 → 발신자 카드 갱신 정상. |

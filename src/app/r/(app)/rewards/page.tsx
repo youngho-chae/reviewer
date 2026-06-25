@@ -1,63 +1,31 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { gradeMeets } from "@/lib/grade";
-import type { Grade } from "@/lib/types";
 import Icon from "@/components/Icon";
-import GradeBadge from "@/components/GradeBadge";
 import LiveCounter from "./LiveCounter";
 import ReferralBoxCard from "./ReferralBoxCard";
-import { counterWithNoise, defaultInviteStats, rewardEmoji, rewardLabel } from "@/lib/referral";
+import { counterWithNoise, defaultInviteStats, matrixOf, refereePreview, rewardEmoji, rewardLabel } from "@/lib/referral";
+import type { Invite } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const TIER_DESC: Record<Grade, string> = {
-  S: "상위 5% 리뷰어 · 모든 캠페인 + 시그니처 우선 노출",
-  A: "검증된 리뷰어 · S 제외 모든 캠페인 접근",
-  B: "일반 리뷰어 · B/C 캠페인 + A 일부",
-  C: "성장 단계 · C 캠페인 진입 가능",
-  N: "검증 전 · SNS 연동 후 등급 산정",
-};
-
-const TIER_REQUIRE: Record<Grade, string> = {
-  S: "운영팀 부여 영역 (자동 진입 불가)",
-  A: "SNS 영향력 가중 합산 50,000 이상",
-  B: "SNS 영향력 가중 합산 10,000 이상",
-  C: "SNS 영향력 가중 합산 1,000 이상",
-  N: "SNS 1개 이상 연동 시 자동 산정",
-};
 
 export default async function RewardsPage() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
-  const now = Date.now();
 
-  // 등급별 접근 가능한 캠페인 수
-  const visit = db.campaigns.filter((c) => c.kind === "visit" && c.endAt > now);
-  const accessibleCount = visit.filter((c) => {
-    const min: "S" | "A" | "B" | "C" =
-      c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-    return gradeMeets(me.grade, min as Grade);
-  }).length;
-  const totalSupport = visit.reduce((s, c) => s + c.supportAmount, 0);
-  const myMaxSupport = visit
-    .filter((c) => {
-      const min: "S" | "A" | "B" | "C" =
-        c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-      return gradeMeets(me.grade, min as Grade);
-    })
-    .reduce((m, c) => Math.max(m, c.supportAmount), 0);
-
-  const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
-  const activePasses = db.passes.filter((p) => p.reviewerId === me.id && (p.status === "active" || p.status === "used")).length;
-
-  // 바이럴 — 내 invite stats + 받은 보상 + 라이브 카운터
+  // 바이럴 인벤토리 ──
   const inviteStats = me.inviteStats ?? defaultInviteStats();
   const myRewards = (db.rewards ?? []).filter((r) => r.ownerUserId === me.id);
-  const myUnusedRewards = myRewards.filter((r) => !r.usedAt);
+  const usedCount = myRewards.filter((r) => r.usedAt).length;
+  const unusedCount = myRewards.length - usedCount;
   const counter = counterWithNoise(db);
 
-  const tiers: Grade[] = ["S", "A", "B", "C", "N"];
+  // 내가 발송한 초대 — 최근 5건
+  const myInvites: Invite[] = (db.invites ?? [])
+    .filter((i) => i.referrerId === me.id)
+    .slice(0, 5);
+
+  const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
   return (
     <div className="pb-24 bg-canvas">
@@ -75,8 +43,17 @@ export default async function RewardsPage() {
         </div>
       </div>
 
+      {/* 헤더 — B급 톤 */}
+      <section className="px-5 pt-6">
+        <div className="text-[12px] text-muted">친구와 같이 받는 박스</div>
+        <h1 className="font-display text-[30px] leading-[1.1] text-ink mt-1 tracking-[-0.028em]">
+          오늘은 <span className="text-brand">{counter.todayBoxCount.toLocaleString()}</span>명이 받았어요
+        </h1>
+        <p className="text-[13px] text-muted mt-1.5">평균 ₩{counter.todayAvgReward.toLocaleString()} · 내 박스는 안 와요?</p>
+      </section>
+
       {/* 라이브 카운터 — 사회적 증거 */}
-      <section className="px-5 pt-5">
+      <section className="px-5 mt-4">
         <LiveCounter initial={counter} />
       </section>
 
@@ -86,19 +63,28 @@ export default async function RewardsPage() {
       </section>
 
       {/* 내 보상 — 받은 박스/쿠폰 인벤토리 */}
-      {myRewards.length > 0 && (
-        <section className="px-5 mt-5">
-          <div className="flex items-end justify-between mb-2">
-            <h2 className="text-[15px] font-semibold text-ink">내 보상</h2>
-            <span className="text-[11px] text-muted">미사용 {myUnusedRewards.length}개</span>
+      <section className="px-5 mt-6">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h2 className="font-display text-[22px] leading-[1.14] text-ink tracking-[-0.022em]">내 보상</h2>
+            <div className="text-[11px] text-muted mt-0.5">미사용 {unusedCount}개 · 사용 {usedCount}개</div>
           </div>
+        </div>
+
+        {myRewards.length === 0 ? (
+          <div className="rounded-md border border-dashed border-hairline p-8 text-center text-[13px] text-muted">
+            아직 받은 박스가 없어요.
+            <br />
+            친구를 초대하거나 친구 링크로 가입하면 박스가 도착해요.
+          </div>
+        ) : (
           <div className="rounded-md border border-hairline bg-canvas overflow-hidden">
-            {myRewards.slice(0, 5).map((r, idx) => (
+            {myRewards.map((r, idx) => (
               <div
                 key={r.id}
                 className={`flex items-center gap-3 px-3 py-3 ${idx > 0 ? "border-t border-hairlineSoft" : ""}`}
               >
-                <span className="w-9 h-9 rounded-md bg-parchment flex items-center justify-center text-[18px]" aria-hidden>
+                <span className="w-10 h-10 rounded-md bg-parchment flex items-center justify-center text-[20px]" aria-hidden>
                   {rewardEmoji(r)}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -106,6 +92,10 @@ export default async function RewardsPage() {
                   <div className="text-[11px] text-muted mt-0.5">
                     {r.source === "referee_welcome" ? "환영 박스" : r.source === "referrer_box" ? "행운 박스" : "마일스톤"}
                     {r.meta?.matrix && <span className="opacity-70"> · {r.meta.matrix}</span>}
+                    <span className="opacity-70">
+                      {" · "}
+                      {new Date(r.issuedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                    </span>
                   </div>
                 </div>
                 <span
@@ -118,113 +108,87 @@ export default async function RewardsPage() {
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* 내 등급 카드 */}
-      <section className="px-5 mt-6">
-        <div className="rounded-2xl bg-ink text-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[12px] text-white/70">현재 등급</div>
-              <div className="mt-1 flex items-center gap-2">
-                <GradeBadge grade={me.grade} size="md" />
-                <span className="font-display text-[28px] leading-none">{me.grade}</span>
-              </div>
-              <div className="text-[12px] text-white/80 mt-2 max-w-[280px]">{TIER_DESC[me.grade]}</div>
-            </div>
-            <Link
-              href="/r/grade"
-              className="cp-action text-[12px] text-white/80 underline decoration-white/30 underline-offset-4"
-            >
-              상세 →
-            </Link>
-          </div>
-          <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-[20px] font-semibold leading-none">{accessibleCount}</div>
-              <div className="text-[10px] text-white/70 mt-1">참여 가능 매장</div>
-            </div>
-            <div>
-              <div className="text-[20px] font-semibold leading-none">₩{myMaxSupport.toLocaleString()}</div>
-              <div className="text-[10px] text-white/70 mt-1">최대 지원금</div>
-            </div>
-            <div>
-              <div className="text-[20px] font-semibold leading-none">{activePasses}</div>
-              <div className="text-[10px] text-white/70 mt-1">사용 가능 체험권</div>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
 
-      {/* 내 체험권 entry */}
-      <section className="px-5 mt-4">
+      {/* 내가 보낸 초대 현황 */}
+      <section className="px-5 mt-6">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h2 className="font-display text-[22px] leading-[1.14] text-ink tracking-[-0.022em]">보낸 초대</h2>
+            <div className="text-[11px] text-muted mt-0.5">
+              발송 {inviteStats.sent} · 클릭 {inviteStats.clicked} · 가입 {inviteStats.accepted}
+            </div>
+          </div>
+          <Link href="/r/invite/new" className="cp-action h-9 px-4 rounded-pill bg-ink text-white text-[12px] font-medium inline-flex items-center">
+            🎁 또 쏘기
+          </Link>
+        </div>
+
+        {myInvites.length === 0 ? (
+          <div className="rounded-md border border-dashed border-hairline p-6 text-center text-[12px] text-muted">
+            아직 보낸 초대가 없어요.
+          </div>
+        ) : (
+          <div className="rounded-md border border-hairline bg-canvas overflow-hidden">
+            {myInvites.map((inv, idx) => (
+              <InviteRow key={inv.token} inv={inv} divider={idx > 0} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 등급 탭 안내 — 등급 영역이 분리되었음을 알리는 entry */}
+      <section className="px-5 mt-8">
         <Link
-          href="/r/passes"
-          className="cp-action flex items-center gap-3 p-4 rounded-md border border-hairline bg-canvas"
+          href="/r/grade"
+          className="cp-action flex items-center gap-3 p-4 rounded-md border border-hairline bg-parchment"
         >
           <span className="w-10 h-10 rounded-md bg-brand/12 text-brand flex items-center justify-center">
-            <Icon name="ticket" variant="bold" size={20} />
+            <Icon name="trophy" variant="bold" size={20} />
           </span>
-          <div className="flex-1">
-            <div className="text-[14px] font-semibold text-ink">내 체험권</div>
-            <div className="text-[11px] text-muted mt-0.5">발급/사용 가능 {activePasses}개 · 작성 대기/완료 포함</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[14px] font-semibold text-ink">등급 혜택은 따로 모아뒀어요</div>
+            <div className="text-[11px] text-muted mt-0.5">참여 가능 매장 / 최대 지원금 / 등급별 혜택 표 → 등급 탭</div>
           </div>
           <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
         </Link>
       </section>
+    </div>
+  );
+}
 
-      {/* 등급별 혜택 표 */}
-      <section className="px-5 mt-8">
-        <h2 className="font-display text-[22px] leading-[1.14] text-ink">등급별 혜택</h2>
-        <p className="text-[12px] text-muted mt-1">
-          등급은 SNS 영향력 합산에 따라 자동 산정됩니다. 상위 등급일수록 더 많은 매장에 우선 노출됩니다.
-        </p>
-        <div className="mt-4 space-y-2">
-          {tiers.map((g) => {
-            const isMe = me.grade === g;
-            return (
-              <div
-                key={g}
-                className={`flex items-start gap-3 p-3.5 rounded-md border ${
-                  isMe ? "border-brand bg-brand/4" : "border-hairline bg-canvas"
-                }`}
-              >
-                <GradeBadge grade={g} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-semibold text-ink">{g} 등급</span>
-                    {isMe && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-pill bg-brand text-white font-semibold">
-                        내 등급
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-muted mt-1">{TIER_DESC[g]}</div>
-                  <div className="text-[11px] text-ink2 mt-1.5">진입 조건: {TIER_REQUIRE[g]}</div>
-                </div>
-              </div>
-            );
-          })}
+function InviteRow({ inv, divider }: { inv: Invite; divider: boolean }) {
+  const m = matrixOf(inv.referrerKind, inv.targetKind);
+  const statusLabel: Record<typeof inv.status, { text: string; tone: "muted" | "brand" | "success" | "error" }> = {
+    issued: { text: "발송", tone: "muted" },
+    clicked: { text: "열람", tone: "brand" },
+    signed_up: { text: "✓ 가입", tone: "success" },
+    expired: { text: "만료", tone: "error" },
+  };
+  const status = statusLabel[inv.status];
+  return (
+    <div className={`flex items-center gap-3 px-3 py-3 ${divider ? "border-t border-hairlineSoft" : ""}`}>
+      <span className="w-9 text-[11px] font-semibold text-muted text-center tabular-nums">{m}</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-mono text-ink truncate">{inv.token}</div>
+        <div className="text-[11px] text-muted mt-0.5">
+          {refereePreview(m)} · {new Date(inv.createdAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
         </div>
-      </section>
-
-      {/* 등급 올리기 가이드 */}
-      <section className="px-5 mt-6">
-        <Link
-          href="/r/grade"
-          className="cp-action block rounded-md bg-parchment border border-hairline p-4"
-        >
-          <div className="text-[13px] font-semibold text-ink">등급 올리고 더 많은 체험 혜택 받으세요!</div>
-          <div className="text-[11px] text-muted mt-1">
-            진행 중 캠페인 {visit.length}개 · 총 지원금 ₩{totalSupport.toLocaleString()}
-          </div>
-          <div className="mt-3 inline-flex items-center gap-0.5 h-8 px-3 rounded-pill bg-canvas border border-hairline text-[12px] text-ink">
-            등급별 혜택과 조건 자세히
-            <Icon name="chevron-right" variant="border" size={12} />
-          </div>
-        </Link>
-      </section>
+      </div>
+      <span
+        className={`text-[10px] px-2 py-0.5 rounded-pill shrink-0 ${
+          status.tone === "success"
+            ? "bg-success/10 text-success"
+            : status.tone === "brand"
+              ? "bg-brand/10 text-brand"
+              : status.tone === "error"
+                ? "bg-error/10 text-error"
+                : "bg-parchment text-muted"
+        }`}
+      >
+        {status.text}
+      </span>
     </div>
   );
 }
