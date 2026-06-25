@@ -32,6 +32,7 @@ interface NearbyCard {
   rating: number;
   reviewCount: number;
   accessible: boolean;
+  grade: "S" | "A" | "B" | "C";
   walkMin: number;
 }
 
@@ -62,6 +63,7 @@ export default async function ReviewerHome() {
       rating: store.rating,
       reviewCount: store.reviewCount,
       accessible: gradeMeets(me.grade, minNeededGrade as Grade),
+      grade: minNeededGrade,
       walkMin: walkMinutes(store.id),
     };
   });
@@ -84,6 +86,11 @@ export default async function ReviewerHome() {
   const nearby = [...cards]
     .sort((a, b) => Number(b.accessible) - Number(a.accessible) || a.walkMin - b.walkMin)
     .slice(0, 4);
+
+  // 전체 리스트 — accessible 우선, 혜택(지원금) 큰 순 (가까운 곳과 정렬축 차별)
+  const all = [...cards].sort(
+    (a, b) => Number(b.accessible) - Number(a.accessible) || b.supportAmount - a.supportAmount,
+  );
 
   // 헤더 — 시드 사용자 지역 또는 첫 매장 지역으로 대표
   const repArea = me.nickname && cards[0] ? cards[0].area : "내 동네";
@@ -256,6 +263,70 @@ export default async function ReviewerHome() {
         {nearby.length === 0 && (
           <div className="col-span-2 py-12 text-center text-muted text-[13px]">
             현재 모집 중인 매장이 없어요
+          </div>
+        )}
+      </section>
+
+      {/* 오늘 참여 가능한 전체 리스트 큐레이션 — 혜택 큰 순 (v2.10) */}
+      <section className="px-5 mt-10 mb-4 flex items-end justify-between">
+        <div>
+          <h2 className="font-display text-[22px] leading-[1.14] text-ink tracking-[-0.022em]">
+            한 번에 다 모았어요 <span aria-hidden>👀</span>
+          </h2>
+          <div className="text-[12px] text-muted mt-1">
+            오늘 참여 가능한 전체 <strong className="text-ink">{all.length}곳</strong> · 혜택 큰 순
+          </div>
+        </div>
+        <Link href="/r/explore?sort=topSupport" className="text-[13px] text-brand font-medium shrink-0 mb-1">
+          탐색에서 더 ›
+        </Link>
+      </section>
+
+      <section className="px-5 grid grid-cols-2 gap-3">
+        {all.map((p) => (
+          <Link
+            key={`all-${p.storeId}`}
+            href={p.accessible ? `/r/store/${p.storeId}?campaign=${p.campaignId}` : "/r/grade"}
+            className={`cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
+          >
+            <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
+              <Image
+                src={photoForStore(p.storeId, p.category)}
+                alt={p.name}
+                fill
+                sizes="(max-width: 480px) 50vw, 240px"
+                className="object-cover"
+              />
+              {/* 카테고리 라벨 칩 — 가까운 곳(도보 분)과 차별 */}
+              <div className="absolute top-2 left-2">
+                <span className="text-[10px] font-semibold text-ink bg-canvas/90 px-1.5 py-0.5 rounded-pill backdrop-blur-sm">
+                  {p.category}
+                </span>
+              </div>
+              {!p.accessible && (
+                <div className="absolute inset-0 bg-ink/55 flex flex-col items-center justify-center text-white text-[11px] font-semibold text-center px-3 leading-tight">
+                  <span>{p.grade}등급들만</span>
+                  <span className="text-[10px] font-normal opacity-90">몰래 가는 중 🤫</span>
+                </div>
+              )}
+            </div>
+            <div className="p-3">
+              <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
+              <p className="text-[11px] text-muted mt-0.5 truncate">{p.area} · 도보 {p.walkMin}분</p>
+              <div className="text-[14px] text-success font-bold mt-1.5 tabular-nums">
+                ₩{p.supportAmount.toLocaleString()}
+              </div>
+              <div className="text-[11px] text-muted mt-0.5">
+                <span className="text-[#ffa500]" aria-hidden>★</span>{" "}
+                <span className="text-ink font-semibold">{p.rating}</span>{" "}
+                <span>({p.reviewCount.toLocaleString()})</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+        {all.length === 0 && (
+          <div className="col-span-2 py-12 text-center text-muted text-[13px]">
+            지금은 동네가 잠깐 쉬는 중
           </div>
         )}
       </section>
