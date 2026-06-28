@@ -5,7 +5,6 @@ import { getDBAsync } from "@/lib/db";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
-import { formatPassCode } from "@/lib/ids";
 import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
@@ -104,16 +103,16 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                 <span className="text-muted">&ldquo;캐치랭크 멤버십 쿠폰 사용할게요&rdquo;</span>
               </p>
 
-              {/* 8자 영문/숫자 단축 코드 — 스캔 실패 시 사장님이 직접 입력 */}
+              {/* 캠페인 4자리 사용처리 코드 — 사장님이 직접 입력 */}
               <div className="mt-7 w-full pt-6 border-t border-dashed border-hairline">
                 <div className="text-[11px] text-muted tracking-[0.18em] uppercase text-center">
                   사장님 직접 입력 코드
                 </div>
-                <div className="mt-2 font-display text-[28px] text-ink tracking-[0.2em] text-center select-all">
-                  {formatPassCode(pass.code)}
+                <div className="mt-2 font-display text-[40px] text-ink tracking-[0.42em] text-center select-all">
+                  {campaign?.useCode ?? "----"}
                 </div>
                 <div className="mt-1.5 text-[11px] text-muted text-center">
-                  대소문자 구분 없음
+                  QR 스캔이 안 되면 이 숫자 4자리를 사장님께 보여주세요
                 </div>
               </div>
             </div>

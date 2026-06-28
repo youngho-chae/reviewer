@@ -17,6 +17,13 @@ function detPassCode(seed: string): string {
   return s;
 }
 
+// 결정론적 캠페인 4자리 사용처리 코드 (시드/데모용).
+function detUseCode(seed: string): string {
+  const h = crypto.createHash("sha256").update(`usecode:${seed}`).digest();
+  const n = (h.readUInt16BE(0) % 10000);
+  return n.toString().padStart(4, "0");
+}
+
 // ─────────────────────────────────────────────────────────────
 // 매장 시드 — 다양한 업종을 포함하여 QA/데모 폭을 확보.
 // 음식점은 실 네이버 Place ID 사용, 그 외는 데모용 가상 placeId.
@@ -415,6 +422,7 @@ export function runSeed(db: DBShape) {
       requiredMenus: menus,
       description: s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menuNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
       createdAt: now - 1000 * 60 * 60 * 24 * 35,
+      useCode: detUseCode(`${s.naverPlaceId}-default`),
     };
     db.campaigns.push(campaign);
   }
@@ -445,6 +453,7 @@ export function runSeed(db: DBShape) {
         "로고/심볼 가이드 (PDF)",
       ],
       pressMinChars: 1500,
+      useCode: detUseCode(`${pressStore.id}-press`),
     });
   }
   // 2) 네일 아틀리에 기자단 (뷰티 카테고리)
@@ -471,6 +480,7 @@ export function runSeed(db: DBShape) {
         "인플루언서 게시 가이드 (1.2k자)",
       ],
       pressMinChars: 1200,
+      useCode: detUseCode(`${nailStore.id}-press`),
     });
   }
 

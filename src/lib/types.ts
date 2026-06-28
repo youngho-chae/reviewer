@@ -81,6 +81,9 @@ export interface Campaign {
   requiredMenus: RequiredMenu[];
   description: string;
   createdAt: number;
+  // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드.
+  // 유저 체험권 화면에 노출되며, 사장님이 QR 스캔 대신 이 4자리를 입력하면 사용 처리됨.
+  useCode: string; // "0000" ~ "9999"
   // 기자단 전용
   pressKeywords?: string[];
   pressMaterials?: string[]; // 자료팩 — 파일명/요약 텍스트
