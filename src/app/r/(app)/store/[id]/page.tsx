@@ -4,6 +4,7 @@ import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
+import { SBUI } from "@/lib/storyboard";
 import Icon from "@/components/Icon";
 import ParticipateButton from "./ParticipateButton";
 import NaverMapButton from "./NaverMapButton";
@@ -65,7 +66,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           {store.name}
         </h1>
         <p className="mt-3 text-[19px] leading-[1.4] text-ink2">
-          {store.category} · ★ {store.rating} <span className="text-muted">({store.reviewCount.toLocaleString()}건)</span>
+          {store.category} · ★ {SBUI.rating} <span className="text-muted">({SBUI.reviewCount})</span>
         </p>
         {store.address && <p className="mt-2 text-[14px] text-muted">{store.address}</p>}
       </section>
@@ -73,15 +74,15 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
       {/* Dark product tile — pricing hero */}
       <section className="bg-tile1 text-white py-16 px-6 text-center">
         <div className="text-[12px] tracking-[0.18em] text-mutedSoft uppercase mb-3">멤버십 할인 지원금</div>
-        <div className="font-display text-[56px] leading-[1.07] tracking-[-0.026em]">
-          ₩{c.supportAmount.toLocaleString()}
+        <div className="font-display text-[40px] leading-[1.07] tracking-[-0.026em]">
+          {SBUI.support}
         </div>
         <p className="mt-4 text-[19px] text-mutedSoft leading-[1.4]">
           평소처럼 식사하고 결제 전 QR을 보여주면 즉시 할인.
         </p>
         <div className="mt-8 max-w-[280px] mx-auto grid grid-cols-3 gap-3 text-left">
           <div className="text-center">
-            <div className="text-[19px] font-semibold tracking-[-0.022em]">{remain}매</div>
+            <div className="text-[15px] font-semibold tracking-[-0.022em]">{SBUI.remain}</div>
             <div className="text-[12px] text-mutedSoft mt-1">잔여</div>
           </div>
           <div className="text-center border-l border-r border-white/10">
@@ -132,19 +133,15 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
                 <div key={`${m.name}-${i}`} className="bg-canvas border border-hairline rounded-md px-4 py-3 flex items-center gap-3">
                   <span className="text-[12px] text-muted w-4 flex-shrink-0">{i + 1}</span>
                   <span className="text-[15px] text-ink flex-1">{m.name}</span>
-                  {typeof m.price === "number" && m.price > 0 && (
-                    <span className="text-[14px] font-medium text-ink tabular-nums">
-                      ₩{m.price.toLocaleString()}
-                    </span>
-                  )}
+                  <span className="text-[14px] font-medium text-ink tabular-nums">
+                    {SBUI.price}
+                  </span>
                 </div>
               ))}
             </div>
-            {c.requiredMenus.some((m) => typeof m.price === "number" && m.price > 0) && (
-              <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-                위 메뉴 결제 금액 대비 지원금 <span className="text-ink font-medium">₩{c.supportAmount.toLocaleString()}</span>이 즉시 차감됩니다.
-              </p>
-            )}
+            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
+              위 메뉴 결제 금액 대비 지원금 <span className="text-ink font-medium">{SBUI.support}</span>이 즉시 차감됩니다.
+            </p>
           </>
         )}
       </section>

@@ -45,7 +45,17 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
+// ─────────────────────────────────────────────────────────────
+// [스토리보드 모드] design/storyboard-schema 브랜치 전용.
+// 모든 썸네일을 "썸네일" 스키마 placeholder 1종으로 통일하여,
+// 디자인 파트가 어떤 위치에 이미지 데이터가 들어가는지 레이아웃을 잡을 수 있게 함.
+// 실데이터 원복은 backup/real-mockdata 브랜치 참조.
+// ─────────────────────────────────────────────────────────────
+const STORYBOARD = true;
+const STORYBOARD_THUMB = "/store-photos/storyboard-thumb.svg";
+
 export function photoForStore(storeId: string, category?: string): string {
+  if (STORYBOARD) return STORYBOARD_THUMB;
   if (category && CATEGORY_COVERS[category]) return CATEGORY_COVERS[category];
   if (category && !FOOD_CATEGORIES.has(category)) {
     // 정의되지 않은 비음식 카테고리는 일단 음식 풀 폴백 (디자인 변화 최소화)

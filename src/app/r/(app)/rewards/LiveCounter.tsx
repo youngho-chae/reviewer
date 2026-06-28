@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { ViralCounter } from "@/lib/types";
+import { SBUI } from "@/lib/storyboard";
 
 /**
  * 혜택 탭 상단의 라이브 N명 카운터 — 사회적 증거 + FOMO.
@@ -40,12 +41,12 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
       </span>
       <div className="text-[12px] leading-[1.45] flex-1 min-w-0">
         오늘 이 박스로{" "}
-        <span className="font-semibold tabular-nums">{c.todayBoxCount.toLocaleString()}</span>명이 평균{" "}
-        <strong className="text-[#ffd60a]">₩{c.todayAvgReward.toLocaleString()}</strong> 받았어요
+        <span className="font-semibold">{SBUI.liveCount}</span>명이 평균{" "}
+        <strong className="text-[#ffd60a]">{SBUI.avgSupport}</strong> 받았어요
         {top && (
           <div className="text-[11px] text-white/70 mt-0.5 truncate">
-            방금 {top.nickname}이(가) ₩{top.reward.toLocaleString()} 받음
-            <span className="opacity-60"> · {top.matrix}</span>
+            방금 {top.nickname}이(가) {SBUI.reward} 받음
+            <span className="opacity-60"> · {SBUI.matrix}</span>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { STORYBOARD } from "@/lib/storyboard";
 
 interface Props {
   fallbackArea: string;
@@ -13,6 +14,8 @@ export default function HomeLocationChip({ fallbackArea }: Props) {
   const [area, setArea] = useState<string>(fallbackArea);
 
   useEffect(() => {
+    // [스토리보드] fallbackArea("지역")를 GPS로 덮어쓰지 않음
+    if (STORYBOARD) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       async (p) => {
