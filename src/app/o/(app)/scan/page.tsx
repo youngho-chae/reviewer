@@ -52,8 +52,8 @@ export default function ScanPage() {
   return (
     <div className="pb-24">
       <div className="px-5 pt-12 pb-3">
-        <h1 className="text-[22px] font-bold">QR 스캔</h1>
-        <p className="text-[13px] text-muted mt-1">체험자의 QR 코드를 카메라로 인식하거나 코드를 직접 입력하세요.</p>
+        <h1 className="text-[22px] font-bold">사용 처리</h1>
+        <p className="text-[13px] text-muted mt-1">체험자의 QR을 스캔하거나, 체험권 화면에 표시된 숫자 4자리를 직접 입력하세요.</p>
       </div>
 
       <div className="px-5">
@@ -63,7 +63,6 @@ export default function ScanPage() {
           <div className="rounded-md overflow-hidden border border-hairline">
             <Html5QrScanner
               onScan={(text) => {
-                setCode(text);
                 setScanning(false);
                 lookup(text);
               }}
@@ -73,16 +72,17 @@ export default function ScanPage() {
         )}
 
         <div className="mt-4">
-          <div className="text-[13px] text-muted mb-2">또는 코드 직접 입력 (8자, 대소문자 무관)</div>
+          <div className="text-[13px] text-muted mb-2">또는 체험권 화면의 숫자 4자리 직접 입력</div>
           <div className="flex gap-2">
             <input
               value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-              placeholder="예) XK7H3M9P"
-              maxLength={8}
-              className="flex-1 h-12 px-3 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[16px] font-mono tracking-[0.2em] uppercase"
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="예) 1234"
+              inputMode="numeric"
+              maxLength={4}
+              className="flex-1 h-12 px-3 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[20px] font-semibold tracking-[0.4em] text-center"
             />
-            <button onClick={() => lookup(code)} disabled={code.length !== 8} className="h-12 px-4 rounded-sm bg-ink text-white text-[14px] font-medium disabled:opacity-40">조회</button>
+            <button onClick={() => lookup(code)} disabled={code.length !== 4} className="h-12 px-4 rounded-sm bg-ink text-white text-[14px] font-medium disabled:opacity-40">조회</button>
           </div>
         </div>
 

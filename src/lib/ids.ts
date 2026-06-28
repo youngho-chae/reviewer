@@ -27,3 +27,11 @@ export function formatPassCode(code: string): string {
 export function normalizePassCode(input: string): string {
   return input.replace(/[\s-]/g, "").toUpperCase();
 }
+
+// 캠페인 사용처리 4자리 숫자 코드 검증/정규화.
+export function isUseCode(input: string): boolean {
+  return /^\d{4}$/.test(input.trim());
+}
+export function normalizeUseCode(input: string): string {
+  return input.replace(/\D/g, "").slice(0, 4);
+}

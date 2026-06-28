@@ -32,6 +32,7 @@ export default function NewCampaign() {
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
+  const [useCode, setUseCode] = useState("");
   const [menus, setMenus] = useState<MenuRow[]>([{ name: "", price: "" }]);
   const [channels, setChannels] = useState<string[]>(["naver_blog", "instagram"]);
   const [description, setDescription] = useState("");
@@ -82,6 +83,10 @@ export default function NewCampaign() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (useCode.length !== 4) {
+      setErr("사용처리 코드는 숫자 4자리로 입력해주세요");
+      return;
+    }
     setBusy(true);
     setErr(null);
     const cleanMenus = menus
@@ -95,6 +100,7 @@ export default function NewCampaign() {
         days: Number(days),
         supportAmount: Number(supportAmount),
         totalQuota: totalQuotaNum,
+        useCode,
         requiredMenus: cleanMenus,
         requiredChannels: channels,
         description,
@@ -164,6 +170,22 @@ export default function NewCampaign() {
               className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
             />
           </div>
+        </section>
+
+        {/* 사용처리 4자리 코드 — 필수 */}
+        <section>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">사용처리 코드 (숫자 4자리)</div>
+          <input
+            value={useCode}
+            onChange={(e) => setUseCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            inputMode="numeric"
+            placeholder="예: 1234"
+            maxLength={4}
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[18px] font-semibold tracking-[0.4em] text-center"
+          />
+          <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+            체험자 체험권 화면에 표시됩니다. 체험자가 QR을 보여주거나, 사장님이 이 4자리를 직접 입력하면 사용 처리됩니다.
+          </p>
         </section>
 
         {/* 총 모집 인원 — 등급별이 아닌 통합 입력 + 월간 한도 안내 */}
@@ -294,11 +316,11 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit}
+          disabled={busy || !storeId || overLimit || useCode.length !== 4}
           type="submit"
           className="w-full h-12 rounded-pill bg-brand text-white text-[16px] font-semibold disabled:opacity-50"
         >
-          {busy ? "생성 중..." : overLimit ? "월 한도 초과" : "캠페인 생성"}
+          {busy ? "생성 중..." : overLimit ? "월 한도 초과" : useCode.length !== 4 ? "사용처리 코드 4자리 입력" : "캠페인 생성"}
         </button>
       </form>
     </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
-import { rid } from "@/lib/ids";
+import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 
@@ -19,6 +19,23 @@ export async function POST(req: NextRequest) {
 
   const totalQuota = Math.max(0, Math.floor(Number(body.totalQuota) || 0));
   if (totalQuota <= 0) return NextResponse.json({ error: "모집 인원을 1명 이상 입력해주세요" }, { status: 400 });
+
+  // 사용처리 4자리 숫자 코드 — 필수
+  const useCode = normalizeUseCode(String(body.useCode ?? ""));
+  if (!isUseCode(useCode)) {
+    return NextResponse.json({ error: "사용처리 코드는 숫자 4자리로 입력해주세요" }, { status: 400 });
+  }
+  // 동일 사장님의 진행 중(미마감) 캠페인 간 4자리 코드 중복 방지 (조회 모호성 제거)
+  const ownerStoreIdSet = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
+  const dupActive = db.campaigns.some(
+    (c) => ownerStoreIdSet.has(c.storeId) && c.endAt > Date.now() && c.useCode === useCode,
+  );
+  if (dupActive) {
+    return NextResponse.json(
+      { error: `사용처리 코드 ${useCode}는 진행 중인 다른 캠페인에서 사용 중입니다. 다른 4자리를 입력해주세요.` },
+      { status: 400 },
+    );
+  }
 
   // 월간 모집 팀 수 정책 검증
   const policy = PLAN_POLICY[owner.plan];
@@ -77,6 +94,7 @@ export async function POST(req: NextRequest) {
     requiredMenus,
     description: String(body.description || ""),
     createdAt: now,
+    useCode,
   };
   db.campaigns.push(c);
   await saveDBAsync();
