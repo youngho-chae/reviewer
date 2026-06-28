@@ -214,11 +214,14 @@ N  검증 전 (SNS 미연동)
     · 상단 절반: 등급/매장명/지역·카테고리/할인 큰 숫자 + 카운트다운 (남은 시간 시·분)
     · 점선 구분선
     · 하단 절반: 큰 QR 코드 + "결제 시 사장님께 보여주세요"
-    · 캠페인 4자리 사용처리 코드 표시 (사장님이 캠페인 생성 시 지정한 숫자 4자리)
-      — QR 스캔이 안 될 때 사장님이 이 4자리를 직접 입력 (QR은 pass 고유 코드 인코딩)
-    · 대소문자 구분 없음 안내
+    · "사장님 사용 처리" 입력 폼 (v2.12) — 코드를 화면에 노출하지 않고, 사장님이
+      캠페인 4자리 코드를 직접 입력하는 인풋 필드 + (선택) 결제 금액 + [사용 처리] 버튼.
+      입력값이 캠페인 useCode와 일치하면 이 체험권을 즉시 used 처리 (QR은 pass 고유 코드 인코딩, 별도 경로)
 
-→ 사장님 /o/scan에서 QR 또는 코드 입력 → POST /api/passes/use
+→ 경로 A) 체험자 화면에서 사장님 직접 입력 → POST /api/passes/use-by-code (체험자 세션)
+    · { passId, code(4자리), paidAmount? } — code === campaign.useCode 검증
+    · 일치 시 pass.status = "used", paidAmount/supportApplied 기록 (미입력 시 지원금 한도 적용)
+→ 경로 B) 사장님 /o/scan에서 QR 스캔 또는 4자리 조회 → POST /api/passes/use (사장님 세션)
     · pass.status = "used"
     · paidAmount + supportApplied 기록
     · 체험자 알림 등록
@@ -599,8 +602,12 @@ N  검증 전 (SNS 미연동)
 - **사용 처리 코드 2종**:
   - QR: pass 고유 코드(8자 영숫자, `A-H J-N P-Z 2-9`) 인코딩 — QR 스캔 시 특정 패스 무충돌 조회
   - **캠페인 4자리 사용처리 코드(`Campaign.useCode`)**: 사장님이 캠페인 생성 시 필수 지정.
-    체험권 화면에 노출되며, 사장님이 4자리를 직접 입력하면 해당 캠페인의 활성 체험권을 조회·사용 처리.
-    동일 사장님의 진행 중 캠페인 간 4자리 중복은 생성 단계에서 차단(조회 모호성 제거).
+    동일 사장님의 진행 중 캠페인 간 4자리 중복은 생성 단계에서 차단.
+- **사용 처리 2경로** (v2.12 — 4자리 코드는 화면에 노출하지 않음):
+  - 경로 A) 체험자 화면(`/r/passes/[id]`)의 입력 필드에 **사장님이 4자리를 직접 입력** →
+    `POST /api/passes/use-by-code`(체험자 세션) → 해당 pass의 campaign.useCode와 일치 시 used.
+    코드를 노출하지 않으므로 체험자 임의 사용 불가(사장님만 코드를 앎).
+  - 경로 B) 사장님 디바이스 `/o/scan`에서 QR 스캔 또는 4자리 조회 → `POST /api/passes/use`(사장님 세션).
 
 ### 6.4 리뷰 작성 규칙 (방문형) — 자가 점검 모델
 - 폼 입력: 채널 / URL / (자가 점검 4종)
@@ -768,7 +775,8 @@ N  검증 전 (SNS 미연동)
 | POST | `/api/campaigns` | 새 캠페인 (visit) 생성 — title 자동·totalQuota 자동 분배 |
 | POST | `/api/passes` | 체험권 발급 (등급+quota 검증, 쿠키 stopgap) |
 | POST | `/api/passes/lookup` | 코드/QR 기반 패스 조회 (사장님 스캔용) |
-| POST | `/api/passes/use` | 사용 처리 (status active→used, paidAmount 기록) |
+| POST | `/api/passes/use` | 사용 처리 — 사장님 세션 (status active→used, paidAmount 기록) |
+| POST | `/api/passes/use-by-code` | 사용 처리 — 체험자 화면에서 사장님이 4자리 직접 입력 (체험자 세션, code === campaign.useCode 검증) |
 | POST | `/api/passes/review` | 리뷰 제출 (status active|used → review_submitted). 방문형은 자가 점검 4종, 기자단은 자가 점검 3종(광고/키워드/자료팩) + URL 검증 |
 | POST | `/api/passes/approve` | **410 Gone** — 사장님 직접 검수 폐기 |
 | GET | `/api/map/reverse-geocode?lat&lng` | GPS → 동네명 (Naver Reverse Geocode API 프록시) |
@@ -849,3 +857,4 @@ N  검증 전 (SNS 미연동)
 | v2.8 | 2026-06-25 | **바이럴(레퍼럴) 메인 흡수** — `feature/viral-referral-test` 트랙의 viral 모듈을 메인 트리(`claude/create-planning-prd-wdoZK`)에 통합. ① **데이터 모델**: `Reviewer.inviteStats`·`Owner.inviteStats` + DBShape에 `invites`/`rewards`/`viralCounter` 추가. `Invite`·`Reward`·`ViralCounter`·`InviteStats`·`MatrixKey`·`BoxGrade` 타입 신설. SEED_VERSION 5 bump. ② **어댑터 라이브러리** `src/lib/referral.ts` — `matrixOf`·`computeBoxGrade`·`createInvite`·`markInviteClicked`·`acceptInvite`(양면 보상 발행)·`counterWithNoise`·`rewardLabel`/`rewardEmoji`·`refereePreview`. ③ **API 3개**: `POST /api/referral/invite` (토큰 발급), `POST /api/referral/accept` (mode: click/accept), `GET /api/referral/counter` (라이브 N + ticker). ④ **혜택 탭(`/r/rewards`) 통합**: 상단 `LiveCounter` 클라이언트 (1.8s 폴링) + `ReferralBoxCard` (박스 등급 + 진행도 + CTA) + 내 보상 목록(rewardLabel/Emoji) + 기존 등급 카드. ⑤ **신규 라우트 3개**: `/r/invite/new` R-10 (매트릭스 자동 결정 + 4채널 공유 시트 + Web Share API 폴백), `/r/i/[token]` R-11 (비회원 진입 허용 — (app) 그룹 바깥, 만료/사용/유효 분기, 로그인 시 자동 redirect), `/welcome/box` W-01 (reviewer/owner 공용, 가입 직후 슬롯 머신 0.6→1.8→2.2s + 컨페티 + 양면 보상 결과 카드). ⑥ **가입 폼 통합**: `/r/signup`·`/o/signup`에서 `?invite=<token>` 보존 → 가입 완료 시 `/welcome/box?token=...`으로 push (Suspense 경계 추가). ⑦ **T1 트리거**: `/r/passes/[id]` used 카드 하단에 "₩X 절약! 친구도 받게 해줄래요?" sticky 카드 + completed 카드 하단에 T2 "검수 통과! 박스 더 키우러" 카드. ⑧ **시드** (`seed-runner.ts`): demo reviewer에 inviteStats 초기화(sent3/clicked3/accepted2/basic/₩4k), 데모 invite 3건(signed_up/clicked/issued + RR/RR/RO 매트릭스), reward 2개, viralCounter 1,283명·평균 ₩4,250·ticker 4건. ⑨ **PRD/Flow**: §3.1에 R-10/R-11/W-01 라우트 추가, §4 시나리오 G(레퍼럴 흐름) 신설, §6.10 바이럴 정책 절 신설 (매트릭스 4종 표 / 박스 등급 / 토큰 정책 / 보상 정책 / 트리거 매핑 / 라이브 카운터 / 어뷰징 가드). ⑩ end-to-end QA — 토큰 발급 → 신규 가입 → accept → 양면 보상 발행 → 발신자 카드 갱신 정상. |
 | v2.10 | 2026-06-25 | **홈 큐레이션 2섹션 구조 (가까운 곳 + 전체 리스트)** — 기존 "걸어서 갈 수 있는 곳"(도보 정렬 4개)에 더해 하단에 "한 번에 다 모았어요 👀" 전체 리스트 큐레이션 추가. ① 정렬축 차별 — 가까운 곳은 `accessible desc → walkMin asc`, 전체 리스트는 `accessible desc → supportAmount desc` (혜택 큰 순). ② 카드 칩 차별 — 가까운 곳 좌상단은 "도보 N분", 전체 리스트 좌상단은 카테고리 라벨. ③ 카드 내부 시각 차별 — 전체 리스트는 ₩금액을 `font-bold tabular-nums 14pt`로 강조해서 혜택 큰 순 정렬을 시각적으로 뒷받침. ④ 등급 부족 카드 — `ink/55` 오버레이 + "{등급}등급들만 / 몰래 가는 중 🤫" (탐색 GridCard와 동일 카피). ⑤ 헤더 카피 — "한 번에 다 모았어요 👀 / 오늘 참여 가능한 전체 N곳 · 혜택 큰 순" + [탐색에서 더 ›] → /r/explore?sort=topSupport. ⑥ NearbyCard 인터페이스에 grade 필드 추가 (등급 부족 오버레이용). ⑦ PRD §4 시나리오 A 홈 블록 갱신 (2섹션 표기). |
 | v2.11 | 2026-06-28 | **체험권 사용 처리 코드 4자리 개편** — 사장님 수기 입력 코드를 8자 영숫자 → **캠페인별 4자리 숫자**(`Campaign.useCode`)로 변경. ① 캠페인 생성 시 4자리 숫자 **필수 입력**(`/o/campaign/new` 입력 필드 + 제출 비활성 가드), `/api/campaigns`에서 `/^\d{4}$/` 검증 + 동일 사장님 진행 중 캠페인 간 중복 차단. ② 체험자 체험권 화면(`/r/passes/[id]`)에 캠페인 4자리 코드 대형 노출(QR은 기존 pass 고유 8자 코드 인코딩 유지). ③ 사장님 `/o/scan` 수기 입력을 4자리 숫자 인풋으로 변경. ④ `/api/passes/lookup`이 입력 길이로 분기 — 4자리면 useCode로 사장님 캠페인의 활성 체험권(최근 발급분) 조회, 8자면 pass 고유 코드 조회. 사용 처리(`/api/passes/use`)는 조회된 pass 고유 코드로 수행(무충돌). ⑤ 사용 흐름 = QR 스캔 **또는** 유저 화면 4자리 입력 → 사용 완료. ⑥ 시드 캠페인에 결정론적 4자리 부여(`detUseCode`), SEED_VERSION 6. ⑦ `ids.ts`에 `isUseCode`/`normalizeUseCode` 추가. PRD §6.3 사용 코드 2종 / §7.4 Campaign.useCode / 시나리오 D·D-1 갱신. |
+| v2.12 | 2026-06-28 | **체험권 화면 4자리 코드 표시 → 입력 필드로 전환** — 체험자 체험권 화면(`/r/passes/[id]`)에서 캠페인 4자리 코드를 **노출하지 않고**, 사장님이 직접 입력하는 인풋 필드(`OwnerUseForm` 클라이언트 컴포넌트)로 변경. ① 4자리 입력 + (선택)결제금액 + [사용 처리] 버튼. ② 신규 엔드포인트 `POST /api/passes/use-by-code`(체험자 세션) — passId 본인 소유 + active + `code === campaign.useCode` 검증 후 used 처리(결제금액 미입력 시 지원금 한도 적용). ③ 코드를 화면에 노출하지 않으므로 체험자 임의 사용 불가(사장님만 코드 인지). ④ 사장님 디바이스 `/o/scan`(QR/4자리 조회 → `/api/passes/use`) 경로는 그대로 유지 — 사용 처리 2경로 공존. PRD §4 시나리오 A·§6.3·API 목록 / Flow §3.4 갱신. |

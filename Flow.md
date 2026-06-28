@@ -342,35 +342,26 @@ status = review_submitted (운영팀 큐)
 ※ /api/passes/approve = 410 Gone (사장님 직접 검수 불가)
 ```
 
-### 3.4 사용 처리 흐름 (QR 또는 캠페인 4자리)
+### 3.4 사용 처리 흐름 (2경로 — 코드는 화면에 노출하지 않음)
 
 ```
-사장님 BottomNav [QR 스캔] → /o/scan
-   │
-   ├── [📷 카메라로 스캔하기]
-   │      → Html5QrScanner 활성
-   │      → QR 인식(pass 고유 8자 코드) → lookup(text) → 특정 패스 직접 조회
-   │
-   └── 체험권 화면의 4자리 숫자 직접 입력 (캠페인 useCode)
-          → [조회] → POST /api/passes/lookup
-                        · 4자리 → 사장님 캠페인 중 useCode 일치 활성 체험권(최근 발급분)
-                        · 8자  → pass 고유 코드 직접 조회
-                              │
-                              ▼
-                  ┌──────────────────────┐
-                  │ 결과 카드 (campaign  │
-                  │ + reviewer + 상태)   │
-                  └──────────┬───────────┘
-                             │ status == "active"
-                             ▼
-                  실 결제 금액 입력
-                             │
-                             ▼
-                  POST /api/passes/use
-                  (paidAmount, supportApplied = min(paid, supportAmount))
-                             │
-                             ▼
-                  /o/home 복귀 + 체험자 알림
+경로 A) 체험자 화면에서 사장님 직접 입력  ★ 기본
+  /r/passes/[id] (active) — "사장님 사용 처리" 입력 폼 (OwnerUseForm)
+     │  사장님이 캠페인 4자리 직접 입력 (+ 선택: 결제 금액)
+     ▼  [사용 처리]
+  POST /api/passes/use-by-code  (체험자 세션)
+     │  · passId 본인 소유 + active 검증
+     │  · 입력 code === campaign.useCode 검증 (불일치 시 거부)
+     │  · paidAmount 미입력 시 지원금 한도 적용
+     ▼
+  pass.status = used + 체험자 알림 → router.refresh() → 리뷰 작성 화면
+
+경로 B) 사장님 디바이스에서 처리
+  사장님 BottomNav [QR 스캔] → /o/scan
+     ├── [📷 카메라로 스캔하기] → QR(pass 고유 8자) → lookup → 특정 패스
+     └── 4자리 숫자 입력 → lookup (useCode 일치 활성 체험권 최근 발급분)
+          → 결과 카드 → 결제 금액 입력 → POST /api/passes/use (사장님 세션)
+          → /o/home 복귀 + 체험자 알림
 ```
 
 ### 3.5 체험자 패스 발급 후 화면 안전망
