@@ -44,8 +44,8 @@ function persist(db: DBShape) {
 // 시드 스키마/내용이 변경될 때마다 bump → 기존 DB를 무시하고 재시드.
 // 운영 환경에서 KV/디스크에 남아있던 옛 시드를 자동 정리.
 // 스토리보드 브랜치(design/storyboard-schema)는 시드 내용이 다르므로 별도 버전(1000+).
-// v2.11 useCode 추가 반영하여 1002로 bump.
-const SEED_VERSION = 1002;
+// v2.14 시드 날짜 스프레드 반영하여 1003으로 bump.
+const SEED_VERSION = 1003;
 
 function ensureSeeded(db: DBShape) {
   if (!db.seeded || (db.seedVersion ?? 0) < SEED_VERSION) {
