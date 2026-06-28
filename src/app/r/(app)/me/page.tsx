@@ -45,10 +45,11 @@ export default async function Me() {
         </div>
         <h1 className="font-display text-[34px] leading-[1.1] text-ink">{me.nickname}</h1>
         <p className="mt-2 text-[15px] text-ink2">{me.email}</p>
-        <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-canvas rounded-pill border border-hairline">
+        <Link href="/r/grade" className="cp-action mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-canvas rounded-pill border border-hairline">
           <GradeBadge grade={me.grade} size="sm" />
           <span className="text-[14px] text-ink">{me.grade}등급</span>
-        </div>
+          <span className="text-[13px] text-brand">자세히 →</span>
+        </Link>
       </section>
 
       {/* Dark tile — stats */}
@@ -96,6 +97,25 @@ export default async function Me() {
 
       {/* Parchment tile — menu */}
       <section className="bg-parchment px-6 py-12">
+        <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-4">내 활동</h2>
+        <div className="rounded-lg border border-hairline overflow-hidden bg-canvas mb-8">
+          <Link href="/r/grade" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
+            <span className="text-[15px] text-ink flex items-center gap-2">
+              <GradeBadge grade={me.grade} size="sm" />
+              내 등급 / 등급별 혜택
+            </span>
+            <span className="text-brand text-[15px]">→</span>
+          </Link>
+          <Link href="/r/passes" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
+            <span className="text-[15px] text-ink">내 체험권 (사용 가능 / 신청 내역)</span>
+            <span className="text-brand text-[15px]">→</span>
+          </Link>
+          <Link href="/r/rewards" className="flex items-center justify-between px-5 py-4">
+            <span className="text-[15px] text-ink">친구 초대 / 받은 보상</span>
+            <span className="text-brand text-[15px]">→</span>
+          </Link>
+        </div>
+
         <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-4">설정</h2>
         <div className="rounded-lg border border-hairline overflow-hidden bg-canvas">
           <Link href="/r/passes" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
