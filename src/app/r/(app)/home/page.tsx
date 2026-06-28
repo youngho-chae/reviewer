@@ -68,19 +68,13 @@ export default async function ReviewerHome() {
     };
   });
 
-  // 3-카드 큐레이션 카운트
-  const cafeNew = visitCampaigns.filter(
-    (c) => now - c.createdAt < SEVEN_DAYS && (() => {
-      const s = db.stores.find((x) => x.id === c.storeId);
-      return s?.category === "카페" || s?.category === "디저트";
-    })(),
-  ).length;
-  const popular = visitCampaigns.filter((c) => {
-    const s = db.stores.find((x) => x.id === c.storeId);
-    return s && s.rating >= 4.5;
-  }).length;
-  const totalSupportNow = visitCampaigns.length;
-  const maxSupport = visitCampaigns.reduce((m, c) => Math.max(m, c.supportAmount), 0);
+  // 3-카드 큐레이션 카운트 (각 타일의 정렬/필터 테마에 맞춤)
+  // 최근에 등록됨 — 7일 이내 생성
+  const recentCount = visitCampaigns.filter((c) => now - c.createdAt < SEVEN_DAYS).length;
+  // 곧 마감돼요 — 7일 이내 종료
+  const closingCount = visitCampaigns.filter((c) => c.endAt - now < SEVEN_DAYS).length;
+  // 파격 지원금 — 지원금 10만원 이상
+  const bigSupportCount = visitCampaigns.filter((c) => c.supportAmount >= 100000).length;
 
   // 가까운 곳 그리드 — accessible 우선, 도보 가까운 순 4개
   const nearby = [...cards]
@@ -186,31 +180,31 @@ export default async function ReviewerHome() {
         </div>
       </Link>
 
-      {/* 3-카드 큐레이션 */}
+      {/* 3-카드 큐레이션 — 각 타일은 탐색을 해당 정렬로 진입 */}
       <section className="px-5 mt-4 grid grid-cols-3 gap-2.5">
         <CurationTile
-          href="/r/explore?cat=카페&sort=new"
+          href="/r/explore?sort=new"
           tint="purple"
-          ic="☕"
-          title="갓 오픈 카페"
-          sub="방금 등록"
-          count={cafeNew}
+          ic="🆕"
+          title="최근에 등록됨"
+          sub="새로 들어온 곳"
+          count={recentCount}
         />
         <CurationTile
-          href="/r/explore?sort=topSupport"
+          href="/r/explore?sort=closing"
           tint="pink"
-          ic="🔥"
-          title="이미 다 안다"
-          sub="평점 4.5+"
-          count={popular}
+          ic="⏰"
+          title="곧 마감돼요"
+          sub="놓치면 끝"
+          count={closingCount}
         />
         <CurationTile
           href="/r/explore?sort=topSupport"
           tint="green"
-          ic="💲"
-          title="공짜로 줘요"
-          sub={`최대 ₩${maxSupport.toLocaleString()}`}
-          count={totalSupportNow}
+          ic="💸"
+          title="파격 지원금"
+          sub="많이 주는 곳"
+          count={bigSupportCount}
         />
       </section>
 

@@ -382,7 +382,8 @@ export function runSeed(db: DBShape) {
   };
   db.owners.push(owner);
 
-  for (const s of SEED_STORES) {
+  for (let idx = 0; idx < SEED_STORES.length; idx++) {
+    const s = SEED_STORES[idx];
     const storeId = detId("st", s.naverPlaceId);
     const store: Store = {
       id: storeId,
@@ -406,22 +407,32 @@ export function runSeed(db: DBShape) {
       name,
       price: priceForCategory(s.category, name),
     }));
-    // 시드 캠페인은 지난 달에 생성된 것으로 처리 → 이번 달 monthlyTeamLimit 검증에 포함되지 않음.
-    // (실 데모에서 신규 캠페인 생성 / 월 한도 기능을 테스트할 수 있도록)
+    // 홈 큐레이션 타일(최근 등록 / 곧 마감 / 파격 지원금)이 의미있게 보이도록 날짜 스프레드.
+    //  - idx 0~1: 최근 등록 (며칠 전 생성, 이번 달)  → "최근에 등록됨" 카운트
+    //  - idx 2~4: 곧 마감 (며칠 후 종료)             → "곧 마감돼요" 카운트
+    //  - 그 외:   지난 달 생성 + 28일 후 종료 (월 한도 검증에 미포함)
+    const isRecent = idx <= 1;
+    const isClosing = idx >= 2 && idx <= 4;
+    const createdAt = isRecent
+      ? now - 1000 * 60 * 60 * 24 * (idx + 2) // 2~3일 전
+      : now - 1000 * 60 * 60 * 24 * 35;
+    const endAt = isClosing
+      ? now + 1000 * 60 * 60 * 24 * (idx) // 2~4일 후 (곧 마감)
+      : now + 1000 * 60 * 60 * 24 * 28;
     const campaign: Campaign = {
       id: detId("cp", `${s.naverPlaceId}-default`),
       storeId,
       kind: "visit",
       title: `${s.name} 체험단`,
       startAt: now - 1000 * 60 * 60 * 24 * 2,
-      endAt: now + 1000 * 60 * 60 * 24 * 28,
+      endAt,
       supportAmount: s.supportAmount ?? 100000,
       quota: { S: 2, A: 3, B: 5, C: 10 },
       used: { S: 0, A: 0, B: 0, C: 0 },
       requiredChannels: s.requiredChannels,
       requiredMenus: menus,
       description: s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menuNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
-      createdAt: now - 1000 * 60 * 60 * 24 * 35,
+      createdAt,
       useCode: detUseCode(`${s.naverPlaceId}-default`),
     };
     db.campaigns.push(campaign);
