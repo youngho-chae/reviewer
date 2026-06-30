@@ -87,7 +87,7 @@ export default async function Me() {
                 {linked ? (
                   <span className="text-[13px] text-brand">연동됨</span>
                 ) : (
-                  <button className="text-[13px] text-brand">연동 →</button>
+                  <span className="text-[13px] text-muted">미연동</span>
                 )}
               </div>
             );
@@ -131,13 +131,19 @@ export default async function Me() {
           </Link>
           <div className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft text-muted">
             <span className="text-[15px]">리뷰어 프로필 공개 설정</span>
-            <span className="text-[15px]">→</span>
+            <span className="text-[12px]">준비 중</span>
           </div>
-          <div className="flex items-center justify-between px-5 py-4 text-muted">
-            <span className="text-[15px]">고객센터</span>
-            <span className="text-[15px]">→</span>
-          </div>
+          <a
+            href="mailto:help@catchrank.co.kr?subject=[CATCHPASS] 체험자 문의"
+            className="cp-action flex items-center justify-between px-5 py-4"
+          >
+            <span className="text-[15px] text-ink">고객센터</span>
+            <span className="text-brand text-[15px]">→</span>
+          </a>
         </div>
+        <p className="mt-3 text-[12px] text-muted leading-[1.5]">
+          SNS 채널 추가·변경은 고객센터(help@catchrank.co.kr)로 문의해주세요.
+        </p>
 
         <div className="mt-8">
           <LogoutButton />
