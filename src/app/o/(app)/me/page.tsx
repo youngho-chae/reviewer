@@ -69,6 +69,17 @@ export default async function OwnerMe() {
               <div className="text-muted">→</div>
             </Link>
           ))}
+          <a
+            href="mailto:help@catchrank.co.kr?subject=[CATCHPASS] 사장님 문의"
+            className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft border-t border-hairline"
+          >
+            <div className="text-[20px] w-7 text-center">💬</div>
+            <div className="flex-1">
+              <div className="text-[14px] font-medium">고객센터 / 문의</div>
+              <div className="text-[12px] text-muted mt-0.5">매장 정보·결제·구독 해지 문의</div>
+            </div>
+            <div className="text-muted">→</div>
+          </a>
         </div>
 
         <div className="mt-8">
