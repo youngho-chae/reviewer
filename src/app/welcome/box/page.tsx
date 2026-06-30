@@ -37,7 +37,12 @@ export default async function WelcomeBoxPage({
   if (!session) {
     redirect(`/r/i/${encodeURIComponent(token)}`);
   }
+  // 운영팀(admin) 계정은 보상 대상이 아님 → 검수 콘솔로
+  if (session.role !== "reviewer" && session.role !== "owner") {
+    redirect("/admin/reviews");
+  }
 
-  const homeHref = session.role === "owner" ? "/o/home" : "/r/home";
-  return <WelcomeBoxStage token={token} homeHref={homeHref} role={session.role} />;
+  const role: "reviewer" | "owner" = session.role;
+  const homeHref = role === "owner" ? "/o/home" : "/r/home";
+  return <WelcomeBoxStage token={token} homeHref={homeHref} role={role} />;
 }

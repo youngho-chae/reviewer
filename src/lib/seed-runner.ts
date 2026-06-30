@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
+import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
 
 // ─────────────────────────────────────────────────────────────
 // [스토리보드 모드] design/storyboard-schema 브랜치 전용.
@@ -405,6 +405,15 @@ export function runSeed(db: DBShape) {
     createdAt: now - 1000 * 60 * 60 * 24 * 7,
   };
   db.owners.push(owner);
+
+  // 운영팀(검수) 계정 — /admin 백오피스 로그인용
+  const admin: AdminUser = {
+    id: detId("ad", "admin@catchrank.co.kr"),
+    email: "admin@catchrank.co.kr",
+    passwordHash: hash("demo1234"),
+    name: "운영팀",
+  };
+  db.admins = [admin];
 
   for (let idx = 0; idx < SEED_STORES.length; idx++) {
     const s = SEED_STORES[idx];

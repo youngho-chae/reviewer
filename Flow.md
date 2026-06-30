@@ -336,9 +336,9 @@ status = review_submitted (운영팀 큐)
    │       · ChannelIO 위젯 호출 (있으면)
    │       · 폴백: 매장/패스 ID/URL이 포함된 mailto 모달
    │
-   └── 운영팀 (백오피스) 처리
-        ├── completed → 체험자 등급 점수 반영, 사장님 화면 "검수 통과"
-        └── rejected  → 체험자 "사유는 채널톡 문의" 안내, 사장님 "운영팀 반려"
+   └── 운영팀 백오피스 (/admin/reviews, admin 세션) → POST /api/admin/reviews/decide
+        ├── approve → completed → 체험자 등급 점수 반영, 사장님 화면 "검수 통과", 양측 알림
+        └── reject  → rejected  → 체험자 "사유는 채널톡 문의" 안내, 사장님 "운영팀 반려", 양측 알림
 
 ※ /api/passes/approve = 410 Gone (사장님 직접 검수 불가)
 ```
@@ -396,7 +396,7 @@ POST /api/passes → 응답 { passId }
 | 체험권 발급 | 체험자 `POST /api/passes` | 사장님 `/o/home` 잔여 -1, 알림함에 등록, 쿠키에도 적재 |
 | 체험권 사용 | 사장님 `POST /api/passes/use` | 체험자 패스 상세가 active → used로 전이, 리뷰 폼 노출 |
 | 리뷰 제출 | 체험자 `POST /api/passes/review` | 사장님 `/o/reviews`에 등장 (운영팀 검수 중 뱃지) + 사장님 알림 등록 |
-| 운영팀 통과/반려 | 백오피스 (현재 시드/수동) | 체험자 패스 상태 completed/rejected + 등급 점수/품질 점수 갱신 |
+| 운영팀 통과/반려 | 운영팀 `/admin/reviews` → `POST /api/admin/reviews/decide` | 체험자 패스 상태 completed/rejected + 등급 점수/품질 점수 갱신 + 체험자·사장님 양측 알림 |
 | 24h 미사용 만료 | 페이지 진입 시 lazy 갱신 | 체험자 패스 카드 "만료" 라벨로 전환 (DB 영속화는 다음 mutate 시) |
 | 플랜 변경 | 사장님 `POST /api/owner/plan` | 향후 새 캠페인 생성 시 distributeQuota 정책에 즉시 반영 (기존 캠페인 영향 없음) |
 | GPS 위치 조회 | 체험자 `/r/home` 진입 (브라우저 권한) | `GET /api/map/reverse-geocode?lat&lng` → 동네 라벨 |

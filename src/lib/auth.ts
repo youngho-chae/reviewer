@@ -5,7 +5,7 @@ const SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || "catchpass-dev-secret-please-override-in-prod"
 );
 
-export type Role = "reviewer" | "owner";
+export type Role = "reviewer" | "owner" | "admin";
 export interface SessionClaims {
   userId: string;
   role: Role;
