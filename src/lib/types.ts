@@ -34,6 +34,14 @@ export interface Owner {
   inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
 }
 
+// 운영팀(검수) 계정 — 리뷰 통과/반려 백오피스 전용.
+export interface AdminUser {
+  id: string;
+  email: string;
+  passwordHash: string;
+  name: string;
+}
+
 export interface Store {
   id: string;
   ownerId: string;
@@ -202,6 +210,7 @@ export interface NotificationItem {
 export interface DBShape {
   reviewers: Reviewer[];
   owners: Owner[];
+  admins?: AdminUser[]; // 운영팀 검수 계정
   stores: Store[];
   campaigns: Campaign[];
   passes: Pass[];

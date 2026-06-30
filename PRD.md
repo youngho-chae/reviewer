@@ -127,6 +127,15 @@ N  검증 전 (SNS 미연동)
 
 > 변경점: 프로토타입의 5탭 + 중앙 elevated [⎈ 스캔] 디자인은 사용하지 않음. 4탭 평면 BottomNav로 통일.
 
+### 3.3 운영팀 (Admin) — `/admin/...` (v2.15 신설)
+
+| 코드 | 화면명 | Next.js 라우트 |
+|---|---|---|
+| AD-00b | 운영팀 로그인 | `/admin/login` |
+| AD-01 | 후기 검수 콘솔 | `/admin/reviews` |
+
+> `admin` 역할 전용. `/admin/(app)/layout.tsx`에서 세션 게이트(admin 아니면 `/admin/login` redirect). BottomNav 없음 — 데스크톱 백오피스 톤. 데모 계정 `admin@catchrank.co.kr / demo1234`.
+
 ---
 
 ## 4. 핵심 시나리오 (배포 기준)
@@ -382,6 +391,26 @@ N  검증 전 (SNS 미연동)
         · ChannelIO 위젯이 있으면 호출, 없으면 모달 폴백 (매장/패스 ID/URL 포함된 mailto 링크)
 
 [/api/passes/approve] 410 Gone — 사장님 직접 검수 폐기
+```
+
+### 시나리오 E-1 — 운영팀, 후기 검수 (v2.15 신설)
+
+```
+[/admin/login] admin 역할 로그인 (admin@catchrank.co.kr)
+    → POST /api/auth/login { role: "admin" }
+    → [/admin/reviews]
+
+[/admin/reviews] 운영팀 검수 콘솔
+    · 인증 게이트: admin 세션 아니면 /admin/login 으로 redirect
+    · 상단 ink 통계 카드: 검수 대기 N건 + 최근 7일 처리 N건
+    · review_submitted 후기 리스트 (오래된 것 우선):
+      - 등급 배지 + 익명 #last4 + 방문형/기자단 + 매장명 + 캠페인 + 채널 + 제출시각
+      - [게시물 열기 ↗] + 자가 점검 칩 4종
+      - [검수 통과] → POST /api/admin/reviews/decide { decision: "approve" }
+        · completed 처리 + reviewer.completedReviews++ + 체험자·사장님 알림
+      - [반려] → 반려 사유 입력 → [반려 확정] → decide { decision: "reject", reason }
+        · rejected 처리 + 체험자·사장님 알림
+    · 처리되면 목록에서 사라짐 (router.refresh)
 ```
 
 ### 시나리오 F — 사장님, 성과 확인
@@ -642,6 +671,7 @@ N  검증 전 (SNS 미연동)
 - 광고 표시 누락 / 재작성 필요 / 부적절한 콘텐츠 발견 시 → **[💬 채널톡으로 문의하기]** 버튼만 노출
 - 운영팀이 채널톡 접수 + 표본 검수 후 `completed` 또는 `rejected` 처리
 - ChannelIO 위젯 미로드 시 모달 폴백 + mailto 링크(`help@catchrank.co.kr`)
+- **운영팀 검수 백오피스 (v2.15 신설)**: 별도 `admin` 역할 계정으로 `/admin/reviews` 콘솔에 로그인하여 `review_submitted` 후기를 일괄 검수. 통과 시 `completed`(reviewer.completedReviews 증가), 반려 시 `rejected`(반려 사유 입력 가능). 처리 결과는 `POST /api/admin/reviews/decide`로 수행되며 **체험자와 사장님 양측에 알림** 발행. 사장님 `/o/reviews` 화면의 상태 뱃지('운영팀 검수 중'/'검수 통과'/'운영팀 반려')는 이 처리 결과를 그대로 반영. admin 세션은 reviewer/owner 화면·보상 대상에서 제외됨.
 
 ### 6.8 매장 시그널
 - 잔여 ≤ 3매 → "잔여 N매" 라벨 (카드 좌상단, 다크 pill)
@@ -782,6 +812,7 @@ N  검증 전 (SNS 미연동)
 | POST | `/api/passes/use-by-code` | 사용 처리 — 체험자 화면에서 사장님이 4자리 직접 입력 (체험자 세션, code === campaign.useCode 검증) |
 | POST | `/api/passes/review` | 리뷰 제출 (status active|used → review_submitted). 방문형은 자가 점검 4종, 기자단은 자가 점검 3종(광고/키워드/자료팩) + URL 검증 |
 | POST | `/api/passes/approve` | **410 Gone** — 사장님 직접 검수 폐기 |
+| POST | `/api/admin/reviews/decide` | 운영팀 검수 처리 — admin 세션, `{passId, decision: approve\|reject, reason?}`. review_submitted → completed/rejected + 체험자·사장님 양측 알림 (v2.15) |
 | GET | `/api/map/reverse-geocode?lat&lng` | GPS → 동네명 (Naver Reverse Geocode API 프록시) |
 | GET | `/api/map/static?...` | 정적 지도 이미지 프록시 |
 | POST | `/api/admin/refresh-stores` | Naver Place 데이터 갱신 (서버 기동 후 1회) |
@@ -862,4 +893,5 @@ N  검증 전 (SNS 미연동)
 | v2.11 | 2026-06-28 | **체험권 사용 처리 코드 4자리 개편** — 사장님 수기 입력 코드를 8자 영숫자 → **캠페인별 4자리 숫자**(`Campaign.useCode`)로 변경. ① 캠페인 생성 시 4자리 숫자 **필수 입력**(`/o/campaign/new` 입력 필드 + 제출 비활성 가드), `/api/campaigns`에서 `/^\d{4}$/` 검증 + 동일 사장님 진행 중 캠페인 간 중복 차단. ② 체험자 체험권 화면(`/r/passes/[id]`)에 캠페인 4자리 코드 대형 노출(QR은 기존 pass 고유 8자 코드 인코딩 유지). ③ 사장님 `/o/scan` 수기 입력을 4자리 숫자 인풋으로 변경. ④ `/api/passes/lookup`이 입력 길이로 분기 — 4자리면 useCode로 사장님 캠페인의 활성 체험권(최근 발급분) 조회, 8자면 pass 고유 코드 조회. 사용 처리(`/api/passes/use`)는 조회된 pass 고유 코드로 수행(무충돌). ⑤ 사용 흐름 = QR 스캔 **또는** 유저 화면 4자리 입력 → 사용 완료. ⑥ 시드 캠페인에 결정론적 4자리 부여(`detUseCode`), SEED_VERSION 6. ⑦ `ids.ts`에 `isUseCode`/`normalizeUseCode` 추가. PRD §6.3 사용 코드 2종 / §7.4 Campaign.useCode / 시나리오 D·D-1 갱신. |
 | v2.12 | 2026-06-28 | **체험권 화면 4자리 코드 표시 → 입력 필드로 전환** — 체험자 체험권 화면(`/r/passes/[id]`)에서 캠페인 4자리 코드를 **노출하지 않고**, 사장님이 직접 입력하는 인풋 필드(`OwnerUseForm` 클라이언트 컴포넌트)로 변경. ① 4자리 입력 + (선택)결제금액 + [사용 처리] 버튼. ② 신규 엔드포인트 `POST /api/passes/use-by-code`(체험자 세션) — passId 본인 소유 + active + `code === campaign.useCode` 검증 후 used 처리(결제금액 미입력 시 지원금 한도 적용). ③ 코드를 화면에 노출하지 않으므로 체험자 임의 사용 불가(사장님만 코드 인지). ④ 사장님 디바이스 `/o/scan`(QR/4자리 조회 → `/api/passes/use`) 경로는 그대로 유지 — 사용 처리 2경로 공존. PRD §4 시나리오 A·§6.3·API 목록 / Flow §3.4 갱신. |
 | v2.13 | 2026-06-28 | **BottomNav에서 [등급] 탭 제거 → [체험권] 탭으로 교체, 등급은 MY 하위로 이동** — 핵심 5탭이 [등급]에 점유되던 비효율 해소. ① BottomNav: 홈/탐색/**등급**/혜택/MY → 홈/탐색/**체험권**/혜택/MY. [체험권]은 기존 `/r/passes`(내가 쓸 수 있는 active + 신청/진행 체험단 리스트, 방문형·기자단) 연결. ② 혜택 탭 아이콘 ticket→trophy(체험권과 충돌 회피). ③ 등급(`/r/grade`)은 MY(`/r/me`) 하위로 이동 — 프로필 등급 칩을 `/r/grade` 링크화 + "내 활동" 메뉴 그룹에 "내 등급 / 등급별 혜택" 진입 추가(체험권·혜택 진입도 함께 정리). `/r/grade` 라우트 자체는 유지. PRD §3.1 BottomNav 정의 / Flow §1·§6·§7 갱신. |
+| v2.15 | 2026-06-30 | **운영팀 검수 백오피스 신설** — 후기 검수 책임을 사장님(조회 전용)에서 분리해 별도 `admin` 역할이 일괄 처리하는 콘솔 신설. ① **데이터/인증**: `AdminUser` 타입 + `DBShape.admins` 추가, `Role`에 `"admin"` 추가, 시드에 운영팀 계정 1건(`admin@catchrank.co.kr / demo1234`) 발행, SEED_VERSION 8. `/api/auth/login`에 admin 분기 추가, `getCurrentAdmin()` 헬퍼(미인증 시 `/admin/login` redirect). ② **라우트**: `/admin/login`(client 로그인 폼), `/admin/(app)/layout.tsx`(세션 게이트 + "운영팀 검수 콘솔" 헤더 + 로그아웃), `/admin/(app)/reviews`(검수 대기 리스트 + ink 통계), `/admin`→`/admin/reviews` redirect. ③ **API** `POST /api/admin/reviews/decide` — admin 세션, `{passId, decision: approve\|reject, reason?}`, review_submitted 상태만 처리. approve→completed(reviewStatus approved + reviewer.completedReviews++), reject→rejected, **양측(체험자·사장님) 알림** 발행. ④ **UI** `ReviewDecisionActions` — [검수 통과]/[반려](사유 입력)→처리 후 목록에서 제거. ⑤ admin 세션은 reviewer/owner 화면·보상 대상에서 제외(`/welcome/box`·`/api/referral/accept` 가드). PRD §3.3·시나리오 E-1·§6.7·API 목록 갱신. |
 | v2.14 | 2026-06-28 | **홈 3-카드 큐레이션 라벨/필터 정비** — ① 라벨 변경: 갓 오픈 카페→**최근에 등록됨**(sub "새로 들어온 곳", 🆕), 이미 다 안다→**곧 마감돼요**(sub "놓치면 끝", ⏰), 공짜로 줘요→**파격 지원금**(sub "많이 주는 곳", 💸). ② 진입 필터 정정: 최근에 등록됨 → `/r/explore?sort=new`(기존 cat=카페 강제 필터 제거), 곧 마감돼요 → `?sort=closing`, 파격 지원금 → `?sort=topSupport`. ③ 카운트 테마 일치: recentCount(7일 내 생성)/closingCount(7일 내 종료)/bigSupportCount(지원금 10만+). ④ 시드 visit 캠페인 날짜 스프레드(idx 0~1 최근 생성, 2~4 곧 마감)로 타일 카운트·정렬 데모 가능하게, SEED_VERSION 7. |

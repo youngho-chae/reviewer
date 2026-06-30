@@ -9,7 +9,14 @@ export async function POST(req: NextRequest) {
   const { role, email, password } = await req.json();
   const db = await getDBAsync();
   const lower = String(email || "").trim().toLowerCase();
-  if (role === "reviewer") {
+  if (role === "admin") {
+    const a = (db.admins ?? []).find((x) => x.email === lower);
+    if (!a || !bcrypt.compareSync(password, a.passwordHash)) {
+      return NextResponse.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다" }, { status: 401 });
+    }
+    await createSession({ userId: a.id, role: "admin" });
+    return NextResponse.json({ ok: true });
+  } else if (role === "reviewer") {
     const r = db.reviewers.find((x) => x.email === lower);
     if (!r || !bcrypt.compareSync(password, r.passwordHash)) {
       return NextResponse.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다" }, { status: 401 });

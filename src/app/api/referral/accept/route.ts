@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
   // accept — 신규 가입자 본인이 호출
   const s = await readSession();
   if (!s) return NextResponse.json({ error: "로그인 후 호출하세요" }, { status: 401 });
+  if (s.role !== "reviewer" && s.role !== "owner") {
+    return NextResponse.json({ error: "체험자/사장님 계정만 보상을 받을 수 있습니다" }, { status: 400 });
+  }
 
   const r = acceptInvite(db, {
     token,
