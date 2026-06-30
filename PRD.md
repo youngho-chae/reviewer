@@ -147,7 +147,7 @@ N  검증 전 (SNS 미연동)
     → [시작하기]
 [/r/signup] Step 1 — 이메일/비밀번호/닉네임
     → [다음]
-[/r/signup] Step 2 — SNS 채널 (4종) URL + 영향력 수치 직접 입력
+[/r/signup] Step 2 — SNS 채널 (3종: 블로그/인스타/틱톡) URL + 영향력 수치 직접 입력 → 채널별 등급 산정
     · 1개 이상 연동 시: 영향력 기반 N~A 자동 산정
     · [연동 없이 시작 (N등급)] 보조 액션 제공
     → 가입 완료, 세션 쿠키 설정 → /r/home 진입
@@ -206,15 +206,16 @@ N  검증 전 (SNS 미연동)
 [/r/store/[id]] 매장 상세
     · 4:3 풀-블리드 사진 hero
     · 매장명/카테고리/평점/주소
-    · 다크 tile1 영역: 멤버십 할인 지원금 큰 숫자 + 잔여매·사용기한·영업시간
+    · 다크 tile1 영역: 내가 받을 수 있는 지원금(연동 시) 또는 최대 지원금(S등급) 큰 숫자 + 잔여매·사용기한·영업시간
     · 이용 방법 3단계 (참여→QR→리뷰)
-    · 필수 채널 pill / 필수 메뉴 (캠페인에 설정 시)
-    · 캠페인 설명 + 펼침: 작성 조건 (사진 5+/본문 500+/메뉴 등 1+/30일 유지)
+    · 필수 메뉴 (캠페인에 설정 시)
+    · 매장 소개 + 강조 키워드 칩 (캠페인에 설정 시)
+    · **참여 채널 선택 (StoreParticipate)** — 칩 버튼으로 채널 선택(블로그 우선→인스타→틱톡). 선택 채널의 내 등급으로 지원금 자동 계산 + 채널별 리뷰 작성 조건 노출
     · 우측 하단 FAB: 길찾기 (Naver Map 앱 deep link `nmap://route/walk?...` + 800ms 후 웹 fallback)
-    · Sticky CTA: [참여하기] (등급 OK + 잔여 있을 때만)
+    · Sticky CTA: 최종 선택 채널 + 받을 금액 표시 + [참여하기] (채널 연동 + 등급 OK + 잔여 있을 때만)
 
-→ [참여하기] POST /api/passes { campaignId }
-    · 등급 검증 + quota 차감
+→ [참여하기] POST /api/passes { campaignId, channel }
+    · 선택 채널의 내 등급으로 자격 검증 + quota 차감, pass.reviewChannel·reviewerGrade(채널 등급) 확정
     · 결정론적 Pass 생성 (status="active", 24h TTL)
     · 사장님 알림 등록
     · 멀티 인스턴스 안전망: cp_recent_passes_v1 쿠키에 패스 정보 적재
@@ -331,14 +332,15 @@ N  검증 전 (SNS 미연동)
         - 이번 달 모집 현황 라인 — "{used}팀 사용 / 월 한도 {limit|무제한}"
         - 잔여 모집 가능 인원 표시 + 입력값이 잔여를 초과하면 빨간 카피 + 제출 비활성
         - 무제한이 아닌 플랜은 "월 모집 한도를 늘리려면 멤버십 업그레이드" 링크
-    · 필수 채널 pill 토글 (네이버 블로그/인스타/유튜브/틱톡)
+    · 필수 채널 pill 토글 (네이버 블로그/인스타/틱톡 3종)
     · 필수 주문 메뉴 — '+ 메뉴 추가' 버튼으로 동적 인풋 추가/삭제
       각 행: 메뉴명 인풋 + 가격(원) 인풋 (가격은 선택값)
-    · 캠페인 설명 textarea
+    · 강조 키워드 — 쉼표 구분 입력 (최대 5개, 체험자 매장 상세에 노출)
+    · 매장 소개 textarea (최대 500자, 글자 수 카운터)
     · [캠페인 생성]
 
-→ POST /api/campaigns { storeId, days, supportAmount, totalQuota, requiredMenus[{name,price?}], requiredChannels[], description }
-    · title은 store.name으로 자동 설정
+→ POST /api/campaigns { storeId, days, supportAmount, totalQuota, requiredMenus[{name,price?}], requiredChannels[], highlightKeywords[], description }
+    · title은 store.name으로 자동 설정 · requiredChannels는 허용 채널(블/인/틱)만 통과(1개 이상 필수) · description 500자 제한
     · distributeQuota(owner.plan, totalQuota)로 등급별 quota 자동 분배
     · 월간 모집 팀 수 초과 시 400 — PLAN_POLICY[plan].monthlyTeamLimit 검증
     · 즉시 활성 → 체험자 /r/home 리스트에 노출
@@ -590,10 +592,14 @@ N  검증 전 (SNS 미연동)
 
 ## 6. 핵심 규칙·정책 (배포 기준)
 
-### 6.1 등급 산정
-- SNS 영향력 가중 합 기반 자동 산정 (`gradeFromSns` in `src/lib/grade.ts`)
-- 가중치: naver_blog = 1.2 / instagram·youtube·tiktok = 1.0
-- 임계값: A ≥ 50,000 / B ≥ 10,000 / C ≥ 1,000 / N < 1,000 또는 미연동
+### 6.1 등급 산정 (**v2.16 채널별 등급 개편**)
+- 연동 가능한 채널은 **네이버 블로그 / 인스타그램 / 틱톡 3종**으로 한정 (유튜브 제거).
+- **채널별 등급** — 연동된 각 채널을 독립적으로 평가 (`channelGradesFromSns`). 예: 블로그 A · 인스타 C.
+  - 채널별 임계값(가중치 적용): A ≥ 50,000 / B ≥ 10,000 / C ≥ 1,000 / N < 1,000. naver_blog 가중치 1.2, 그 외 1.0.
+  - `Reviewer.channelGrades: Partial<Record<SnsKind, Grade>>` 에 저장. 종합 등급 `Reviewer.grade` = 연동 채널 중 최상위(단일 등급 UI/뱃지용).
+- **등급별 지원금 배율** (`SUPPORT_MULTIPLIER`, 등급 탭 혜택 사다리와 일치): S 100% · A 80% · B 60% · C 40% · N 10%. 100원 단위 반올림(`supportForGrade`).
+  - 캠페인 `supportAmount`는 **기준치(=S등급 최대)**. 실제 지원금 = 기준치 × 참여 채널의 내 등급 배율.
+  - 매장 리스트 노출 금액 = 신청 가능한 채널 중 **내가 받을 수 있는 가장 큰 혜택**(`channelOffers`/`bestEligibleSupport`).
 - S 등급은 시스템 자동 산정 대상 아님 (운영팀 부여 영역; 데모 시드에서는 S 표기만 존재)
 - 4지표(완료율·품질·광고표시·노쇼) 30일 갱신 정책은 **로드맵 — 미구현**. 현재 `completedReviews`·`qualityScore`·`noShowCount`는 reviewer 객체에 필드로만 보유
 
@@ -683,7 +689,6 @@ N  검증 전 (SNS 미연동)
 |---|---|
 | 네이버 블로그 | 본 게시물은 캐치랭크를 통해 방문 혜택을 제공받아 작성한 후기입니다. |
 | 인스타그램 | #광고 캐치랭크를 통해 방문 혜택을 제공받았습니다. |
-| 유튜브 쇼츠 | 캐치랭크 방문 혜택 제공 |
 | 틱톡 | #광고 #협찬 — 캐치랭크 방문 혜택 제공 |
 
 ### 6.10 바이럴(레퍼럴) 정책 (v2.8 신설)
@@ -788,10 +793,10 @@ N  검증 전 (SNS 미연동)
 - 매장 20곳 (음식 10 + 미용·의료·펫·운동·웰니스 10)
 - 방문형 캠페인 20건 + 기자단 캠페인 2건
 - 데모 사장님: `demo@store.com` / `demo1234` (Standard 플랜)
-- 데모 리뷰어 3명:
-  - `demo@reviewer.com` / `demo1234` (B등급, 닉네임 "북촌리뷰어")
-  - `demo-a@reviewer.com` / `demo1234` (A등급, "성수러버")
-  - `demo-c@reviewer.com` / `demo1234` (C등급, "신규유저")
+- 데모 리뷰어 3명 (채널별 등급 데모):
+  - `demo@reviewer.com` / `demo1234` ("북촌리뷰어" — 블로그 A · 인스타 C → 종합 A)
+  - `demo-a@reviewer.com` / `demo1234` ("성수러버" — 인스타 A)
+  - `demo-c@reviewer.com` / `demo1234` ("신규유저" — 인스타 C)
 - 데모 패스: 6개 PassStatus 모두 + 기자단 3건 (다른 reviewer 분포 포함) → QA용
 
 ---
@@ -805,8 +810,8 @@ N  검증 전 (SNS 미연동)
 | POST | `/api/auth/logout` | 로그아웃 |
 | GET | `/api/owner/me` | 사장님 정보 + 매장 목록 |
 | POST | `/api/owner/plan` | 플랜 변경 |
-| POST | `/api/campaigns` | 새 캠페인 (visit) 생성 — title 자동·totalQuota 자동 분배 |
-| POST | `/api/passes` | 체험권 발급 (등급+quota 검증, 쿠키 stopgap) |
+| POST | `/api/campaigns` | 새 캠페인 (visit) 생성 — title 자동·totalQuota 자동 분배·requiredChannels 3종 검증·highlightKeywords·매장 소개 500자 |
+| POST | `/api/passes` | 체험권 발급 — `{campaignId, channel}`. 방문형은 선택 채널의 등급으로 자격·quota·reviewerGrade 확정, 기자단은 종합 등급 (채널은 작성 시 선택) |
 | POST | `/api/passes/lookup` | 코드/QR 기반 패스 조회 (사장님 스캔용) |
 | POST | `/api/passes/use` | 사용 처리 — 사장님 세션 (status active→used, paidAmount 기록) |
 | POST | `/api/passes/use-by-code` | 사용 처리 — 체험자 화면에서 사장님이 4자리 직접 입력 (체험자 세션, code === campaign.useCode 검증) |
@@ -893,5 +898,6 @@ N  검증 전 (SNS 미연동)
 | v2.11 | 2026-06-28 | **체험권 사용 처리 코드 4자리 개편** — 사장님 수기 입력 코드를 8자 영숫자 → **캠페인별 4자리 숫자**(`Campaign.useCode`)로 변경. ① 캠페인 생성 시 4자리 숫자 **필수 입력**(`/o/campaign/new` 입력 필드 + 제출 비활성 가드), `/api/campaigns`에서 `/^\d{4}$/` 검증 + 동일 사장님 진행 중 캠페인 간 중복 차단. ② 체험자 체험권 화면(`/r/passes/[id]`)에 캠페인 4자리 코드 대형 노출(QR은 기존 pass 고유 8자 코드 인코딩 유지). ③ 사장님 `/o/scan` 수기 입력을 4자리 숫자 인풋으로 변경. ④ `/api/passes/lookup`이 입력 길이로 분기 — 4자리면 useCode로 사장님 캠페인의 활성 체험권(최근 발급분) 조회, 8자면 pass 고유 코드 조회. 사용 처리(`/api/passes/use`)는 조회된 pass 고유 코드로 수행(무충돌). ⑤ 사용 흐름 = QR 스캔 **또는** 유저 화면 4자리 입력 → 사용 완료. ⑥ 시드 캠페인에 결정론적 4자리 부여(`detUseCode`), SEED_VERSION 6. ⑦ `ids.ts`에 `isUseCode`/`normalizeUseCode` 추가. PRD §6.3 사용 코드 2종 / §7.4 Campaign.useCode / 시나리오 D·D-1 갱신. |
 | v2.12 | 2026-06-28 | **체험권 화면 4자리 코드 표시 → 입력 필드로 전환** — 체험자 체험권 화면(`/r/passes/[id]`)에서 캠페인 4자리 코드를 **노출하지 않고**, 사장님이 직접 입력하는 인풋 필드(`OwnerUseForm` 클라이언트 컴포넌트)로 변경. ① 4자리 입력 + (선택)결제금액 + [사용 처리] 버튼. ② 신규 엔드포인트 `POST /api/passes/use-by-code`(체험자 세션) — passId 본인 소유 + active + `code === campaign.useCode` 검증 후 used 처리(결제금액 미입력 시 지원금 한도 적용). ③ 코드를 화면에 노출하지 않으므로 체험자 임의 사용 불가(사장님만 코드 인지). ④ 사장님 디바이스 `/o/scan`(QR/4자리 조회 → `/api/passes/use`) 경로는 그대로 유지 — 사용 처리 2경로 공존. PRD §4 시나리오 A·§6.3·API 목록 / Flow §3.4 갱신. |
 | v2.13 | 2026-06-28 | **BottomNav에서 [등급] 탭 제거 → [체험권] 탭으로 교체, 등급은 MY 하위로 이동** — 핵심 5탭이 [등급]에 점유되던 비효율 해소. ① BottomNav: 홈/탐색/**등급**/혜택/MY → 홈/탐색/**체험권**/혜택/MY. [체험권]은 기존 `/r/passes`(내가 쓸 수 있는 active + 신청/진행 체험단 리스트, 방문형·기자단) 연결. ② 혜택 탭 아이콘 ticket→trophy(체험권과 충돌 회피). ③ 등급(`/r/grade`)은 MY(`/r/me`) 하위로 이동 — 프로필 등급 칩을 `/r/grade` 링크화 + "내 활동" 메뉴 그룹에 "내 등급 / 등급별 혜택" 진입 추가(체험권·혜택 진입도 함께 정리). `/r/grade` 라우트 자체는 유지. PRD §3.1 BottomNav 정의 / Flow §1·§6·§7 갱신. |
+| v2.16 | 2026-06-30 | **채널별 등급 + 채널 선택 참여 개편** — 연동 채널을 블로그/인스타/틱톡 3종으로 한정하고, 채널마다 독립 등급을 부여해 참여 채널별로 받을 수 있는 지원금을 자동 계산. ① **데이터 모델**: `SnsKind`에서 youtube 제거, `Reviewer.channelGrades`(채널별 등급) 추가·종합 `grade`=최상위, `Campaign.highlightKeywords`(강조 키워드) 추가, `Pass.reviewSelfCheck`를 채널별 가변 `Record<string,boolean>`으로 일반화, SEED_VERSION 9. ② **신규 lib**: `src/lib/channels.ts`(채널 라벨·짧은 라벨 블/인/틱·우선순위·광고문구·채널별 리뷰 작성 조건·`defaultChannel`), `grade.ts`에 `channelGradesFromSns`/`bestGrade`/`SUPPORT_MULTIPLIER`(S100·A80·B60·C40·N10)/`supportForGrade`/`channelOffers`/`bestEligibleSupport`. ③ **매장 리스트**(홈·탐색 RowCard/GridCard): 참여 가능 채널을 `ChannelIcons`(블/인/틱) 아이콘으로 표기, 금액은 내 채널 등급 기준 **가장 큰 혜택**으로 노출. ④ **매장 상세**: `StoreParticipate` 신설 — 상단 칩으로 채널 선택(블로그 우선→인스타→틱톡), 선택 채널의 내 등급으로 지원금 자동 계산, 채널별 리뷰 작성 조건 노출, 하단 sticky에 최종 채널+금액+[참여하기]. 다크 히어로는 '내가 받을 수 있는 지원금'/'최대 지원금'으로 분기. '캠페인 소개'→'매장 소개', 강조 키워드 칩 노출. ⑤ **참여/사용 API**: `/api/passes`가 `channel` 수신 → pass.reviewChannel·reviewerGrade(채널 등급) 확정(기자단은 작성 시 채널 선택·종합 등급), `/api/passes/use`·`use-by-code`의 지원금 한도 = `supportForGrade(기준, 채널 등급)`. ⑥ **리뷰 폼**: 참여 시 확정된 채널 고정 표기 + 채널별 자가점검 항목(`CHANNEL_REVIEW_CONDITIONS`), 운영팀 검수 콘솔도 채널별 항목 렌더. ⑦ **등급 탭**: 채널별 등급 카드(채널·배율·뱃지/미연동) 섹션 추가. ⑧ **캠페인 생성**: 채널 3종·강조 키워드 입력·매장 소개 500자 제한. ⑨ 시드 데모 리뷰어를 채널별 등급(블 A·인 C 등)으로 구성. PRD §6.1·시나리오 A·캠페인 생성·API 목록·§6.9 / Flow 갱신. |
 | v2.15 | 2026-06-30 | **운영팀 검수 백오피스 신설** — 후기 검수 책임을 사장님(조회 전용)에서 분리해 별도 `admin` 역할이 일괄 처리하는 콘솔 신설. ① **데이터/인증**: `AdminUser` 타입 + `DBShape.admins` 추가, `Role`에 `"admin"` 추가, 시드에 운영팀 계정 1건(`admin@catchrank.co.kr / demo1234`) 발행, SEED_VERSION 8. `/api/auth/login`에 admin 분기 추가, `getCurrentAdmin()` 헬퍼(미인증 시 `/admin/login` redirect). ② **라우트**: `/admin/login`(client 로그인 폼), `/admin/(app)/layout.tsx`(세션 게이트 + "운영팀 검수 콘솔" 헤더 + 로그아웃), `/admin/(app)/reviews`(검수 대기 리스트 + ink 통계), `/admin`→`/admin/reviews` redirect. ③ **API** `POST /api/admin/reviews/decide` — admin 세션, `{passId, decision: approve\|reject, reason?}`, review_submitted 상태만 처리. approve→completed(reviewStatus approved + reviewer.completedReviews++), reject→rejected, **양측(체험자·사장님) 알림** 발행. ④ **UI** `ReviewDecisionActions` — [검수 통과]/[반려](사유 입력)→처리 후 목록에서 제거. ⑤ admin 세션은 reviewer/owner 화면·보상 대상에서 제외(`/welcome/box`·`/api/referral/accept` 가드). PRD §3.3·시나리오 E-1·§6.7·API 목록 갱신. |
 | v2.14 | 2026-06-28 | **홈 3-카드 큐레이션 라벨/필터 정비** — ① 라벨 변경: 갓 오픈 카페→**최근에 등록됨**(sub "새로 들어온 곳", 🆕), 이미 다 안다→**곧 마감돼요**(sub "놓치면 끝", ⏰), 공짜로 줘요→**파격 지원금**(sub "많이 주는 곳", 💸). ② 진입 필터 정정: 최근에 등록됨 → `/r/explore?sort=new`(기존 cat=카페 강제 필터 제거), 곧 마감돼요 → `?sort=closing`, 파격 지원금 → `?sort=topSupport`. ③ 카운트 테마 일치: recentCount(7일 내 생성)/closingCount(7일 내 종료)/bigSupportCount(지원금 10만+). ④ 시드 visit 캠페인 날짜 스프레드(idx 0~1 최근 생성, 2~4 곧 마감)로 타일 카운트·정렬 데모 가능하게, SEED_VERSION 7. |

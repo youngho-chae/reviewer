@@ -9,16 +9,14 @@ export const dynamic = "force-dynamic";
 const ch_label: any = {
   naver_blog: "네이버 블로그",
   instagram: "인스타그램",
-  youtube: "유튜브",
   tiktok: "틱톡",
 };
 const ch_metric: any = {
   naver_blog: "일방문자",
   instagram: "팔로워",
-  youtube: "구독자",
   tiktok: "팔로워",
 };
-const ALL_CH = ["naver_blog", "instagram", "youtube", "tiktok"];
+const ALL_CH = ["naver_blog", "instagram", "tiktok"];
 
 export default async function Me() {
   const me = await getCurrentReviewer();

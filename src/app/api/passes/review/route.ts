@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
+import { CHANNEL_REVIEW_CONDITIONS } from "@/lib/channels";
+import { SnsKind } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -28,26 +30,26 @@ export async function POST(req: NextRequest) {
     }
   } else {
     if (pass.status !== "used") return NextResponse.json({ error: "사용 후에만 리뷰 등록 가능" }, { status: 400 });
-    // 방문형은 URL + 채널 + 자가점검 4종 모두 체크 필수
+    // 방문형은 URL + 채널 + 채널별 자가점검 항목 모두 체크 필수
     if (!reviewUrl) {
       return NextResponse.json({ error: "URL을 입력해주세요" }, { status: 400 });
     }
-    if (!reviewChannel) {
+    // 참여 시 확정된 채널을 신뢰 (없으면 제출값 사용)
+    const channel: SnsKind | undefined = (pass.reviewChannel ?? reviewChannel) as SnsKind | undefined;
+    if (!channel) {
       return NextResponse.json({ error: "작성 채널을 선택해주세요" }, { status: 400 });
     }
-    if (!selfCheck || !selfCheck.photos || !selfCheck.body500 || !selfCheck.menus || !selfCheck.days30) {
+    const conditions = CHANNEL_REVIEW_CONDITIONS[channel] ?? [];
+    const sc = (selfCheck ?? {}) as Record<string, boolean>;
+    if (!conditions.every((c) => sc[c.key])) {
       return NextResponse.json({ error: "자가점검 항목을 모두 체크해주세요" }, { status: 400 });
     }
-    pass.reviewSelfCheck = {
-      photos: !!selfCheck.photos,
-      body500: !!selfCheck.body500,
-      menus: !!selfCheck.menus,
-      days30: !!selfCheck.days30,
-    };
+    pass.reviewSelfCheck = Object.fromEntries(conditions.map((c) => [c.key, !!sc[c.key]]));
+    pass.reviewChannel = channel;
   }
 
   pass.reviewUrl = reviewUrl;
-  pass.reviewChannel = reviewChannel;
+  if (isPress) pass.reviewChannel = reviewChannel;
   pass.reviewSubmittedAt = Date.now();
   pass.reviewStatus = "pending";
   pass.status = "review_submitted";

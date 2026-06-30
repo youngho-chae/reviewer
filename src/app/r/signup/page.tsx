@@ -7,7 +7,6 @@ import { SnsKind } from "@/lib/types";
 const CHANNELS: { kind: SnsKind; label: string; placeholder: string; metric: string }[] = [
   { kind: "naver_blog", label: "네이버 블로그", placeholder: "https://blog.naver.com/...", metric: "일방문자" },
   { kind: "instagram", label: "인스타그램", placeholder: "https://instagram.com/...", metric: "팔로워" },
-  { kind: "youtube", label: "유튜브", placeholder: "https://youtube.com/@...", metric: "구독자" },
   { kind: "tiktok", label: "틱톡", placeholder: "https://tiktok.com/@...", metric: "팔로워" },
 ];
 
@@ -30,7 +29,6 @@ function ReviewerSignup() {
   const [sns, setSns] = useState<Record<SnsKind, { url: string; influence: string }>>({
     naver_blog: { url: "", influence: "" },
     instagram: { url: "", influence: "" },
-    youtube: { url: "", influence: "" },
     tiktok: { url: "", influence: "" },
   });
   const [err, setErr] = useState<string | null>(null);

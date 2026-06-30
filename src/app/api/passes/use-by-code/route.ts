@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid, normalizeUseCode } from "@/lib/ids";
+import { supportForGrade } from "@/lib/grade";
 
 export const runtime = "nodejs";
 
@@ -40,8 +41,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "사용처리 코드가 일치하지 않습니다" }, { status: 400 });
   }
 
-  // 결제 금액 — 미입력 시 지원금 한도를 그대로 적용
-  const support = campaign.supportAmount || 0;
+  // 지원금 한도 = 기준 지원금 × 채널 등급 배율 (v2.16)
+  const support = supportForGrade(campaign.supportAmount || 0, pass.reviewerGrade);
   const paid = paidAmount === undefined || paidAmount === null || paidAmount === ""
     ? support
     : Math.max(0, Number(paidAmount) || 0);

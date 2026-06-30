@@ -4,9 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
 import Icon from "@/components/Icon";
+import ChannelIcons from "@/components/ChannelIcons";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI } from "@/lib/storyboard";
-import { Grade } from "@/lib/types";
+import { Grade, SnsKind } from "@/lib/types";
 
 export interface ExploreStoreCard extends MapStorePin {
   rating: number;
@@ -14,6 +15,7 @@ export interface ExploreStoreCard extends MapStorePin {
   totalQuota: number;
   endAt: number;
   createdAt: number;
+  requiredChannels: SnsKind[];
 }
 
 export interface ExplorePressCard {
@@ -546,8 +548,9 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
               <span className="text-[11px] text-muted">·</span>
               <span className="text-[11px] text-muted">{SBUI.gradeReq}</span>
             </div>
-            <div className="text-[13px] text-success font-semibold mt-1.5">
-              {SBUI.support}
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-[13px] text-success font-semibold">{SBUI.support}</span>
+              <ChannelIcons channels={card.requiredChannels} size={16} />
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -609,8 +612,9 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
         <div className="text-[10px] text-muted uppercase tracking-wider mb-0.5">{card.category}</div>
         <h3 className="text-[15px] font-bold text-ink truncate tracking-[-0.022em]">{card.name}</h3>
         <p className="text-[11px] text-muted mt-0.5 truncate">{card.area} · ★ {SBUI.rating}</p>
-        <div className="text-[13px] text-success font-semibold mt-2">
-          {SBUI.support}
+        <div className="flex items-center justify-between mt-2 gap-1">
+          <span className="text-[13px] text-success font-semibold">{SBUI.support}</span>
+          <ChannelIcons channels={card.requiredChannels} size={15} />
         </div>
       </div>
     </Link>

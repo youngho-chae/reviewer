@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
+import { channelGradesFromSns, bestGrade } from "./grade";
+import { CHANNEL_REVIEW_CONDITIONS, defaultChannel } from "./channels";
 
 // ─────────────────────────────────────────────────────────────
 // [스토리보드 모드] design/storyboard-schema 브랜치 전용.
@@ -118,7 +120,7 @@ const SEED_STORES: SeedStore[] = [
     lat: 37.5246, lng: 127.0392,
     rating: 4.9, reviewCount: 421,
     menus: ["오마카세 디너 12종", "사케 페어링", "초밥 런치 세트"],
-    requiredChannels: ["instagram", "youtube"],
+    requiredChannels: ["instagram", "naver_blog"],
     supportAmount: 150000,
   },
   {
@@ -467,6 +469,9 @@ export function runSeed(db: DBShape) {
       description: STORYBOARD
         ? SB.visitDesc
         : s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menuNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
+      highlightKeywords: STORYBOARD
+        ? [SB.keyword, SB.keyword]
+        : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: detUseCode(`${s.naverPlaceId}-default`),
     };
@@ -539,16 +544,20 @@ export function runSeed(db: DBShape) {
   }
 
   // ── 데모 체험자 ──
+  // 채널별 등급 데모: 블로그 A(영향력 큼) / 인스타 C(작음) → 종합 A
+  const demoSns = [
+    { kind: "naver_blog" as SnsKind, url: "https://blog.naver.com/demo", influence: 60000 },
+    { kind: "instagram" as SnsKind, url: "https://instagram.com/demo", influence: 5800 },
+  ];
+  const demoChannelGrades = channelGradesFromSns(demoSns);
   const reviewer: Reviewer = {
     id: detId("rv", "demo@reviewer.com"),
     email: "demo@reviewer.com",
     passwordHash: hash("demo1234"),
     nickname: STORYBOARD ? SB.nickname : "북촌리뷰어",
-    sns: [
-      { kind: "naver_blog", url: "https://blog.naver.com/demo", influence: 2400 },
-      { kind: "instagram", url: "https://instagram.com/demo", influence: 5800 },
-    ],
-    grade: "B",
+    sns: demoSns,
+    channelGrades: demoChannelGrades,
+    grade: bestGrade(Object.values(demoChannelGrades)),
     createdAt: now - 1000 * 60 * 60 * 24 * 5,
     completedReviews: 3,
     qualityScore: 88,
@@ -559,26 +568,32 @@ export function runSeed(db: DBShape) {
   db.reviewers.push(reviewer);
 
   // 보조 체험자 (다른 등급/매장 데모) — 사장님 화면에서 다양한 reviewer 표시용
+  const reviewerASns = [{ kind: "instagram" as SnsKind, url: "https://instagram.com/sub", influence: 60000 }];
+  const reviewerAGrades = channelGradesFromSns(reviewerASns);
   const reviewerA: Reviewer = {
     id: detId("rv", "demo-a@reviewer.com"),
     email: "demo-a@reviewer.com",
     passwordHash: hash("demo1234"),
     nickname: STORYBOARD ? SB.nickname : "성수러버",
-    sns: [{ kind: "instagram", url: "https://instagram.com/sub", influence: 12400 }],
-    grade: "A",
+    sns: reviewerASns,
+    channelGrades: reviewerAGrades,
+    grade: bestGrade(Object.values(reviewerAGrades)),
     createdAt: now - 1000 * 60 * 60 * 24 * 30,
     completedReviews: 11,
     qualityScore: 92,
     noShowCount: 0,
   };
   db.reviewers.push(reviewerA);
+  const reviewerCSns = [{ kind: "instagram" as SnsKind, url: "https://instagram.com/newbie", influence: 1200 }];
+  const reviewerCGrades = channelGradesFromSns(reviewerCSns);
   const reviewerC: Reviewer = {
     id: detId("rv", "demo-c@reviewer.com"),
     email: "demo-c@reviewer.com",
     passwordHash: hash("demo1234"),
     nickname: STORYBOARD ? SB.nickname : "신규유저",
-    sns: [{ kind: "instagram", url: "https://instagram.com/newbie", influence: 320 }],
-    grade: "C",
+    sns: reviewerCSns,
+    channelGrades: reviewerCGrades,
+    grade: bestGrade(Object.values(reviewerCGrades)),
     createdAt: now - 1000 * 60 * 60 * 24 * 2,
     completedReviews: 0,
     qualityScore: 70,
@@ -736,6 +751,8 @@ export function runSeed(db: DBShape) {
     if (!store) continue;
     const rid = sp.reviewerId || reviewer.id;
     const issuedAt = now - sp.issuedOffset;
+    // 참여 채널 — 시드 지정값 또는 캠페인 우선순위 채널
+    const passChannel: SnsKind = sp.reviewChannel ?? defaultChannel(camp.requiredChannels) ?? "naver_blog";
     const pass: Pass = {
       id: detId("ps", sp.key),
       code: detPassCode(sp.key),
@@ -744,6 +761,7 @@ export function runSeed(db: DBShape) {
       storeId: store.id,
       ownerId: store.ownerId,
       reviewerGrade: sp.grade || "B",
+      reviewChannel: passChannel,
       issuedAt,
       expiresAt: issuedAt + 24 * hour,
       status: sp.status,
@@ -757,10 +775,12 @@ export function runSeed(db: DBShape) {
       pass.reviewSubmittedAt = now - sp.reviewSubmittedOffset;
       pass.reviewUrl = sp.reviewUrl;
       pass.reviewBody = sp.reviewBody;
-      pass.reviewChannel = sp.reviewChannel;
       pass.reviewStatus = sp.status === "completed" ? "approved" : sp.status === "rejected" ? "rejected" : "pending";
       if (sp.status !== "rejected") {
-        pass.reviewSelfCheck = { photos: true, body500: true, menus: true, days30: true };
+        // 채널별 자가점검 항목 전부 충족으로 시드
+        pass.reviewSelfCheck = Object.fromEntries(
+          (CHANNEL_REVIEW_CONDITIONS[passChannel] ?? []).map((c) => [c.key, true]),
+        );
       }
     }
     // quota 카운터 증가 (실 시나리오와 일관성)

@@ -8,7 +8,7 @@ import PressApplyButton from "./PressApplyButton";
 
 export const dynamic = "force-dynamic";
 
-const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타그램", youtube: "유튜브", tiktok: "틱톡" };
+const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타그램", tiktok: "틱톡" };
 
 export default async function PressBrief({ params }: { params: Promise<{ id: string }> }) {
   const me = await getCurrentReviewer();

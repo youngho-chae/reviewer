@@ -56,7 +56,7 @@ export default async function OwnerReport() {
     byGrade[g].count += 1;
     byGrade[g].support += p.supportApplied || 0;
   }
-  const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타", youtube: "유튜브", tiktok: "틱톡" };
+  const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타", tiktok: "틱톡" };
 
   // ROI: 추정 노출 / 누적 지원
   const cpm = totalSupport > 0 ? Math.round((totalSupport / Math.max(1, totalImpressions)) * 1000) : 0;

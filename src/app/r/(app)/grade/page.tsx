@@ -2,9 +2,11 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { SBUI } from "@/lib/storyboard";
+import { SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
-import type { Grade } from "@/lib/types";
+import type { Grade, SnsKind } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -103,8 +105,43 @@ export default async function ReviewerGrade() {
         )}
       </section>
 
+      {/* 채널별 등급 — 연동 채널을 독립 평가 (v2.16) */}
+      <section className="px-5 mt-5">
+        <h2 className="text-[15px] font-semibold text-ink mb-2">채널별 등급</h2>
+        <p className="text-[12px] text-muted mb-3 leading-[1.5]">
+          연동한 채널마다 영향력을 따로 평가해요. 참여 시 선택한 채널의 등급에 맞춰 지원금이 정해집니다.
+        </p>
+        <div className="rounded-lg border border-hairline overflow-hidden">
+          {CHANNEL_ORDER.map((ch: SnsKind, i) => {
+            const g = me.channelGrades?.[ch];
+            const connected = !!g;
+            return (
+              <div
+                key={ch}
+                className={`flex items-center gap-3 px-4 py-3.5 ${i < CHANNEL_ORDER.length - 1 ? "border-b border-hairlineSoft" : ""}`}
+              >
+                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-[6px] text-[12px] font-bold ${CHANNEL_BADGE_BG[ch]}`}>
+                  {CHANNEL_SHORT[ch]}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] text-ink font-medium">{CHANNEL_LABEL[ch]}</div>
+                  <div className="text-[11px] text-muted mt-0.5">
+                    {connected ? `지원금 ${Math.round(SUPPORT_MULTIPLIER[g as Grade] * 100)}% 적용` : "미연동 · 고객센터로 추가 문의"}
+                  </div>
+                </div>
+                {connected ? (
+                  <GradeBadge grade={g as Grade} size="sm" />
+                ) : (
+                  <span className="text-[12px] text-muted">미연동</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* 3-stat 카드 — 기존 혜택 탭에서 이동 (v2.9) */}
-      <section className="px-5 -mt-7">
+      <section className="px-5 mt-5">
         <div className="rounded-2xl bg-ink text-white p-5 shadow-card">
           <div className="text-[11px] uppercase tracking-[0.14em] text-white/70">내 등급으로 받는 혜택</div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">

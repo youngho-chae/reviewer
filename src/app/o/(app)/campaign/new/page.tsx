@@ -17,10 +17,9 @@ interface MenuRow {
   price: string; // 화면 입력값 — 숫자만 허용
 }
 
-const CHANNELS: { key: "naver_blog" | "instagram" | "youtube" | "tiktok"; label: string }[] = [
+const CHANNELS: { key: "naver_blog" | "instagram" | "tiktok"; label: string }[] = [
   { key: "naver_blog", label: "네이버 블로그" },
   { key: "instagram", label: "인스타" },
-  { key: "youtube", label: "유튜브" },
   { key: "tiktok", label: "틱톡" },
 ];
 
@@ -35,6 +34,7 @@ export default function NewCampaign() {
   const [useCode, setUseCode] = useState("");
   const [menus, setMenus] = useState<MenuRow[]>([{ name: "", price: "" }]);
   const [channels, setChannels] = useState<string[]>(["naver_blog", "instagram"]);
+  const [keywords, setKeywords] = useState("");
   const [description, setDescription] = useState("");
   const [monthlyUsed, setMonthlyUsed] = useState(0);
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null);
@@ -92,6 +92,11 @@ export default function NewCampaign() {
     const cleanMenus = menus
       .map((m) => ({ name: m.name.trim(), price: m.price.trim() ? Number(m.price) : undefined }))
       .filter((m) => m.name.length > 0);
+    const highlightKeywords = keywords
+      .split(/[,\n]/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0)
+      .slice(0, 5);
     const res = await fetch("/api/campaigns", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -103,6 +108,7 @@ export default function NewCampaign() {
         useCode,
         requiredMenus: cleanMenus,
         requiredChannels: channels,
+        highlightKeywords,
         description,
       }),
     });
@@ -302,16 +308,46 @@ export default function NewCampaign() {
           </button>
         </section>
 
-        {/* 설명 */}
+        {/* 강조 키워드 */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">캠페인 설명</div>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">강조 키워드</div>
+          <p className="text-[12px] text-muted mb-3 leading-[1.5]">
+            후기에 꼭 강조해주길 원하는 키워드를 쉼표(,)로 구분해 입력하세요. 체험자 매장 상세에 노출됩니다. (최대 5개)
+          </p>
+          <input
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+            placeholder="예: 트러플 파스타, 데이트 맛집, 분위기 좋은 곳"
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+          />
+          {keywords.trim() && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {keywords
+                .split(/[,\n]/)
+                .map((k) => k.trim())
+                .filter((k) => k.length > 0)
+                .slice(0, 5)
+                .map((k, i) => (
+                  <span key={`${k}-${i}`} className="px-2.5 py-1 rounded-pill bg-brandSoft border border-brand/20 text-[12px] text-brand font-medium">
+                    #{k}
+                  </span>
+                ))}
+            </div>
+          )}
+        </section>
+
+        {/* 매장 소개 (최대 500자) */}
+        <section>
+          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">매장 소개</div>
           <textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            placeholder="체험자에게 안내할 내용을 입력하세요."
+            onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+            rows={5}
+            maxLength={500}
+            placeholder="매장과 체험에 대해 체험자에게 안내할 내용을 입력하세요."
             className="w-full px-4 py-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] leading-[1.5]"
           />
+          <div className="mt-1 text-right text-[11px] text-muted tabular-nums">{description.length} / 500</div>
         </section>
 
         {err && <div className="text-error text-[13px]">{err}</div>}

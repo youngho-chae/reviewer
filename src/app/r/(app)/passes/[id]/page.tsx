@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import { supportForGrade } from "@/lib/grade";
+import { CHANNEL_LABEL, defaultChannel } from "@/lib/channels";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
@@ -43,6 +45,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
   if (pass.status === "active" && Date.now() > pass.expiresAt) {
     pass.status = "expired";
   }
+
+  // 이 체험권으로 받을 수 있는 지원금 = 기준 지원금 × 채널 등급 배율
+  const entitledSupport = supportForGrade(campaign?.supportAmount ?? 0, pass.reviewerGrade);
 
   // Active state — Apple environment-quote-card / dark product tile treatment
   if (pass.status === "active") {
@@ -106,7 +111,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               </p>
 
               {/* 사장님 사용 처리 — 코드를 노출하지 않고 직접 입력받음 */}
-              <OwnerUseForm passId={pass.id} supportAmount={campaign?.supportAmount ?? 0} />
+              <OwnerUseForm passId={pass.id} supportAmount={entitledSupport} />
             </div>
           </div>
         </div>
@@ -134,7 +139,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         </div>
         <h1 className="font-display text-[28px] leading-[1.14] text-ink">{store?.name}</h1>
         <p className="mt-2 text-[15px] text-ink2">{campaign?.title}</p>
-        <p className="mt-1 text-[14px] text-muted">지원금 {SBUI.support}</p>
+        <p className="mt-1 text-[14px] text-muted">
+          지원금 {SBUI.support}
+          {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
+        </p>
       </section>
 
       <div className="px-6">
@@ -180,7 +188,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             <p className="mt-2 text-[15px] text-ink2 leading-[1.47]">
               실제 게시 후 URL을 제출해주세요. 작성 조건은 본인이 직접 점검합니다.
             </p>
-            <ReviewForm passId={pass.id} channels={campaign?.requiredChannels || []} />
+            <ReviewForm passId={pass.id} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
           </div>
         )}
 

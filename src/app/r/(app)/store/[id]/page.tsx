@@ -5,13 +5,12 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI } from "@/lib/storyboard";
+import type { Grade } from "@/lib/types";
 import Icon from "@/components/Icon";
-import ParticipateButton from "./ParticipateButton";
+import StoreParticipate from "./StoreParticipate";
 import NaverMapButton from "./NaverMapButton";
 
 export const dynamic = "force-dynamic";
-
-const CH_LABEL: any = { naver_blog: "네이버 블로그", instagram: "인스타그램", youtube: "유튜브 쇼츠", tiktok: "틱톡" };
 
 export default async function StoreDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ campaign?: string }> }) {
   const me = await getCurrentReviewer();
@@ -27,12 +26,9 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
   const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
   const remain = totalQ - usedQ;
-  const minNeededGrade: "S" | "A" | "B" | "C" =
+  const minNeededGrade: Grade =
     c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
   const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
-
-  const order = ["S","A","B","C","N"];
-  const eligible = order.indexOf(me.grade) <= order.indexOf(minNeededGrade);
 
   return (
     <div className="pb-32 bg-canvas">
@@ -73,12 +69,12 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
 
       {/* Dark product tile — pricing hero */}
       <section className="bg-tile1 text-white py-16 px-6 text-center">
-        <div className="text-[12px] tracking-[0.18em] text-mutedSoft uppercase mb-3">멤버십 할인 지원금</div>
+        <div className="text-[12px] tracking-[0.18em] text-mutedSoft uppercase mb-3">내가 받을 수 있는 지원금</div>
         <div className="font-display text-[40px] leading-[1.07] tracking-[-0.026em]">
           {SBUI.support}
         </div>
-        <p className="mt-4 text-[19px] text-mutedSoft leading-[1.4]">
-          평소처럼 식사하고 결제 전 QR을 보여주면 즉시 할인.
+        <p className="mt-4 text-[15px] text-mutedSoft leading-[1.4]">
+          연동 채널·등급에 따라 자동 계산된 금액이에요.
         </p>
         <div className="mt-8 max-w-[280px] mx-auto grid grid-cols-3 gap-3 text-left">
           <div className="text-center">
@@ -116,51 +112,60 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         </div>
       </section>
 
-      {/* Parchment tile — required channels + menus */}
-      <section className="bg-parchment py-14 px-6">
-        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">필수 리뷰 채널 (택 1)</h3>
-        <div className="flex flex-wrap gap-2 mb-8">
-          {c.requiredChannels.map((ch) => (
-            <span key={ch} className="px-4 py-2 rounded-pill bg-canvas border border-hairline text-[14px] text-ink">{CH_LABEL[ch]}</span>
-          ))}
-        </div>
-
-        {c.requiredMenus.length > 0 && (
-          <>
-            <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">필수 주문 메뉴 (택 1)</h3>
-            <div className="space-y-2">
-              {c.requiredMenus.map((m, i) => (
-                <div key={`${m.name}-${i}`} className="bg-canvas border border-hairline rounded-md px-4 py-3 flex items-center gap-3">
-                  <span className="text-[12px] text-muted w-4 flex-shrink-0">{i + 1}</span>
-                  <span className="text-[15px] text-ink flex-1">{m.name}</span>
+      {/* Parchment tile — required menus */}
+      {c.requiredMenus.length > 0 && (
+        <section className="bg-parchment py-14 px-6">
+          <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">필수 주문 메뉴 (택 1)</h3>
+          <div className="space-y-2">
+            {c.requiredMenus.map((m, i) => (
+              <div key={`${m.name}-${i}`} className="bg-canvas border border-hairline rounded-md px-4 py-3 flex items-center gap-3">
+                <span className="text-[12px] text-muted w-4 flex-shrink-0">{i + 1}</span>
+                <span className="text-[15px] text-ink flex-1">{m.name}</span>
+                {typeof m.price === "number" && m.price > 0 && (
                   <span className="text-[14px] font-medium text-ink tabular-nums">
                     {SBUI.price}
                   </span>
-                </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {c.requiredMenus.some((m) => typeof m.price === "number" && m.price > 0) && (
+            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
+              위 메뉴 결제 시 내 채널 등급에 맞춘 지원금(최대 <span className="text-ink font-medium">{SBUI.support}</span>)이 즉시 차감됩니다.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Light tile — 매장 소개 + 강조 키워드 */}
+      <section className="bg-canvas py-14 px-6">
+        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">매장 소개</h3>
+        <p className="text-[17px] text-ink leading-[1.47] whitespace-pre-line">{c.description}</p>
+
+        {c.highlightKeywords && c.highlightKeywords.length > 0 && (
+          <div className="mt-8">
+            <h4 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">후기에 꼭 강조해주세요</h4>
+            <div className="flex flex-wrap gap-2">
+              {c.highlightKeywords.map((kw) => (
+                <span key={kw} className="px-3 py-1.5 rounded-pill bg-brandSoft border border-brand/20 text-[13px] text-brand font-medium">
+                  #{kw}
+                </span>
               ))}
             </div>
-            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-              위 메뉴 결제 금액 대비 지원금 <span className="text-ink font-medium">{SBUI.support}</span>이 즉시 차감됩니다.
-            </p>
-          </>
+          </div>
         )}
       </section>
 
-      {/* Light tile — description */}
-      <section className="bg-canvas py-14 px-6">
-        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">캠페인 소개</h3>
-        <p className="text-[17px] text-ink leading-[1.47]">{c.description}</p>
-
-        <details className="mt-8 group">
-          <summary className="text-[15px] text-brand cursor-pointer list-none">리뷰 작성 조건 보기 →</summary>
-          <div className="mt-4 text-[14px] text-ink2 leading-[1.6]">
-            · 사진 5장 이상 · 본문 500자 이상<br />
-            · 메뉴/매장/분위기 각 1장 이상<br />
-            · 광고 표시 문구 자동 삽입 (필수)<br />
-            · 작성 후 30일 이상 유지
-          </div>
-        </details>
-      </section>
+      {/* 참여 채널 선택 + 등급별 지원금 자동 계산 + 리뷰 조건 (client) */}
+      <StoreParticipate
+        campaignId={c.id}
+        base={c.supportAmount}
+        minGrade={minNeededGrade}
+        requiredChannels={c.requiredChannels}
+        myChannelGrades={me.channelGrades ?? {}}
+        myActivePassId={myActivePass?.id ?? null}
+        remain={remain}
+      />
 
       {/* Floating 길찾기 FAB — sticky CTA 바 위 우측, 네이버 지도 deep link */}
       <div
@@ -175,23 +180,6 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
             naverPlaceId={store.naverPlaceId}
             address={store.address}
           />
-        </div>
-      </div>
-
-      {/* Sticky CTA bar — Apple floating-sticky-bar */}
-      <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] frosted-parchment border-t border-hairline z-20">
-        <div className="px-6 py-3">
-          {myActivePass ? (
-            <Link href={`/r/passes/${myActivePass.id}`} className="cp-action block h-11 rounded-pill bg-brand text-white grid place-items-center text-[17px]">
-              내 체험권 보기 →
-            </Link>
-          ) : remain <= 0 ? (
-            <button disabled className="w-full h-11 rounded-pill bg-parchment text-muted text-[17px] border border-hairline">마감되었습니다</button>
-          ) : !eligible ? (
-            <button disabled className="w-full h-11 rounded-pill bg-parchment text-muted text-[17px] border border-hairline">{minNeededGrade}등급부터 이용 가능</button>
-          ) : (
-            <ParticipateButton campaignId={c.id} myGrade={me.grade} />
-          )}
         </div>
       </div>
     </div>

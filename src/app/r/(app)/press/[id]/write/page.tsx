@@ -7,11 +7,10 @@ import PressWriteForm from "./PressWriteForm";
 
 export const dynamic = "force-dynamic";
 
-const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타그램", youtube: "유튜브", tiktok: "틱톡" };
+const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타그램", tiktok: "틱톡" };
 const ad_label: any = {
   naver_blog: "본 콘텐츠는 [매장명]으로부터 협찬 받아 작성되었습니다.",
   instagram: "#광고 #협찬 — [매장명] 협찬",
-  youtube: "유료 광고 포함 (#광고)",
   tiktok: "#광고 #협찬",
 };
 

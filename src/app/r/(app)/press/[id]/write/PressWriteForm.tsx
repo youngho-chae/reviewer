@@ -7,14 +7,12 @@ import Icon from "@/components/Icon";
 const ch_label: Record<SnsKind, string> = {
   naver_blog: "네이버 블로그",
   instagram: "인스타그램",
-  youtube: "유튜브",
   tiktok: "틱톡",
 };
 
 const ad_notice: Record<SnsKind, string> = {
   naver_blog: "본 게시물은 캐치랭크를 통해 매장으로부터 자료를 제공받아 작성한 콘텐츠입니다.",
   instagram: "#광고 캐치랭크를 통해 자료를 제공받아 작성한 콘텐츠입니다.",
-  youtube: "캐치랭크 자료 제공 콘텐츠",
   tiktok: "#광고 #협찬 — 캐치랭크 자료 제공 콘텐츠",
 };
 

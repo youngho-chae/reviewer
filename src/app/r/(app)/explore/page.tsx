@@ -2,7 +2,8 @@ import { after } from "next/server";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
-import { gradeMeets } from "@/lib/grade";
+import { gradeMeets, channelOffers, bestEligibleSupport } from "@/lib/grade";
+import type { Grade } from "@/lib/types";
 import Icon from "@/components/Icon";
 import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
 
@@ -33,6 +34,10 @@ export default async function ReviewerExplore({
       const remain = totalQ - usedQ;
       const minNeededGrade: "S" | "A" | "B" | "C" =
         c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
+      // 채널별 등급으로 내가 받을 수 있는 가장 큰 혜택 (없으면 기준 지원금=최대치 노출)
+      const offers = channelOffers(c.requiredChannels, me.channelGrades, minNeededGrade as Grade, c.supportAmount);
+      const myBest = bestEligibleSupport(offers);
+      const accessible = myBest > 0;
       return {
         storeId: store.id,
         campaignId: c.id,
@@ -42,11 +47,12 @@ export default async function ReviewerExplore({
         coverEmoji: store.coverEmoji,
         lat: store.lat ?? 37.5665,
         lng: store.lng ?? 126.978,
-        supportAmount: c.supportAmount,
+        supportAmount: accessible ? myBest : c.supportAmount,
+        requiredChannels: c.requiredChannels,
         remain,
         totalQuota: totalQ,
         grade: minNeededGrade,
-        accessible: gradeMeets(me.grade, minNeededGrade),
+        accessible,
         rating: store.rating,
         reviewCount: store.reviewCount,
         endAt: c.endAt,

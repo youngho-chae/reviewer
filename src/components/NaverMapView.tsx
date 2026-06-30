@@ -18,6 +18,7 @@ export interface MapStorePin {
   grade: "S" | "A" | "B" | "C";
   accessible: boolean;
   coverEmoji: string;
+  requiredChannels?: import("@/lib/types").SnsKind[];
 }
 
 declare global {

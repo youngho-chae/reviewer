@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 const ch_label: Record<string, string> = {
   naver_blog: "네이버 블로그",
   instagram: "인스타그램",
-  youtube: "유튜브",
   tiktok: "틱톡",
 };
 
