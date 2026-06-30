@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid } from "@/lib/ids";
 import { createSession } from "@/lib/auth";
-import { gradeFromSns } from "@/lib/grade";
+import { channelGradesFromSns, bestGrade } from "@/lib/grade";
 import { Owner, Reviewer, SnsAccount, SnsKind, Store } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
       url: s.url,
       influence: Number(s.influence) || 0,
     }));
-    const grade = gradeFromSns(sns);
+    const channelGrades = channelGradesFromSns(sns);
+    const grade = bestGrade(Object.values(channelGrades));
     const reviewer: Reviewer = {
       id: rid("rv"),
       email,
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
       nickname: body.nickname || email.split("@")[0],
       sns,
       grade,
+      channelGrades,
       createdAt: Date.now(),
       completedReviews: 0,
       qualityScore: 0,

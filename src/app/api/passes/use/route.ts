@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid, normalizePassCode } from "@/lib/ids";
+import { supportForGrade } from "@/lib/grade";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,9 @@ export async function POST(req: NextRequest) {
   }
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
   const paid = Math.max(0, Number(paidAmount) || 0);
-  const support = Math.min(paid, c?.supportAmount || 0);
+  // 지원금 한도 = 기준 지원금 × 채널 등급 배율 (v2.16)
+  const limit = supportForGrade(c?.supportAmount || 0, pass.reviewerGrade);
+  const support = Math.min(paid, limit);
   pass.paidAmount = paid;
   pass.supportApplied = support;
   pass.usedAt = Date.now();

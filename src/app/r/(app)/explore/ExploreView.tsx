@@ -4,8 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
 import Icon from "@/components/Icon";
+import ChannelIcons from "@/components/ChannelIcons";
 import { photoForStore } from "@/lib/store-photo";
-import { Grade } from "@/lib/types";
+import { Grade, SnsKind } from "@/lib/types";
 
 export interface ExploreStoreCard extends MapStorePin {
   rating: number;
@@ -13,6 +14,7 @@ export interface ExploreStoreCard extends MapStorePin {
   totalQuota: number;
   endAt: number;
   createdAt: number;
+  requiredChannels: SnsKind[];
 }
 
 export interface ExplorePressCard {
@@ -564,8 +566,11 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
               <span className="text-[11px] text-muted">·</span>
               <span className="text-[11px] text-muted">{card.grade}등급 이상</span>
             </div>
-            <div className="text-[13px] text-success font-semibold mt-1.5">
-              최대 ₩{card.supportAmount.toLocaleString()} 체험 지원
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-[13px] text-success font-semibold">
+                최대 ₩{card.supportAmount.toLocaleString()} 체험 지원
+              </span>
+              <ChannelIcons channels={card.requiredChannels} size={16} />
             </div>
             {label?.tone === "closing" && (
               <div className="text-[11px] text-error mt-1 italic">{CLOSING_TEASE}</div>
@@ -631,8 +636,11 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
         <div className="text-[10px] text-muted uppercase tracking-wider mb-0.5">{card.category}</div>
         <h3 className="text-[15px] font-bold text-ink truncate tracking-[-0.022em]">{card.name}</h3>
         <p className="text-[11px] text-muted mt-0.5 truncate">{card.area} · ★ {card.rating}</p>
-        <div className="text-[13px] text-success font-semibold mt-2">
-          최대 ₩{card.supportAmount.toLocaleString()}
+        <div className="flex items-center justify-between mt-2 gap-1">
+          <span className="text-[13px] text-success font-semibold">
+            최대 ₩{card.supportAmount.toLocaleString()}
+          </span>
+          <ChannelIcons channels={card.requiredChannels} size={15} />
         </div>
         {label?.tone === "closing" && (
           <div className="text-[10px] text-error mt-0.5 italic truncate">{CLOSING_TEASE}</div>

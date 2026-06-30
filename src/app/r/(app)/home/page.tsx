@@ -3,11 +3,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
-import { gradeMeets } from "@/lib/grade";
-import type { Grade } from "@/lib/types";
+import { channelOffers, bestEligibleSupport } from "@/lib/grade";
+import type { Grade, SnsKind } from "@/lib/types";
 import { photoForStore } from "@/lib/store-photo";
 import Icon from "@/components/Icon";
 import GradeBadge from "@/components/GradeBadge";
+import ChannelIcons from "@/components/ChannelIcons";
 import HomeLocationChip from "./HomeLocationChip";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ interface NearbyCard {
   area: string;
   category: string;
   supportAmount: number;
+  requiredChannels: SnsKind[];
   rating: number;
   reviewCount: number;
   accessible: boolean;
@@ -53,16 +55,20 @@ export default async function ReviewerHome() {
     const store = db.stores.find((s) => s.id === c.storeId)!;
     const minNeededGrade: "S" | "A" | "B" | "C" =
       c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
+    const offers = channelOffers(c.requiredChannels, me.channelGrades, minNeededGrade as Grade, c.supportAmount);
+    const myBest = bestEligibleSupport(offers);
+    const accessible = myBest > 0;
     return {
       storeId: store.id,
       campaignId: c.id,
       name: store.name,
       area: store.area,
       category: store.category,
-      supportAmount: c.supportAmount,
+      supportAmount: accessible ? myBest : c.supportAmount,
+      requiredChannels: c.requiredChannels,
       rating: store.rating,
       reviewCount: store.reviewCount,
-      accessible: gradeMeets(me.grade, minNeededGrade as Grade),
+      accessible,
       grade: minNeededGrade,
       walkMin: walkMinutes(store.id),
     };
@@ -243,8 +249,11 @@ export default async function ReviewerHome() {
             <div className="p-3">
               <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
               <p className="text-[11px] text-muted mt-0.5 truncate">{p.category} · {p.area}</p>
-              <div className="text-[13px] text-success font-semibold mt-1.5">
-                최대 ₩{p.supportAmount.toLocaleString()} 체험 지원
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className="text-[13px] text-success font-semibold">
+                  최대 ₩{p.supportAmount.toLocaleString()}
+                </span>
+                <ChannelIcons channels={p.requiredChannels} size={15} />
               </div>
               <div className="text-[11px] text-muted mt-1">
                 <span className="text-[#ffa500]" aria-hidden>★</span>{" "}
@@ -307,8 +316,11 @@ export default async function ReviewerHome() {
             <div className="p-3">
               <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
               <p className="text-[11px] text-muted mt-0.5 truncate">{p.area} · 도보 {p.walkMin}분</p>
-              <div className="text-[14px] text-success font-bold mt-1.5 tabular-nums">
-                ₩{p.supportAmount.toLocaleString()}
+              <div className="flex items-center justify-between gap-1 mt-1.5">
+                <span className="text-[14px] text-success font-bold tabular-nums">
+                  ₩{p.supportAmount.toLocaleString()}
+                </span>
+                <ChannelIcons channels={p.requiredChannels} size={15} />
               </div>
               <div className="text-[11px] text-muted mt-0.5">
                 <span className="text-[#ffa500]" aria-hidden>★</span>{" "}

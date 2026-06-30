@@ -1,16 +1,13 @@
 import { getCurrentAdmin } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
+import { CHANNEL_LABEL, CHANNEL_REVIEW_CONDITIONS } from "@/lib/channels";
+import type { SnsKind } from "@/lib/types";
 import ReviewDecisionActions from "./ReviewDecisionActions";
 
 export const dynamic = "force-dynamic";
 
-const CH_LABEL: Record<string, string> = {
-  naver_blog: "네이버 블로그",
-  instagram: "인스타그램",
-  youtube: "유튜브",
-  tiktok: "틱톡",
-};
+const CH_LABEL: Record<string, string> = CHANNEL_LABEL;
 
 export default async function AdminReviews() {
   await getCurrentAdmin(); // 인증 게이트
@@ -81,22 +78,20 @@ export default async function AdminReviews() {
               </a>
             )}
 
-            {/* 자가 점검 표시 */}
-            {p.reviewSelfCheck && (
+            {/* 자가 점검 표시 — 채널별 조건 */}
+            {p.reviewSelfCheck && p.reviewChannel && (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {[
-                  ["사진 5장+", p.reviewSelfCheck.photos],
-                  ["본문 500자+", p.reviewSelfCheck.body500],
-                  ["메뉴/매장/분위기", p.reviewSelfCheck.menus],
-                  ["30일 유지", p.reviewSelfCheck.days30],
-                ].map(([label, ok]) => (
-                  <span
-                    key={String(label)}
-                    className={`text-[10px] px-2 py-0.5 rounded-pill ${ok ? "bg-success/10 text-success" : "bg-parchment text-muted"}`}
-                  >
-                    {ok ? "✓" : "—"} {label}
-                  </span>
-                ))}
+                {(CHANNEL_REVIEW_CONDITIONS[p.reviewChannel as SnsKind] ?? []).map((cond) => {
+                  const ok = p.reviewSelfCheck?.[cond.key];
+                  return (
+                    <span
+                      key={cond.key}
+                      className={`text-[10px] px-2 py-0.5 rounded-pill ${ok ? "bg-success/10 text-success" : "bg-parchment text-muted"}`}
+                    >
+                      {ok ? "✓" : "—"} {cond.label}
+                    </span>
+                  );
+                })}
               </div>
             )}
 

@@ -4,6 +4,7 @@ import { readSession } from "@/lib/auth";
 import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
+import { CHANNEL_ORDER } from "@/lib/channels";
 
 export const runtime = "nodejs";
 
@@ -78,6 +79,22 @@ export async function POST(req: NextRequest) {
         .filter((m: RequiredMenu) => m.name.length > 0)
     : [];
 
+  // 필수 채널 — 허용 채널(블/인/틱)만 통과, 중복 제거
+  const requiredChannels = ((body.requiredChannels || []) as SnsKind[]).filter(
+    (ch, i, arr) => CHANNEL_ORDER.includes(ch) && arr.indexOf(ch) === i,
+  );
+  if (requiredChannels.length === 0) {
+    return NextResponse.json({ error: "필수 채널을 1개 이상 선택해주세요" }, { status: 400 });
+  }
+
+  // 강조 키워드 — 최대 5개, 각 20자
+  const highlightKeywords: string[] = Array.isArray(body.highlightKeywords)
+    ? body.highlightKeywords
+        .map((k: unknown) => String(k ?? "").trim().slice(0, 20))
+        .filter((k: string) => k.length > 0)
+        .slice(0, 5)
+    : [];
+
   const now = Date.now();
   // 캠페인 제목은 매장명으로 자동 설정 — 사장님이 별도 입력하지 않음
   const c: Campaign = {
@@ -90,9 +107,10 @@ export async function POST(req: NextRequest) {
     supportAmount: Number(body.supportAmount) || 0,
     quota: distributeQuota(owner.plan, totalQuota),
     used: { S: 0, A: 0, B: 0, C: 0 },
-    requiredChannels: (body.requiredChannels || []) as SnsKind[],
+    requiredChannels,
     requiredMenus,
-    description: String(body.description || ""),
+    description: String(body.description || "").slice(0, 500),
+    highlightKeywords,
     createdAt: now,
     useCode,
   };

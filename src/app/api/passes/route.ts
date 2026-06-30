@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
-import { Pass } from "@/lib/types";
+import { Pass, Grade, SnsKind } from "@/lib/types";
 import { gradeMeets } from "@/lib/grade";
+import { CHANNEL_LABEL } from "@/lib/channels";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 
 export const runtime = "nodejs";
@@ -11,11 +12,32 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { campaignId } = await req.json();
+  const { campaignId, channel } = await req.json();
   const db = await getDBAsync();
   const me = db.reviewers.find((r) => r.id === s.userId);
   const c = db.campaigns.find((x) => x.id === campaignId);
   if (!me || !c) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
+
+  // 참여 채널 / 자격 등급 결정.
+  //  - 방문형(visit): 참여 시점에 채널 확정. 선택 채널의 내 등급으로 자격·지원금 결정.
+  //  - 기자단(press): 작성 시점에 채널 선택. 종합 등급으로 자격 판정.
+  const isPress = c.kind === "press";
+  const selectedChannel: SnsKind | undefined = isPress
+    ? undefined
+    : (channel as SnsKind | undefined);
+  let channelGrade: Grade;
+  if (isPress) {
+    channelGrade = me.grade;
+  } else {
+    if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
+      return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
+    }
+    const cg = me.channelGrades?.[selectedChannel];
+    if (!cg) {
+      return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
+    }
+    channelGrade = cg;
+  }
 
   const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
   const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
@@ -44,16 +66,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ passId: dup.id });
   }
 
-  // 등급 검증 — 가장 낮은 자격(C 우선)이 입장 기준
+  // 등급 검증 — 선택 채널의 내 등급이 캠페인 최소 등급을 충족해야 함
   const minGrade: "S" | "A" | "B" | "C" =
     c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-  if (me.grade !== "S" && !gradeMeets(me.grade, minGrade)) {
-    return NextResponse.json({ error: `${minGrade}등급부터 이용 가능합니다` }, { status: 403 });
+  if (channelGrade !== "S" && !gradeMeets(channelGrade, minGrade)) {
+    const prefix = selectedChannel ? `${CHANNEL_LABEL[selectedChannel]} ` : "";
+    return NextResponse.json({ error: `${prefix}${minGrade}등급부터 이용 가능합니다` }, { status: 403 });
   }
 
   // 등급별 quota 차감 (자기 등급 우선, 부족 시 상위 권한이 빈 슬롯 사용)
   const order: Array<"S" | "A" | "B" | "C"> = ["S", "A", "B", "C"];
-  const fromIdx = order.indexOf(me.grade === "N" ? "C" : (me.grade as any));
+  const fromIdx = order.indexOf(channelGrade === "N" ? "C" : (channelGrade as any));
   let consumedSlot: "S" | "A" | "B" | "C" | null = null;
   for (let i = order.length - 1; i >= fromIdx; i--) {
     const g = order[i];
@@ -76,9 +99,11 @@ export async function POST(req: NextRequest) {
     campaignId: c.id,
     storeId: c.storeId,
     ownerId: db.stores.find((s) => s.id === c.storeId)!.ownerId,
-    reviewerGrade: me.grade,
+    reviewerGrade: channelGrade,
+    reviewChannel: selectedChannel,
     issuedAt: now,
-    expiresAt: now + 1000 * 60 * 60 * 24,
+    // 방문형은 24시간 사용 기한, 기자단은 캠페인 종료까지 작성 가능
+    expiresAt: isPress ? c.endAt : now + 1000 * 60 * 60 * 24,
     status: "active",
   };
   db.passes.push(pass);
@@ -87,8 +112,8 @@ export async function POST(req: NextRequest) {
     id: rid("nt"),
     userId: pass.ownerId,
     role: "owner",
-    title: "체험권 발급",
-    body: `${me.nickname}님(${me.grade}등급)이 캠페인에 참여했습니다.`,
+    title: isPress ? "기자단 신청" : "체험권 발급",
+    body: `${me.nickname}님(${selectedChannel ? `${CHANNEL_LABEL[selectedChannel]} ` : ""}${channelGrade}등급)이 캠페인에 참여했습니다.`,
     createdAt: now,
     read: false,
     link: "/o/home",

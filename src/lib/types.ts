@@ -1,6 +1,7 @@
 export type Grade = "S" | "A" | "B" | "C" | "N";
 
-export type SnsKind = "naver_blog" | "instagram" | "youtube" | "tiktok";
+// 연동 가능한 채널은 네이버 블로그 / 인스타그램 / 틱톡 3종으로 한정 (v2.16)
+export type SnsKind = "naver_blog" | "instagram" | "tiktok";
 
 export interface SnsAccount {
   kind: SnsKind;
@@ -14,7 +15,10 @@ export interface Reviewer {
   passwordHash: string;
   nickname: string;
   sns: SnsAccount[];
-  grade: Grade;
+  grade: Grade; // 종합 등급(연동 채널 중 최상위) — 단일 등급 UI/뱃지에 사용
+  // 채널별 등급 — 연동된 각 채널을 독립적으로 평가 (v2.16).
+  // 예: { naver_blog: "A", instagram: "C" }
+  channelGrades?: Partial<Record<SnsKind, Grade>>;
   createdAt: number;
   completedReviews: number;
   qualityScore: number; // 0~100
@@ -87,7 +91,9 @@ export interface Campaign {
   used: { S: number; A: number; B: number; C: number };
   requiredChannels: SnsKind[];
   requiredMenus: RequiredMenu[];
-  description: string;
+  description: string; // 매장 소개 (최대 500자)
+  // 사장님이 후기에 강조해주길 원하는 키워드 — 체험 매장 상세에 노출 (v2.16)
+  highlightKeywords?: string[];
   createdAt: number;
   // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드.
   // 유저 체험권 화면에 노출되며, 사장님이 QR 스캔 대신 이 4자리를 입력하면 사용 처리됨.
@@ -125,13 +131,9 @@ export interface Pass {
   reviewBody?: string;
   reviewChannel?: SnsKind;
   reviewStatus?: "pending" | "approved" | "rejected";
-  // 자가점검 (방문형 리뷰 인증 시 사용자가 직접 체크)
-  reviewSelfCheck?: {
-    photos: boolean; // 사진 5장 이상
-    body500: boolean; // 본문 500자 이상
-    menus: boolean; // 메뉴/매장/분위기 사진 포함
-    days30: boolean; // 30일 이상 게시 유지 동의
-  };
+  // 자가점검 — 채널별 작성 조건 키에 대한 사용자 직접 체크 (v2.16부터 채널별 가변).
+  // 키는 src/lib/channels.ts의 CHANNEL_REVIEW_CONDITIONS[channel] 정의를 따른다.
+  reviewSelfCheck?: Record<string, boolean>;
   status: PassStatus;
 }
 
