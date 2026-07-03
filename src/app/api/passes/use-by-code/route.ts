@@ -3,6 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid, normalizeUseCode } from "@/lib/ids";
 import { supportForGrade } from "@/lib/grade";
+import { findSupportBoost, boostedLimit } from "@/lib/referral";
 
 export const runtime = "nodejs";
 
@@ -42,11 +43,20 @@ export async function POST(req: NextRequest) {
   }
 
   // 지원금 한도 = 기준 지원금 × 채널 등급 배율 (v2.16)
-  const support = supportForGrade(campaign.supportAmount || 0, pass.reviewerGrade);
+  const baseLimit = supportForGrade(campaign.supportAmount || 0, pass.reviewerGrade);
+  // 초대 보상(지원금 부스트) 자동 적용 — 기준 지원금(S등급 100%)을 넘지 않는 선에서 가산
+  const boost = findSupportBoost(db, pass.reviewerId);
+  const support = boost ? boostedLimit(campaign.supportAmount || 0, baseLimit, boost.value) : baseLimit;
   const paid = paidAmount === undefined || paidAmount === null || paidAmount === ""
     ? support
     : Math.max(0, Number(paidAmount) || 0);
   const applied = Math.min(paid, support);
+  // 부스트가 실제 이득을 준 경우에만 보상 소진
+  if (boost && applied > baseLimit) {
+    boost.usedAt = Date.now();
+    pass.supportBoostPct = boost.value;
+    pass.boostRewardId = boost.id;
+  }
 
   pass.paidAmount = paid;
   pass.supportApplied = applied;

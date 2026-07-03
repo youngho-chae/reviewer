@@ -37,7 +37,7 @@ export default function ReviewForm({ passId, channel }: { passId: string; channe
     const res = await fetch("/api/passes/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ passId, reviewChannel: channel, reviewUrl, selfCheck }),
+      body: JSON.stringify({ passId, reviewChannel: channel, reviewUrl, selfCheck, adNotice: adChecked }),
     });
     if (!res.ok) {
       const { error } = await res.json();

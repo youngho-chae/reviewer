@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DBShape } from "./types";
 import { kvAvailable, kvLoad, kvSave } from "./kv";
+import { sweepPassLifecycle } from "./pass-lifecycle";
 
 // 3-단 영속성 계층:
 //   1) Vercel KV (Upstash Redis REST API) — 환경변수 있으면 우선 사용 → 멀티 인스턴스 공유 가능
@@ -44,7 +45,7 @@ function persist(db: DBShape) {
 
 // 시드 스키마/내용이 변경될 때마다 bump → 기존 DB를 무시하고 재시드.
 // 운영 환경에서 KV/디스크에 남아있던 옛 시드를 자동 정리.
-const SEED_VERSION = 9;
+const SEED_VERSION = 10;
 
 function ensureSeeded(db: DBShape) {
   if (!db.seeded || (db.seedVersion ?? 0) < SEED_VERSION) {
@@ -74,6 +75,8 @@ export function getDB(): DBShape {
   }
   const db = globalThis.__catchpass_db!;
   ensureSeeded(db);
+  // 라이프사이클 스윕 — 만료 확정/슬롯 복구/기한 초과 처리 (lazy 배치)
+  if (sweepPassLifecycle(db)) persist(db);
   return db;
 }
 
@@ -90,12 +93,17 @@ export async function getDBAsync(): Promise<DBShape> {
     if (fresh) {
       globalThis.__catchpass_db = fresh;
       ensureSeeded(fresh);
+      if (sweepPassLifecycle(fresh)) {
+        await kvSave(fresh);
+        persist(fresh);
+      }
       await maybeAutoRefresh(fresh);
       return fresh;
     } else {
       // KV 비어있음 — 부트스트랩
       const db: DBShape = { ...empty };
       ensureSeeded(db);
+      sweepPassLifecycle(db);
       await kvSave(db);
       globalThis.__catchpass_db = db;
       await maybeAutoRefresh(db);

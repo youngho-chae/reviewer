@@ -526,8 +526,8 @@ export function runSeed(db: DBShape) {
     completedReviews: 3,
     qualityScore: 88,
     noShowCount: 0,
-    // 바이럴 — 이미 2명 초대해서 일반 박스 단계, 보너스 캐시 ₩4,000 누적
-    inviteStats: { sent: 3, clicked: 3, accepted: 2, boxGrade: "basic", cumulativeCash: 4000 },
+    // 바이럴 — 이미 2명 초대해서 일반 박스 단계
+    inviteStats: { sent: 3, clicked: 3, accepted: 2, boxGrade: "basic" },
   };
   db.reviewers.push(reviewer);
 
@@ -648,7 +648,7 @@ export function runSeed(db: DBShape) {
       issuedOffset: 3 * day, // 발급 3일 전 → 2일 전 만료
       grade: "B",
     },
-    // 6) REJECTED — 리뷰 반려 (망원 비스트로)
+    // 6) REJECTED — 리뷰 반려 (망원 비스트로). 반려 후 72h 경과 → 재제출 기한 지남 케이스
     {
       key: "demo-rej-1",
       placeId: "1261430410",
@@ -740,16 +740,23 @@ export function runSeed(db: DBShape) {
       pass.reviewUrl = sp.reviewUrl;
       pass.reviewBody = sp.reviewBody;
       pass.reviewStatus = sp.status === "completed" ? "approved" : sp.status === "rejected" ? "rejected" : "pending";
+      pass.adNoticeConfirmed = true; // 제출 시 서버가 강제하는 광고 표기 확인
       if (sp.status !== "rejected") {
         // 채널별 자가점검 항목 전부 충족으로 시드
         pass.reviewSelfCheck = Object.fromEntries(
           (CHANNEL_REVIEW_CONDITIONS[passChannel] ?? []).map((c) => [c.key, true]),
         );
+      } else {
+        // 반려 사유 구조화 보존 — 상세 화면 노출 + 재제출 판단 근거
+        pass.rejectReason = "광고 표시 문구 누락 — 본문에 경제적 대가 문구가 확인되지 않습니다";
+        pass.rejectedAt = now - 6 * day;
       }
     }
-    // quota 카운터 증가 (실 시나리오와 일관성)
-    if (["active", "used", "review_submitted", "completed"].includes(sp.status)) {
-      camp.used[pass.reviewerGrade === "N" ? "C" : pass.reviewerGrade] += 1;
+    // quota 카운터 증가 (실 시나리오와 일관성) — 만료/취소만 슬롯 복구 대상이므로 그 외 상태는 소진 유지
+    if (["active", "used", "review_submitted", "completed", "rejected"].includes(sp.status)) {
+      const slot = pass.reviewerGrade === "N" ? "C" : (pass.reviewerGrade as "S" | "A" | "B" | "C");
+      camp.used[slot] += 1;
+      pass.consumedSlot = slot;
     }
     db.passes.push(pass);
   }
@@ -768,6 +775,7 @@ export function runSeed(db: DBShape) {
         storeId: p1.storeId,
         ownerId: db.stores.find((s) => s.id === p1.storeId)!.ownerId,
         reviewerGrade: "B",
+        consumedSlot: "B",
         issuedAt: now - 2 * day,
         expiresAt: now + 19 * day, // 기자단은 캠페인 종료까지 사용 가능
         status: "active",
@@ -786,9 +794,11 @@ export function runSeed(db: DBShape) {
         storeId: p2.storeId,
         ownerId: db.stores.find((s) => s.id === p2.storeId)!.ownerId,
         reviewerGrade: "B",
+        consumedSlot: "B",
         issuedAt: now - 5 * day,
         expiresAt: now + 9 * day,
         status: "review_submitted",
+        adNoticeConfirmed: true,
         reviewUrl: "https://www.instagram.com/p/demo-nail-press",
         reviewBody: "압구정 네일 아틀리에의 시즌 한정 컬렉션을 미리 만나봤다. 시즌 컬렉션의 14종 디자인 중 가장 시즌감을 잘 표현한 두 디자인을 골랐다. 압구정 네일이 보여줄 수 있는 디테일의 깊이가 정말 매력적이었다...".padEnd(1300, "·"),
         reviewChannel: "instagram",
@@ -808,9 +818,11 @@ export function runSeed(db: DBShape) {
         storeId: p1.storeId,
         ownerId: db.stores.find((s) => s.id === p1.storeId)!.ownerId,
         reviewerGrade: "A",
+        consumedSlot: "A",
         issuedAt: now - 12 * day,
         expiresAt: now + 9 * day,
         status: "completed",
+        adNoticeConfirmed: true,
         reviewUrl: "https://blog.naver.com/sub/hannam-press",
         reviewBody: "한남 코너 다이닝의 가을 신메뉴 5종을 미리 즐겨봤다. 자료팩에서 제공한 사진과 브랜드 스토리를 참고해 자연스러운 후기로 풀어냈고, 트러플과 가을 채소가 어우러진 메인 코스가 특히 인상적이었다...".padEnd(1600, "·"),
         reviewChannel: "naver_blog",
@@ -845,16 +857,13 @@ export function runSeed(db: DBShape) {
   });
 
   // ── 바이럴(레퍼럴) 시드 ──
-  // 라이브 카운터 초기값 (혜택 탭 상단 N명 카운터 + ticker)
+  // 라이브 카운터 — 실제 시드 이벤트(DEMO2024 초대 수락)만 기록. 조작 수치 없음 (VER.1 MVP 원칙).
+  // todayBoxCount는 snapshotCounter가 rewards 발행 시각 기준으로 매번 재계산한다.
   db.viralCounter = {
     date: new Date(now).toISOString().slice(0, 10),
-    todayBoxCount: 1283,
-    todayAvgReward: 4250,
+    todayBoxCount: 0,
     liveStream: [
-      { nickname: "강남 박OO", reward: 8000, ts: now - 4_000, matrix: "RR" },
-      { nickname: "성수 김OO", reward: 3000, ts: now - 9_000, matrix: "RR" },
-      { nickname: "압구정 정OO 사장님", reward: 10000, ts: now - 16_000, matrix: "OO" },
-      { nickname: "한남 이OO", reward: 5500, ts: now - 28_000, matrix: "OR" },
+      { nickname: "성수러버", rewardText: "다음 체험 지원금 +50% 부스트", ts: now - 2 * day, matrix: "RR" },
     ],
   };
 
@@ -894,27 +903,41 @@ export function runSeed(db: DBShape) {
     },
   ];
 
-  // 데모 보상 — 북촌리뷰어가 행운 박스 2번 오픈
+  // 데모 보상 — 모두 실사용 가능한 종류(지원금 부스트)만 발행.
+  //  seed-1: 이미 사용된 부스트 (사용 완료 상태 데모)
+  //  seed-2: 미사용 부스트 +10% — 다음 체험권 사용 처리 시 자동 가산됨
+  //  seed-3: 성수러버(피추천자)의 환영 부스트 +50% (DEMO2024 수락 보상)
   db.rewards = [
     {
       id: detId("rwd", "seed-1"),
       ownerUserId: reviewer.id,
       source: "referrer_box",
-      kind: "cash",
-      value: 2000,
+      kind: "support_bonus_pct",
+      value: 10,
       issuedAt: now - 2 * day,
       expiresAt: now + 28 * day,
+      usedAt: now - 1 * day,
       meta: { matrix: "RR", accepted: 1 },
     },
     {
       id: detId("rwd", "seed-2"),
       ownerUserId: reviewer.id,
       source: "referrer_box",
-      kind: "cash",
-      value: 2000,
+      kind: "support_bonus_pct",
+      value: 10,
       issuedAt: now - 36 * hour,
       expiresAt: now + 28 * day,
       meta: { matrix: "RR", accepted: 2 },
+    },
+    {
+      id: detId("rwd", "seed-3"),
+      ownerUserId: reviewerA.id,
+      source: "referee_welcome",
+      kind: "support_bonus_pct",
+      value: 50,
+      issuedAt: now - 2 * day,
+      expiresAt: now + 12 * day,
+      meta: { matrix: "RR" },
     },
   ];
 }

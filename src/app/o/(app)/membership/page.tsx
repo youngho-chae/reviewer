@@ -73,7 +73,7 @@ export default async function MembershipPage() {
       <div className="px-5 mt-8">
         <div className="text-[13px] font-semibold mb-2">결제 내역</div>
         <div className="rounded-md border border-hairline p-4 text-[13px] text-muted">
-          연동된 결제 수단이 없습니다. 결제 연동은 운영팀이 진행합니다 (help@catchrank.co.kr).
+          연동된 결제 수단이 없습니다. 결제(PG) 연동 전까지 요금 청구는 운영팀이 진행합니다 (help@catchrank.co.kr).
         </div>
       </div>
 
@@ -81,6 +81,11 @@ export default async function MembershipPage() {
         <button disabled className="w-full h-12 rounded-sm border border-hairline text-muted text-[14px]">
           구독 해지 (운영팀 문의 필요)
         </button>
+        <p className="mt-3 text-[11px] text-muted leading-[1.6]">
+          해지·환불 안내: 플랜 변경은 다음 결제 주기부터 적용되며, 이용하지 않은 기간의 환불은
+          전자상거래법에 따라 고객센터를 통해 처리됩니다. 자세한 내용은{" "}
+          <Link href="/legal/terms" className="underline">이용약관 제10조</Link>를 확인해주세요.
+        </p>
       </div>
     </div>
   );

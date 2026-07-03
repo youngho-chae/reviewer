@@ -31,8 +31,7 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
           <span className="text-[#ffd60a]">{cur.label}</span>
         </div>
         <div className="text-[12px] opacity-90 mt-1.5">
-          누적 성공 초대 <strong className="tabular-nums">{stats.accepted}명</strong> · 보너스 캐시{" "}
-          <strong className="tabular-nums">₩{stats.cumulativeCash.toLocaleString()}</strong>
+          누적 성공 초대 <strong className="tabular-nums">{stats.accepted}명</strong> · 박스가 클수록 지원금 부스트 UP
         </div>
 
         {/* 진행 바 */}
@@ -57,8 +56,8 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
         </Link>
         <div className="text-[10.5px] opacity-75 mt-2 leading-[1.4]">
           {myKind === "reviewer"
-            ? "친구가 가입하면 친구는 첫 캠페인 +50% 지원금, 나는 박스 즉시 오픈"
-            : "동료 사장님이 가입하면 양쪽 모두 첫 달 멤버십 50% 할인 + 모집 한도 보너스"}
+            ? "친구가 가입하면 친구는 첫 체험 지원금 +50%, 나는 다음 체험 지원금 부스트 (일반 +10% / 실버 +20% / 골드 +30%)"
+            : "동료 사장님이 가입하면 상대는 첫 달 멤버십 50% 할인, 나는 멤버십 할인 또는 모집 한도 보너스"}
         </div>
       </div>
     </div>

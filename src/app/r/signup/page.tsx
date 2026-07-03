@@ -31,6 +31,8 @@ function ReviewerSignup() {
     instagram: { url: "", influence: "" },
     tiktok: { url: "", influence: "" },
   });
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -42,7 +44,7 @@ function ReviewerSignup() {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ role: "reviewer", email, password, nickname, sns: snsArr }),
+      body: JSON.stringify({ role: "reviewer", email, password, nickname, sns: snsArr, agreeTerms: agreeTerms && agreePrivacy }),
     });
     if (!res.ok) {
       const { error } = await res.json();
@@ -62,6 +64,7 @@ function ReviewerSignup() {
     setErr(null);
     if (!email || !password || !nickname) { setErr("모든 항목을 입력해주세요"); return; }
     if (password.length < 6) { setErr("비밀번호는 6자 이상"); return; }
+    if (!agreeTerms || !agreePrivacy) { setErr("이용약관과 개인정보 수집·이용에 동의해주세요"); return; }
     setStep(2);
   }
 
@@ -107,6 +110,23 @@ function ReviewerSignup() {
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
             <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="비밀번호 (6자 이상)" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
             <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="닉네임" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
+
+            {/* 필수 동의 — 약관/개인정보 (개인정보보호법상 명시적 동의) */}
+            <div className="pt-2 space-y-2.5">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} className="mt-0.5 w-4.5 h-4.5 accent-[#0066cc]" />
+                <span className="text-[13px] text-ink2 leading-[1.45]">
+                  (필수) <a href="/legal/terms" target="_blank" className="text-brand underline">이용약관</a>에 동의합니다
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} className="mt-0.5 w-4.5 h-4.5 accent-[#0066cc]" />
+                <span className="text-[13px] text-ink2 leading-[1.45]">
+                  (필수) <a href="/legal/privacy" target="_blank" className="text-brand underline">개인정보 수집·이용</a>에 동의합니다
+                </span>
+              </label>
+            </div>
+
             {err && <div className="text-error text-[14px]">{err}</div>}
             <button onClick={next} className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal">다음</button>
           </div>

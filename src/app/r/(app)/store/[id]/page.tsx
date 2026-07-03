@@ -66,7 +66,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           {store.name}
         </h1>
         <p className="mt-3 text-[19px] leading-[1.4] text-ink2">
-          {store.category} · ★ {store.rating} <span className="text-muted">({store.reviewCount.toLocaleString()}건)</span>
+          {store.category} · ★ {store.rating} <span className="text-muted">(네이버 리뷰 {store.reviewCount.toLocaleString()}건)</span>
         </p>
         {store.address && <p className="mt-2 text-[14px] text-muted">{store.address}</p>}
       </section>
@@ -139,7 +139,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
           {c.requiredMenus.some((m) => typeof m.price === "number" && m.price > 0) && (
             <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-              위 메뉴 결제 시 내 채널 등급에 맞춘 지원금(최대 <span className="text-ink font-medium">₩{c.supportAmount.toLocaleString()}</span>)이 즉시 차감됩니다.
+              위 메뉴 결제 시 내 채널 등급에 맞춘 지원금(최대 <span className="text-ink font-medium">₩{c.supportAmount.toLocaleString()}</span>)이
+              매장 할인으로 즉시 차감됩니다.
             </p>
           )}
         </section>

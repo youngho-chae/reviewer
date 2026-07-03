@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     referrerReward: r.result.referrerReward,
-    refereeMainReward: r.result.refereeMainReward,
-    refereeBonusReward: r.result.refereeBonusReward,
+    refereeReward: r.result.refereeReward,
   });
 }

@@ -20,6 +20,7 @@ export interface Reviewer {
   // 예: { naver_blog: "A", instagram: "C" }
   channelGrades?: Partial<Record<SnsKind, Grade>>;
   createdAt: number;
+  termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
   completedReviews: number;
   qualityScore: number; // 0~100
   noShowCount: number;
@@ -35,6 +36,7 @@ export interface Owner {
   area: string;
   plan: "Free" | "Basic" | "Standard" | "Premium";
   createdAt: number;
+  termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
   inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
 }
 
@@ -109,8 +111,9 @@ export type PassStatus =
   | "used" // QR 스캔 완료 → 리뷰 대기
   | "review_submitted" // 리뷰 등록됨, 검수 대기
   | "completed" // 검수 완료
-  | "expired" // 24시간 경과 미사용
-  | "rejected"; // 리뷰 반려
+  | "expired" // 24시간 경과 미사용 (모집 슬롯 복구됨)
+  | "cancelled" // 체험자가 사용 전 직접 취소 (모집 슬롯 복구됨)
+  | "rejected"; // 리뷰 반려 — 기한 내 1회 재제출 가능
 
 export interface Pass {
   id: string;
@@ -120,11 +123,17 @@ export interface Pass {
   storeId: string;
   ownerId: string;
   reviewerGrade: Grade;
+  // 발급 시 차감한 등급 슬롯 — 만료/취소 시 이 슬롯을 복구한다.
+  consumedSlot?: "S" | "A" | "B" | "C";
   issuedAt: number;
   expiresAt: number;
   usedAt?: number;
+  cancelledAt?: number; // 체험자 취소 시각
   paidAmount?: number;
   supportApplied?: number;
+  // 초대 보상(지원금 부스트)이 사용 처리에 적용된 경우 기록
+  supportBoostPct?: number;
+  boostRewardId?: string;
   reviewSubmittedAt?: number;
   reviewUrl?: string;
   reviewPhotos?: string[]; // data URL or placeholder
@@ -134,6 +143,15 @@ export interface Pass {
   // 자가점검 — 채널별 작성 조건 키에 대한 사용자 직접 체크 (v2.16부터 채널별 가변).
   // 키는 src/lib/channels.ts의 CHANNEL_REVIEW_CONDITIONS[channel] 정의를 따른다.
   reviewSelfCheck?: Record<string, boolean>;
+  // 경제적 대가(광고) 표기 확인 — 리뷰 제출 시 서버가 필수로 검증·보존 (분쟁 근거)
+  adNoticeConfirmed?: boolean;
+  // 반려 처리 기록 — 사유는 체험자 화면에 그대로 노출되어 재작성 근거가 된다
+  rejectReason?: string;
+  rejectedAt?: number;
+  resubmitCount?: number; // 반려 후 재제출 횟수 (최대 1회 허용)
+  // 라이프사이클 스윕 중복 방지 플래그
+  overdueHandled?: boolean; // 리뷰 기한(72h) 초과 처리 완료
+  expiringSoonNotified?: boolean; // 만료 6시간 전 알림 발송 완료
   status: PassStatus;
 }
 
@@ -150,7 +168,6 @@ export interface InviteStats {
   clicked: number;    // 토큰 클릭 수
   accepted: number;   // 가입 완료(소비) 수
   boxGrade: BoxGrade; // 누적 accepted 기반 단계 (1~2 basic / 3~4 silver / 5+ gold)
-  cumulativeCash: number; // 보너스 캐시 누적
 }
 
 export type InviteStatus = "issued" | "clicked" | "signed_up" | "expired";
@@ -172,12 +189,14 @@ export interface Invite {
   consumedBy?: string;     // 신규 가입자(피추천자) id
 }
 
+// 모든 보상은 실제 사용 경로가 구현된 종류만 발행한다 (VER.1 MVP 원칙).
+//  - support_bonus_pct: 다음 체험권 사용 처리 시 지원금 한도에 +N% 가산 (기준 지원금 100% 초과 불가)
+//  - membership_discount: 멤버십 결제 시 할인 (value ≤ 100이면 %, 초과면 ₩) — PG 연동 시 결제 단계에서 소진
+//  - quota_bonus: 이번 달 모집 한도 +N팀 — 플랜 한도 초과 캠페인 생성 시 자동 소진
 export type RewardKind =
-  | "cash"                  // 보너스 캐시 (₩)
-  | "support_bonus_pct"     // 첫 캠페인 지원금 +N%
-  | "membership_discount"   // 멤버십 할인 (사장님: %)
-  | "quota_bonus"           // 캠페인 모집 한도 +N팀
-  | "spotlight_pass";       // 시그니처 우선 노출권
+  | "support_bonus_pct"
+  | "membership_discount"
+  | "quota_bonus";
 
 export interface Reward {
   id: string;
@@ -191,11 +210,11 @@ export interface Reward {
   meta?: { matrix?: MatrixKey; accepted?: number; isBonus?: boolean };
 }
 
+// 라이브 카운터 — 실제 발생한 보상 이벤트만 집계한다 (조작·노이즈 없음, VER.1 MVP 원칙).
 export interface ViralCounter {
   date: string;             // YYYY-MM-DD
-  todayBoxCount: number;
-  todayAvgReward: number;
-  liveStream: Array<{ nickname: string; reward: number; ts: number; matrix: MatrixKey }>;
+  todayBoxCount: number;    // 오늘 실제 열린 박스(발행 보상) 수
+  liveStream: Array<{ nickname: string; rewardText: string; ts: number; matrix: MatrixKey }>;
 }
 
 export interface NotificationItem {

@@ -41,7 +41,7 @@ export function computeBoxGrade(accepted: number): BoxGrade {
 }
 
 export function defaultInviteStats(): InviteStats {
-  return { sent: 0, clicked: 0, accepted: 0, boxGrade: "basic", cumulativeCash: 0 };
+  return { sent: 0, clicked: 0, accepted: 0, boxGrade: "basic" };
 }
 
 export function ensureInviteStats<T extends Reviewer | Owner>(user: T): T {
@@ -54,7 +54,6 @@ export function ensureCounter(db: DBShape): ViralCounter {
     db.viralCounter = {
       date: new Date().toISOString().slice(0, 10),
       todayBoxCount: 0,
-      todayAvgReward: 0,
       liveStream: [],
     };
   }
@@ -139,21 +138,21 @@ export function markInviteClicked(db: DBShape, token: string): Invite | null {
 //   (회원가입은 /api/auth/signup이 처리하고, 그 후 본 함수를 호출)
 // ────────────────────────────────────────────────────────────
 
-const REFEREE_REWARD_TABLE: Record<MatrixKey, {
-  mainKind: RewardKind;
-  mainValue: number;
-  bonusCashRange: [number, number];
-}> = {
-  RR: { mainKind: "support_bonus_pct", mainValue: 50, bonusCashRange: [1000, 5000] },
-  RO: { mainKind: "membership_discount", mainValue: 50, bonusCashRange: [2000, 8000] },
-  OR: { mainKind: "support_bonus_pct", mainValue: 50, bonusCashRange: [1500, 6000] },
-  OO: { mainKind: "membership_discount", mainValue: 50, bonusCashRange: [3000, 10000] },
+// 피추천자(신규 가입자) 환영 보상 — 모두 실사용 경로가 구현된 종류만.
+//  체험자 가입: 첫 체험 지원금 +50% 부스트 / 사장님 가입: 첫 달 멤버십 50% 할인(PG 결제 시 소진)
+const REFEREE_REWARD_TABLE: Record<MatrixKey, { mainKind: RewardKind; mainValue: number }> = {
+  RR: { mainKind: "support_bonus_pct", mainValue: 50 },
+  RO: { mainKind: "membership_discount", mainValue: 50 },
+  OR: { mainKind: "support_bonus_pct", mainValue: 50 },
+  OO: { mainKind: "membership_discount", mainValue: 50 },
 };
+
+// 추천자(체험자) 행운 박스 — 박스 등급별 지원금 부스트 (다음 체험권 사용 시 자동 적용)
+const REFERRER_BOOST_BY_GRADE: Record<BoxGrade, number> = { basic: 10, silver: 20, gold: 30 };
 
 export interface AcceptResult {
   referrerReward: Reward;
-  refereeMainReward: Reward;
-  refereeBonusReward: Reward;
+  refereeReward: Reward;
 }
 
 export function acceptInvite(
@@ -191,37 +190,29 @@ export function acceptInvite(
     referrer.inviteStats!.boxGrade = computeBoxGrade(referrer.inviteStats!.accepted);
   }
 
-  // 추천자 행운 박스 보상 발행 (가변 캐시 또는 멤버십/quota 보너스)
+  // 추천자 행운 박스 보상 발행 (지원금 부스트 또는 멤버십/quota 보너스)
   const referrerReward = issueReferrerReward(db, inv.referrerKind, inv.referrerId, m, referrer?.inviteStats?.accepted ?? 1);
-  if (referrer?.inviteStats && referrerReward.kind === "cash") {
-    referrer.inviteStats.cumulativeCash += referrerReward.value;
-  }
 
-  // 피추천자 환영 박스 보상 발행 (확정 + 가변 캐시)
-  const refereeMain = issueRefereeMainReward(db, args.refereeId, m);
-  const refereeBonus = issueRefereeBonusReward(db, args.refereeId, m);
+  // 피추천자 환영 박스 보상 발행
+  const refereeReward = issueRefereeReward(db, args.refereeId, m);
 
-  // 라이브 카운터 갱신
+  // 라이브 카운터 갱신 — 실제 발생 이벤트만 기록
   const counter = ensureCounter(db);
   const refereeNickname = args.refereeKind === "owner"
     ? db.owners.find((o) => o.id === args.refereeId)?.storeName || "신규 매장"
     : db.reviewers.find((r) => r.id === args.refereeId)?.nickname || "신규 체험자";
   counter.liveStream.unshift({
     nickname: refereeNickname,
-    reward: refereeMain.kind === "cash" ? refereeMain.value : refereeBonus.value,
+    rewardText: rewardLabel(refereeReward),
     ts: Date.now(),
     matrix: m,
   });
-  counter.todayBoxCount += 2; // 양측 박스 2개
   if (counter.liveStream.length > 8) counter.liveStream.length = 8;
 
-  return {
-    ok: true,
-    result: { referrerReward, refereeMainReward: refereeMain, refereeBonusReward: refereeBonus },
-  };
+  return { ok: true, result: { referrerReward, refereeReward } };
 }
 
-// 추천자 행운 박스 — 박스 등급에 따른 가변 캐시(체험자) 또는 사장님 전용 보상
+// 추천자 행운 박스 — 체험자는 박스 등급별 지원금 부스트, 사장님은 멤버십/quota 보너스
 function issueReferrerReward(
   db: DBShape,
   referrerKind: UserKind,
@@ -231,19 +222,17 @@ function issueReferrerReward(
 ): Reward {
   let kind: RewardKind;
   let value: number;
-  if (referrerKind === "owner" && (m === "OO" || m === "OR")) {
+  if (referrerKind === "owner") {
     if (m === "OO") {
       kind = "membership_discount";
-      value = 10000; // ₩10,000 다음 결제 할인
+      value = 10000; // ₩10,000 다음 멤버십 결제 할인 (PG 결제 시 소진)
     } else {
       kind = "quota_bonus";
-      value = 3; // 캠페인 모집 한도 +3팀
+      value = 3; // 이번 달 캠페인 모집 한도 +3팀
     }
   } else {
-    const grade = computeBoxGrade(accepted);
-    const range: [number, number] = grade === "gold" ? [8000, 20000] : grade === "silver" ? [3000, 8000] : [1000, 3000];
-    value = Math.floor(range[0] + Math.random() * (range[1] - range[0]));
-    kind = "cash";
+    kind = "support_bonus_pct";
+    value = REFERRER_BOOST_BY_GRADE[computeBoxGrade(accepted)];
   }
   const r: Reward = {
     id: rid("rwd"),
@@ -260,7 +249,7 @@ function issueReferrerReward(
   return r;
 }
 
-function issueRefereeMainReward(db: DBShape, refereeId: string, m: MatrixKey): Reward {
+function issueRefereeReward(db: DBShape, refereeId: string, m: MatrixKey): Reward {
   const table = REFEREE_REWARD_TABLE[m];
   const r: Reward = {
     id: rid("rwd"),
@@ -277,73 +266,87 @@ function issueRefereeMainReward(db: DBShape, refereeId: string, m: MatrixKey): R
   return r;
 }
 
-function issueRefereeBonusReward(db: DBShape, refereeId: string, m: MatrixKey): Reward {
-  const range = REFEREE_REWARD_TABLE[m].bonusCashRange;
-  const value = Math.floor(range[0] + Math.random() * (range[1] - range[0]));
-  const r: Reward = {
-    id: rid("rwd"),
-    ownerUserId: refereeId,
-    source: "referee_welcome",
-    kind: "cash",
-    value,
-    issuedAt: Date.now(),
-    expiresAt: Date.now() + REWARD_TTL_DAYS * 86_400_000,
-    meta: { matrix: m, isBonus: true },
-  };
-  if (!db.rewards) db.rewards = [];
-  db.rewards.unshift(r);
-  return r;
-}
-
 // ────────────────────────────────────────────────────────────
 // 카운터 (라이브 N명 + 평균)
 // ────────────────────────────────────────────────────────────
 
+// 라이브 카운터 스냅샷 — 오늘 실제 발행된 보상 수만 집계한다.
+// (구 counterWithNoise의 조작값 생성은 허위 표시 소지가 있어 VER.1에서 제거됨)
 export function snapshotCounter(db: DBShape): ViralCounter {
-  return ensureCounter(db);
-}
-
-// 라이브 ticker noise — 데모용 (실시간감 부여). 호출자가 1초 주기로 GET하면 매번 약간 다른 숫자가 보임.
-export function counterWithNoise(db: DBShape): ViralCounter {
   const c = ensureCounter(db);
-  // 매 호출 시 deterministic이 아니라 약간 변동 — 보존은 하지 않음
   const today = new Date().toISOString().slice(0, 10);
-  if (c.date !== today) {
-    c.date = today;
-    c.todayBoxCount = 1200 + Math.floor(Math.random() * 100); // 기본 트래픽 시뮬
-  }
-  c.todayBoxCount += Math.floor(Math.random() * 3);
-  c.todayAvgReward = Math.max(1000, (c.todayAvgReward || 4250) + Math.floor(Math.random() * 200 - 100));
+  const startOfDay = new Date(`${today}T00:00:00`).getTime();
+  c.date = today;
+  c.todayBoxCount = (db.rewards ?? []).filter((r) => r.issuedAt >= startOfDay).length;
   return { ...c, liveStream: c.liveStream.slice(0, 6) };
 }
 
 // 보상 라벨 (UI 공용)
 export function rewardLabel(r: Reward): string {
   switch (r.kind) {
-    case "cash": return `보너스 캐시 ₩${r.value.toLocaleString()}`;
-    case "support_bonus_pct": return `첫 캠페인 지원금 +${r.value}%`;
+    case "support_bonus_pct": return `다음 체험 지원금 +${r.value}% 부스트`;
     case "membership_discount": return r.value <= 100 ? `멤버십 ${r.value}% 할인` : `멤버십 ₩${r.value.toLocaleString()} 할인`;
-    case "quota_bonus": return `캠페인 모집 한도 +${r.value}팀`;
-    case "spotlight_pass": return `시그니처 우선 노출권 ${r.value}회`;
+    case "quota_bonus": return `이번 달 모집 한도 +${r.value}팀`;
   }
 }
 
 export function rewardEmoji(r: Reward): string {
   switch (r.kind) {
-    case "cash": return "💵";
     case "support_bonus_pct": return "💰";
     case "membership_discount": return "💎";
     case "quota_bonus": return "📈";
-    case "spotlight_pass": return "✨";
   }
 }
 
 // 매트릭스 미리보기 카피 (피추천자가 받을 보상)
 export function refereePreview(m: MatrixKey): string {
   switch (m) {
-    case "RR": return "첫 캠페인 지원금 +50% 쿠폰";
+    case "RR": return "첫 체험 지원금 +50% 부스트";
     case "RO": return "첫 달 멤버십 50% 할인";
-    case "OR": return "이 매장 첫 캠페인 +50% 지원금";
+    case "OR": return "이 매장 첫 체험 +50% 지원금 부스트";
     case "OO": return "사장님 동료 가입 첫 달 멤버십 50% 할인";
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// 보상 사용 (redemption) — 발행된 보상이 실제 소비되는 경로
+// ────────────────────────────────────────────────────────────
+
+// 사용 가능한 지원금 부스트 — 미사용·미만료 중 가장 큰 것 하나
+export function findSupportBoost(db: DBShape, reviewerId: string): Reward | null {
+  const now = Date.now();
+  const candidates = (db.rewards ?? []).filter(
+    (r) => r.ownerUserId === reviewerId && r.kind === "support_bonus_pct" && !r.usedAt && r.expiresAt > now,
+  );
+  if (candidates.length === 0) return null;
+  return candidates.sort((a, b) => b.value - a.value || a.expiresAt - b.expiresAt)[0];
+}
+
+// 부스트 적용 지원금 한도 — 등급 한도 × (1+pct), 캠페인 기준 지원금(=S등급 100%)을 넘지 않음. 100원 단위.
+export function boostedLimit(baseSupport: number, gradeLimit: number, pct: number): number {
+  const boosted = Math.round((gradeLimit * (1 + pct / 100)) / 100) * 100;
+  return Math.min(baseSupport, boosted);
+}
+
+// 사용 가능한 모집 한도 보너스 합계 (사장님)
+export function availableQuotaBonus(db: DBShape, ownerId: string): number {
+  const now = Date.now();
+  return (db.rewards ?? [])
+    .filter((r) => r.ownerUserId === ownerId && r.kind === "quota_bonus" && !r.usedAt && r.expiresAt > now)
+    .reduce((sum, r) => sum + r.value, 0);
+}
+
+// 플랜 한도 초과분을 quota_bonus로 충당 — 필요한 만큼 보너스를 소진 처리
+export function consumeQuotaBonus(db: DBShape, ownerId: string, needed: number): void {
+  if (needed <= 0) return;
+  const now = Date.now();
+  const usable = (db.rewards ?? [])
+    .filter((r) => r.ownerUserId === ownerId && r.kind === "quota_bonus" && !r.usedAt && r.expiresAt > now)
+    .sort((a, b) => a.expiresAt - b.expiresAt);
+  let remaining = needed;
+  for (const r of usable) {
+    if (remaining <= 0) break;
+    r.usedAt = now;
+    remaining -= r.value;
   }
 }

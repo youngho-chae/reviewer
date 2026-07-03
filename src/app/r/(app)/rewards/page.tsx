@@ -4,7 +4,7 @@ import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
 import LiveCounter from "./LiveCounter";
 import ReferralBoxCard from "./ReferralBoxCard";
-import { counterWithNoise, defaultInviteStats, matrixOf, refereePreview, rewardEmoji, rewardLabel } from "@/lib/referral";
+import { snapshotCounter, defaultInviteStats, matrixOf, refereePreview, rewardEmoji, rewardLabel } from "@/lib/referral";
 import type { Invite } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export default async function RewardsPage() {
   const myRewards = (db.rewards ?? []).filter((r) => r.ownerUserId === me.id);
   const usedCount = myRewards.filter((r) => r.usedAt).length;
   const unusedCount = myRewards.length - usedCount;
-  const counter = counterWithNoise(db);
+  const counter = snapshotCounter(db);
 
   // 내가 발송한 초대 — 최근 5건
   const myInvites: Invite[] = (db.invites ?? [])
@@ -43,19 +43,32 @@ export default async function RewardsPage() {
         </div>
       </div>
 
-      {/* 헤더 — B급 톤 */}
+      {/* 헤더 — B급 톤. 수치는 실제 발행된 보상만 집계 (조작 없음) */}
       <section className="px-5 pt-6">
         <div className="text-[12px] text-muted">친구와 같이 받는 박스</div>
-        <h1 className="font-display text-[30px] leading-[1.1] text-ink mt-1 tracking-[-0.028em]">
-          오늘은 <span className="text-brand">{counter.todayBoxCount.toLocaleString()}</span>명이 받았어요
-        </h1>
-        <p className="text-[13px] text-muted mt-1.5">평균 ₩{counter.todayAvgReward.toLocaleString()} · 내 박스는 안 와요?</p>
+        {counter.todayBoxCount > 0 ? (
+          <>
+            <h1 className="font-display text-[30px] leading-[1.1] text-ink mt-1 tracking-[-0.028em]">
+              오늘 박스 <span className="text-brand">{counter.todayBoxCount.toLocaleString()}</span>개가 열렸어요
+            </h1>
+            <p className="text-[13px] text-muted mt-1.5">내 박스는 안 와요?</p>
+          </>
+        ) : (
+          <>
+            <h1 className="font-display text-[30px] leading-[1.1] text-ink mt-1 tracking-[-0.028em]">
+              오늘 첫 박스의 주인공, <span className="text-brand">아직 없음</span>
+            </h1>
+            <p className="text-[13px] text-muted mt-1.5">친구를 초대하면 둘 다 박스를 받아요.</p>
+          </>
+        )}
       </section>
 
-      {/* 라이브 카운터 — 사회적 증거 */}
-      <section className="px-5 mt-4">
-        <LiveCounter initial={counter} />
-      </section>
+      {/* 라이브 카운터 — 실제 이벤트만 표시 */}
+      {counter.liveStream.length > 0 && (
+        <section className="px-5 mt-4">
+          <LiveCounter initial={counter} />
+        </section>
+      )}
 
       {/* 친구 초대 박스 카드 — 바이럴 핵심 모듈 */}
       <section className="px-5 mt-4">

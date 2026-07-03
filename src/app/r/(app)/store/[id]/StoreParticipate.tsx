@@ -138,6 +138,11 @@ export default function StoreParticipate({
                   최대 ₩{base.toLocaleString()} (S등급) · 등급이 오르면 지원금도 올라가요
                 </div>
               )}
+              {eligible && (
+                <div className="mt-1.5 text-[12px] text-muted">
+                  지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요.
+                </div>
+              )}
             </>
           ) : (
             <div className="mt-1 text-[15px] text-ink2 leading-[1.5]">
@@ -230,6 +235,10 @@ export default function StoreParticipate({
                 <span className="text-ink font-semibold">₩{selectedSupport.toLocaleString()}</span>
               </div>
             </div>
+            <p className="mt-4 text-[12px] text-muted leading-[1.5] text-center">
+              방문이 어려워지면 사용 전 언제든 취소할 수 있어요.<br />
+              리뷰는 사용 후 72시간 이내 제출해야 해요.
+            </p>
             {err && <div className="mt-4 text-error text-[13px]">{err}</div>}
             <div className="mt-7 space-y-3">
               <button onClick={go} disabled={busy} className="w-full h-11 rounded-pill bg-brand text-white text-[17px] disabled:opacity-50">
