@@ -1,6 +1,6 @@
 // R-04a · 체험권 상세 — 7-상태 분기 + 리뷰 폼(R-05 포함) (PRD v3.0 §4-A · §6.3 · §6.4 · §6.7)
 const DATA = {
-  pageId: "14:13", x: 3000, y: 0,
+  pageId: "72514:68633", x: 2920, y: 0,
   id: "R-04a", title: "체험권 상세 (7-상태 분기 + 리뷰 폼)", route: "/r/passes/[id]",
   device: "Mobile Web 480", ver: "1.0", date: "2026-07-06", author: "PO",
   status: "작성완료", prdRef: "PRD §6.3 · §6.4 · §6.7 · §7.5",

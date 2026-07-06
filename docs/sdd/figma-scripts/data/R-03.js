@@ -1,6 +1,6 @@
 // R-03 · 매장 상세 — 채널 선택 참여 (PRD v3.0 §4-A · §6.1 · §6.3 · §6.4)
 const DATA = {
-  pageId: "14:13", x: 1500, y: 0,
+  pageId: "72514:68633", x: 1460, y: 0,
   id: "R-03", title: "매장 상세 · 채널 선택 참여", route: "/r/store/[id]",
   device: "Mobile Web 480", ver: "1.0", date: "2026-07-06", author: "PO",
   status: "작성완료", prdRef: "PRD §4-A · §6.1 · §6.4",

@@ -104,7 +104,16 @@ const rightCol = figma.createAutoLayout("VERTICAL", { name: "right · descriptio
 body.appendChild(rightCol); rightCol.layoutSizingHorizontal = "FILL";
 
 // ── 목업 블록 DSL ──
-const pinComp = await figma.getNodeByIdAsync("4:2"); // AnnotationPin 마스터 (📕 00 페이지)
+// AnnotationPin 인라인 생성 (파일에 마스터 컴포넌트가 없어도 자체 완결)
+function makePin(n) {
+  const f = figma.createFrame();
+  f.resize(24, 24); f.cornerRadius = 999;
+  f.fills = sol(C.indigo); f.strokes = sol(C.white); f.strokeWeight = 2;
+  f.layoutMode = "NONE"; f.clipsContent = false;
+  const t = txt(String(n), FK.inB, 12, C.white);
+  f.appendChild(t); t.x = (24 - t.width) / 2; t.y = (24 - t.height) / 2;
+  return f;
+}
 function buildMock(mk) {
   const mock = figma.createAutoLayout("VERTICAL", { name: "MOCKUP · " + mk.name, itemSpacing: 10 });
   leftCol.appendChild(mock);
@@ -199,13 +208,11 @@ function buildMock(mk) {
   }
   // 핀 부착 — 요소 우측 상단, 절대 배치
   for (const { node, n } of pinTargets) {
-    const inst = pinComp.createInstance();
-    mock.appendChild(inst);
-    inst.layoutPositioning = "ABSOLUTE";
+    const pin = makePin(n);
+    mock.appendChild(pin);
+    pin.layoutPositioning = "ABSOLUTE";
     const yOff = node.absoluteTransform[1][2] - mock.absoluteTransform[1][2];
-    inst.x = 390 - 34; inst.y = Math.max(4, yOff - 4);
-    const t = inst.findOne((c) => c.type === "TEXT");
-    if (t) t.characters = String(n);
+    pin.x = 390 - 34; pin.y = Math.max(4, yOff - 3);
   }
   return mock;
 }

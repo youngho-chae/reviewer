@@ -1,6 +1,6 @@
 // O-02 · 사용 처리 (QR 스캔 / 4자리 조회) (PRD v3.0 §4-D · §6.3)
 const DATA = {
-  pageId: "14:14", x: 1500, y: 0,
+  pageId: "72514:68633", x: 5840, y: 0,
   id: "O-02", title: "사용 처리 (QR 스캔 · 4자리 조회)", route: "/o/scan",
   device: "Mobile Web 480", ver: "1.0", date: "2026-07-06", author: "PO",
   status: "작성완료", prdRef: "PRD §4-D · §6.3",

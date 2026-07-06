@@ -1,6 +1,6 @@
 // O-10 · 새 캠페인 생성 (PRD v3.0 §4-C/D-1 · §6.2 · §6.10 · §12)
 const DATA = {
-  pageId: "14:14", x: 0, y: 0,
+  pageId: "72514:68633", x: 4380, y: 0,
   id: "O-10", title: "새 캠페인 생성 (방문형)", route: "/o/campaign/new",
   device: "Mobile Web 480", ver: "1.0", date: "2026-07-06", author: "PO",
   status: "작성완료", prdRef: "PRD §6.2 · §6.10 · §12.2",

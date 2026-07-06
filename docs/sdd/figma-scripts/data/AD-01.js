@@ -1,6 +1,6 @@
 // AD-01 · 운영팀 후기 검수 콘솔 (PRD v3.0 §4-E-1 · §6.7)
 const DATA = {
-  pageId: "14:14", x: 3000, y: 0,
+  pageId: "72514:68633", x: 7300, y: 0,
   id: "AD-01", title: "후기 검수 콘솔 (운영팀 백오피스)", route: "/admin/reviews",
   device: "Desktop Web", ver: "1.0", date: "2026-07-06", author: "PO",
   status: "작성완료", prdRef: "PRD §4-E-1 · §6.7",

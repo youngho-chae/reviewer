@@ -1,6 +1,6 @@
 // R-00 · 가입·온보딩 — 화면설계서 데이터 (PRD v3.0 §3.1 / §4-A / §6.1 / §14)
 const DATA = {
-  pageId: "14:13", x: 0, y: 0,
+  pageId: "72514:68633", x: 0, y: 0,
   id: "R-00", title: "가입 · 온보딩 (3-Step + 필수 동의)", route: "/r/signup",
   device: "Mobile Web 480", ver: "1.0", date: "2026-07-06", author: "PO",
   status: "작성완료", prdRef: "PRD §4-A · §6.1 · §14",
