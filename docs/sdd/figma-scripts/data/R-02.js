@@ -1,5 +1,5 @@
 // R-02 · 탐색 (리스트뷰 + 지도뷰) (PRD v3.0 §4-A · §5.5 · v2.6/2.7)
-// 생성됨: 72560:2 @ x=10220 (2026-07-06) · 디자이너 가이드는 03-designer-guide.js "R-02" 항목
+// 생성됨: 72573:2 @ x=10220 (2026-07-07 재생성 · P1) · 디자이너 가이드는 03-designer-guide.js "R-02" 항목
 const DATA = {
   pageId: "72514:68633", x: 10220, y: 0,
   id: "R-02", title: "탐색 (리스트뷰 + 지도뷰)", route: "/r/explore (?mode=map · ?sort= · ?cat=)",
@@ -15,7 +15,7 @@ const DATA = {
         { t: "chips", items: [{ label: "방문형", kind: "indigo" }, { label: "기자단", kind: "gray" }], pin: 4 },
         { t: "chips", items: [{ label: "전체", kind: "indigo" }, { label: "카페", kind: "gray" }, { label: "맛집", kind: "gray" }, { label: "뷰티", kind: "gray" }, { label: "문화", kind: "gray" }, { label: "액티비티", kind: "gray" }], pin: 5 },
         { t: "chips", items: [{ label: "우리 추천 ▼", kind: "gray" }, { label: "☰ 리스트 / ▦ 그리드", kind: "gray" }], pin: 6 },
-        { t: "card", title: "RowCard — 강남 스시 오마카세", lines: ["좌 104px 정사각 썸네일 + 라벨 칩 '곧 마감'(스티커, rotate -4°)", "일식 · 강남 · 도보 8분 · A등급 · 체험 지원 ₩160,000 · 채널 블/인", "우측 정렬: 잔여 6자리 · 마감 D-1(빨강) · 하단 italic \"지금 안 가면 남들 인스타에서 보게 됨\""], pin: 7 },
+        { t: "card", title: "RowCard — 강남 스시 오마카세", lines: ["좌 104px 정사각 썸네일 + 라벨 칩 '곧 마감'(스티커, rotate -4°)", "일식 · 강남 · 도보 8분 · 체험 지원 ₩160,000(내 등급 기준) · 채널 블/인", "우측 정렬: 잔여 6자리 · 마감 D-1(빨강) · 하단 italic \"지금 안 가면 남들 인스타에서 보게 됨\""], pin: 7 },
         { t: "btn", label: "📍 지도  (화면 중앙 하단 FAB)", kind: "dark", pin: 8 },
       ] },
     { name: "R-02 · 지도뷰 (?mode=map)", caption: "지도뷰 — 핀·오버레이·토스트 카드",

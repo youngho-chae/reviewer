@@ -4,14 +4,14 @@
 const TARGET = "R-00"; // ← "R-00" | "R-03" | "R-04a" | "O-10" | "O-02" | "AD-01"
 
 const GUIDES = {
-  "R-02": { boardId: "72560:2",
+  "R-02": { boardId: "72573:2",
     data: [
       ["결과 카운트","현재 필터 적용 결과 수 · 정수 0~999 · 헤더/일치 칩 실시간 동기","0 → 빈 상태 카피"],
       ["3-stat","곧 마감(24h 내 종료)/신규(7일 내 생성)/평균 지원금(결과 평균, 100원 단위)","각 0/₩0 가능 — 그대로 표기"],
       ["RowCard 필드","썸네일 104px 정사각 · 매장명 16px bold 1줄 말줄임 · 라벨 칩 3종(신상/곧 마감/이번 주만 — 배타적, 우선순위: 곧 마감>신상>이번 주만) · 금액 success색 · 잔여 N자리 · 마감 D-N(24h 내 빨강) · 채널 아이콘 1~3","라벨 조건 미충족 시 칩 없음"],
       ["GridCard","2단 · 4:3 사진 · 잔여 ≤3이면 다크 pill '잔여 N매' 추가","row와 동일 데이터"],
       ["기자단 카드","96px 썸네일 · 자료팩 N장 · 정산 예정금 ₩ · \"3.3% 원천징수 후 입금\" 고정 문구","—"],
-      ["지도 핀","흰 pill + 등급색 테두리 2px · 필터 결과만 렌더","선택 핀은 확대/강조 상태 필요"],
+      ["지도 핀","흰 pill + 브랜드색 테두리 2px · 내용=매장명+내 등급 기준 금액 · 필터 결과만 렌더 · [P1] 등급 인코딩 없음","선택 핀은 확대/강조 상태 필요"],
       ["토스트 카드","썸네일+매장명+지역/카테고리+잔여/지원금+[상세→] · 화면 하단 고정 폭","다른 핀 탭 = 내용 교체(재슬라이드 없음)"],
     ],
     defaults: [
@@ -39,9 +39,9 @@ const GUIDES = {
       ["V7","지도 · 핀 선택","토스트 카드 노출 + 선택 핀 강조 + FAB 양보 위치"],
       ["V8","지도 SDK 실패","안내 카드 + [리스트로 보기] 폴백"],
     ],
-    fixedFree: "고정(변경 금지): 정렬 5종 키·카테고리 6그룹 구성·라벨 칩 판정 규칙(24h/7일)·B급 카피 원문(italic 포함)·URL 파라미터 규약·핀=필터 결과 동기. 자유(재량): 카드/칩/핀 비주얼·FAB 형태·토스트 슬라이드 모션·지도 스타일.",
+    fixedFree: "고정(변경 금지): 정렬 5종 키·카테고리 6그룹 구성·라벨 칩 판정 규칙(24h/7일)·B급 카피 원문(italic 포함)·URL 파라미터 규약·핀=필터 결과 동기·[P1] 등급 게이트 표현 금지. 자유(재량): 카드/칩/핀 비주얼·FAB 형태·토스트 슬라이드 모션·지도 스타일.",
   },
-  "R-01": { boardId: "72559:2",
+  "R-01": { boardId: "72572:2",
     data: [
       ["지역명","reverse-geocode 동 단위 · 한글 2~6자 · 예 \"북촌\" · brand 색 강조","폴백 시 첫 매장 지역명(예 \"강남\")"],
       ["N곳 카운트","진행 중 캠페인 수 · 정수 0~999","0이면 빈 상태(V4)로 전체 전환"],
@@ -103,21 +103,21 @@ const GUIDES = {
     ],
     fixedFree: "고정(변경 금지): 카피 원문·검증 규칙(6자·필수 동의)·3-Step 순서·채널 3종. 자유(디자인 재량): 히어로 비주얼·카드/체크박스 스타일·에러 표현 톤(단 인라인 위치 유지)·Step 전환 모션.",
   },
-  "R-03": { boardId: "72538:2",
+  "R-03": { boardId: "72574:2",
     data: [
       ["매장명","store.name · 한글 2~20자 · 예 \"강남 스시 오마카세\"","최대 2줄 wrap 후 말줄임"],
       ["평점·리뷰수","store.rating 0.0~5.0(소수1) · reviewCount 0~99,999 콤마 · 형식 \"★ 4.8 (네이버 리뷰 1,204건)\"","신규 매장 rating 0 → \"★ 0\" 그대로(행 유지)"],
       ["지원금(다크 히어로)","연동 시 myBest, 미연동 시 supportAmount · ₩+콤마 · 100원 단위 · 예 ₩160,000","자릿수 디자인 기준 ₩9,999,999(9자)까지 안 깨질 것"],
-      ["잔여·기한·영업","remain 0~999 → \"N매\" · 사용 기한 \"24시간\" 고정 · hours \"11:00 - 21:00\" 형식","잔여 0 → \"0매\" + CTA 마감(V4)"],
+      ["잔여·기한·영업","remain 0~999 → \"N매\" · 사용 기한 \"24시간\" 고정 · hours \"11:00 - 21:00\" 형식","잔여 0 → \"0매\" + CTA 마감(V3)"],
       ["매장 소개","description 0~500자 · 개행 유지 · 접기 없이 전체 노출","0자면 본문 생략(제목 유지)"],
-      ["강조 키워드 칩","highlightKeywords 0~5개 · 각 1~20자 · \"#키워드\" · flex-wrap 최대 2줄","0개면 섹션 전체 숨김(V7)"],
+      ["강조 키워드 칩","highlightKeywords 0~5개 · 각 1~20자 · \"#키워드\" · flex-wrap 최대 2줄","0개면 섹션 전체 숨김(V6)"],
       ["채널 칩","requiredChannels 1~3개 · 라벨 \"블 네이버 블로그\" 등 · 미연동 채널은 🔒 접미","1개뿐이어도 칩 UI 유지(선택 상태 표시)"],
-      ["지원금 계산 카드","\"₩{금액}\" 대형 + \"내 {등급}등급 기준\" + \"최대 ₩{기준} (S등급)…\" + 부담 주체 고지 1줄","미연동 채널 선택 시 카드 전체가 안내 문구로 교체(V2)"],
+      ["지원금 계산 카드","\"₩{금액}\" 대형 + \"내 {등급}등급 기준\" + \"최대 ₩{기준} (S등급)…\" + 부담 주체 고지 1줄 · [P1] 등급 에러 카피 없음","미연동 채널 선택 시 카드 전체가 안내 문구로 교체(V2)"],
     ],
     defaults: [
-      "채널 Default = requiredChannels 중 우선순위 첫 채널 자동 선택. 우선순위: 네이버 블로그 → 인스타그램 → 틱톡 (내 연동 여부와 무관하게 이 순서).",
+      "채널 Default = requiredChannels 중 연동된 채널의 우선순위 첫 번째(블로그 → 인스타 → 틱톡), 연동 채널 없으면 우선순위 첫 채널.",
       "모달 닫힘 · 스크롤 최상단 · Sticky CTA는 Default 채널 기준 금액으로 시작.",
-      "잔여 0(마감)이어도 페이지 진입·채널 전환은 가능 — 참여 버튼만 비활성.",
+      "잔여 0(마감)이어도 페이지 진입·채널 전환은 가능 — 참여 버튼만 비활성. [P1] 등급으로 참여가 막히는 경우는 없다.",
     ],
     inter: [
       ["채널 칩 탭 (필터 동작)","라디오식 단일 선택 전환 → ⑤지원금 카드 금액·⑥리뷰 조건 리스트·Sticky CTA 금액이 즉시 갱신(전환 애니메이션 없음, 스냅)"],
@@ -275,7 +275,7 @@ board.appendChild(g); g.layoutSizingHorizontal="FILL";
 g.paddingTop=18; g.strokes=sol(C.hair); g.strokeTopWeight=2; g.strokeBottomWeight=0; g.strokeLeftWeight=0; g.strokeRightWeight=0;
 const head=figma.createAutoLayout("HORIZONTAL",{itemSpacing:8,counterAxisAlignItems:"CENTER"}); g.appendChild(head);
 const bar=figma.createRectangle(); bar.resize(4,16); bar.fills=sol(C.pink); bar.cornerRadius=2; head.appendChild(bar);
-head.appendChild(txt("🎨 디자이너 작업 가이드 — 데이터 · Default · 인터랙션 · 디자인 대상 상태 (v1.2)",FK.krB,16,C.text));
+head.appendChild(txt("🎨 디자이너 작업 가이드 — 데이터 · Default · 인터랙션 · 디자인 대상 상태 (v1.3 · P1)",FK.krB,16,C.text));
 function sub(label){ g.appendChild(txt(label,FK.krB,13,C.indigo)); }
 function table(heads,widths,rows){ const tb=figma.createAutoLayout("VERTICAL",{name:"gtable"}); g.appendChild(tb); tb.layoutSizingHorizontal="FILL"; tb.cornerRadius=10; tb.strokes=sol(C.hair); tb.strokeWeight=1;
   const mk=(cells,h)=>{ const r=figma.createAutoLayout("HORIZONTAL",{itemSpacing:10}); tb.appendChild(r); r.layoutSizingHorizontal="FILL"; r.paddingLeft=r.paddingRight=12; r.paddingTop=r.paddingBottom=8; if(h) r.fills=sol(C.bgSoft); else {r.strokes=sol(C.hair); r.strokeTopWeight=1; r.strokeBottomWeight=0; r.strokeLeftWeight=0; r.strokeRightWeight=0;} cells.forEach((c,i)=>r.appendChild(txt(c,h?FK.krB:(i===0?FK.krM:FK.krR),11.5,h?C.sub:(i===0?C.text:C.sub),widths[i]))); };
