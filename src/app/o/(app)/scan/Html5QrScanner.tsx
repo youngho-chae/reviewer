@@ -42,7 +42,8 @@ export default function Html5QrScanner({ onScan, onCancel }: { onScan: (text: st
   return (
     <div className="bg-black">
       <div ref={ref} className="w-full" />
-      <button onClick={onCancel} className="w-full h-11 bg-black text-white text-[14px]">취소</button>
+      {/* 카메라 뷰포트만 검정 — 컨트롤은 화이트 세컨더리 버튼 */}
+      <button onClick={onCancel} className="w-full h-11 bg-canvas text-ink text-[14px] font-semibold border-t border-hairline">취소</button>
     </div>
   );
 }

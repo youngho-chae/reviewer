@@ -16,7 +16,7 @@ export default async function NewInvitePage({
 
   return (
     <div className="pb-24 bg-canvas min-h-[100dvh]">
-      <div className="sticky top-0 z-30 frosted-parchment border-b border-hairlineSoft">
+      <div className="sticky top-0 z-30 bg-canvas">
         <div className="h-13 px-5 flex items-center gap-3">
           <Link href="/r/rewards" className="cp-action inline-flex items-center gap-1 text-[17px] text-brand">
             <Icon name="chevron-left" variant="border" size={18} />

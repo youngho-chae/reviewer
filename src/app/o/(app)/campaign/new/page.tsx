@@ -124,20 +124,19 @@ export default function NewCampaign() {
 
   return (
     <div className="pb-24 bg-canvas min-h-[100dvh]">
-      <div className="sticky top-0 z-10 frosted-parchment border-b border-hairlineSoft">
-        <div className="h-13 px-5 flex items-center gap-3">
-          <Link href="/o/home" className="cp-action inline-flex items-center gap-1 text-[17px] text-brand">
-            <Icon name="chevron-left" variant="border" size={18} />
-            <span>홈</span>
+      <div className="sticky top-0 z-10 bg-canvas">
+        <div className="h-[52px] px-3 flex items-center">
+          <Link href="/o/home" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="홈으로">
+            <Icon name="chevron-left" variant="border" size={22} />
           </Link>
-          <h1 className="text-[17px] font-semibold text-ink">새 캠페인</h1>
+          <h1 className="text-[18px] font-bold text-ink tracking-title">새 캠페인</h1>
         </div>
       </div>
 
-      <form onSubmit={submit} className="px-6 pt-6 space-y-8">
+      <form onSubmit={submit} className="px-5 pt-4 space-y-8">
         {/* 매장 선택 — 캠페인 제목은 매장명으로 자동 */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">매장</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">매장</div>
           <select
             value={storeId}
             onChange={(e) => setStoreId(e.target.value)}
@@ -159,7 +158,7 @@ export default function NewCampaign() {
         {/* 진행 일수 + 지원금 */}
         <section className="grid grid-cols-2 gap-3">
           <div>
-            <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">진행 일수</div>
+            <div className="text-[14px] font-semibold text-ink mb-2">진행 일수</div>
             <input
               value={days}
               onChange={(e) => setDays(Number(e.target.value.replace(/\D/g, "")) || 0)}
@@ -168,7 +167,7 @@ export default function NewCampaign() {
             />
           </div>
           <div>
-            <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">지원금 (원)</div>
+            <div className="text-[14px] font-semibold text-ink mb-2">지원금 (원)</div>
             <input
               value={supportAmount}
               onChange={(e) => setSupportAmount(e.target.value.replace(/\D/g, ""))}
@@ -184,7 +183,7 @@ export default function NewCampaign() {
 
         {/* 사용처리 4자리 코드 — 필수 */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">사용처리 코드 (숫자 4자리)</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">사용처리 코드 (숫자 4자리)</div>
           <input
             value={useCode}
             onChange={(e) => setUseCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
@@ -200,7 +199,7 @@ export default function NewCampaign() {
 
         {/* 총 모집 인원 — 등급별이 아닌 통합 입력 + 월간 한도 안내 */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">총 모집 인원</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">총 모집 인원</div>
           <input
             value={totalQuota}
             onChange={(e) => setTotalQuota(e.target.value.replace(/\D/g, ""))}
@@ -208,8 +207,8 @@ export default function NewCampaign() {
             placeholder="예: 20"
             className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[15px] ${overLimit ? "border-error focus:border-error" : "border-hairline focus:border-brand"}`}
           />
-          <div className="mt-3 rounded-md bg-parchment border border-hairline p-3.5">
-            <div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.18em] text-muted">
+          <div className="mt-3 rounded-md bg-canvas border border-hairline p-3.5">
+            <div className="flex items-center gap-2 text-[12px] text-muted">
               <span className="font-semibold text-ink">{plan} 플랜</span>
               <span>·</span>
               <span>등급 배분 자동</span>
@@ -249,14 +248,14 @@ export default function NewCampaign() {
 
         {/* 필수 채널 */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">필수 채널</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">필수 채널</div>
           <div className="flex flex-wrap gap-2">
             {CHANNELS.map((c) => (
               <button
                 key={c.key}
                 type="button"
                 onClick={() => toggleChannel(c.key)}
-                className={`h-10 px-4 rounded-pill text-[14px] border ${channels.includes(c.key) ? "bg-ink text-white border-ink" : "bg-canvas text-ink border-hairline"}`}
+                className={`h-10 px-4 rounded-pill text-[14px] bg-canvas ${channels.includes(c.key) ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink font-medium"}`}
               >
                 {c.label}
               </button>
@@ -266,7 +265,7 @@ export default function NewCampaign() {
 
         {/* 필수 주문 메뉴 — 동적 입력 (메뉴명 + 가격) */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">필수 주문 메뉴</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">필수 주문 메뉴</div>
           <p className="text-[12px] text-muted mb-3 leading-[1.5]">
             체험자가 방문 시 주문해야 하는 메뉴 (택 1). 메뉴명과 함께 가격을 입력하면 체험자에게 함께 노출됩니다.
           </p>
@@ -314,7 +313,7 @@ export default function NewCampaign() {
 
         {/* 강조 키워드 */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">강조 키워드</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">강조 키워드</div>
           <p className="text-[12px] text-muted mb-3 leading-[1.5]">
             후기에 꼭 강조해주길 원하는 키워드를 쉼표(,)로 구분해 입력하세요. 체험자 매장 상세에 노출됩니다. (최대 5개)
           </p>
@@ -332,7 +331,7 @@ export default function NewCampaign() {
                 .filter((k) => k.length > 0)
                 .slice(0, 5)
                 .map((k, i) => (
-                  <span key={`${k}-${i}`} className="px-2.5 py-1 rounded-pill bg-brandSoft border border-brand/20 text-[12px] text-brand font-medium">
+                  <span key={`${k}-${i}`} className="px-2.5 py-1 rounded-pill bg-sunken text-[12px] text-ink2 font-medium">
                     #{k}
                   </span>
                 ))}
@@ -342,7 +341,7 @@ export default function NewCampaign() {
 
         {/* 매장 소개 (최대 500자) */}
         <section>
-          <div className="text-[12px] uppercase tracking-[0.18em] text-muted mb-2">매장 소개</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">매장 소개</div>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 500))}
@@ -358,7 +357,7 @@ export default function NewCampaign() {
         <button
           disabled={busy || !storeId || overLimit || useCode.length !== 4}
           type="submit"
-          className="w-full h-12 rounded-pill bg-brand text-white text-[16px] font-semibold disabled:opacity-50"
+          className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >
           {busy ? "생성 중..." : overLimit ? "월 한도 초과" : useCode.length !== 4 ? "사용처리 코드 4자리 입력" : "캠페인 생성"}
         </button>

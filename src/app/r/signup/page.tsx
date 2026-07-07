@@ -74,7 +74,7 @@ function ReviewerSignup() {
       <main className="mobile-shell bg-canvas min-h-[100dvh] flex flex-col">
         <div className="flex-1 flex flex-col justify-center px-7 py-16">
           <div className="text-[12px] tracking-[0.18em] text-muted uppercase mb-5">CATCHPASS</div>
-          <h1 className="font-display text-[40px] leading-[1.07] text-ink">
+          <h1 className="text-[22px] font-bold tracking-title leading-[1.3] text-ink">
             선정 기다리는<br />체험단 말고,<br />등급으로 받는<br />체험권.
           </h1>
           <p className="mt-5 text-[19px] leading-[1.4] text-ink2 max-w-[300px]">
@@ -84,7 +84,7 @@ function ReviewerSignup() {
         <div className="px-7 pb-10">
           <button
             onClick={() => setStep(1)}
-            className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal"
+            className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold"
           >
             시작하기
           </button>
@@ -104,7 +104,7 @@ function ReviewerSignup() {
 
       {step === 1 && (
         <>
-          <h1 className="mt-2 font-display text-[34px] leading-[1.1] text-ink">계정 만들기</h1>
+          <h1 className="mt-2 text-[20px] font-bold tracking-title text-ink">계정 만들기</h1>
           <p className="mt-3 text-[17px] text-ink2 leading-[1.4]">이메일과 닉네임만 있으면 바로 시작할 수 있어요.</p>
           <div className="mt-8 space-y-3">
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[17px]" />
@@ -128,14 +128,14 @@ function ReviewerSignup() {
             </div>
 
             {err && <div className="text-error text-[14px]">{err}</div>}
-            <button onClick={next} className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal">다음</button>
+            <button onClick={next} className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold">다음</button>
           </div>
         </>
       )}
 
       {step === 2 && (
         <>
-          <h1 className="mt-2 font-display text-[34px] leading-[1.1] text-ink">SNS 채널 연동</h1>
+          <h1 className="mt-2 text-[20px] font-bold tracking-title text-ink">SNS 채널 연동</h1>
           <p className="mt-3 text-[17px] text-ink2 leading-[1.4]">채널 영향력을 분석해 등급을 산정합니다. 1개 이상 연동을 권장합니다.</p>
 
           <div className="mt-6 space-y-2">
@@ -173,7 +173,7 @@ function ReviewerSignup() {
           {err && <div className="text-error text-[14px] mt-3">{err}</div>}
 
           <div className="mt-6 space-y-2">
-            <button disabled={loading} onClick={() => submit(false)} className="w-full h-12 rounded-pill bg-brand text-white text-[17px] font-normal disabled:opacity-50">{loading ? "처리 중..." : "연동 후 시작하기"}</button>
+            <button disabled={loading} onClick={() => submit(false)} className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:opacity-50">{loading ? "처리 중..." : "연동 후 시작하기"}</button>
             <button disabled={loading} onClick={() => submit(true)} className="w-full h-12 text-brand text-[15px]">연동 없이 시작 (N등급)</button>
           </div>
         </>

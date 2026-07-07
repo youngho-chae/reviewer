@@ -83,7 +83,7 @@ export default function PressWriteForm({
             <button
               key={ch}
               onClick={() => setReviewChannel(ch)}
-              className={`h-10 px-4 rounded-md border text-[14px] font-semibold ${reviewChannel === ch ? "bg-ink text-white border-ink" : "bg-canvas text-ink border-hairline"}`}
+              className={`h-10 px-4 rounded-md border text-[14px] font-semibold ${reviewChannel === ch ? "border-[1.5px] border-brand text-brand bg-brandSoft" : "bg-canvas text-ink border-hairline"}`}
             >
               {ch_label[ch]}
             </button>

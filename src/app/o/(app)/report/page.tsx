@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -62,58 +63,63 @@ export default async function OwnerReport() {
   const cpm = totalSupport > 0 ? Math.round((totalSupport / Math.max(1, totalImpressions)) * 1000) : 0;
 
   return (
-    <div className="pb-24">
-      <div className="px-5 pt-12 pb-3">
-        <Link href="/o/me" className="text-muted text-[14px]">← 더보기</Link>
-        <h1 className="mt-3 text-[22px] font-bold">성과 리포트</h1>
-        <p className="text-[13px] text-muted mt-1">최근 30일 · 매장 {myStoreIds.length}곳 누계</p>
+    <div className="pb-24 bg-canvas">
+      {/* top-app-bar — 뒤로가기 + 타이틀 */}
+      <div className="sticky top-0 z-10 bg-canvas">
+        <div className="h-[52px] px-3 flex items-center">
+          <Link href="/o/me" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="더보기로">
+            <Icon name="chevron-left" variant="border" size={22} />
+          </Link>
+          <h1 className="text-[18px] font-bold text-ink tracking-title">성과 리포트</h1>
+        </div>
       </div>
+      <p className="px-5 pt-1 pb-3 text-[13px] text-muted">최근 30일 · 매장 {myStoreIds.length}곳 누계</p>
 
-      {/* 총 노출 추정 */}
-      <div className="mx-5 mt-4 rounded-md bg-ink text-white p-5">
-        <div className="text-[12px] text-white/70">총 노출 추정 (30일)</div>
-        <div className="mt-1 text-[28px] font-bold">{totalImpressions.toLocaleString()}회</div>
+      {/* 총 노출 추정 — 화이트 stat 카드 + 퍼플 틴트 막대 */}
+      <div className="mx-5 mt-1 rounded-lg border border-hairline bg-canvas p-5">
+        <div className="text-[12px] text-muted">총 노출 추정 (30일)</div>
+        <div className="mt-1 text-[22px] font-bold text-ink tracking-title tabular-nums">{totalImpressions.toLocaleString()}회</div>
         <div className="mt-3 flex items-end gap-0.5 h-16">
           {dayBuckets.map((v, i) => (
-            <div key={i} className="flex-1 bg-white/60 rounded-sm" style={{ height: `${(v / maxBucket) * 100}%`, minHeight: 2 }} />
+            <div key={i} className="flex-1 bg-brandTint rounded-sm" style={{ height: `${(v / maxBucket) * 100}%`, minHeight: 2 }} />
           ))}
         </div>
-        <div className="mt-2 flex justify-between text-[10px] text-white/60">
+        <div className="mt-2 flex justify-between text-[11px] text-muted">
           <span>{days}일 전</span>
           <span>오늘</span>
         </div>
       </div>
 
       {/* 핵심 지표 */}
-      <div className="mx-5 mt-4 grid grid-cols-3 gap-2">
-        <div className="rounded-md border border-hairline p-3 text-center">
+      <div className="mx-5 mt-3 grid grid-cols-3 gap-2">
+        <div className="rounded-md border border-hairline bg-canvas p-3 text-center">
           <div className="text-[11px] text-muted">작성 완료율</div>
-          <div className="text-[18px] font-bold mt-1">{completionRate}%</div>
+          <div className="text-[18px] font-bold text-ink tabular-nums mt-1">{completionRate}%</div>
         </div>
-        <div className="rounded-md border border-hairline p-3 text-center">
+        <div className="rounded-md border border-hairline bg-canvas p-3 text-center">
           <div className="text-[11px] text-muted">광고표시 준수</div>
-          <div className="text-[18px] font-bold mt-1">{adComplyRate}%</div>
+          <div className="text-[18px] font-bold text-ink tabular-nums mt-1">{adComplyRate}%</div>
         </div>
-        <div className="rounded-md border border-hairline p-3 text-center">
+        <div className="rounded-md border border-hairline bg-canvas p-3 text-center">
           <div className="text-[11px] text-muted">평균 본문 길이</div>
-          <div className="text-[18px] font-bold mt-1">{avgLen}자</div>
+          <div className="text-[18px] font-bold text-ink tabular-nums mt-1">{avgLen}자</div>
         </div>
       </div>
 
       {/* CPM */}
-      <div className="mx-5 mt-4 rounded-md border border-hairline p-4">
-        <div className="text-[13px] font-semibold">CPM (1,000 노출당 비용)</div>
-        <div className="mt-1 text-[24px] font-bold">₩{cpm.toLocaleString()}</div>
-        <div className="text-[11px] text-muted mt-1">총 지원 ₩{totalSupport.toLocaleString()} / 추정 노출 {totalImpressions.toLocaleString()}회</div>
+      <div className="mx-5 mt-3 rounded-lg border border-hairline bg-canvas p-4">
+        <div className="text-[14px] font-bold text-ink">CPM (1,000 노출당 비용)</div>
+        <div className="mt-1 text-[20px] font-bold text-ink tabular-nums">₩{cpm.toLocaleString()}</div>
+        <div className="text-[11px] text-muted mt-1 tabular-nums">총 지원 ₩{totalSupport.toLocaleString()} / 추정 노출 {totalImpressions.toLocaleString()}회</div>
       </div>
 
       {/* 채널별 */}
-      <h2 className="px-5 mt-6 text-[16px] font-bold">채널별 분포</h2>
+      <h2 className="px-5 mt-7 text-[18px] font-bold text-ink tracking-title">채널별 분포</h2>
       <div className="px-5 mt-3 space-y-2">
         {Object.entries(byChannel).map(([ch, n]) => (
-          <div key={ch} className="flex items-center justify-between rounded-md border border-hairline px-3 py-2.5">
-            <div className="text-[13px]">{ch_label[ch] || ch}</div>
-            <div className="text-[13px] font-medium">{n}건</div>
+          <div key={ch} className="flex items-center justify-between rounded-md border border-hairline bg-canvas px-3 py-2.5">
+            <div className="text-[13px] text-ink">{ch_label[ch] || ch}</div>
+            <div className="text-[13px] font-semibold text-ink tabular-nums">{n}건</div>
           </div>
         ))}
         {Object.keys(byChannel).length === 0 && (
@@ -122,18 +128,18 @@ export default async function OwnerReport() {
       </div>
 
       {/* 등급별 ROI */}
-      <h2 className="px-5 mt-6 text-[16px] font-bold">등급별 ROI</h2>
+      <h2 className="px-5 mt-7 text-[18px] font-bold text-ink tracking-title">등급별 ROI</h2>
       <div className="px-5 mt-3 space-y-2">
         {(["S", "A", "B", "C"] as const).map((g) => {
           const v = byGrade[g];
           if (!v) return null;
           return (
-            <div key={g} className="flex items-center justify-between rounded-md border border-hairline px-3 py-2.5">
+            <div key={g} className="flex items-center justify-between rounded-md border border-hairline bg-canvas px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold w-6 text-center">{g}</span>
-                <span className="text-[13px] text-muted">{v.count}건</span>
+                <span className="text-[11px] font-bold text-ink w-6 text-center">{g}</span>
+                <span className="text-[13px] text-muted tabular-nums">{v.count}건</span>
               </div>
-              <div className="text-[13px] font-medium">₩{v.support.toLocaleString()}</div>
+              <div className="text-[13px] font-bold text-ink tabular-nums">₩{v.support.toLocaleString()}</div>
             </div>
           );
         })}

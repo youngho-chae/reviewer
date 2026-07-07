@@ -20,15 +20,15 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
   const next = MILESTONES.find((m) => m.at > stats.accepted);
 
   return (
-    <div className="rounded-2xl p-5 bg-gradient-to-br from-brand to-[#0040a0] text-white relative overflow-hidden">
+    <div className="rounded-lg p-5 bg-brand text-white relative overflow-hidden">
       <div className="absolute -right-6 -top-6 text-[120px] opacity-15 select-none" aria-hidden>
         {cur.ic}
       </div>
       <div className="relative">
         <div className="text-[11px] tracking-[0.14em] uppercase opacity-80">친구와 동시에 박스 받기</div>
-        <div className="font-display text-[26px] leading-[1.1] mt-1.5 tracking-[-0.022em]">
+        <div className="text-[20px] font-bold leading-[1.3] mt-1.5 tracking-title">
           박스 등급{" "}
-          <span className="text-[#ffd60a]">{cur.label}</span>
+          <span className="text-[#FDE047]">{cur.label}</span>
         </div>
         <div className="text-[12px] opacity-90 mt-1.5">
           누적 성공 초대 <strong>{SBUI.count}</strong> · 박스가 클수록 지원금 부스트 UP
@@ -38,7 +38,7 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
         <div className="mt-4">
           <div className="h-1.5 rounded-pill bg-white/20 overflow-hidden">
             <div
-              className="h-full bg-[#ffd60a] rounded-pill transition-[width] duration-500"
+              className="h-full bg-[#FDE047] rounded-pill transition-[width] duration-500"
               style={{ width: `${Math.max(8, progress * 100)}%` }}
             />
           </div>
@@ -50,7 +50,7 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
 
         <Link
           href="/r/invite/new"
-          className="cp-action mt-4 inline-flex items-center justify-center h-11 px-5 rounded-pill bg-white text-ink text-[14px] font-semibold w-full"
+          className="cp-action mt-4 inline-flex items-center justify-center h-11 px-5 rounded-md bg-white text-brand text-[15px] font-bold w-full"
         >
           🎁 친구에게 쏘기 →
         </Link>

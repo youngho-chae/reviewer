@@ -32,12 +32,12 @@ export default async function AdminReviews() {
 
   return (
     <div className="pb-24">
-      {/* 상단 통계 */}
-      <section className="px-5 pt-6">
-        <div className="rounded-2xl bg-ink text-white p-5">
-          <div className="text-[12px] text-white/70">검수 대기</div>
-          <div className="font-display text-[40px] leading-none mt-1">{pending.length}건</div>
-          <div className="text-[12px] text-white/70 mt-2">최근 7일 처리 {processedToday}건</div>
+      {/* 상단 통계 — 화이트 stat 카드 */}
+      <section className="px-5 pt-5">
+        <div className="rounded-lg border border-hairline bg-canvas p-5">
+          <div className="text-[12px] text-muted">검수 대기</div>
+          <div className="text-[22px] font-bold text-ink tracking-title tabular-nums mt-1">{pending.length}건</div>
+          <div className="text-[12px] text-muted mt-2 tabular-nums">최근 7일 처리 {processedToday}건</div>
         </div>
       </section>
 
@@ -48,7 +48,7 @@ export default async function AdminReviews() {
           </div>
         )}
         {rows.map(({ p, store, campaign, reviewer }) => (
-          <div key={p.id} className="rounded-md border border-hairline bg-canvas p-4">
+          <div key={p.id} className="rounded-lg border border-hairline bg-canvas p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <GradeBadge grade={p.reviewerGrade} size="sm" />
@@ -59,7 +59,7 @@ export default async function AdminReviews() {
               </span>
             </div>
 
-            <div className="mt-2 text-[15px] font-semibold text-ink">{store?.name}</div>
+            <div className="mt-2 text-[16px] font-bold text-ink">{store?.name}</div>
             <div className="text-[12px] text-muted mt-0.5">
               {campaign?.title} · {p.reviewChannel ? CH_LABEL[p.reviewChannel] ?? p.reviewChannel : "채널 미상"}
               {p.reviewSubmittedAt
@@ -72,7 +72,7 @@ export default async function AdminReviews() {
                 href={p.reviewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-block text-[13px] text-brand underline decoration-hairline underline-offset-4 break-all"
+                className="cp-action mt-2 inline-block text-[13px] font-semibold text-brand break-all"
               >
                 게시물 열기 ↗
               </a>
@@ -86,7 +86,7 @@ export default async function AdminReviews() {
                   return (
                     <span
                       key={cond.key}
-                      className={`text-[10px] px-2 py-0.5 rounded-pill ${ok ? "bg-success/10 text-success" : "bg-parchment text-muted"}`}
+                      className={`text-[11px] font-medium px-2 py-0.5 rounded-pill ${ok ? "bg-successSoft text-successStrong" : "bg-sunken text-muted"}`}
                     >
                       {ok ? "✓" : "—"} {cond.label}
                     </span>

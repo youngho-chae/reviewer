@@ -16,7 +16,7 @@ const REELS_POOL = ["🍝", "🍣", "💅", "🏋️", "🐶", "🎁", "🥐", "
 function SlotReel({ done, finalIc }: { done: boolean; finalIc: string }) {
   return (
     <div
-      className={`relative w-[80px] h-[80px] rounded-2xl text-[36px] flex items-center justify-center font-bold overflow-hidden ${done ? "bg-gradient-to-br from-[#ffd60a] to-[#f5a623] text-ink" : "bg-ink text-white"}`}
+      className={`relative w-[80px] h-[80px] rounded-2xl text-[36px] flex items-center justify-center font-bold overflow-hidden ${done ? "bg-warningSoft border-[1.5px] border-warning text-ink" : "bg-brand text-white"}`}
     >
       {done ? (
         <span>{finalIc}</span>
@@ -100,7 +100,7 @@ export default function WelcomeBoxStage({
 
       <div className="mobile-shell min-h-[100dvh] bg-canvas">
         {/* 박스 스테이지 */}
-        <div className="relative bg-gradient-to-br from-[#fff9e5] to-parchment pt-12 pb-8 px-6 text-center overflow-hidden">
+        <div className="relative bg-brandSoft pt-12 pb-8 px-6 text-center overflow-hidden">
           {stage === "reveal" && <Confetti />}
           {stage === "shake" && (
             <div className="text-[120px] inline-block" style={{ animation: "cp-box-shake 0.6s ease-in-out infinite" }} aria-hidden>
@@ -114,7 +114,7 @@ export default function WelcomeBoxStage({
               <SlotReel done={stage === "reveal"} finalIc="🎉" />
             </div>
           )}
-          <h1 className="font-display text-[28px] text-ink leading-tight tracking-[-0.022em]">
+          <h1 className="text-[20px] font-bold text-ink leading-[1.3] tracking-title">
             {stage === "reveal" ? "축하해요!" : "박스 오픈 중..."}
           </h1>
           <p className="text-[14px] text-muted mt-1">친구가 보낸 환영 박스가 도착했어요</p>
@@ -128,7 +128,7 @@ export default function WelcomeBoxStage({
                 style={{ animation: "cp-flip-in 0.45s ease-out" }}
               >
                 <div className="text-[11px] uppercase tracking-[0.18em] text-muted">확정 보상</div>
-                <div className="font-display text-[44px] leading-tight text-ink mt-2 tracking-[-0.028em]">
+                <div className="text-[28px] font-bold leading-tight text-brand mt-2 tracking-title tabular-nums">
                   {data.refereeReward.kind === "support_bonus_pct" && `+${data.refereeReward.value}%`}
                   {data.refereeReward.kind === "membership_discount" && `${data.refereeReward.value}% 할인`}
                 </div>
@@ -141,7 +141,7 @@ export default function WelcomeBoxStage({
               <div className="flex gap-2 mt-6">
                 <Link
                   href={role === "owner" ? "/o/home" : "/r/explore"}
-                  className="cp-action flex-1 h-12 rounded-pill bg-ink text-white flex items-center justify-center text-[15px] font-semibold"
+                  className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white flex items-center justify-center text-[16px] font-bold"
                 >
                   {role === "owner" ? "사장님 홈 →" : "지금 사용하러 가기 →"}
                 </Link>
@@ -162,7 +162,7 @@ export default function WelcomeBoxStage({
             <div className="rounded-md border border-error/30 bg-error/4 p-4 text-center">
               <div className="text-[14px] font-semibold text-error">박스 오픈 실패</div>
               <div className="text-[12px] text-muted mt-2">{err}</div>
-              <Link href={homeHref} className="cp-action mt-4 inline-flex h-11 px-5 rounded-pill bg-ink text-white items-center text-[14px]">
+              <Link href={homeHref} className="cp-action mt-4 inline-flex h-12 px-6 rounded-md bg-brand text-white items-center text-[15px] font-bold">
                 홈으로 →
               </Link>
             </div>

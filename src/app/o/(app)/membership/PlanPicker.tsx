@@ -30,14 +30,15 @@ export default function PlanPicker({ current }: { current: Plan }) {
 
   return (
     <div>
-      <div className="text-[13px] font-semibold mb-2">플랜 변경</div>
+      <div className="text-[14px] font-bold text-ink mb-2">플랜 변경</div>
+      {/* radio-select — 데이터 선택 = 퍼플 1.5px 보더 */}
       <div className="grid grid-cols-4 gap-2">
         {(["Free", "Basic", "Standard", "Premium"] as Plan[]).map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setPlan(p)}
-            className={`h-11 rounded-sm text-[13px] font-medium border ${plan === p ? "bg-ink text-white border-ink" : "border-hairline"}`}
+            className={`h-11 rounded-md text-[13px] bg-canvas ${plan === p ? "border-[1.5px] border-brand text-brand font-semibold" : "border border-hairline text-ink font-medium"}`}
           >
             {p}
           </button>
@@ -46,7 +47,7 @@ export default function PlanPicker({ current }: { current: Plan }) {
       <button
         onClick={change}
         disabled={busy || plan === current}
-        className="mt-3 w-full h-12 rounded-sm bg-ink text-white text-[14px] font-medium disabled:opacity-40"
+        className="mt-3 w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
       >
         {busy ? "변경 중..." : plan === current ? "현재 플랜과 동일" : `${plan} 플랜으로 변경`}
       </button>

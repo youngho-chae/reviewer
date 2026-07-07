@@ -65,13 +65,13 @@ export default async function ReviewerGrade() {
 
   return (
     <div className="pb-24 bg-canvas">
-      {/* Sub-nav */}
-      <div className="sticky top-0 z-30 frosted-parchment border-b border-hairlineSoft">
-        <div className="h-13 px-5 flex items-center justify-between">
-          <h1 className="text-[15px] font-semibold text-ink">등급</h1>
+      {/* top-app-bar — 화이트 52px */}
+      <div className="sticky top-0 z-30 bg-canvas">
+        <div className="h-[52px] px-5 flex items-center justify-between">
+          <h1 className="text-[18px] font-bold text-ink tracking-title">등급</h1>
           <Link
             href="/r/notifications"
-            className="cp-action relative w-9 h-9 rounded-full flex items-center justify-center text-ink"
+            className="cp-action relative w-10 h-10 rounded-full flex items-center justify-center text-ink"
             aria-label="알림"
           >
             <Icon name="bell" variant={unread > 0 ? "bold" : "border"} size={22} />
@@ -80,23 +80,23 @@ export default async function ReviewerGrade() {
         </div>
       </div>
 
-      {/* Parchment hero — 큰 등급 배지 + 다음 등급 진행도 (기존 유지) */}
-      <section className="bg-parchment px-6 pt-12 pb-12 text-center">
-        <div className="flex justify-center mb-5">
+      {/* 내 등급 히어로 — 화이트 캔버스 + 등급 배지 + 다음 등급 진행도 */}
+      <section className="px-5 pt-6 pb-8 text-center">
+        <div className="flex justify-center mb-4">
           <GradeBadge grade={me.grade} size="xl" />
         </div>
-        <h1 className="font-display text-[56px] leading-[1.07] tracking-[-0.026em] text-ink">
+        <h1 className="text-[22px] font-bold text-ink tracking-title leading-[1.3]">
           {me.grade}등급
         </h1>
-        <p className="mt-3 text-[19px] text-ink2 leading-[1.4]">{TIER_COPY[me.grade].desc}</p>
+        <p className="mt-1.5 text-[14px] text-ink2 leading-[1.4]">{TIER_COPY[me.grade].desc}</p>
 
         {me.grade !== "S" && (
-          <div className="mt-8 max-w-[300px] mx-auto">
+          <div className="mt-6 max-w-[300px] mx-auto">
             <div className="flex justify-between text-[13px] text-muted mb-2">
               <span>다음 등급까지</span>
-              <span className="text-ink font-medium">{t.next} · {progress}%</span>
+              <span className="text-ink font-semibold tabular-nums">{t.next} · {progress}%</span>
             </div>
-            <div className="h-1 bg-hairline rounded-pill overflow-hidden">
+            <div className="h-1 bg-brandTint rounded-pill overflow-hidden">
               <div className="h-full bg-brand rounded-pill transition-all" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-2 text-[12px] text-muted">
@@ -107,8 +107,8 @@ export default async function ReviewerGrade() {
       </section>
 
       {/* 채널별 등급 — 연동 채널을 독립 평가 (v2.16) */}
-      <section className="px-5 mt-5">
-        <h2 className="text-[15px] font-semibold text-ink mb-2">채널별 등급</h2>
+      <section className="px-5 mt-1">
+        <h2 className="text-[18px] font-bold text-ink tracking-title mb-2">채널별 등급</h2>
         <p className="text-[12px] text-muted mb-3 leading-[1.5]">
           연동한 채널마다 영향력을 따로 평가해요. 참여 시 선택한 채널의 등급에 맞춰 지원금이 정해집니다.
         </p>
@@ -141,23 +141,20 @@ export default async function ReviewerGrade() {
         </div>
       </section>
 
-      {/* 3-stat 카드 — 기존 혜택 탭에서 이동 (v2.9) */}
+      {/* 3-stat 카드 — 화이트 stat-strip (v2: 다크 타일 금지) */}
       <section className="px-5 mt-5">
-        <div className="rounded-2xl bg-ink text-white p-5 shadow-card">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-white/70">내 등급으로 받는 혜택</div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-[13px] font-semibold leading-tight">{SBUI.count}</div>
-              <div className="text-[10px] text-white/70 mt-1.5">진행 중인 체험</div>
-            </div>
-            <div className="border-l border-r border-white/10">
-              <div className="text-[13px] font-semibold leading-tight">{SBUI.support}</div>
-              <div className="text-[10px] text-white/70 mt-1.5">내 최대 지원금</div>
-            </div>
-            <div>
-              <div className="text-[13px] font-semibold leading-tight">{SBUI.count}</div>
-              <div className="text-[10px] text-white/70 mt-1.5">사용 가능 체험권</div>
-            </div>
+        <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
+          <div className="py-4 px-2 text-center">
+            <div className="text-[12px] text-muted">진행 중인 체험</div>
+            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{SBUI.count}</div>
+          </div>
+          <div className="py-4 px-2 text-center border-l border-r border-hairlineSoft">
+            <div className="text-[12px] text-muted">내 최대 지원금</div>
+            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{SBUI.support}</div>
+          </div>
+          <div className="py-4 px-2 text-center">
+            <div className="text-[12px] text-brand font-semibold">🎫 사용 가능</div>
+            <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{SBUI.count}</div>
           </div>
         </div>
       </section>
@@ -168,7 +165,7 @@ export default async function ReviewerGrade() {
           href="/r/passes"
           className="cp-action flex items-center gap-3 p-4 rounded-md border border-hairline bg-canvas"
         >
-          <span className="w-10 h-10 rounded-md bg-brand/12 text-brand flex items-center justify-center">
+          <span className="w-10 h-10 rounded-md bg-brandTint text-brand flex items-center justify-center">
             <Icon name="ticket" variant="bold" size={20} />
           </span>
           <div className="flex-1">
@@ -180,16 +177,16 @@ export default async function ReviewerGrade() {
       </section>
 
       {/* 최근 30일 성과 (기존 유지) */}
-      <section className="px-6 pt-12 pb-10">
-        <h2 className="font-display text-[26px] leading-[1.14] text-ink mb-2 tracking-[-0.022em]">최근 30일 성과</h2>
-        <p className="text-[14px] text-ink2 mb-7 leading-[1.47]">목표 지표를 모두 달성하면 다음 등급으로 자동 승급합니다.</p>
-        <div className="space-y-5">
+      <section className="px-5 pt-10 pb-8">
+        <h2 className="text-[18px] font-bold text-ink tracking-title mb-2">최근 30일 성과</h2>
+        <p className="text-[13px] text-ink2 mb-5 leading-[1.5]">목표 지표를 모두 달성하면 다음 등급으로 자동 승급합니다.</p>
+        <div className="rounded-lg border border-hairline overflow-hidden">
           {metrics.map((m, i) => {
             return (
-              <div key={i} className="pb-5 border-b border-hairlineSoft last:border-b-0">
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="text-[16px] text-ink">{m.name}</span>
-                  <span className="text-[14px] font-semibold tracking-[-0.022em] text-ink">
+              <div key={i} className={`px-4 py-4 ${i < metrics.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
+                <div className="flex items-baseline justify-between mb-1">
+                  <span className="text-[14px] font-medium text-ink">{m.name}</span>
+                  <span className="text-[14px] font-semibold text-ink tabular-nums">
                     {m.unit === "%" ? "비율값" : m.unit === "점" ? "점수값" : "값"}
                   </span>
                 </div>
@@ -203,28 +200,28 @@ export default async function ReviewerGrade() {
       </section>
 
       {/* 등급별 혜택 사다리 — 진입 조건(혜택 탭에서 이동) 통합 (v2.9) */}
-      <section className="bg-parchment px-6 py-12">
-        <h2 className="font-display text-[26px] leading-[1.14] text-ink mb-6 tracking-[-0.022em]">등급별 혜택</h2>
+      <section className="px-5 pb-10">
+        <h2 className="text-[18px] font-bold text-ink tracking-title mb-4">등급별 혜택</h2>
         <div className="space-y-2.5">
           {BENEFITS.map((b) => {
             const isMe = b.g === me.grade;
             return (
               <div
                 key={b.g}
-                className={`rounded-lg p-4 flex items-start gap-3 ${isMe ? "bg-canvas border border-ink" : "bg-canvas border border-hairline"}`}
+                className={`rounded-md p-4 flex items-start gap-3 bg-canvas ${isMe ? "border-[1.5px] border-brand" : "border border-hairline"}`}
               >
                 <GradeBadge grade={b.g} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[15px] font-semibold text-ink">{TIER_COPY[b.g].label}</span>
                     {isMe && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-pill bg-brand text-white font-semibold">내 등급</span>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-pill bg-brand text-white font-semibold">내 등급</span>
                     )}
                   </div>
                   <div className="text-[12px] text-muted mt-1 leading-[1.45]">{b.d}</div>
                   <div className="text-[11px] text-ink2 mt-1.5">진입 조건: {TIER_REQUIRE[b.g]}</div>
                 </div>
-                <div className="text-[12px] text-ink2 shrink-0 pt-0.5">{b.amt}</div>
+                <div className="text-[13px] font-semibold text-ink shrink-0 pt-0.5 tabular-nums">{b.amt}</div>
               </div>
             );
           })}

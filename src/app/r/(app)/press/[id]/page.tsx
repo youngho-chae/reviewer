@@ -30,35 +30,35 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
     <div className="pb-32 bg-canvas min-h-[100dvh]">
       {/* Top bar */}
       <div className="px-5 pt-12 pb-2 flex items-center gap-3">
-        <Link href="/r/home" className="w-9 h-9 rounded-full bg-surfaceSoft grid place-items-center text-[18px]">←</Link>
+        <Link href="/r/home" className="cp-action w-10 h-10 rounded-full grid place-items-center text-ink text-[20px]">←</Link>
         <div className="text-[13px] font-bold text-muted tracking-wide">기자단 캠페인 · 신청 전 확인</div>
       </div>
 
-      {/* Hero card (dark) */}
-      <div className="mx-5 mt-2 p-5 rounded-lg bg-ink text-white relative overflow-hidden">
+      {/* Hero card — 화이트 헤어라인 (v2) */}
+      <div className="mx-5 mt-2 p-5 rounded-lg border border-hairline bg-canvas relative overflow-hidden">
         <div className="flex items-center gap-2 mb-2.5">
-          <GradeBadge grade={me.grade} size="sm" inverted />
-          <span className="text-[11px] font-bold tracking-wider text-white/70">기자단 · 내 {me.grade}등급 · 비방문</span>
+          <GradeBadge grade={me.grade} size="sm" />
+          <span className="text-[11px] font-bold tracking-wider text-muted">기자단 · 내 {me.grade}등급 · 비방문</span>
         </div>
         <div className="text-[22px] font-extrabold tracking-tight">{store.name}</div>
-        <div className="text-[13px] text-white/60 mt-1">{store.area} · {store.category}</div>
+        <div className="text-[13px] text-muted mt-1">{store.area} · {store.category}</div>
 
-        <div className="mt-4 pt-3.5 border-t border-white/10 grid grid-cols-2 gap-3">
+        <div className="mt-4 pt-3.5 border-t border-hairlineSoft grid grid-cols-2 gap-3">
           <div>
-            <div className="text-[10.5px] text-white/55 font-semibold tracking-wide">정산 예정금</div>
+            <div className="text-[10.5px] text-muted font-semibold tracking-wide">정산 예정금</div>
             <div className="text-[22px] font-extrabold mt-0.5 tracking-tight">
               {c.supportAmount.toLocaleString()}<span className="text-[12px] font-semibold">원</span>
             </div>
-            <div className="text-[10px] text-white/45 mt-0.5">3.3% 원천징수 후 입금</div>
+            <div className="text-[10px] text-mutedSoft mt-0.5">3.3% 원천징수 후 입금</div>
           </div>
           <div>
-            <div className="text-[10.5px] text-white/55 font-semibold tracking-wide">모집 마감</div>
-            <div className={`text-[18px] font-bold mt-1 ${daysLeft <= 1 ? "text-brand" : "text-white"}`}>D-{daysLeft}</div>
-            <div className="text-[10px] text-white/45 mt-0.5">신청 후 자료 즉시 전달</div>
+            <div className="text-[10.5px] text-muted font-semibold tracking-wide">모집 마감</div>
+            <div className={`text-[18px] font-bold mt-1 ${daysLeft <= 1 ? "text-brand" : "text-ink"}`}>D-{daysLeft}</div>
+            <div className="text-[10px] text-mutedSoft mt-0.5">신청 후 자료 즉시 전달</div>
           </div>
         </div>
 
-        <div className={`mt-3.5 px-3 py-2.5 rounded-md flex items-center justify-between ${closed ? "bg-error/20" : slotsLow ? "bg-brand/20" : "bg-white/[0.06]"}`}>
+        <div className={`mt-3.5 px-3 py-2.5 rounded-md flex items-center justify-between ${closed ? "bg-error/20" : slotsLow ? "bg-brand/20" : "bg-parchment"}`}>
           <div className="flex items-center gap-2">
             <span className={`w-1.5 h-1.5 rounded-full ${closed ? "bg-error" : slotsLow ? "bg-brand" : "bg-success"}`} />
             <span className="text-[12px] font-bold">{closed ? "모집 마감" : `잔여 ${remain}자리 / 총 ${totalQ}명`}</span>
@@ -90,7 +90,7 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
       {/* 매장 정보 */}
       <div className="px-5 mt-5">
         <h3 className="text-[15px] font-extrabold tracking-tight mb-2.5">🏪 매장 정보</h3>
-        <div className="p-3.5 bg-surfaceSoft border border-hairline rounded-md text-[13px] leading-7 text-ink">
+        <div className="p-3.5 bg-parchment border border-hairline rounded-md text-[13px] leading-7 text-ink">
           <div><span className="text-muted font-semibold mr-2">위치</span>{store.area} · {store.category}</div>
           <div><span className="text-muted font-semibold mr-2">영업시간</span>{store.hours}</div>
           <div><span className="text-muted font-semibold mr-2">제출 방식</span>본인 채널에 작성 후 URL 제출</div>
@@ -103,7 +103,7 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
         <p className="text-[12px] text-muted mt-1 leading-relaxed">아래 키워드를 모두 포함해 작성해야 검수를 통과합니다.</p>
         <div className="flex gap-1.5 flex-wrap mt-2.5">
           {(c.pressKeywords || []).map((k) => (
-            <span key={k} className="text-[12px] font-bold px-3 py-1.5 rounded-full bg-ink text-white"># {k}</span>
+            <span key={k} className="text-[12px] font-bold px-3 py-1.5 rounded-pill bg-sunken text-ink2"># {k}</span>
           ))}
         </div>
       </div>
@@ -126,13 +126,13 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Sticky CTA */}
-      <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] px-5 py-3.5 bg-white/95 backdrop-blur border-t border-hairline z-20">
+      <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] px-5 py-3.5 bg-canvas border-t border-hairlineSoft z-20">
         {myPass ? (
-          <Link href={`/r/press/${c.id}/write?pass=${myPass.id}`} className="block h-14 rounded-full bg-ink text-white grid place-items-center text-[16px] font-bold">
+          <Link href={`/r/press/${c.id}/write?pass=${myPass.id}`} className="cp-action block h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold">
             기자단 작성하기 →
           </Link>
         ) : closed ? (
-          <button disabled className="w-full h-14 rounded-full bg-surfaceStrong text-muted text-[16px] font-bold">마감되었습니다</button>
+          <button disabled className="w-full h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">마감되었습니다</button>
         ) : (
           <PressApplyButton campaignId={c.id} />
         )}

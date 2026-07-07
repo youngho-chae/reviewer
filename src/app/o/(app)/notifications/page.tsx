@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
+import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,11 @@ export default async function OwnerNotifications() {
         <div className="px-5 text-[12px] text-muted font-medium">{title}</div>
         <div className="mt-2 divide-y divide-hairline border-y border-hairline">
           {list.map((n) => (
-            <Link key={n.id} href={n.link || "#"} className="block px-5 py-4">
+            <Link key={n.id} href={n.link || "#"} className="block px-5 py-4 active:bg-parchment">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <div className="text-[14px] font-medium">{n.title}</div>
-                  <div className="text-[13px] text-body mt-1">{n.body}</div>
+                  <div className="text-[14px] font-semibold text-ink">{n.title}</div>
+                  <div className="text-[13px] text-ink2 mt-1 leading-[1.5]">{n.body}</div>
                 </div>
                 <div className="text-[11px] text-muted whitespace-nowrap">
                   {new Date(n.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -57,12 +58,17 @@ export default async function OwnerNotifications() {
     );
 
   return (
-    <div className="pb-24">
-      <div className="px-5 pt-12 pb-3">
-        <Link href="/o/me" className="text-muted text-[14px]">← 더보기</Link>
-        <h1 className="mt-3 text-[22px] font-bold">알림함</h1>
-        <div className="text-[13px] text-muted mt-1">{items.length}건</div>
+    <div className="pb-24 bg-canvas">
+      {/* top-app-bar — 뒤로가기 + 타이틀 */}
+      <div className="sticky top-0 z-10 bg-canvas">
+        <div className="h-[52px] px-3 flex items-center">
+          <Link href="/o/me" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="더보기로">
+            <Icon name="chevron-left" variant="border" size={22} />
+          </Link>
+          <h1 className="text-[18px] font-bold text-ink tracking-title">알림함</h1>
+        </div>
       </div>
+      <div className="px-5 pt-1 text-[13px] text-muted tabular-nums">{items.length}건</div>
 
       <Section title="오늘" list={today} />
       <Section title="이번 주" list={week} />

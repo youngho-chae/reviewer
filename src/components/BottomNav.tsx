@@ -8,7 +8,7 @@ export type BottomNavItem = { href: string; label: string; icon: IconName };
 export default function BottomNav({ items }: { items: BottomNavItem[] }) {
   const pathname = usePathname();
   return (
-    <nav className="sticky bottom-0 left-0 right-0 frosted-parchment border-t border-hairline safe-bottom">
+    <nav className="sticky bottom-0 left-0 right-0 bg-canvas border-t border-hairlineSoft safe-bottom">
       <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
         {items.map((it) => {
           const active = pathname === it.href || pathname.startsWith(it.href + "/");
@@ -21,7 +21,7 @@ export default function BottomNav({ items }: { items: BottomNavItem[] }) {
             >
               <Icon name={it.icon} variant={active ? "bold" : "border"} size={22} />
               <span
-                className={`text-[11px] tracking-[-0.011em] ${active ? "font-semibold" : "font-normal"}`}
+                className={`text-[11px]  ${active ? "font-semibold" : "font-normal"}`}
               >
                 {it.label}
               </span>

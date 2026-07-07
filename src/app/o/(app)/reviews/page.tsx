@@ -13,21 +13,22 @@ const ch_label: Record<string, string> = {
   tiktok: "틱톡",
 };
 
+// 상태 칩 — *Soft 배경 + 강조 텍스트 (v2 상태 문법)
 const statusMeta: Record<
   string,
-  { label: string; tone: "ink" | "brand" | "mute" | "warn" }
+  { label: string; tone: "success" | "error" | "warn" | "mute" }
 > = {
   review_submitted: { label: "운영팀 검수 중", tone: "warn" },
-  completed: { label: "검수 통과", tone: "brand" },
-  rejected: { label: "운영팀 반려", tone: "mute" },
+  completed: { label: "검수 통과", tone: "success" },
+  rejected: { label: "운영팀 반려", tone: "error" },
 };
 
-const toneCls = (tone: "ink" | "brand" | "mute" | "warn") =>
+const toneCls = (tone: "success" | "error" | "warn" | "mute") =>
   ({
-    ink: "bg-ink text-white",
-    brand: "bg-brand text-white",
-    mute: "bg-parchment text-muted border border-hairline",
-    warn: "bg-canvas text-ink border border-brand/40",
+    success: "bg-successSoft text-successStrong",
+    error: "bg-errorSoft text-error",
+    warn: "bg-warningSoft text-warning",
+    mute: "bg-sunken text-muted",
   } as const)[tone];
 
 export default async function OwnerReviews() {
@@ -48,15 +49,15 @@ export default async function OwnerReviews() {
 
   return (
     <div className="pb-24 bg-canvas min-h-[100dvh]">
-      <div className="sticky top-0 z-10 frosted-parchment border-b border-hairlineSoft">
-        <div className="h-13 px-5 flex items-center">
-          <h1 className="text-[21px] font-semibold text-ink tracking-[-0.011em]">
+      <div className="sticky top-0 z-10 bg-canvas">
+        <div className="h-[52px] px-5 flex items-center">
+          <h1 className="text-[18px] font-bold text-ink tracking-title">
             리뷰 모니터링
           </h1>
         </div>
       </div>
 
-      <section className="px-6 pt-6">
+      <section className="px-5 pt-2">
         <p className="text-[14px] text-ink2 leading-[1.5]">
           체험자가 게시한 후기를 조회할 수 있습니다. 사장님은 직접 검수하지
           않으며, 광고 표시 누락·재작성 요청 등은 채널톡으로 운영팀에
@@ -64,26 +65,26 @@ export default async function OwnerReviews() {
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-lg bg-parchment border border-hairline p-4">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+          <div className="rounded-lg bg-canvas border border-hairline p-4">
+            <div className="text-[12px] text-muted">
               운영팀 검수 중
             </div>
-            <div className="font-display text-[28px] leading-[1] text-ink mt-2 tracking-[-0.022em]">
+            <div className="text-[20px] font-bold text-ink tabular-nums mt-2 tracking-title">
               {pendingCnt}
             </div>
           </div>
-          <div className="rounded-lg bg-parchment border border-hairline p-4">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+          <div className="rounded-lg bg-canvas border border-hairline p-4">
+            <div className="text-[12px] text-muted">
               통과 누적
             </div>
-            <div className="font-display text-[28px] leading-[1] text-ink mt-2 tracking-[-0.022em]">
+            <div className="text-[20px] font-bold text-ink tabular-nums mt-2 tracking-title">
               {doneCnt}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="px-6 mt-7 space-y-3">
+      <section className="px-5 mt-7 space-y-3">
         {passes.map((p) => {
           const reviewer = db.reviewers.find((r) => r.id === p.reviewerId);
           const store = db.stores.find((s) => s.id === p.storeId);
@@ -96,7 +97,7 @@ export default async function OwnerReviews() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <GradeBadge grade={p.reviewerGrade} size="sm" />
-                  <span className="text-[12px] uppercase tracking-[0.18em] text-muted">
+                  <span className="text-[12px] text-muted">
                     익명 #{reviewer?.id.slice(-4)} · {p.reviewerGrade}등급
                   </span>
                 </div>
@@ -107,7 +108,7 @@ export default async function OwnerReviews() {
                 </span>
               </div>
 
-              <h3 className="mt-3 font-display text-[20px] leading-[1.2] text-ink">
+              <h3 className="mt-3 text-[16px] font-bold text-ink">
                 {store?.name}
               </h3>
               <div className="text-[12px] text-muted mt-1">
@@ -133,7 +134,7 @@ export default async function OwnerReviews() {
               )}
 
               {p.status === "review_submitted" && (
-                <div className="mt-3 px-3 py-2.5 rounded-md bg-parchment border border-hairlineSoft text-[12px] text-muted leading-[1.5]">
+                <div className="mt-3 px-3 py-2.5 rounded-md bg-sunken text-[12px] text-muted leading-[1.5]">
                   운영팀이 광고 표시·작성 조건을 점검하고 있어요 (최대 72시간).
                   사장님이 직접 검수하실 필요가 없습니다.
                 </div>
@@ -152,7 +153,7 @@ export default async function OwnerReviews() {
             <p className="text-[15px] text-muted">아직 등록된 리뷰가 없습니다.</p>
             <Link
               href="/o/home"
-              className="cp-action inline-block mt-3 text-[14px] text-brand"
+              className="cp-action inline-block mt-3 text-[14px] font-semibold text-brand"
             >
               홈으로 돌아가기 →
             </Link>

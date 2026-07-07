@@ -20,55 +20,57 @@ export default async function OwnerHome() {
   const activeNow = myPasses.filter((p) => p.status === "active").length;
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 bg-canvas">
       <div className="px-5 pt-12 pb-3">
         <div className="text-[12px] text-muted">{me.storeName}</div>
-        <div className="text-[20px] font-bold mt-1">안녕하세요, 사장님</div>
+        <h1 className="text-[20px] font-bold text-ink tracking-title mt-1">안녕하세요, 사장님</h1>
       </div>
 
       {/* 신규 리뷰 모니터링 — 운영팀이 검수하며 사장님은 조회만 */}
-      <Link href="/o/reviews" className="block mx-5 rounded-md bg-ink text-white p-5">
-        <div className="text-[13px] text-white/70">최근 등록된 후기</div>
-        <div className="text-[24px] font-bold mt-1">{pendingReviews}건이 운영팀 검수 중</div>
-        <div className="text-[13px] text-white/70 mt-1">→ 후기 모니터링</div>
+      <Link href="/o/reviews" className="cp-action block mx-5 rounded-lg border border-hairline bg-canvas p-5">
+        <div className="text-[13px] text-muted">최근 등록된 후기</div>
+        <div className="text-[20px] font-bold text-ink tracking-title mt-1">
+          <span className="text-brand tabular-nums">{pendingReviews}건</span>이 운영팀 검수 중
+        </div>
+        <div className="text-[13px] font-semibold text-brand mt-1">후기 모니터링 →</div>
       </Link>
 
       {/* 멤버십 스트립 */}
-      <div className="mx-5 mt-4 rounded-md border border-hairline p-4">
+      <div className="mx-5 mt-3 rounded-md border border-hairline bg-canvas p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[11px] text-muted">현재 플랜</div>
-            <div className="text-[16px] font-semibold mt-0.5">
+            <div className="text-[12px] text-muted">현재 플랜</div>
+            <div className="text-[15px] font-semibold text-ink mt-0.5">
               {me.plan} · {PLAN_POLICY[me.plan].monthlyTeamLimit === null ? "무제한 모집" : `월 ${PLAN_POLICY[me.plan].monthlyTeamLimit}팀 모집`}
             </div>
           </div>
-          <Link href="/o/me" className="text-[13px] text-muted">관리 →</Link>
+          <Link href="/o/me" className="cp-action text-[13px] font-semibold text-brand">관리 →</Link>
         </div>
       </div>
 
       {/* 이번 달 모집 현황 */}
-      <div className="mx-5 mt-4 rounded-md border border-hairline p-4">
-        <div className="text-[13px] font-semibold">이번 달 모집 현황</div>
+      <div className="mx-5 mt-3 rounded-lg border border-hairline bg-canvas p-4">
+        <div className="text-[14px] font-bold text-ink">이번 달 모집 현황</div>
         <div className="mt-3 grid grid-cols-3 gap-3 text-center">
           <div>
-            <div className="text-[11px] text-muted">누적 모집</div>
-            <div className="text-[20px] font-bold">{thisMonth.length}</div>
+            <div className="text-[12px] text-muted">누적 모집</div>
+            <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{thisMonth.length}</div>
+          </div>
+          <div className="border-l border-r border-hairlineSoft">
+            <div className="text-[12px] text-muted">사용 진행</div>
+            <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{activeNow}</div>
           </div>
           <div>
-            <div className="text-[11px] text-muted">사용 진행</div>
-            <div className="text-[20px] font-bold">{activeNow}</div>
-          </div>
-          <div>
-            <div className="text-[11px] text-muted">검수 대기</div>
-            <div className="text-[20px] font-bold">{pendingReviews}</div>
+            <div className="text-[12px] text-muted">검수 대기</div>
+            <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{pendingReviews}</div>
           </div>
         </div>
       </div>
 
       {/* 진행 중 캠페인 */}
-      <div className="px-5 mt-8 flex items-center justify-between">
-        <h2 className="text-[18px] font-bold">진행 중 캠페인</h2>
-        <Link href="/o/campaign/new" className="text-[13px] text-brand font-medium">+ 새 캠페인</Link>
+      <div className="px-5 mt-8 flex items-end justify-between">
+        <h2 className="text-[18px] font-bold text-ink tracking-title">진행 중 캠페인</h2>
+        <Link href="/o/campaign/new" className="cp-action text-[13px] text-brand font-semibold">+ 새 캠페인</Link>
       </div>
       {(() => {
         // 모든 플랜이 S~C 모집 가능. 자물쇠 없음.
@@ -84,28 +86,28 @@ export default async function OwnerHome() {
           const pendingLabel = isPress ? "작성 중" : "방문 예정";
           const completedLabel = isPress ? "작성 완료" : "방문 완료";
           return (
-            <div key={c.id} className="rounded-md border border-hairline p-4">
+            <div key={c.id} className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[15px] font-semibold">{c.title}</div>
+                  <div className="text-[15px] font-semibold text-ink">{c.title}</div>
                   <div className="text-[12px] text-muted mt-0.5">{store?.name}</div>
                 </div>
-                <div className="text-[12px] text-muted">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
+                <div className="text-[12px] text-muted tabular-nums">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
               </div>
               <div className="mt-3 grid grid-cols-4 gap-2 text-center">
                 {(["S","A","B","C"] as const).map((g) => (
-                  <div key={g} className="rounded-sm py-2 bg-surfaceSoft">
+                  <div key={g} className="rounded-sm py-2 bg-sunken">
                     <div className="text-[11px] text-muted">{g}</div>
-                    <div className="text-[13px] font-semibold mt-0.5">{c.used[g]}</div>
+                    <div className="text-[13px] font-semibold text-ink tabular-nums mt-0.5">{c.used[g]}</div>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-parchment border border-hairline text-[12px] text-muted">
-                <span>{pendingLabel} <span className="font-semibold text-ink">{pendingCnt}명</span></span>
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-canvas border border-hairline text-[12px] text-muted">
+                <span>{pendingLabel} <span className="font-semibold text-ink tabular-nums">{pendingCnt}명</span></span>
                 <span className="text-mutedSoft">/</span>
-                <span>{completedLabel} <span className="font-semibold text-ink">{visitedCnt}명</span></span>
+                <span>{completedLabel} <span className="font-semibold text-ink tabular-nums">{visitedCnt}명</span></span>
                 <span className="text-mutedSoft">/</span>
-                <span>총 모집 인원 <span className="font-semibold text-ink">{totalQuota}명</span></span>
+                <span><span aria-hidden>🎫</span> 총 모집 인원 <span className="font-semibold text-ink tabular-nums">{totalQuota}명</span></span>
               </div>
               {(() => {
                 const policy = PLAN_POLICY[me.plan];

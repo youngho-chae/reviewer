@@ -35,7 +35,7 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
   if (!top) return null;
 
   return (
-    <div className="rounded-md bg-ink text-white px-4 py-3 flex items-center gap-3">
+    <div className="rounded-md bg-tile1 text-white px-4 py-3 flex items-center gap-3">
       <span className="relative flex h-2 w-2 shrink-0">
         <span className="absolute inset-0 rounded-full bg-[#ff453a] animate-ping opacity-70" />
         <span className="relative rounded-full h-2 w-2 bg-[#ff453a]" />
@@ -43,7 +43,7 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
       <div className="text-[12px] leading-[1.45] flex-1 min-w-0">
         오늘 열린 박스 <span className="font-semibold">{SBUI.liveCount}</span>개
         <div className="text-[11px] text-white/70 mt-0.5 truncate">
-          최근: {top.nickname} — <strong className="text-[#ffd60a]">{SBUI.reward}</strong>
+          최근: {top.nickname} — <strong className="text-[#FDE047]">{SBUI.reward}</strong>
           <span className="opacity-60"> · {SBUI.matrix}</span>
         </div>
       </div>

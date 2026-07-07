@@ -25,16 +25,16 @@ export default function PassPendingBanner({ pendingId }: { pendingId: string }) 
   const exhausted = attempts >= maxAttempts;
 
   return (
-    <div className="mx-6 mt-4 p-4 rounded-md border border-hairline bg-parchment">
+    <div className="mx-5 mt-4 p-4 rounded-md bg-brandSoft">
       <div className="flex items-start gap-3">
         <div className="mt-0.5">
           {exhausted ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a7a7a" strokeWidth="1.6" strokeLinecap="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#737373" strokeWidth="1.6" strokeLinecap="round">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 8v4M12 16h.01" />
             </svg>
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0066cc" strokeWidth="1.6" strokeLinecap="round" className="animate-spin">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9333EA" strokeWidth="1.6" strokeLinecap="round" className="animate-spin">
               <path d="M21 12a9 9 0 1 1-6.2-8.55" />
             </svg>
           )}

@@ -3,7 +3,7 @@ export const metadata = { title: "개인정보처리방침 | CATCHPASS" };
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
+      <h2 className="text-[16px] font-bold text-ink">{title}</h2>
       <div className="mt-3 text-[14px] leading-[1.65] text-ink2 space-y-2">{children}</div>
     </section>
   );
@@ -12,7 +12,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function PrivacyPage() {
   return (
     <article>
-      <h1 className="font-display text-[28px] leading-[1.14] text-ink">개인정보처리방침</h1>
+      <h1 className="text-[20px] font-bold text-ink tracking-title">개인정보처리방침</h1>
       <p className="mt-2 text-[13px] text-muted">시행일: 2026년 7월 1일 (VER.1)</p>
       <p className="mt-4 text-[14px] leading-[1.65] text-ink2">
         캐치랭크(이하 &ldquo;회사&rdquo;)는 캐치패스 서비스 제공을 위해 아래와 같이 개인정보를 수집·이용하며,

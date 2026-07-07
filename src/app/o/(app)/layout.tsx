@@ -13,7 +13,7 @@ export default async function OwnerAppLayout({ children }: { children: React.Rea
           { href: "/o/home", label: "홈", icon: "home" },
           { href: "/o/scan", label: "QR 스캔", icon: "camera" },
           { href: "/o/reviews", label: "후기", icon: "clipboard" },
-          { href: "/o/me", label: "MY", icon: "user" },
+          { href: "/o/me", label: "마이", icon: "user" },
         ]}
       />
     </div>

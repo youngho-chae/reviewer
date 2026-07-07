@@ -97,9 +97,9 @@ export default function InviteComposer({ nickname, myKind, initialTarget, storeI
   return (
     <div className="px-6 pt-6 space-y-6">
       {/* 받을 사람의 선물 미리보기 */}
-      <div className="rounded-2xl bg-ink text-white p-5">
+      <div className="rounded-lg bg-brand text-white p-5">
         <div className="text-[11px] uppercase tracking-[0.14em] opacity-75">받는 사람이 받을 선물</div>
-        <div className="font-display text-[26px] leading-[1.1] mt-2 tracking-[-0.022em]">{preview}</div>
+        <div className="text-[20px] font-bold leading-[1.3] mt-2 tracking-title">{preview}</div>
         <div className="text-[11px] mt-2 opacity-80">
           매트릭스{" "}
           <span className="inline-flex items-center px-2 py-0.5 rounded-pill bg-white/12 border border-white/20 text-white text-[11px]">{m}</span>
@@ -121,14 +121,14 @@ export default function InviteComposer({ nickname, myKind, initialTarget, storeI
           <button
             type="button"
             onClick={() => setTarget("reviewer")}
-            className={`flex-1 h-12 rounded-md border text-[14px] font-medium ${target === "reviewer" ? "bg-ink text-white border-ink" : "border-hairline bg-canvas text-ink"}`}
+            className={`flex-1 h-12 rounded-md border text-[14px] font-medium ${target === "reviewer" ? "border-[1.5px] border-brand text-brand bg-brandSoft font-semibold" : "border-hairline bg-canvas text-ink"}`}
           >
             🧑 친구 체험자
           </button>
           <button
             type="button"
             onClick={() => setTarget("owner")}
-            className={`flex-1 h-12 rounded-md border text-[14px] font-medium ${target === "owner" ? "bg-ink text-white border-ink" : "border-hairline bg-canvas text-ink"}`}
+            className={`flex-1 h-12 rounded-md border text-[14px] font-medium ${target === "owner" ? "border-[1.5px] border-brand text-brand bg-brandSoft font-semibold" : "border-hairline bg-canvas text-ink"}`}
           >
             🏪 사장님 친구
           </button>

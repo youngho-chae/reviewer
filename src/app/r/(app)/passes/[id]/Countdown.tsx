@@ -25,7 +25,7 @@ export default function Countdown({ expiresAt, mode = "hms", className, expiredT
 
   const ms = Math.max(0, expiresAt - now);
   if (ms === 0) {
-    return <div className={`text-error text-[14px] ${className || ""}`}>{expiredText}</div>;
+    return <div className={`text-error text-[14px] font-semibold ${className || ""}`}>{expiredText}</div>;
   }
 
   if (mode === "dhm") {
@@ -33,7 +33,7 @@ export default function Countdown({ expiresAt, mode = "hms", className, expiredT
     const h = Math.floor((ms % 86400000) / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
     return (
-      <div className={`font-display text-[19px] text-ink tracking-[-0.022em] ${className || ""}`}>
+      <div className={`text-[18px] font-bold text-ink tracking-title tabular-nums ${className || ""}`}>
         {d > 0 && <span>{d}일 </span>}
         {h}시간 {m}분
       </div>
@@ -45,7 +45,7 @@ export default function Countdown({ expiresAt, mode = "hms", className, expiredT
   const m = Math.floor((ms / 60000) % 60);
   const s = Math.floor((ms / 1000) % 60);
   return (
-    <div className={`font-display text-[19px] text-ink tracking-[-0.022em] ${className || ""}`}>
+    <div className={`text-[18px] font-bold text-ink tracking-title tabular-nums ${className || ""}`}>
       {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
     </div>
   );

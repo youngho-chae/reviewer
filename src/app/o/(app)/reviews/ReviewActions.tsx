@@ -36,7 +36,7 @@ export default function ReviewActions({
       <button
         type="button"
         onClick={openChanneltalk}
-        className="cp-action mt-3 w-full h-11 rounded-pill border border-hairline bg-canvas text-[14px] font-semibold text-ink"
+        className="cp-action mt-3 w-full h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
       >
         💬 채널톡으로 문의하기
       </button>
@@ -45,23 +45,24 @@ export default function ReviewActions({
           className="fixed inset-0 z-50 bg-ink/40 flex items-end justify-center"
           onClick={() => setOpened(false)}
         >
+          {/* bottom-sheet — rounded-t-xl + 드래그 핸들 */}
           <div
-            className="w-full max-w-[480px] bg-canvas rounded-t-lg p-6 pb-8"
+            className="w-full max-w-[480px] bg-canvas rounded-t-xl shadow-sheet p-6 pb-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-1 rounded-full bg-hairline mx-auto mb-5" />
-            <h3 className="text-[18px] font-semibold text-ink">운영팀에 문의 접수</h3>
+            <div className="w-9 h-1 rounded-pill bg-borderStrong mx-auto mb-5" />
+            <h3 className="text-[18px] font-bold text-ink tracking-title">운영팀에 문의 접수</h3>
             <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
               아래 정보로 채널톡에 문의를 남겨주시면 운영팀이 24시간 내 회신합니다. 사장님은 체험자와 직접 소통하지 않으셔도 됩니다.
             </p>
-            <div className="mt-4 rounded-md bg-parchment p-4 text-[13px] text-ink leading-[1.6] space-y-1">
+            <div className="mt-4 rounded-md bg-sunken p-4 text-[13px] text-ink leading-[1.6] space-y-1">
               <div><span className="text-muted mr-2">매장</span>{storeName ?? "-"}</div>
               <div><span className="text-muted mr-2">패스 ID</span>{passId}</div>
               <div className="truncate"><span className="text-muted mr-2">URL</span>{reviewUrl ?? "-"}</div>
             </div>
             <a
               href={`mailto:help@catchrank.co.kr?subject=${encodeURIComponent("[리뷰 문의] " + (storeName ?? passId))}&body=${encodeURIComponent(`매장: ${storeName ?? "-"}\n패스 ID: ${passId}\nURL: ${reviewUrl ?? "-"}\n\n문의 내용:\n`)}`}
-              className="cp-action mt-5 block h-12 rounded-pill bg-brand text-white grid place-items-center text-[15px] font-semibold"
+              className="cp-action mt-5 block h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold"
             >
               이메일로 보내기
             </a>

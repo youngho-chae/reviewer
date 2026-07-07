@@ -33,7 +33,7 @@ export default function DeleteAccountButton() {
   }
 
   return (
-    <div className="rounded-md border border-error/30 bg-error/4 p-4 text-left">
+    <div className="rounded-md border border-error/30 bg-errorSoft p-4 text-left">
       <div className="text-[14px] font-semibold text-ink">정말 탈퇴하시겠어요?</div>
       <p className="mt-2 text-[12px] text-muted leading-[1.55]">
         계정 정보(이메일·닉네임·연동 채널)와 미사용 보상이 즉시 삭제됩니다.
@@ -44,14 +44,14 @@ export default function DeleteAccountButton() {
         <button
           disabled={loading}
           onClick={submit}
-          className="cp-action h-10 px-4 rounded-pill bg-error text-white text-[13px] font-medium disabled:opacity-50"
+          className="cp-action h-10 px-4 rounded-md bg-error text-white text-[13px] font-semibold disabled:opacity-50"
         >
           {loading ? "처리 중..." : "탈퇴하기"}
         </button>
         <button
           disabled={loading}
           onClick={() => setConfirming(false)}
-          className="cp-action h-10 px-4 rounded-pill border border-hairline text-ink text-[13px]"
+          className="cp-action h-10 px-4 rounded-md border border-hairline bg-canvas text-ink text-[13px] font-semibold"
         >
           취소
         </button>

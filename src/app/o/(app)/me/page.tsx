@@ -25,54 +25,54 @@ export default async function OwnerMe() {
   ];
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 bg-canvas">
       <div className="px-5 pt-12 pb-3">
-        <h1 className="text-[22px] font-bold">더보기</h1>
+        <h1 className="text-[20px] font-bold text-ink tracking-title">더보기</h1>
       </div>
 
       <div className="px-5">
-        <div className="rounded-md border border-hairline p-5">
+        <div className="rounded-lg border border-hairline bg-canvas p-5">
           <div className="text-[12px] text-muted">{me.email}</div>
-          <div className="text-[18px] font-semibold mt-1">{me.storeName}</div>
+          <div className="text-[18px] font-bold text-ink mt-1 tracking-title">{me.storeName}</div>
           <div className="text-[13px] text-muted mt-0.5">{me.area} · {me.category}</div>
         </div>
 
-        <div className="mt-4 rounded-md border border-hairline p-4">
-          <div className="text-[13px] font-semibold mb-3">누적 지표</div>
+        <div className="mt-3 rounded-lg border border-hairline bg-canvas p-4">
+          <div className="text-[14px] font-bold text-ink mb-3">누적 지표</div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-[11px] text-muted">매장 수</div>
-              <div className="text-[18px] font-bold">{stores.length}</div>
+              <div className="text-[12px] text-muted">매장 수</div>
+              <div className="text-[18px] font-bold text-ink tabular-nums mt-1">{stores.length}</div>
+            </div>
+            <div className="border-l border-r border-hairlineSoft">
+              <div className="text-[12px] text-muted">완료 리뷰</div>
+              <div className="text-[18px] font-bold text-ink tabular-nums mt-1">{totalReviews}</div>
             </div>
             <div>
-              <div className="text-[11px] text-muted">완료 리뷰</div>
-              <div className="text-[18px] font-bold">{totalReviews}</div>
-            </div>
-            <div>
-              <div className="text-[11px] text-muted">누적 지원</div>
-              <div className="text-[18px] font-bold">₩{totalSupport.toLocaleString()}</div>
+              <div className="text-[12px] text-muted">누적 지원</div>
+              <div className="text-[18px] font-bold text-ink tabular-nums mt-1">₩{totalSupport.toLocaleString()}</div>
             </div>
           </div>
         </div>
 
-        <h2 className="mt-6 text-[14px] font-bold text-muted">메뉴</h2>
-        <div className="mt-2 rounded-md border border-hairline divide-y divide-hairline overflow-hidden">
+        <h2 className="mt-7 text-[13px] font-semibold text-muted">메뉴</h2>
+        <div className="mt-2 rounded-lg border border-hairline bg-canvas divide-y divide-hairlineSoft overflow-hidden">
           {MENU.map((m) => (
-            <Link key={m.href} href={m.href} className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft">
+            <Link key={m.href} href={m.href} className="flex items-center gap-3 px-4 py-3.5 active:bg-parchment">
               <div className="text-[20px] w-7 text-center">{m.icon}</div>
               <div className="flex-1">
-                <div className="text-[14px] font-medium flex items-center gap-2">
+                <div className="text-[14px] font-semibold text-ink flex items-center gap-2">
                   {m.label}
-                  {m.badge ? <span className="text-[10px] bg-error text-white px-1.5 py-0.5 rounded-full">{m.badge}</span> : null}
+                  {m.badge ? <span className="text-[10px] font-semibold bg-error text-white px-1.5 py-0.5 rounded-pill tabular-nums">{m.badge}</span> : null}
                 </div>
                 {m.sub && <div className="text-[12px] text-muted mt-0.5">{m.sub}</div>}
               </div>
-              <div className="text-muted">→</div>
+              <div className="text-mutedSoft">→</div>
             </Link>
           ))}
           <a
             href="mailto:help@catchrank.co.kr?subject=[CATCHPASS] 사장님 문의"
-            className="flex items-center gap-3 px-4 py-3.5 active:bg-surfaceSoft border-t border-hairline"
+            className="flex items-center gap-3 px-4 py-3.5 active:bg-parchment border-t border-hairlineSoft"
           >
             <div className="text-[20px] w-7 text-center">💬</div>
             <div className="flex-1">

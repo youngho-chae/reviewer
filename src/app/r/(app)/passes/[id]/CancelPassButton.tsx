@@ -37,7 +37,7 @@ export default function CancelPassButton({ passId }: { passId: string }) {
   }
 
   return (
-    <div className="mt-4 rounded-md border border-hairline bg-parchment p-4 text-left w-full">
+    <div className="mt-4 rounded-md border border-hairline bg-canvas p-4 text-left w-full">
       <div className="text-[14px] font-semibold text-ink">참여를 취소할까요?</div>
       <p className="mt-1.5 text-[12px] text-muted leading-[1.5]">
         취소하면 이 체험권은 사용할 수 없고, 모집 자리는 다른 체험자에게 돌아갑니다.
@@ -47,14 +47,14 @@ export default function CancelPassButton({ passId }: { passId: string }) {
         <button
           disabled={loading}
           onClick={submit}
-          className="cp-action h-10 px-4 rounded-pill bg-ink text-white text-[13px] font-medium disabled:opacity-50"
+          className="cp-action h-10 px-4 rounded-md bg-error text-white text-[13px] font-semibold disabled:opacity-50"
         >
           {loading ? "취소 중..." : "참여 취소"}
         </button>
         <button
           disabled={loading}
           onClick={() => setConfirming(false)}
-          className="cp-action h-10 px-4 rounded-pill border border-hairline text-ink text-[13px] bg-canvas"
+          className="cp-action h-10 px-4 rounded-md border border-hairline text-ink text-[13px] font-semibold bg-canvas"
         >
           계속 사용할게요
         </button>

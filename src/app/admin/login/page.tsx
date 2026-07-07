@@ -29,9 +29,9 @@ export default function AdminLogin() {
   }
 
   return (
-    <main className="mobile-shell min-h-[100dvh] bg-canvas flex flex-col justify-center px-7">
-      <div className="text-[12px] uppercase tracking-[0.18em] text-muted">CATCHPASS</div>
-      <h1 className="font-display text-[34px] leading-[1.1] text-ink mt-1">운영팀 검수 콘솔</h1>
+    <main className="mobile-shell min-h-[100dvh] bg-canvas flex flex-col justify-center px-5">
+      <div className="text-[13px] font-bold text-brand tracking-title">CATCHPASS</div>
+      <h1 className="text-[20px] font-bold text-ink tracking-title mt-1">운영팀 검수 콘솔</h1>
       <p className="text-[14px] text-muted mt-2">제출된 후기를 통과/반려 처리합니다.</p>
 
       <form onSubmit={submit} className="mt-8 space-y-3">
@@ -52,7 +52,7 @@ export default function AdminLogin() {
         <button
           type="submit"
           disabled={busy || !email || !password}
-          className="w-full h-12 rounded-pill bg-ink text-white text-[16px] font-semibold disabled:opacity-50"
+          className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >
           {busy ? "로그인 중..." : "로그인"}
         </button>

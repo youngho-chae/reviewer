@@ -16,21 +16,26 @@ export default function PassesTabs({
 
   return (
     <>
-      <div className="px-6 mt-6">
-        <div className="inline-flex bg-parchment rounded-pill p-1 gap-1 border border-hairline">
-          <button
-            onClick={() => setTab("visit")}
-            className={`px-4 h-9 rounded-pill text-[14px] ${tab === "visit" ? "bg-canvas text-ink" : "text-muted"}`}
-          >
-            방문형 패스 <span className="opacity-60">{visitCount}</span>
-          </button>
-          <button
-            onClick={() => setTab("press")}
-            className={`px-4 h-9 rounded-pill text-[14px] ${tab === "press" ? "bg-canvas text-ink" : "text-muted"}`}
-          >
-            기자단 <span className="opacity-60">{pressCount}</span>
-          </button>
-        </div>
+      {/* category-chip 문법 — 필터 선택 = 검정 1.5px 보더 */}
+      <div className="px-5 mt-4 flex gap-2">
+        <button
+          onClick={() => setTab("visit")}
+          aria-pressed={tab === "visit"}
+          className={`h-10 px-4 rounded-pill text-[14px] bg-canvas whitespace-nowrap ${
+            tab === "visit" ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink2 font-medium"
+          }`}
+        >
+          방문형 패스 <span className="text-muted tabular-nums">{visitCount}</span>
+        </button>
+        <button
+          onClick={() => setTab("press")}
+          aria-pressed={tab === "press"}
+          className={`h-10 px-4 rounded-pill text-[14px] bg-canvas whitespace-nowrap ${
+            tab === "press" ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink2 font-medium"
+          }`}
+        >
+          기자단 <span className="text-muted tabular-nums">{pressCount}</span>
+        </button>
       </div>
       {tab === "visit" ? visitView : pressView}
     </>

@@ -38,14 +38,14 @@ export default function ReviewDecisionActions({ passId }: { passId: string }) {
           <button
             onClick={() => decide("approve")}
             disabled={busy !== null}
-            className="flex-1 h-10 rounded-pill bg-brand text-white text-[14px] font-semibold disabled:opacity-50"
+            className="flex-1 h-10 rounded-md bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
           >
             {busy === "approve" ? "처리 중..." : "검수 통과"}
           </button>
           <button
             onClick={() => setRejecting(true)}
             disabled={busy !== null}
-            className="flex-1 h-10 rounded-pill border border-error text-error text-[14px] font-semibold disabled:opacity-50"
+            className="flex-1 h-10 rounded-md border border-error bg-canvas text-error text-[14px] font-semibold disabled:opacity-50"
           >
             반려
           </button>
@@ -63,14 +63,14 @@ export default function ReviewDecisionActions({ passId }: { passId: string }) {
             <button
               onClick={() => decide("reject")}
               disabled={busy !== null}
-              className="flex-1 h-10 rounded-pill bg-error text-white text-[14px] font-semibold disabled:opacity-50"
+              className="flex-1 h-10 rounded-md bg-error text-white text-[14px] font-bold disabled:opacity-50"
             >
               {busy === "reject" ? "처리 중..." : "반려 확정"}
             </button>
             <button
               onClick={() => { setRejecting(false); setReason(""); }}
               disabled={busy !== null}
-              className="flex-1 h-10 rounded-pill border border-hairline text-ink text-[14px] disabled:opacity-50"
+              className="flex-1 h-10 rounded-md border border-hairline bg-canvas text-ink text-[14px] font-semibold disabled:opacity-50"
             >
               취소
             </button>

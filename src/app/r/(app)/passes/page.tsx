@@ -23,15 +23,16 @@ const statusLabel = (s: string) => ({
   rejected: "반려",
 } as any)[s] || s;
 
-const statusCls = (s: string) => ({
-  active: "text-brand",
-  used: "text-ink",
-  review_submitted: "text-muted",
-  completed: "text-brand",
-  expired: "text-mutedSoft",
-  cancelled: "text-mutedSoft",
-  rejected: "text-error",
-} as any)[s] || "text-muted";
+// 상태 칩 — *Soft 토큰 배경 + 강한 텍스트 (v2 상태 칩 문법)
+const statusChip = (s: string) => ({
+  active: "bg-brandSoft text-brand",
+  used: "bg-warningSoft text-warning",
+  review_submitted: "bg-sunken text-muted",
+  completed: "bg-successSoft text-successStrong",
+  expired: "bg-sunken text-mutedSoft",
+  cancelled: "bg-sunken text-mutedSoft",
+  rejected: "bg-errorSoft text-error",
+} as any)[s] || "bg-sunken text-muted";
 
 export default async function MyPasses({
   searchParams,
@@ -127,10 +128,10 @@ export default async function MyPasses({
 
   return (
     <div className="pb-24 bg-canvas">
-      {/* Sub-nav */}
-      <div className="sticky top-0 z-10 frosted-parchment border-b border-hairlineSoft">
-        <div className="h-13 px-5 flex items-center">
-          <h1 className="text-[21px] font-semibold text-ink tracking-[-0.011em]">내 체험권</h1>
+      {/* top-app-bar — 화이트 52px */}
+      <div className="sticky top-0 z-10 bg-canvas">
+        <div className="h-[52px] px-5 flex items-center">
+          <h1 className="text-[18px] font-bold text-ink tracking-title">내 체험권</h1>
         </div>
       </div>
 
@@ -143,7 +144,7 @@ export default async function MyPasses({
         visitCount={visit.length}
         pressCount={press.length}
         visitView={
-          <div className="px-6 mt-6 space-y-3 pb-8">
+          <div className="px-5 mt-5 space-y-3 pb-8">
             {visitItems.map(({ p, store, c, days, hours, reviewLeft, highlight }) => {
               // 우측 하단 메타 — 상태별 표시: active=유효기간, used=리뷰 마감, 그 외=상태 라벨
               let rightLabel = "유효기간";
@@ -158,33 +159,33 @@ export default async function MyPasses({
                 <Link
                   key={p.id}
                   href={`/r/passes/${p.id}`}
-                  className={`cp-action block bg-canvas border rounded-lg p-6 ${highlight ? "border-brand shadow-[0_0_0_3px_rgba(0,102,204,0.12)]" : "border-hairline"}`}
+                  className={`cp-action block bg-canvas rounded-lg p-5 ${highlight ? "border-[1.5px] border-brand" : "border border-hairline"}`}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <GradeBadge grade={p.reviewerGrade} size="sm" />
-                      <span className="text-[12px] tracking-[0.18em] uppercase text-muted">{p.reviewerGrade}등급</span>
+                      <span className="text-[12px] text-muted">{p.reviewerGrade}등급</span>
                     </div>
-                    <span className={`text-[13px] font-medium ${statusCls(p.status)}`}>{statusLabel(p.status)}</span>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${statusChip(p.status)}`}>{statusLabel(p.status)}</span>
                   </div>
-                  <h3 className="font-display text-[24px] leading-[1.14] text-ink">{store?.name}</h3>
-                  <p className="text-[14px] text-muted mt-1">{store?.area} · {store?.category}</p>
-                  <div className="flex items-end justify-between mt-5 pt-4 border-t border-dashed border-hairline">
+                  <h3 className="text-[16px] font-bold text-ink tracking-title leading-[1.35]">{store?.name}</h3>
+                  <p className="text-[13px] text-muted mt-0.5">{store?.area} · {store?.category}</p>
+                  <div className="flex items-end justify-between mt-4 pt-4 border-t border-dashed border-hairline">
                     <div>
                       <div className="text-[12px] text-muted">할인 금액</div>
-                      <div className="text-[15px] font-semibold text-ink tracking-[-0.022em] leading-none mt-1">
+                      <div className="text-[16px] font-bold text-ink tabular-nums leading-none mt-1">
                         {SBUI.support}
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-[12px] text-muted">{rightLabel}</div>
-                      <div className={`text-[14px] mt-1 ${p.status === "used" && reviewLeft && !reviewLeft.expired ? "text-brand font-semibold" : "text-ink"}`}>
+                      <div className={`text-[13px] font-semibold mt-1 tabular-nums ${p.status === "used" && reviewLeft && !reviewLeft.expired ? "text-brand" : "text-ink"}`}>
                         {rightValue}
                       </div>
                     </div>
                   </div>
                   {highlight && (
-                    <div className="mt-4 pt-4 border-t border-hairline text-[12px] text-brand font-semibold">
+                    <div className="mt-4 pt-3 border-t border-hairlineSoft text-[12px] text-brand font-semibold">
                       ✓ 방금 발급된 체험권이에요
                     </div>
                   )}
@@ -193,50 +194,50 @@ export default async function MyPasses({
             })}
             {visit.length === 0 && (
               <div className="py-16 text-center">
-                <p className="text-[17px] text-muted">아직 발급된 방문형 체험권이 없어요.</p>
-                <Link href="/r/home" className="cp-action inline-block mt-4 text-[15px] text-brand">홈에서 체험권 받기 →</Link>
+                <p className="text-[15px] text-muted">아직 발급된 방문형 체험권이 없어요.</p>
+                <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">홈에서 체험권 받기 →</Link>
               </div>
             )}
           </div>
         }
         pressView={
           <div>
-            {/* Stat strip — Apple parchment utility row */}
-            <div className="mx-6 mt-6 p-5 bg-parchment border border-hairline rounded-lg grid grid-cols-3 gap-2">
-              <div className="text-center">
-                <div className="text-[19px] font-semibold tracking-[-0.022em] text-ink leading-none">{press.filter((p) => p.status === "active").length}</div>
-                <div className="text-[11px] text-muted mt-2">작성 중</div>
+            {/* stat-strip — 화이트 + 헤어라인 3열 */}
+            <div className="mx-5 mt-5 rounded-lg border border-hairline bg-canvas grid grid-cols-3">
+              <div className="py-4 px-3 text-center">
+                <div className="text-[12px] text-muted">작성 중</div>
+                <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{press.filter((p) => p.status === "active").length}</div>
               </div>
-              <div className="text-center border-l border-r border-hairline">
-                <div className="text-[19px] font-semibold tracking-[-0.022em] text-ink leading-none">{press.filter((p) => p.status === "review_submitted").length}</div>
-                <div className="text-[11px] text-muted mt-2">검수 중</div>
+              <div className="py-4 px-3 text-center border-l border-r border-hairlineSoft">
+                <div className="text-[12px] text-muted">검수 중</div>
+                <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{press.filter((p) => p.status === "review_submitted").length}</div>
               </div>
-              <div className="text-center">
-                <div className="text-[13px] font-semibold tracking-[-0.022em] text-ink leading-none">{SBUI.payout}</div>
-                <div className="text-[11px] text-muted mt-2">정산 예정</div>
+              <div className="py-4 px-3 text-center">
+                <div className="text-[12px] text-muted">정산 예정</div>
+                <div className="mt-1 text-[14px] font-bold text-ink tabular-nums">{SBUI.payout}</div>
               </div>
             </div>
 
-            <div className="px-6 mt-5 space-y-3 pb-8">
+            <div className="px-5 mt-4 space-y-3 pb-8">
               {pressItems.map(({ p, store, c }) => {
                 const actionable = p.status === "active";
                 return (
-                  <div key={p.id} className="bg-canvas border border-hairline rounded-lg p-6">
+                  <div key={p.id} className="bg-canvas border border-hairline rounded-lg p-5">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <GradeBadge grade={p.reviewerGrade} size="sm" />
-                        <span className="text-[12px] tracking-[0.18em] uppercase text-muted">기자단</span>
+                        <span className="inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-1 text-[12px] font-semibold">기자단</span>
                       </div>
-                      <span className={`text-[13px] font-medium ${statusCls(p.status)}`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${statusChip(p.status)}`}>
                         {p.status === "active" ? "자료 수령" : statusLabel(p.status)}
                       </span>
                     </div>
-                    <h3 className="font-display text-[22px] leading-[1.14] text-ink">{store?.name}</h3>
-                    <p className="text-[14px] text-muted mt-1">{store?.area} · {store?.category}</p>
+                    <h3 className="text-[16px] font-bold text-ink tracking-title leading-[1.35]">{store?.name}</h3>
+                    <p className="text-[13px] text-muted mt-0.5">{store?.area} · {store?.category}</p>
 
-                    <div className="mt-4 pt-4 border-t border-hairline">
+                    <div className="mt-4 pt-4 border-t border-dashed border-hairline">
                       <div className="text-[12px] text-muted">정산 예정금</div>
-                      <div className="text-[16px] font-semibold text-ink tracking-[-0.022em] leading-none mt-1">
+                      <div className="text-[16px] font-bold text-ink tabular-nums leading-none mt-1">
                         {SBUI.payout}
                       </div>
                       <div className="text-[12px] text-muted mt-1">3.3% 원천징수 후 입금</div>
@@ -245,18 +246,18 @@ export default async function MyPasses({
                     {actionable ? (
                       <Link
                         href={`/r/press/${c?.id}/write?pass=${p.id}`}
-                        className="cp-action block mt-5 h-11 rounded-pill bg-brand text-white grid place-items-center text-[15px]"
+                        className="cp-action block mt-4 h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold"
                       >
                         작성 시작 →
                       </Link>
                     ) : p.status === "review_submitted" ? (
-                      <div className="mt-5 p-3 bg-parchment rounded-sm text-[13px] text-muted text-center">
+                      <div className="mt-4 p-3 bg-sunken rounded-md text-[13px] text-muted text-center">
                         운영팀 검수 중 · 최대 72시간
                       </div>
                     ) : p.status === "rejected" ? (
                       <Link
                         href={`/r/press/${c?.id}/write?pass=${p.id}`}
-                        className="cp-action block mt-5 h-11 rounded-pill border border-error/40 text-error grid place-items-center text-[14px]"
+                        className="cp-action block mt-4 h-11 rounded-md border border-hairline text-error grid place-items-center text-[14px] font-semibold"
                       >
                         반려 사유 확인 · 재제출 →
                       </Link>
@@ -266,8 +267,8 @@ export default async function MyPasses({
               })}
               {press.length === 0 && (
                 <div className="py-16 text-center">
-                  <p className="text-[17px] text-muted">진행 중인 기자단이 없어요.</p>
-                  <Link href="/r/home" className="cp-action inline-block mt-4 text-[15px] text-brand">홈 기자단 탭에서 신청 →</Link>
+                  <p className="text-[15px] text-muted">진행 중인 기자단이 없어요.</p>
+                  <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">홈 기자단 탭에서 신청 →</Link>
                 </div>
               )}
             </div>

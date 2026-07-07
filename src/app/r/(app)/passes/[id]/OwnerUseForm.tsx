@@ -56,7 +56,7 @@ export default function OwnerUseForm({ passId, supportAmount }: Props) {
   if (done) {
     return (
       <div className="mt-7 w-full pt-6 border-t border-dashed border-hairline text-center">
-        <div className="text-[15px] font-semibold text-brand">✓ 사용 처리 완료</div>
+        <div className="text-[15px] font-bold text-successStrong">✓ 사용 처리 완료</div>
         <div className="mt-1 text-[12px] text-muted">잠시 후 리뷰 작성 화면으로 이동합니다…</div>
       </div>
     );
@@ -64,7 +64,7 @@ export default function OwnerUseForm({ passId, supportAmount }: Props) {
 
   return (
     <div className="mt-7 w-full pt-6 border-t border-dashed border-hairline">
-      <div className="text-[11px] text-muted tracking-[0.18em] uppercase text-center">
+      <div className="text-[13px] font-bold text-ink text-center">
         사장님 사용 처리
       </div>
       <p className="mt-1.5 text-[12px] text-muted text-center leading-[1.5]">
@@ -78,7 +78,7 @@ export default function OwnerUseForm({ passId, supportAmount }: Props) {
         placeholder="0000"
         maxLength={4}
         aria-label="사용처리 코드 4자리"
-        className="mt-3 w-full h-14 rounded-md border border-hairline focus:border-brand focus:outline-none text-[28px] font-semibold tracking-[0.5em] text-center"
+        className="mt-3 w-full h-14 rounded-md border border-hairline focus:border-brand focus:outline-none text-[22px] font-bold tabular-nums tracking-[0.5em] text-center"
       />
 
       <div className="mt-3">
@@ -103,7 +103,7 @@ export default function OwnerUseForm({ passId, supportAmount }: Props) {
       <button
         onClick={submit}
         disabled={busy || code.length !== 4}
-        className="mt-3 w-full h-12 rounded-pill bg-brand text-white text-[15px] font-semibold disabled:opacity-50"
+        className="mt-3 w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
       >
         {busy ? "처리 중..." : "사용 처리"}
       </button>

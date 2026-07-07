@@ -59,7 +59,7 @@ export default async function RefereeLandingPage({
             <div className="text-[40px] mb-3">⏰</div>
             <div className="font-display text-[22px] text-ink">만료된 초대예요</div>
             <div className="text-[13px] text-muted mt-2">14일이 지났어요. 다른 친구에게 새 박스를 받아보세요.</div>
-            <Link href="/r/signup" className="cp-action mt-6 inline-flex h-11 px-5 rounded-pill bg-ink text-white items-center text-[14px] font-medium">
+            <Link href="/r/signup" className="cp-action mt-6 inline-flex h-12 px-6 rounded-md bg-brand text-white items-center text-[15px] font-bold">
               그래도 가입할래요 →
             </Link>
           </div>
@@ -68,19 +68,19 @@ export default async function RefereeLandingPage({
             <div className="text-[40px] mb-3">🎁</div>
             <div className="font-display text-[22px] text-ink">이미 받아간 박스예요</div>
             <div className="text-[13px] text-muted mt-2">한 토큰은 한 명만 받을 수 있어요.</div>
-            <Link href="/r/login" className="cp-action mt-6 inline-flex h-11 px-5 rounded-pill bg-ink text-white items-center text-[14px] font-medium">
+            <Link href="/r/login" className="cp-action mt-6 inline-flex h-12 px-6 rounded-md bg-brand text-white items-center text-[15px] font-bold">
               로그인 →
             </Link>
           </div>
         ) : (
           <>
             {/* Hero — 친구가 보낸 박스 */}
-            <div className="rounded-2xl bg-gradient-to-br from-brand to-[#0040a0] text-white p-7 text-center relative overflow-hidden">
+            <div className="rounded-lg bg-brand text-white p-7 text-center relative overflow-hidden">
               <div className="absolute -right-8 -top-8 text-[160px] opacity-15 select-none" aria-hidden>🎁</div>
               <div className="relative">
                 <div className="text-[60px] leading-none mb-3" aria-hidden>🎁</div>
                 <div className="text-[14px] opacity-90">{referrerName}님이 선물을 보냈어요</div>
-                <div className="font-display text-[28px] leading-[1.1] mt-3 tracking-[-0.022em]">
+                <div className="text-[20px] font-bold leading-[1.3] mt-3 tracking-title">
                   {preview}
                 </div>
                 <div className="text-[12px] opacity-85 mt-3">
@@ -101,7 +101,7 @@ export default async function RefereeLandingPage({
               href={inv?.targetKind === "owner"
                 ? `/o/signup?invite=${encodeURIComponent(token)}`
                 : `/r/signup?invite=${encodeURIComponent(token)}`}
-              className="cp-action mt-6 flex items-center justify-center h-12 rounded-pill bg-ink text-white text-[16px] font-semibold"
+              className="cp-action mt-6 flex items-center justify-center h-[52px] rounded-md bg-brand text-white text-[16px] font-bold"
             >
               박스 받고 가입하기 →
             </Link>

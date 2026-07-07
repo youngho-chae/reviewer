@@ -31,7 +31,7 @@ export default async function Me() {
   return (
     <div className="pb-24 bg-canvas">
       {/* Sub-nav */}
-      <div className="sticky top-0 z-10 frosted-parchment border-b border-hairlineSoft">
+      <div className="sticky top-0 z-10 bg-canvas">
         <div className="h-13 px-5 flex items-center">
           <h1 className="text-[21px] font-semibold text-ink tracking-[-0.011em]">MY</h1>
         </div>
@@ -40,9 +40,9 @@ export default async function Me() {
       {/* Parchment profile hero */}
       <section className="bg-parchment px-6 pt-12 pb-10 text-center">
         <div className="w-20 h-20 mx-auto rounded-full bg-canvas border border-hairline flex items-center justify-center mb-4">
-          <span className="font-display text-[34px] text-ink leading-none">{me.nickname.slice(0, 1)}</span>
+          <span className="text-[22px] font-bold text-ink leading-none">{me.nickname.slice(0, 1)}</span>
         </div>
-        <h1 className="font-display text-[34px] leading-[1.1] text-ink">{me.nickname}</h1>
+        <h1 className="text-[20px] font-bold tracking-title leading-[1.3] text-ink">{me.nickname}</h1>
         <p className="mt-2 text-[15px] text-ink2">{me.email}</p>
         <Link href="/r/grade" className="cp-action mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-canvas rounded-pill border border-hairline">
           <GradeBadge grade={me.grade} size="sm" />
@@ -51,20 +51,20 @@ export default async function Me() {
         </Link>
       </section>
 
-      {/* Dark tile — stats */}
-      <section className="bg-tile1 text-white px-6 py-12">
-        <div className="grid grid-cols-3 gap-3 text-center">
+      {/* stat-strip — 내 활동 요약 (v2) */}
+      <section className="px-5 py-2">
+        <div className="rounded-lg border border-hairline bg-canvas px-4 py-5 grid grid-cols-3 gap-3 text-center text-ink">
           <div>
-            <div className="font-display text-[28px] tracking-[-0.022em] leading-none">{completed}</div>
-            <div className="text-[12px] text-mutedSoft mt-2">완료 리뷰</div>
+            <div className="text-[18px] font-bold tabular-nums leading-none">{completed}</div>
+            <div className="text-[12px] text-muted mt-2">완료 리뷰</div>
           </div>
-          <div className="border-l border-r border-white/10">
-            <div className="font-display text-[28px] tracking-[-0.022em] leading-none">{me.qualityScore || "—"}</div>
-            <div className="text-[12px] text-mutedSoft mt-2">리뷰 점수</div>
+          <div className="border-l border-r border-hairlineSoft">
+            <div className="text-[18px] font-bold tabular-nums leading-none">{me.qualityScore || "—"}</div>
+            <div className="text-[12px] text-muted mt-2">리뷰 점수</div>
           </div>
           <div>
-            <div className="font-display text-[20px] tracking-[-0.022em] leading-none">₩{Math.round(totalSupport / 1000)}K</div>
-            <div className="text-[12px] text-mutedSoft mt-2">누적 혜택</div>
+            <div className="text-[16px] font-bold tabular-nums leading-none">₩{Math.round(totalSupport / 1000)}K</div>
+            <div className="text-[12px] text-muted mt-2">누적 혜택</div>
           </div>
         </div>
       </section>

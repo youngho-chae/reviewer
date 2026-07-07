@@ -26,7 +26,7 @@ export default async function WelcomeBoxPage({
         <div className="text-[40px] mb-3">🎁</div>
         <div className="font-display text-[22px] text-ink">받을 박스가 없어요</div>
         <div className="text-[13px] text-muted mt-2">토큰이 누락됐어요.</div>
-        <Link href="/r/home" className="cp-action mt-6 h-11 px-5 rounded-pill bg-ink text-white inline-flex items-center text-[14px]">
+        <Link href="/r/home" className="cp-action mt-6 h-12 px-6 rounded-md bg-brand text-white inline-flex items-center text-[15px] font-bold">
           홈으로 →
         </Link>
       </div>

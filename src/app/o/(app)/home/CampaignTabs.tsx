@@ -17,18 +17,19 @@ export default function CampaignTabs({
   return (
     <>
       <div className="px-5 mt-3">
-        <div className="inline-flex bg-parchment rounded-pill p-1 gap-1 border border-hairline">
+        {/* category-chip — 선택 = 검정 1.5px 보더 (필터 선택 문법) */}
+        <div className="flex gap-2">
           <button
             onClick={() => setTab("visit")}
-            className={`px-4 h-9 rounded-pill text-[13px] ${tab === "visit" ? "bg-canvas text-ink" : "text-muted"}`}
+            className={`px-4 h-9 rounded-pill text-[13px] bg-canvas ${tab === "visit" ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-muted font-medium"}`}
           >
-            체험단 <span className="opacity-60">{visitCount}</span>
+            체험단 <span className="opacity-60 tabular-nums">{visitCount}</span>
           </button>
           <button
             onClick={() => setTab("press")}
-            className={`px-4 h-9 rounded-pill text-[13px] ${tab === "press" ? "bg-canvas text-ink" : "text-muted"}`}
+            className={`px-4 h-9 rounded-pill text-[13px] bg-canvas ${tab === "press" ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-muted font-medium"}`}
           >
-            기자단 <span className="opacity-60">{pressCount}</span>
+            기자단 <span className="opacity-60 tabular-nums">{pressCount}</span>
           </button>
         </div>
       </div>

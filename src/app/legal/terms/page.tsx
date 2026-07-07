@@ -4,7 +4,7 @@ export const metadata = { title: "이용약관 | CATCHPASS" };
 function Article({ n, title, items }: { n: number; title: string; items: string[] }) {
   return (
     <section className="mt-8">
-      <h2 className="text-[17px] font-semibold text-ink">제{n}조 ({title})</h2>
+      <h2 className="text-[16px] font-bold text-ink">제{n}조 ({title})</h2>
       <ol className="mt-3 space-y-2 list-decimal pl-5">
         {items.map((t, i) => (
           <li key={i} className="text-[14px] leading-[1.65] text-ink2">{t}</li>
@@ -17,10 +17,10 @@ function Article({ n, title, items }: { n: number; title: string; items: string[
 export default function TermsPage() {
   return (
     <article>
-      <h1 className="font-display text-[28px] leading-[1.14] text-ink">캐치패스 이용약관</h1>
+      <h1 className="text-[20px] font-bold text-ink tracking-title">캐치패스 이용약관</h1>
       <p className="mt-2 text-[13px] text-muted">시행일: 2026년 7월 1일 (VER.1)</p>
 
-      <h2 className="mt-10 text-[19px] font-semibold text-ink">제1장 총칙</h2>
+      <h2 className="mt-10 text-[18px] font-bold text-ink tracking-title">제1장 총칙</h2>
 
       <Article n={1} title="목적" items={[
         "이 약관은 캐치랭크(이하 \"회사\")가 운영하는 리뷰 체험 플랫폼 \"캐치패스\"(이하 \"서비스\")의 이용과 관련하여 회사와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.",
@@ -41,7 +41,7 @@ export default function TermsPage() {
         "회원이 변경 약관 시행일 이후에도 서비스를 계속 이용하는 경우 변경 약관에 동의한 것으로 봅니다.",
       ]} />
 
-      <h2 className="mt-10 text-[19px] font-semibold text-ink">제2장 회원가입 및 계정</h2>
+      <h2 className="mt-10 text-[18px] font-bold text-ink tracking-title">제2장 회원가입 및 계정</h2>
 
       <Article n={4} title="회원가입" items={[
         "회원가입은 가입 신청자가 이 약관과 개인정보 수집·이용에 동의하고 회사가 정한 가입 양식을 작성하여 신청하면, 회사가 이를 승낙함으로써 성립합니다.",
@@ -54,7 +54,7 @@ export default function TermsPage() {
         "회원은 언제든지 고객센터(help@catchrank.co.kr)를 통해 탈퇴를 요청할 수 있으며, 회사는 관련 법령이 정하는 바에 따라 지체 없이 처리합니다.",
       ]} />
 
-      <h2 className="mt-10 text-[19px] font-semibold text-ink">제3장 체험자 서비스</h2>
+      <h2 className="mt-10 text-[18px] font-bold text-ink tracking-title">제3장 체험자 서비스</h2>
 
       <Article n={6} title="등급 산정" items={[
         "등급은 연동 채널별로 별도 산정되며, 산정 기준(채널 영향력 지표 및 임계값)은 서비스 내 등급 안내 화면에 공개합니다.",
@@ -85,7 +85,7 @@ export default function TermsPage() {
         "매장 또는 다른 회원에 대한 비방, 허위 사실 유포",
       ]} />
 
-      <h2 className="mt-10 text-[19px] font-semibold text-ink">제4장 사장님 서비스</h2>
+      <h2 className="mt-10 text-[18px] font-bold text-ink tracking-title">제4장 사장님 서비스</h2>
 
       <Article n={10} title="멤버십 및 캠페인" items={[
         "사장님은 멤버십 플랜(Free/Basic/Standard/Premium)에 따라 월간 모집 한도 내에서 캠페인을 운영할 수 있습니다.",
@@ -99,7 +99,7 @@ export default function TermsPage() {
         "사장님은 체험자에게 긍정적 리뷰 작성을 강요하거나, 리뷰 내용 수정을 요구할 수 없습니다. 리뷰 검수는 운영팀이 전담합니다.",
       ]} />
 
-      <h2 className="mt-10 text-[19px] font-semibold text-ink">제5장 초대 보상</h2>
+      <h2 className="mt-10 text-[18px] font-bold text-ink tracking-title">제5장 초대 보상</h2>
 
       <Article n={12} title="친구 초대 및 보상" items={[
         "회원은 초대 링크를 통해 친구를 초대할 수 있으며, 초대받은 친구가 가입을 완료하면 서비스 내 안내된 보상이 지급됩니다.",
@@ -107,7 +107,7 @@ export default function TermsPage() {
         "보상의 종류·지급 조건은 서비스 내 초대 화면에 안내하며, 회사는 사전 공지 후 이를 변경할 수 있습니다.",
       ]} />
 
-      <h2 className="mt-10 text-[19px] font-semibold text-ink">제6장 기타</h2>
+      <h2 className="mt-10 text-[18px] font-bold text-ink tracking-title">제6장 기타</h2>
 
       <Article n={13} title="회사의 지위" items={[
         "회사는 체험자와 사장님 간 체험 기회를 중개하는 플랫폼 운영자로서, 매장이 제공하는 상품·서비스의 품질에 대해서는 해당 사장님이 책임을 부담합니다. 다만 회사는 분쟁 해결을 위해 성실히 협조합니다.",
