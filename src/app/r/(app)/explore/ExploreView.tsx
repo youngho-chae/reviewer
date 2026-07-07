@@ -28,8 +28,6 @@ export interface ExplorePressCard {
   payout: number;
   slotsLeft: number;
   slotsTotal: number;
-  minGrade: "S" | "A" | "B" | "C";
-  accessible: boolean;
   kitPhotos: number;
   daysLeft: number;
   endAt: number;
@@ -135,8 +133,8 @@ export default function ExploreView({
           return a.endAt - b.endAt;
         case "recommended":
         default:
-          // 접근 가능한 카드 우선, 그 다음 지원금 큰 순
-          return (Number(b.accessible) - Number(a.accessible)) || (b.supportAmount - a.supportAmount);
+          // 내 등급 기준 받을 수 있는 혜택(지원금) 큰 순
+          return b.supportAmount - a.supportAmount;
       }
     });
     return list;
@@ -329,17 +327,17 @@ export default function ExploreView({
                 )}
               </div>
 
-              {/* 등급 혜택 배너 — 이미지 2 하단 */}
+              {/* 등급 혜택 배너 — 등급은 참여 자격이 아니라 혜택 크기 (P1) */}
               <Link
-                href="/r/rewards"
+                href="/r/grade"
                 className="cp-action mx-6 mb-32 -mt-24 flex items-center gap-3 p-4 rounded-md border border-hairline bg-parchment"
               >
                 <span className="w-9 h-9 rounded-md bg-brand/12 text-brand flex items-center justify-center">
                   <Icon name="ticket" variant="bold" size={18} />
                 </span>
                 <div className="flex-1">
-                  <div className="text-[13px] font-semibold text-ink">A등급은 진짜 어디 가는지 궁금하지 않아요?</div>
-                  <div className="text-[11px] text-muted mt-0.5">등급별 혜택과 조건 확인하기</div>
+                  <div className="text-[13px] font-semibold text-ink">등급이 오르면 같은 매장도 더 크게 받아요</div>
+                  <div className="text-[11px] text-muted mt-0.5">등급별 지원금 배율 확인하기</div>
                 </div>
                 <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
               </Link>
@@ -356,8 +354,8 @@ export default function ExploreView({
                 {filteredPress.map((p) => (
                   <Link
                     key={p.campaignId}
-                    href={p.accessible ? `/r/press/${p.campaignId}` : "/r/grade"}
-                    className={`cp-action flex bg-canvas border border-hairline rounded-md overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
+                    href={`/r/press/${p.campaignId}`}
+                    className="cp-action flex bg-canvas border border-hairline rounded-md overflow-hidden"
                   >
                     <div className="relative w-[96px] h-[96px] shrink-0 bg-parchment">
                       <Image
@@ -367,12 +365,6 @@ export default function ExploreView({
                         sizes="96px"
                         className="object-cover"
                       />
-                      {!p.accessible && (
-                        <div className="absolute inset-0 bg-ink/45 flex items-center justify-center text-white text-[10px] font-semibold gap-1">
-                          <Icon name="lock" variant="bold" size={10} />
-                          <span>등급 부족</span>
-                        </div>
-                      )}
                     </div>
                     <div className="flex-1 p-3 min-w-0">
                       <div className="text-[11px] text-muted">기자단 · {p.category}</div>
@@ -491,15 +483,16 @@ export default function ExploreView({
 /* ─────────────────────────────────────────────────────────────
  * 1단 축약 카드 (이미지 2 기준)
  *   좌 96px 정사각 썸네일 + 상단 라벨 칩
- *   매장명 / 카테고리·지역 / 도보·등급 / 체험지원
+ *   매장명 / 카테고리·지역 / 도보 / 체험지원(내 등급 혜택)
  *   우측 상단: 잔여 자리 / 마감일(빨강)
+ *   [P1] 등급 게이트 없음 — 모든 카드가 참여 가능, 금액만 등급별로 다름.
  * ─────────────────────────────────────────────────────────────*/
 function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade: Grade }) {
   const label = cardLabel(card);
   return (
     <Link
-      href={card.accessible ? `/r/store/${card.storeId}?campaign=${card.campaignId}` : "/r/grade"}
-      className={`cp-action flex bg-canvas border border-hairline rounded-md overflow-hidden ${card.accessible ? "" : "opacity-60"}`}
+      href={`/r/store/${card.storeId}?campaign=${card.campaignId}`}
+      className="cp-action flex bg-canvas border border-hairline rounded-md overflow-hidden"
     >
       <div className="relative w-[104px] h-[104px] shrink-0 bg-parchment">
         <Image
@@ -524,17 +517,6 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
             </span>
           </div>
         )}
-        {!card.accessible && (
-          <div className="absolute inset-0 bg-ink/55 flex items-center justify-center text-white text-[10px] font-semibold text-center px-2 leading-tight">
-            <span>
-              <Icon name="lock" variant="bold" size={12} className="inline mb-0.5" />
-              <br />
-              {SBUI.grade}
-              <br />
-              <span className="font-normal opacity-80">전용</span>
-            </span>
-          </div>
-        )}
       </div>
       <div className="flex-1 p-3 min-w-0">
         <div className="flex items-start justify-between gap-2">
@@ -545,8 +527,6 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
               <span className="inline-flex items-center text-[11px] text-ink font-medium">
                 <span className="mr-0.5" aria-hidden>🚶</span>{SBUI.walk}
               </span>
-              <span className="text-[11px] text-muted">·</span>
-              <span className="text-[11px] text-muted">{SBUI.gradeReq}</span>
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-[13px] text-success font-semibold">{SBUI.support}</span>
@@ -569,8 +549,8 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
   const label = cardLabel(card);
   return (
     <Link
-      href={card.accessible ? `/r/store/${card.storeId}?campaign=${card.campaignId}` : "/r/grade"}
-      className={`cp-action block bg-canvas border border-hairline rounded-md overflow-hidden ${card.accessible ? "" : "opacity-60"}`}
+      href={`/r/store/${card.storeId}?campaign=${card.campaignId}`}
+      className="cp-action block bg-canvas border border-hairline rounded-md overflow-hidden"
     >
       <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
         <Image
@@ -600,13 +580,6 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
             {SBUI.walk}
           </span>
         </div>
-        {!card.accessible && (
-          <div className="absolute inset-0 bg-ink/55 flex flex-col items-center justify-center text-white text-[12px] font-semibold text-center px-3 leading-tight">
-            <Icon name="lock" variant="bold" size={16} />
-            <span className="mt-1">{SBUI.grade} 전용</span>
-            <span className="text-[11px] font-normal opacity-90">(등급 부족 상태)</span>
-          </div>
-        )}
       </div>
       <div className="p-3">
         <div className="text-[10px] text-muted uppercase tracking-wider mb-0.5">{card.category}</div>

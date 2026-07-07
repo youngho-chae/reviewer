@@ -5,7 +5,6 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI } from "@/lib/storyboard";
-import type { Grade } from "@/lib/types";
 import Icon from "@/components/Icon";
 import StoreParticipate from "./StoreParticipate";
 import NaverMapButton from "./NaverMapButton";
@@ -26,8 +25,6 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
   const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
   const remain = totalQ - usedQ;
-  const minNeededGrade: Grade =
-    c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
   const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
 
   return (
@@ -161,7 +158,6 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
       <StoreParticipate
         campaignId={c.id}
         base={c.supportAmount}
-        minGrade={minNeededGrade}
         requiredChannels={c.requiredChannels}
         myChannelGrades={me.channelGrades ?? {}}
         myActivePassId={myActivePass?.id ?? null}

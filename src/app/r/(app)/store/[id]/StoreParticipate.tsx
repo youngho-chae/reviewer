@@ -11,12 +11,11 @@ import {
   CHANNEL_SHORT,
   defaultChannel,
 } from "@/lib/channels";
-import { gradeMeets, SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 
 interface Props {
   campaignId: string;
   base: number; // 기준 지원금 (S 등급 = 최대)
-  minGrade: Grade; // 캠페인 최소 참여 등급
   requiredChannels: SnsKind[];
   myChannelGrades: Partial<Record<SnsKind, Grade>>;
   myActivePassId: string | null;
@@ -30,7 +29,6 @@ function supportFor(base: number, g: Grade): number {
 export default function StoreParticipate({
   campaignId,
   base,
-  minGrade,
   requiredChannels,
   myChannelGrades,
   myActivePassId,
@@ -43,14 +41,12 @@ export default function StoreParticipate({
     [requiredChannels],
   );
 
-  // 기본 선택 — 블로그 우선, 참여 가능한(연동+자격) 채널이 있으면 그 우선순위, 없으면 우선순위 첫 채널
+  // 기본 선택 — 연동된 채널 중 우선순위(블로그→인스타→틱톡) 첫 번째, 없으면 우선순위 첫 채널
+  // [P1] 등급은 참여 자격이 아님 — 연동 여부만 본다.
   const initial = useMemo(() => {
-    const eligibleFirst = ordered.find((c) => {
-      const g = myChannelGrades[c];
-      return g && gradeMeets(g, minGrade);
-    });
-    return eligibleFirst ?? defaultChannel(ordered) ?? ordered[0];
-  }, [ordered, myChannelGrades, minGrade]);
+    const connectedFirst = ordered.find((c) => !!myChannelGrades[c]);
+    return connectedFirst ?? defaultChannel(ordered) ?? ordered[0];
+  }, [ordered, myChannelGrades]);
 
   const [selected, setSelected] = useState<SnsKind>(initial);
   const [open, setOpen] = useState(false);
@@ -59,7 +55,6 @@ export default function StoreParticipate({
 
   const myGrade: Grade | undefined = myChannelGrades[selected];
   const connected = !!myGrade;
-  const eligible = connected && gradeMeets(myGrade as Grade, minGrade);
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
   const conditions = CHANNEL_REVIEW_CONDITIONS[selected] ?? [];
 
@@ -93,8 +88,7 @@ export default function StoreParticipate({
         <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">참여 채널 선택</h3>
         <div className="flex flex-wrap gap-2">
           {ordered.map((ch) => {
-            const g = myChannelGrades[ch];
-            const able = !!g && gradeMeets(g, minGrade);
+            const able = !!myChannelGrades[ch]; // 연동 여부만 표시 (등급 무관 — P1)
             const isSel = ch === selected;
             return (
               <button
@@ -128,21 +122,14 @@ export default function StoreParticipate({
                 </span>
                 <span className="text-[13px] text-muted">내 {myGrade}등급 기준</span>
               </div>
-              {!eligible && (
-                <div className="mt-2 text-[13px] text-error">
-                  이 채널은 {minGrade}등급부터 참여할 수 있어요 (내 {myGrade}등급)
-                </div>
-              )}
-              {eligible && base > selectedSupport && (
+              {base > selectedSupport && (
                 <div className="mt-1.5 text-[12px] text-muted">
                   최대 ₩{base.toLocaleString()} (S등급) · 등급이 오르면 지원금도 올라가요
                 </div>
               )}
-              {eligible && (
-                <div className="mt-1.5 text-[12px] text-muted">
-                  지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요.
-                </div>
-              )}
+              <div className="mt-1.5 text-[12px] text-muted">
+                지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요.
+              </div>
             </>
           ) : (
             <div className="mt-1 text-[15px] text-ink2 leading-[1.5]">
@@ -200,10 +187,6 @@ export default function StoreParticipate({
           ) : !connected ? (
             <button disabled className="w-full h-11 rounded-pill bg-parchment text-muted text-[17px] border border-hairline">
               {CHANNEL_LABEL[selected]} 미연동
-            </button>
-          ) : !eligible ? (
-            <button disabled className="w-full h-11 rounded-pill bg-parchment text-muted text-[17px] border border-hairline">
-              {minGrade}등급부터 참여 가능
             </button>
           ) : (
             <button onClick={() => setOpen(true)} className="w-full h-11 rounded-pill bg-brand text-white text-[17px]">

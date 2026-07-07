@@ -58,30 +58,28 @@ export function supportForGrade(base: number, g: Grade): number {
 export interface ChannelOffer {
   channel: SnsKind;
   grade: Grade; // 해당 채널에서의 내 등급 (미연동 시 N)
-  connected: boolean; // 채널 연동 여부
-  eligible: boolean; // 캠페인 최소 등급 충족 여부
-  support: number; // 이 채널로 참여 시 받는 지원금
+  connected: boolean; // 채널 연동 여부 — 참여 가능 조건 (등급은 참여 자격이 아님)
+  support: number; // 이 채널로 참여 시 받는 지원금 (등급은 혜택 크기만 결정)
 }
 
 // 캠페인의 필수 채널 각각에 대해, 내 채널 등급으로 받을 수 있는 혜택을 계산.
+// [정책 원칙 P1] 모든 등급은 모든 캠페인에 참여할 수 있다 — 등급은 지원금 배율(혜택)만 결정한다.
 export function channelOffers(
   required: SnsKind[],
   channelGrades: Partial<Record<SnsKind, Grade>> | undefined,
-  minGrade: Grade,
   base: number,
 ): ChannelOffer[] {
   const cg = channelGrades ?? {};
   return required.map((channel) => {
     const connected = !!cg[channel];
     const grade: Grade = cg[channel] ?? "N";
-    const eligible = connected && gradeMeets(grade, minGrade);
-    return { channel, grade, connected, eligible, support: supportForGrade(base, grade) };
+    return { channel, grade, connected, support: supportForGrade(base, grade) };
   });
 }
 
-// 내가 받을 수 있는 가장 큰 혜택(eligible 채널 중 최댓값). 없으면 0.
+// 내가 받을 수 있는 가장 큰 혜택(연동된 채널 중 최댓값). 연동 채널이 없으면 0.
 export function bestEligibleSupport(offers: ChannelOffer[]): number {
-  return offers.filter((o) => o.eligible).reduce((m, o) => Math.max(m, o.support), 0);
+  return offers.filter((o) => o.connected).reduce((m, o) => Math.max(m, o.support), 0);
 }
 
 export const gradeLabel: Record<Grade, string> = {
@@ -104,8 +102,5 @@ export const gradeOrder: Grade[] = ["S", "A", "B", "C", "N"];
 export function gradeRank(g: Grade): number {
   return gradeOrder.indexOf(g);
 }
-// returns true if reviewer grade qualifies for a campaign that requires `min`
-export function gradeMeets(reviewer: Grade, min: Grade): boolean {
-  // lower rank index = higher grade
-  return gradeRank(reviewer) <= gradeRank(min);
-}
+// [정책 원칙 P1] "최소 참여 등급" 개념은 존재하지 않는다 — 등급 게이트 함수(gradeMeets)는
+// 정책 위반이라 제거됨. 등급은 SUPPORT_MULTIPLIER를 통한 혜택 차등에만 쓰인다.

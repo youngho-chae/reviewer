@@ -2,8 +2,7 @@ import { after } from "next/server";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
-import { gradeMeets, channelOffers, bestEligibleSupport } from "@/lib/grade";
-import type { Grade } from "@/lib/types";
+import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import Icon from "@/components/Icon";
 import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
 
@@ -32,12 +31,10 @@ export default async function ReviewerExplore({
       const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
       const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
       const remain = totalQ - usedQ;
-      const minNeededGrade: "S" | "A" | "B" | "C" =
-        c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-      // 채널별 등급으로 내가 받을 수 있는 가장 큰 혜택 (없으면 기준 지원금=최대치 노출)
-      const offers = channelOffers(c.requiredChannels, me.channelGrades, minNeededGrade as Grade, c.supportAmount);
+      // [P1] 등급은 참여 자격이 아님 — 연동 채널의 내 등급으로 받을 수 있는 가장 큰 혜택을
+      // 노출하고, 연동 채널이 없으면 기준 지원금(S 100% 최대치)을 노출한다.
+      const offers = channelOffers(c.requiredChannels, me.channelGrades, c.supportAmount);
       const myBest = bestEligibleSupport(offers);
-      const accessible = myBest > 0;
       return {
         storeId: store.id,
         campaignId: c.id,
@@ -47,12 +44,10 @@ export default async function ReviewerExplore({
         coverEmoji: store.coverEmoji,
         lat: store.lat ?? 37.5665,
         lng: store.lng ?? 126.978,
-        supportAmount: accessible ? myBest : c.supportAmount,
+        supportAmount: myBest > 0 ? myBest : c.supportAmount,
         requiredChannels: c.requiredChannels,
         remain,
         totalQuota: totalQ,
-        grade: minNeededGrade,
-        accessible,
         rating: store.rating,
         reviewCount: store.reviewCount,
         endAt: c.endAt,
@@ -66,8 +61,6 @@ export default async function ReviewerExplore({
       const store = db.stores.find((s) => s.id === c.storeId)!;
       const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
       const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
-      const minNeededGrade: "S" | "A" | "B" | "C" =
-        c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
       return {
         campaignId: c.id,
         storeId: store.id,
@@ -78,8 +71,6 @@ export default async function ReviewerExplore({
         payout: c.supportAmount,
         slotsLeft: totalQ - usedQ,
         slotsTotal: totalQ,
-        minGrade: minNeededGrade,
-        accessible: gradeMeets(me.grade, minNeededGrade),
         kitPhotos: c.pressMaterials?.length || 8,
         daysLeft: Math.max(0, Math.ceil((c.endAt - now) / 86400000)),
         endAt: c.endAt,
@@ -87,7 +78,8 @@ export default async function ReviewerExplore({
       };
     });
 
-  const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "xucmechng0";
+  // 지도 클라이언트 ID는 env로만 주입 (미설정 시 SDK 로드 실패 → 리스트 폴백 카드)
+  const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "";
   const activePassCount = db.passes.filter(
     (p) => p.reviewerId === me.id && (p.status === "active" || p.status === "used"),
   ).length;

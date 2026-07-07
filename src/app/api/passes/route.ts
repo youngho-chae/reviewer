@@ -3,7 +3,6 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
 import { Pass, Grade, SnsKind } from "@/lib/types";
-import { gradeMeets } from "@/lib/grade";
 import { CHANNEL_LABEL } from "@/lib/channels";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 
@@ -66,15 +65,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ passId: dup.id });
   }
 
-  // 등급 검증 — 선택 채널의 내 등급이 캠페인 최소 등급을 충족해야 함
-  const minGrade: "S" | "A" | "B" | "C" =
-    c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-  if (channelGrade !== "S" && !gradeMeets(channelGrade, minGrade)) {
-    const prefix = selectedChannel ? `${CHANNEL_LABEL[selectedChannel]} ` : "";
-    return NextResponse.json({ error: `${prefix}${minGrade}등급부터 이용 가능합니다` }, { status: 403 });
-  }
+  // [정책 원칙 P1] 등급은 참여 자격이 아니다 — 모든 등급이 모든 캠페인에 참여할 수 있으며,
+  // 등급은 지원금 배율(혜택 크기)만 결정한다. 자격 조건은 ①진행 중 ②채널 연동 ③잔여 슬롯뿐.
 
-  // 등급별 quota 차감 (자기 등급 우선, 부족 시 상위 권한이 빈 슬롯 사용)
+  // 등급별 quota 차감 — 버킷은 참여 자격이 아니라 배분 기록용.
+  // 자기 등급 버킷 우선 소진, 소진 시 잔여 버킷(하위→상위 순) 사용. N등급은 C 버킷부터.
   const order: Array<"S" | "A" | "B" | "C"> = ["S", "A", "B", "C"];
   const fromIdx = order.indexOf(channelGrade === "N" ? "C" : (channelGrade as any));
   let consumedSlot: "S" | "A" | "B" | "C" | null = null;

@@ -18,12 +18,13 @@ const TIER_COPY: Record<Grade, { label: string; desc: string }> = {
   N: { label: "New", desc: "검증 전" },
 };
 
+// [P1] 모든 등급이 모든 캠페인에 참여할 수 있다 — 등급 차이는 지원금 배율(혜택 크기)뿐.
 const BENEFITS: { g: Grade; d: string; amt: string }[] = [
-  { g: "S", d: "고지원금 매장 우선 노출 · 시그니처 우선", amt: "100% 지원금" },
-  { g: "A", d: "인기 매장 노출 · S 제외 모든 캠페인", amt: "~80% 지원금" },
-  { g: "B", d: "기본 체험권 노출 · B/C 캠페인 + A 일부", amt: "~60% 지원금" },
-  { g: "C", d: "저지원금 체험권부터 · C 캠페인", amt: "~40% 지원금" },
-  { g: "N", d: "웰컴 캠페인만 참여 가능", amt: "10% 지원금" },
+  { g: "S", d: "모든 캠페인 참여 · 기준 지원금 전액", amt: "100% 지원금" },
+  { g: "A", d: "모든 캠페인 참여 · 기준 지원금의 80%", amt: "80% 지원금" },
+  { g: "B", d: "모든 캠페인 참여 · 기준 지원금의 60%", amt: "60% 지원금" },
+  { g: "C", d: "모든 캠페인 참여 · 기준 지원금의 40%", amt: "40% 지원금" },
+  { g: "N", d: "모든 캠페인 참여 · 기준 지원금의 10%", amt: "10% 지원금" },
 ];
 
 const TIER_REQUIRE: Record<Grade, string> = {
@@ -147,11 +148,11 @@ export default async function ReviewerGrade() {
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div>
               <div className="text-[13px] font-semibold leading-tight">{SBUI.count}</div>
-              <div className="text-[10px] text-white/70 mt-1.5">참여 가능 매장</div>
+              <div className="text-[10px] text-white/70 mt-1.5">진행 중인 체험</div>
             </div>
             <div className="border-l border-r border-white/10">
               <div className="text-[13px] font-semibold leading-tight">{SBUI.support}</div>
-              <div className="text-[10px] text-white/70 mt-1.5">최대 지원금</div>
+              <div className="text-[10px] text-white/70 mt-1.5">내 최대 지원금</div>
             </div>
             <div>
               <div className="text-[13px] font-semibold leading-tight">{SBUI.count}</div>

@@ -158,7 +158,7 @@ export default async function RewardsPage() {
           </span>
           <div className="flex-1 min-w-0">
             <div className="text-[14px] font-semibold text-ink">등급 혜택은 따로 모아뒀어요</div>
-            <div className="text-[11px] text-muted mt-0.5">참여 가능 매장 / 최대 지원금 / 등급별 혜택 표 → 등급 탭</div>
+            <div className="text-[11px] text-muted mt-0.5">내 지원금 배율 / 최대 지원금 / 등급별 혜택 표 → 등급 탭</div>
           </div>
           <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
         </Link>

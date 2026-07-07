@@ -34,8 +34,6 @@ interface NearbyCard {
   requiredChannels: SnsKind[];
   rating: number;
   reviewCount: number;
-  accessible: boolean;
-  grade: "S" | "A" | "B" | "C";
   walkMin: number;
 }
 
@@ -54,23 +52,19 @@ export default async function ReviewerHome() {
   // 모든 활성 매장 카드 — 큐레이션 컬렉션과 가까운 곳 그리드에 사용
   const cards: NearbyCard[] = visitCampaigns.map((c) => {
     const store = db.stores.find((s) => s.id === c.storeId)!;
-    const minNeededGrade: "S" | "A" | "B" | "C" =
-      c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-    const offers = channelOffers(c.requiredChannels, me.channelGrades, minNeededGrade as Grade, c.supportAmount);
+    // [P1] 등급은 참여 자격이 아님 — 연동 채널 기준 내 최대 혜택, 없으면 기준 지원금(S 100%).
+    const offers = channelOffers(c.requiredChannels, me.channelGrades, c.supportAmount);
     const myBest = bestEligibleSupport(offers);
-    const accessible = myBest > 0;
     return {
       storeId: store.id,
       campaignId: c.id,
       name: store.name,
       area: store.area,
       category: store.category,
-      supportAmount: accessible ? myBest : c.supportAmount,
+      supportAmount: myBest > 0 ? myBest : c.supportAmount,
       requiredChannels: c.requiredChannels,
       rating: store.rating,
       reviewCount: store.reviewCount,
-      accessible,
-      grade: minNeededGrade,
       walkMin: walkMinutes(store.id),
     };
   });
@@ -83,15 +77,11 @@ export default async function ReviewerHome() {
   // 파격 지원금 — 지원금 10만원 이상
   const bigSupportCount = visitCampaigns.filter((c) => c.supportAmount >= 100000).length;
 
-  // 가까운 곳 그리드 — accessible 우선, 도보 가까운 순 4개
-  const nearby = [...cards]
-    .sort((a, b) => Number(b.accessible) - Number(a.accessible) || a.walkMin - b.walkMin)
-    .slice(0, 4);
+  // 가까운 곳 그리드 — 도보 가까운 순 4개
+  const nearby = [...cards].sort((a, b) => a.walkMin - b.walkMin).slice(0, 4);
 
-  // 전체 리스트 — accessible 우선, 혜택(지원금) 큰 순 (가까운 곳과 정렬축 차별)
-  const all = [...cards].sort(
-    (a, b) => Number(b.accessible) - Number(a.accessible) || b.supportAmount - a.supportAmount,
-  );
+  // 전체 리스트 — 내 등급 기준 혜택(지원금) 큰 순 (가까운 곳과 정렬축 차별)
+  const all = [...cards].sort((a, b) => b.supportAmount - a.supportAmount);
 
   // 헤더 — 시드 사용자 지역 또는 첫 매장 지역으로 대표
   const repArea = me.nickname && cards[0] ? cards[0].area : "내 동네";
@@ -230,8 +220,8 @@ export default async function ReviewerHome() {
         {nearby.map((p) => (
           <Link
             key={p.storeId}
-            href={p.accessible ? `/r/store/${p.storeId}?campaign=${p.campaignId}` : "/r/grade"}
-            className={`cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
+            href={`/r/store/${p.storeId}?campaign=${p.campaignId}`}
+            className="cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden"
           >
             <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
               <Image
@@ -288,8 +278,8 @@ export default async function ReviewerHome() {
         {all.map((p) => (
           <Link
             key={`all-${p.storeId}`}
-            href={p.accessible ? `/r/store/${p.storeId}?campaign=${p.campaignId}` : "/r/grade"}
-            className={`cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden ${p.accessible ? "" : "opacity-50"}`}
+            href={`/r/store/${p.storeId}?campaign=${p.campaignId}`}
+            className="cp-action block bg-canvas border border-hairline rounded-lg overflow-hidden"
           >
             <div className="aspect-[4/3] bg-parchment relative overflow-hidden">
               <Image
@@ -305,12 +295,6 @@ export default async function ReviewerHome() {
                   {p.category}
                 </span>
               </div>
-              {!p.accessible && (
-                <div className="absolute inset-0 bg-ink/55 flex flex-col items-center justify-center text-white text-[11px] font-semibold text-center px-3 leading-tight">
-                  <span>{SBUI.grade} 전용</span>
-                  <span className="text-[10px] font-normal opacity-90">(등급 부족 상태)</span>
-                </div>
-              )}
             </div>
             <div className="p-3">
               <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
@@ -334,17 +318,17 @@ export default async function ReviewerHome() {
         )}
       </section>
 
-      {/* 등급 혜택 배너 — 이미지 1 하단 */}
+      {/* 등급 혜택 배너 — 등급은 참여 자격이 아니라 혜택 크기 (P1) */}
       <Link
-        href="/r/rewards"
+        href="/r/grade"
         className="cp-action mx-5 mt-6 flex items-center gap-3 p-4 rounded-md border border-hairline bg-parchment"
       >
         <span className="w-10 h-10 rounded-md bg-brand/12 text-brand flex items-center justify-center">
           <Icon name="ticket" variant="bold" size={20} />
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-semibold text-ink">{me.grade}등급도 갈 수 있는 곳, 더 많아요</div>
-          <div className="text-[11px] text-muted mt-0.5">한 등급만 올려도 갈 수 있는 곳이 확 늘어남</div>
+          <div className="text-[14px] font-semibold text-ink">{me.grade}등급, 한 등급 오르면 받는 게 확 커져요</div>
+          <div className="text-[11px] text-muted mt-0.5">같은 매장도 등급 따라 지원금이 달라요 — 내 배율 확인</div>
         </div>
         <span className="inline-flex items-center gap-0.5 h-8 px-3 rounded-pill bg-canvas border border-hairline text-[12px] text-ink font-medium shrink-0">
           확인하기

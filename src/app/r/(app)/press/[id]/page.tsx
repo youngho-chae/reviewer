@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
-import { gradeMeets } from "@/lib/grade";
 import PressApplyButton from "./PressApplyButton";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +21,6 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
   const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
   const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
   const remain = totalQ - usedQ;
-  const minNeededGrade: "S" | "A" | "B" | "C" =
-    c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-  const accessible = gradeMeets(me.grade, minNeededGrade);
   const myPass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && p.status !== "expired" && p.status !== "rejected");
   const daysLeft = Math.max(0, Math.ceil((c.endAt - Date.now()) / 86400000));
   const slotsLow = remain > 0 && remain <= 2;
@@ -41,8 +37,8 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
       {/* Hero card (dark) */}
       <div className="mx-5 mt-2 p-5 rounded-lg bg-ink text-white relative overflow-hidden">
         <div className="flex items-center gap-2 mb-2.5">
-          <GradeBadge grade={minNeededGrade} size="sm" inverted />
-          <span className="text-[11px] font-bold tracking-wider text-white/70">기자단 · {minNeededGrade}등급 · 비방문</span>
+          <GradeBadge grade={me.grade} size="sm" inverted />
+          <span className="text-[11px] font-bold tracking-wider text-white/70">기자단 · 내 {me.grade}등급 · 비방문</span>
         </div>
         <div className="text-[22px] font-extrabold tracking-tight">{store.name}</div>
         <div className="text-[13px] text-white/60 mt-1">{store.area} · {store.category}</div>
@@ -137,8 +133,6 @@ export default async function PressBrief({ params }: { params: Promise<{ id: str
           </Link>
         ) : closed ? (
           <button disabled className="w-full h-14 rounded-full bg-surfaceStrong text-muted text-[16px] font-bold">마감되었습니다</button>
-        ) : !accessible ? (
-          <button disabled className="w-full h-14 rounded-full bg-surfaceStrong text-muted text-[16px] font-bold">{minNeededGrade}등급부터 이용 가능합니다</button>
         ) : (
           <PressApplyButton campaignId={c.id} />
         )}

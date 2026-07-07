@@ -15,8 +15,6 @@ export interface MapStorePin {
   lng: number;
   supportAmount: number;
   remain: number;
-  grade: "S" | "A" | "B" | "C";
-  accessible: boolean;
   coverEmoji: string;
   requiredChannels?: import("@/lib/types").SnsKind[];
 }
@@ -27,13 +25,8 @@ declare global {
   }
 }
 
-// Apple 팔레트와 일치 — 등급별 강조 컬러 (어두운 톤 위주)
-const GRADE_COLOR: Record<string, string> = {
-  S: "#1d1d1f",
-  A: "#0066cc",
-  B: "#5b6e6a",
-  C: "#9aa6a3",
-};
+// [P1] 등급은 참여 자격이 아니므로 핀에 등급을 인코딩하지 않는다 — 단일 브랜드 컬러.
+const PIN_COLOR = "#0066cc";
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
@@ -158,14 +151,12 @@ export default function NaverMapView({
     markersRef.current = [];
 
     for (const p of pins) {
-      const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#9aa6a3";
+      const color = PIN_COLOR;
       const name = escapeHtml(p.name);
-      // 단일 섹션 — grade letter · 매장명 · 지원금 한 줄, 보더 컬러로 등급 인코딩
+      // 단일 섹션 — 매장명 · 지원금 한 줄 (금액 = 내 등급 기준 혜택)
       const html = `
         <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
           <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:#ffffff;border:1.5px solid ${color};border-radius:9999px;box-shadow:0 3px 10px rgba(0,18,14,.18);font-size:11.5px;line-height:1.3;font-weight:600;white-space:nowrap;max-width:240px;">
-            <span style="color:${color};font-weight:700;flex-shrink:0;">${p.grade}</span>
-            <span style="color:#cccccc;flex-shrink:0;">·</span>
             <span style="color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;min-width:0;">${name}</span>
             <span style="color:#cccccc;flex-shrink:0;">·</span>
             <span style="color:#1d1d1f;font-weight:700;flex-shrink:0;">${p.supportAmount.toLocaleString()}원</span>
@@ -259,11 +250,7 @@ export default function NaverMapView({
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="text-[13px] font-medium truncate">지원 ₩{selected.supportAmount.toLocaleString()} · 잔여 {selected.remain}매</div>
-                    {selected.accessible ? (
-                      <Link href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`} className="text-[12px] bg-ink text-white px-3 py-1.5 rounded-full whitespace-nowrap">매장 상세 →</Link>
-                    ) : (
-                      <span className="text-[11px] text-error whitespace-nowrap">{selected.grade}등급부터 가능</span>
-                    )}
+                    <Link href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`} className="text-[12px] bg-ink text-white px-3 py-1.5 rounded-full whitespace-nowrap">매장 상세 →</Link>
                   </div>
                 </div>
               </div>
@@ -330,7 +317,6 @@ function StaticMapFallback({
       <div className="absolute inset-0">
         {pins.map((p) => {
           const { x, y } = lngLatToPixel(p.lng, p.lat, centerLng, centerLat, level, size.w, size.h);
-          const color = p.accessible ? GRADE_COLOR[p.grade] || "#6a6a6a" : "#9aa6a3";
           return (
             <button
               key={p.storeId}
@@ -340,10 +326,8 @@ function StaticMapFallback({
             >
               <div
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white shadow-sm border text-[11px] font-semibold max-w-[220px] whitespace-nowrap"
-                style={{ borderColor: color }}
+                style={{ borderColor: PIN_COLOR }}
               >
-                <span style={{ color, fontWeight: 700 }}>{p.grade}</span>
-                <span className="text-mutedSoft">·</span>
                 <span className="text-ink truncate min-w-0">{p.name}</span>
                 <span className="text-mutedSoft">·</span>
                 <span className="text-ink font-bold">{p.supportAmount.toLocaleString()}원</span>
