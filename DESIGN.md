@@ -1,135 +1,143 @@
 ---
-version: alpha
-name: Apple-design-analysis
-description: A photography-first interface that turns marketing into a museum gallery. Edge-to-edge product tiles alternate light and dark canvases, framed by SF Pro Display headlines with negative letter-spacing and a single Action Blue (#0066cc) interactive color. UI chrome recedes so the product can speak — no decorative gradients, no shadows on chrome, only the one signature drop-shadow under product imagery resting on a surface.
+version: 2.0
+name: CATCHPASS-purple-system
+description: A friendly, commerce-native mobile system built around a single confident Purple (#9333EA) on white. Rounded cards, pastel SNS badges, pill chips and a black map FAB give the app the energy of a local-deals service — informative, dense where it counts, never corporate. Pretendard carries every letter; state colors (green/red/yellow/blue) are loud but scoped to badges, banners and validation. Derived from the "[체험단] 디자인시스템" Figma library and the five reference screens (home, explore list, explore map, map sheet, store detail).
 
 colors:
-  primary: "#0066cc"
-  primary-focus: "#0071e3"
-  primary-on-dark: "#2997ff"
-  ink: "#1d1d1f"
-  body: "#1d1d1f"
-  body-on-dark: "#ffffff"
-  body-muted: "#cccccc"
-  ink-muted-80: "#333333"
-  ink-muted-48: "#7a7a7a"
-  divider-soft: "#f0f0f0"
-  hairline: "#e0e0e0"
+  primary: "#9333EA"
+  primary-strong: "#7E22CE"
+  primary-tint: "#F3E8FF"
+  primary-tint-soft: "#FAF5FF"
+  primary-on-dark: "#C084FC"
+  ink: "#171717"
+  body: "#171717"
+  body-secondary: "#525252"
+  body-muted: "#737373"
+  body-disabled: "#A3A3A3"
+  divider-soft: "#F5F5F5"
+  hairline: "#E5E5E5"
+  border-strong: "#D4D4D4"
   canvas: "#ffffff"
-  canvas-parchment: "#f5f5f7"
-  surface-pearl: "#fafafc"
-  surface-tile-1: "#272729"
-  surface-tile-2: "#2a2a2c"
-  surface-tile-3: "#252527"
-  surface-black: "#000000"
-  surface-chip-translucent: "#d2d2d7"
+  canvas-soft: "#FAFAFA"
+  surface-sunken: "#F5F5F5"
+  surface-bk: "#171717"
+  info: "#3B82F6"
+  info-tint: "#EFF6FF"
+  success: "#00BF40"
+  success-strong: "#009632"
+  success-tint: "#F2FFF6"
+  error: "#FF4242"
+  error-tint: "#FFFAFA"
+  warning: "#EAB308"
+  warning-tint: "#FEFCE8"
+  sns-blog-bg: "#F2FFF6"
+  sns-blog-text: "#009632"
+  sns-insta-bg: "#FDF2F8"
+  sns-insta-text: "#EC4899"
+  sns-tiktok-bg: "#ECFEFF"
+  sns-tiktok-text: "#0891B2"
   on-primary: "#ffffff"
   on-dark: "#ffffff"
 
 typography:
-  hero-display:
-    fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 56px
-    fontWeight: 600
-    lineHeight: 1.07
-    letterSpacing: -0.28px
-  display-lg:
-    fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 40px
-    fontWeight: 600
-    lineHeight: 1.1
-    letterSpacing: 0
-  display-md:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 34px
-    fontWeight: 600
-    lineHeight: 1.47
-    letterSpacing: -0.374px
-  lead:
-    fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 28px
-    fontWeight: 400
-    lineHeight: 1.14
-    letterSpacing: 0.196px
-  lead-airy:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 24px
-    fontWeight: 300
-    lineHeight: 1.5
-    letterSpacing: 0
-  tagline:
-    fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 21px
-    fontWeight: 600
-    lineHeight: 1.19
-    letterSpacing: 0.231px
-  body-strong:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 17px
-    fontWeight: 600
-    lineHeight: 1.24
-    letterSpacing: -0.374px
-  body:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 17px
-    fontWeight: 400
-    lineHeight: 1.47
-    letterSpacing: -0.374px
-  dense-link:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 17px
-    fontWeight: 400
-    lineHeight: 2.41
-    letterSpacing: 0
-  caption:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 1.43
-    letterSpacing: -0.224px
-  caption-strong:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 14px
-    fontWeight: 600
-    lineHeight: 1.29
-    letterSpacing: -0.224px
-  button-large:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 18px
-    fontWeight: 300
-    lineHeight: 1.0
-    letterSpacing: 0
-  button-utility:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 1.29
-    letterSpacing: -0.224px
-  fine-print:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 12px
-    fontWeight: 400
-    lineHeight: 1.0
-    letterSpacing: -0.12px
-  micro-legal:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 10px
-    fontWeight: 400
+  title-xl:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 22px
+    fontWeight: 700
     lineHeight: 1.3
-    letterSpacing: -0.08px
-  nav-link:
-    fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 12px
+    letterSpacing: -0.02em
+  title-lg:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 20px
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: -0.02em
+  title:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 18px
+    fontWeight: 700
+    lineHeight: 1.35
+    letterSpacing: -0.02em
+  headline:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 16px
+    fontWeight: 700
+    lineHeight: 1.4
+    letterSpacing: -0.01em
+  body-strong:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 15px
+    fontWeight: 600
+    lineHeight: 1.45
+    letterSpacing: -0.01em
+  body:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 15px
     fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: -0.01em
+  label:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 14px
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: -0.01em
+  price:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 16px
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: -0.01em
+  caption:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: 0
+  caption-strong:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 13px
+    fontWeight: 600
+    lineHeight: 1.4
+    letterSpacing: 0
+  badge:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 12px
+    fontWeight: 600
     lineHeight: 1.0
-    letterSpacing: -0.12px
+    letterSpacing: 0
+  micro:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 11px
+    fontWeight: 500
+    lineHeight: 1.3
+    letterSpacing: 0
+  button-large:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 16px
+    fontWeight: 700
+    lineHeight: 1.0
+    letterSpacing: -0.01em
+  button-utility:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 14px
+    fontWeight: 600
+    lineHeight: 1.0
+    letterSpacing: 0
+  nav-link:
+    fontFamily: "Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif"
+    fontSize: 11px
+    fontWeight: 500
+    lineHeight: 1.0
+    letterSpacing: 0
 
 rounded:
   none: 0px
-  xs: 5px
+  xs: 4px
   sm: 8px
-  md: 11px
-  lg: 18px
+  md: 12px
+  lg: 16px
+  xl: 20px
   pill: 9999px
   full: 9999px
 
@@ -137,272 +145,345 @@ spacing:
   xxs: 4px
   xs: 8px
   sm: 12px
-  md: 17px
-  lg: 24px
-  xl: 32px
-  xxl: 48px
-  section: 80px
+  md: 16px
+  lg: 20px
+  xl: 24px
+  xxl: 32px
+  section: 40px
 
 components:
+  top-app-bar:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.title}"
+    height: 52px
+    padding: 0 20px
+  segment-title:
+    backgroundColor: transparent
+    textColor: "{colors.ink}"
+    typography: "{typography.title-lg}"
+    inactiveTextColor: "{colors.body-disabled}"
+  bottom-nav:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.body-muted}"
+    activeTextColor: "{colors.primary}"
+    typography: "{typography.nav-link}"
+    height: 72px
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
-    typography: "{typography.body}"
-    rounded: "{rounded.pill}"
-    padding: 11px 22px
-  button-primary-focus:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    rounded: "{rounded.pill}"
+    typography: "{typography.button-large}"
+    rounded: "{rounded.md}"
+    height: 52px
+    padding: 0 24px
   button-primary-active:
-    backgroundColor: "{colors.primary}"
+    backgroundColor: "{colors.primary-strong}"
     textColor: "{colors.on-primary}"
-    rounded: "{rounded.pill}"
-  button-secondary-pill:
+    rounded: "{rounded.md}"
+  button-primary-disabled:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.body-disabled}"
+    rounded: "{rounded.md}"
+  button-secondary:
     backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.button-utility}"
+    rounded: "{rounded.md}"
+    border: "1px solid {colors.hairline}"
+    height: 44px
+    padding: 0 16px
+  button-text:
+    backgroundColor: transparent
     textColor: "{colors.primary}"
-    typography: "{typography.body}"
-    rounded: "{rounded.pill}"
-    padding: 11px 22px
-  button-dark-utility:
-    backgroundColor: "{colors.ink}"
+    typography: "{typography.button-utility}"
+  map-fab:
+    backgroundColor: "{colors.surface-bk}"
     textColor: "{colors.on-dark}"
     typography: "{typography.button-utility}"
-    rounded: "{rounded.sm}"
-    padding: 8px 15px
-  button-pearl-capsule:
-    backgroundColor: "{colors.surface-pearl}"
-    textColor: "{colors.ink-muted-80}"
-    typography: "{typography.caption}"
-    rounded: "{rounded.md}"
-    padding: 8px 14px
-  button-store-hero:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.button-large}"
     rounded: "{rounded.pill}"
-    padding: 14px 28px
-  button-icon-circular:
-    backgroundColor: "{colors.surface-chip-translucent}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.full}"
-    size: 44px
-  text-link:
-    backgroundColor: transparent
-    textColor: "{colors.primary}"
-    typography: "{typography.body}"
-  text-link-on-dark:
-    backgroundColor: transparent
-    textColor: "{colors.primary-on-dark}"
-    typography: "{typography.body}"
-  global-nav:
-    backgroundColor: "{colors.surface-black}"
-    textColor: "{colors.on-dark}"
-    typography: "{typography.nav-link}"
     height: 44px
-  sub-nav-frosted:
-    backgroundColor: "{colors.canvas-parchment}"
-    textColor: "{colors.ink}"
-    typography: "{typography.tagline}"
-    height: 52px
-  product-tile-light:
+    padding: 0 18px
+  sns-badge:
+    backgroundColor: "{colors.sns-blog-bg}"
+    textColor: "{colors.sns-blog-text}"
+    typography: "{typography.badge}"
+    rounded: "{rounded.xs}"
+    padding: 4px 6px
+  ticket-chip:
+    backgroundColor: transparent
+    textColor: "{colors.body-secondary}"
+    typography: "{typography.caption-strong}"
+  category-chip:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
-    typography: "{typography.display-lg}"
-    rounded: "{rounded.none}"
-    padding: 80px
-  product-tile-parchment:
-    backgroundColor: "{colors.canvas-parchment}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    border: "1px solid {colors.hairline}"
+    padding: 8px 14px
+  category-chip-selected:
+    backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
-    typography: "{typography.display-lg}"
-    rounded: "{rounded.none}"
-    padding: 80px
-  product-tile-dark:
-    backgroundColor: "{colors.surface-tile-1}"
+    rounded: "{rounded.pill}"
+    border: "1.5px solid {colors.ink}"
+  keyword-chip:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.body-secondary}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: 6px 12px
+  link-state-chip:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.success-strong}"
+    typography: "{typography.micro}"
+    rounded: "{rounded.pill}"
+    border: "1px solid {colors.success}"
+    padding: 2px 8px
+  promo-banner:
+    backgroundColor: "{colors.info}"
     textColor: "{colors.on-dark}"
-    typography: "{typography.display-lg}"
-    rounded: "{rounded.none}"
-    padding: 80px
-  product-tile-dark-2:
-    backgroundColor: "{colors.surface-tile-2}"
-    textColor: "{colors.on-dark}"
-    rounded: "{rounded.none}"
-  product-tile-dark-3:
-    backgroundColor: "{colors.surface-tile-3}"
-    textColor: "{colors.on-dark}"
-    rounded: "{rounded.none}"
-  store-utility-card:
+    typography: "{typography.headline}"
+    rounded: "{rounded.lg}"
+    padding: 20px
+  notice-banner:
+    backgroundColor: "{colors.primary-tint-soft}"
+    textColor: "{colors.primary}"
+    typography: "{typography.caption-strong}"
+    rounded: "{rounded.md}"
+    padding: 12px 14px
+  stat-strip:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.headline}"
+    rounded: "{rounded.lg}"
+    border: "1px solid {colors.hairline}"
+    padding: 16px
+  info-strip:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.md}"
+    border: "1px solid {colors.hairline}"
+    padding: 14px 16px
+  experience-card:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.md}"
+    imageAspect: "4:3"
+  experience-row:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-strong}"
+    thumbnail: "96px square, {rounded.md}"
+  radio-select-card:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.md}"
+    border: "1px solid {colors.hairline}"
+    padding: 14px 16px
+  radio-select-card-selected:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    border: "1.5px solid {colors.primary}"
+  radio-select-card-disabled:
+    backgroundColor: "{colors.canvas-soft}"
+    textColor: "{colors.body-disabled}"
+    rounded: "{rounded.md}"
+    border: "1px solid {colors.divider-soft}"
+  menu-highlight-row:
+    backgroundColor: "{colors.primary-tint-soft}"
+    textColor: "{colors.primary}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.sm}"
+    padding: 12px 14px
+  step-timeline:
+    backgroundColor: transparent
+    textColor: "{colors.ink}"
+    typography: "{typography.body-strong}"
+    markerColor: "{colors.primary}"
+  map-marker-pill:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.caption-strong}"
+    rounded: "{rounded.pill}"
+    border: "1px solid {colors.border-strong}"
+    padding: 6px 12px
+  map-marker-pill-selected:
+    backgroundColor: "{colors.primary-tint-soft}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+    border: "1.5px solid {colors.primary}"
+  map-bottom-card:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
     typography: "{typography.body-strong}"
     rounded: "{rounded.lg}"
-    padding: 24px
-  configurator-option-chip:
+    padding: 12px
+    shadow: "0 8px 24px rgba(0,0,0,0.12)"
+  bottom-sheet:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
-    typography: "{typography.caption}"
-    rounded: "{rounded.pill}"
-    padding: 12px 16px
-  configurator-option-chip-selected:
+    rounded: "{rounded.xl} {rounded.xl} 0 0"
+    shadow: "0 -8px 24px rgba(0,0,0,0.10)"
+  cta-bar:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.pill}"
-  search-input:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body}"
-    rounded: "{rounded.pill}"
+    typography: "{typography.price}"
+    height: 76px
     padding: 12px 20px
-    height: 44px
-  floating-sticky-bar:
-    backgroundColor: "{colors.canvas-parchment}"
+    border: "1px solid {colors.divider-soft} (top)"
+  text-field:
+    backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
     typography: "{typography.body}"
-    height: 64px
-    padding: 12px 32px
-  environment-quote-card:
-    backgroundColor: "{colors.surface-tile-1}"
-    textColor: "{colors.on-dark}"
-    typography: "{typography.display-lg}"
-    rounded: "{rounded.none}"
-    padding: 80px
+    rounded: "{rounded.md}"
+    border: "1px solid {colors.hairline}"
+    height: 48px
+    padding: 0 14px
+  search-input:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    height: 44px
+    padding: 0 14px
   footer:
-    backgroundColor: "{colors.canvas-parchment}"
-    textColor: "{colors.ink-muted-80}"
-    typography: "{typography.fine-print}"
-    padding: 64px
+    backgroundColor: "{colors.canvas-soft}"
+    textColor: "{colors.body-muted}"
+    typography: "{typography.caption}"
+    padding: 24px 20px
 ---
 
 ## Overview
 
-Apple's web presence is a masterclass in **reverent product photography framed by near-invisible UI**. Every page is a stack of edge-to-edge product "tiles" — alternating light and dark canvases, each centered on a hero headline, a one-line tagline, two tiny blue pill CTAs, and an impossibly crisp product render. Nothing competes with the product. Typography is confident but quiet; color is either pure white, an off-white parchment, or a near-black tile; interactive elements are a single, quiet blue.
+CATCHPASS v2 is a **commerce-native local-deals interface built on one confident Purple**. Every screen is a white canvas populated by rounded cards, pastel SNS badges and pill chips; the single `{colors.primary}` (#9333EA) carries selection, progress, CTAs and the active nav tab. Where the previous system whispered, this one speaks at a friendly retail volume: money is always bold and near-black, remaining-slot counts ride a 🎫 ticket glyph, and playful copy ("걸어서 갈 수 있어요👀") keeps the discovery loop light.
 
-Density is unusually low even by contemporary SaaS standards. Each tile occupies roughly one viewport, and there is no decorative chrome — no borders, no gradients, no decorative frames, no shadows on headlines. Elevation appears only when a product image rests on a surface (a single soft `rgba(0, 0, 0, 0.22) 3px 5px 30px` drop for visual weight). The result is a catalog that feels more like a museum gallery: the wall disappears and the artifact takes over.
+Density is deliberately higher than a marketing site — this is a tool people scan. List rows pack a square thumbnail, three SNS badges, a store name, category·distance and a bold support amount into ~110px of height. Hierarchy comes from weight and tint, not from size explosions: titles top out at 20–22px, and the system leans on Pretendard's 600/700 weights plus gray-scale steps (`{colors.body-secondary}`, `{colors.body-muted}`) to layer information.
 
-Store and shop surfaces retain the same chassis but switch modes. The product configurator (iPhone 17 Pro, accessories grid) introduces a tight grid of white utility cards at `{rounded.lg}` (18px) radius with a thin border, paired with a persistent thin sub-nav strip. The environment page leans darker and more editorial. Across all five surfaces the typographic system, spacing rhythm, and the single blue accent are consistent — this is one design language expressed at different volumes.
+Chrome is minimal but visible: 1px `{colors.hairline}` borders define cards, a black pill FAB floats over the explore list, and the bottom nav is a flat white bar whose active tab simply turns purple. Depth appears only where a surface genuinely floats (map cards, bottom sheets).
 
 **Key Characteristics:**
-- Photography-first presentation; UI recedes so the product can speak.
-- Alternating full-bleed tile sections: white/parchment ↔ near-black, with the color change itself acting as the section divider.
-- Single blue accent (`{colors.primary}` — #0066cc) carries every interactive element. No second brand color exists.
-- Two button grammars: tiny blue pill CTAs (`{rounded.pill}`) and compact utility rects (`{rounded.sm}`).
-- SF Pro Display + SF Pro Text — negative letter-spacing at display sizes for the signature "Apple tight" headline feel.
-- Whisper-soft elevation used only when a product image needs to breathe — exactly one drop-shadow in the entire system.
-- Tight two-row nav: slim `{component.global-nav}` + product-specific `{component.sub-nav-frosted}` with persistent right-aligned primary CTA.
-- Section rhythm across multiple pages: light hero → dark product tile → light utility tile → dark tile → parchment footer — a predictable pulse.
+- Single Purple accent (`{colors.primary}` — #9333EA) for every interactive/selected element; black is chrome, never "clickable color".
+- White canvas + 1px hairline-bordered rounded cards (`{rounded.md}`/`{rounded.lg}`) — no dark tiles, no parchment section rhythm.
+- Pastel SNS badges (blog green / insta pink / tiktok cyan) are the signature identity mark on every campaign card.
+- Money (`최대 ₩N 지원`) is always `{typography.price}` bold near-black; remaining slots always `🎫 N 남음`.
+- Pretendard everywhere; weight ladder 400/500/600/700; sizes 11–22px only.
+- Two button grammars: big purple rounded-rect CTA (`{rounded.md}`, 52px) and black pill map FAB.
+- Category chips are icon+label pills; selection = black 1.5px border (not purple — purple is reserved for data selection like radio cards).
+- Promo/marketing slots use `{colors.info}` blue as a scoped secondary voice, never for interaction.
+- Screen furniture: top app bar with location selector (홈) or segment title 방문형/기자단 (탐색), bottom nav 홈/탐색/체험권/혜택/마이.
 
 ## Colors
 
-> **Source pages analyzed:** homepage, environment, store, iPhone 17 Pro buy page, accessories index. The color system is identical across all five surfaces; only the surface-mode mix differs.
+> **Source:** "[체험단] 디자인시스템" Figma library (Color/* variables, 9-step scales for Purple·Gray·Blue·Green·Red·Yellow) + the five reference screens. Semantic roles below map 1:1 to the library's `Color/Bg|Text|Border|Icon` collections.
 
 ### Brand & Accent
-- **Action Blue** (`{colors.primary}` — #0066cc): The single brand-level interactive color. All text links, all blue pill CTAs ("Learn more", "Buy"), and the focus ring root. This is Apple's quiet but universal "click me" signal. Press state shifts to a slightly darker variant via the active scale transform rather than a hex change.
-- **Focus Blue** (`{colors.primary-focus}` — #0071e3): A marginally brighter sibling of Action Blue, reserved for the keyboard focus ring on buttons (`outline: 2px solid`).
-- **Sky Link Blue** (`{colors.primary-on-dark}` — #2997ff): A brighter blue used on dark surfaces for in-copy links and inline callouts, where Action Blue would disappear against the tile background.
+- **Primary Purple** (`{colors.primary}` — #9333EA, Purple 60): The one interactive color. CTAs, selected radio cards, active bottom-nav tab, selected map marker border, step-timeline markers, highlighted menu names, stat emphasis. `Color/*/Interactive` in the library.
+- **Purple Strong** (`{colors.primary-strong}` — #7E22CE, Purple 70): Pressed state of primary buttons and links.
+- **Purple Tint** (`{colors.primary-tint}` — #F3E8FF, Purple 20) and **Purple Tint Soft** (`{colors.primary-tint-soft}` — #FAF5FF, Purple 10): `Interactive-subtle` backgrounds — notice banners, menu highlight rows, selected map marker fill.
+- **Purple On Dark** (`{colors.primary-on-dark}` — #C084FC, Purple 50): Purple accents on the rare black surface (map FAB icon accents, dark toasts).
 
 ### Surface
-- **Pure White** (`{colors.canvas}` — #ffffff): The dominant canvas. Content, utility cards, store tiles, configurator grids.
-- **Parchment** (`{colors.canvas-parchment}` — #f5f5f7): The signature Apple off-white. Used for alternating light tiles, footer region, and the default page canvas in store utility sections. Just different enough from white to create rhythm.
-- **Pearl Button** (`{colors.surface-pearl}` — #fafafc): A near-white used as the fill for secondary "ghost" buttons — lighter than the parchment canvas so the button still reads as a button against `{colors.canvas-parchment}`.
-- **Near-Black Tile 1** (`{colors.surface-tile-1}` — #272729): The primary dark-tile surface on the homepage product grid.
-- **Near-Black Tile 2** (`{colors.surface-tile-2}` — #2a2a2c): A micro-step lighter — used where a dark tile sits directly above or below Tile 1 to create the faintest separation.
-- **Near-Black Tile 3** (`{colors.surface-tile-3}` — #252527): A micro-step darker — used at the bottom of the stack and in embedded video/player frames.
-- **Pure Black** (`{colors.surface-black}` — #000000): Reserved for true void — video player backgrounds, edge-to-edge photographic overlays, the global nav bar background.
-- **Translucent Chip Gray** (`{colors.surface-chip-translucent}` — #d2d2d7): The base hex of the translucent gray chip used over photography for circular control buttons. In production, applied at ~64% alpha as `rgba(210, 210, 215, 0.64)`.
+- **Canvas** (`{colors.canvas}` — #FFFFFF): Default background of every screen and card. `Color/Bg/Primary`.
+- **Canvas Soft** (`{colors.canvas-soft}` — #FAFAFA, Gray 10): Secondary background — disabled radio cards, footers, subtle zebra rows. `Color/Bg/Secondary`.
+- **Sunken** (`{colors.surface-sunken}` — #F5F5F5, Gray 20): Search inputs, keyword chips, disabled buttons, skeleton blocks. `Color/Bg/Tertiary`/`Disabled`.
+- **Black** (`{colors.surface-bk}` — #171717, Gray 90): The map FAB and (rarely) inverse toasts. `Color/Bg/BK`. Never a section background.
+- **Info Blue** (`{colors.info}` — #3B82F6, Blue 60) + **Info Tint** (`{colors.info-tint}` — #EFF6FF): Promo/coupon banner surface — the only allowed non-purple saturated surface, scoped to marketing slots.
 
 ### Text
-- **Near-Black Ink** (`{colors.ink}` — #1d1d1f): The voice of every headline, every body paragraph, and the dark utility button's fill. Chosen instead of pure black to keep the page feeling photographic rather than printed.
-- **Body** (`{colors.body}` — #1d1d1f): Same hex as ink — Apple uses one near-black tone for all text on light surfaces.
-- **Body On Dark** (`{colors.body-on-dark}` — #ffffff): All text on dark tiles and on the global nav bar.
-- **Body Muted** (`{colors.body-muted}` — #cccccc): Secondary copy on dark tiles where pure white would be too loud.
-- **Ink Muted 80** (`{colors.ink-muted-80}` — #333333): Body text on the white Pearl Button surface — slightly softer than pure black.
-- **Ink Muted 48** (`{colors.ink-muted-48}` — #7a7a7a): Disabled button text and legal fine-print.
+- **Ink** (`{colors.ink}` — #171717): Titles, store names, amounts, primary body. `Color/Text/Primary`.
+- **Secondary** (`{colors.body-secondary}` — #525252): Sub copy, list meta. `Color/Text/Secondary`.
+- **Muted** (`{colors.body-muted}` — #737373): Captions, placeholder-adjacent copy, inactive nav labels. `Color/Text/Tertiary`.
+- **Disabled** (`{colors.body-disabled}` — #A3A3A3): Disabled labels, inactive segment title. `Color/Text/Disabled`.
+- **State text**: success `{colors.success-strong}` #009632 · error `{colors.error}` #FF4242 · warning `{colors.warning}` #EAB308 · interactive `{colors.primary}`.
+
+### SNS Badges (signature palette)
+- **Blog** — bg `{colors.sns-blog-bg}` #F2FFF6 (Green 10), text `{colors.sns-blog-text}` #009632 (Green 70).
+- **Instagram** — bg `{colors.sns-insta-bg}` #FDF2F8, text `{colors.sns-insta-text}` #EC4899 (pink; not in the 6 scales — bespoke badge color).
+- **TikTok** — bg `{colors.sns-tiktok-bg}` #ECFEFF, text `{colors.sns-tiktok-text}` #0891B2 (cyan; bespoke badge color).
+These three appear together on nearly every card; they are identity, not state — do not repurpose them.
 
 ### Hairlines & Borders
-- **Divider Soft** (`{colors.divider-soft}` — #f0f0f0): The "border" tone on secondary buttons — functions as a ring shadow rather than a hard line. In production, often applied as `rgba(0, 0, 0, 0.04)`.
-- **Hairline** (`{colors.hairline}` — #e0e0e0): The 1px hairline border on store utility cards and configurator chips.
+- **Hairline** (`{colors.hairline}` — #E5E5E5, Gray 30): Default card/chip/input border. `Color/Border/Default`.
+- **Divider Soft** (`{colors.divider-soft}` — #F5F5F5): Section dividers and cta-bar top border. `Color/Border/Subtle`.
+- **Border Strong** (`{colors.border-strong}` — #D4D4D4, Gray 40): Map marker pill borders, pressed chip borders. `Color/Border/Strong`.
+- **State borders**: success #00BF40 (연동 완료 chip) · error #FF4242 · interactive #9333EA (selected cards/markers).
 
 ### Brand Gradient
-**No decorative gradients.** Atmospheric depth on product photography (the iPhone 17 Pro camera plate, the Apple Watch bands, AirPods reflections) is inherent to the imagery, not a CSS gradient overlay. The environment page's hero uses photographic atmosphere (mountain vista at dawn) but no gradient tokens are defined. Apple is the rare luxury-brand site with zero gradient-based design tokens.
+**No gradients.** The blue promo banner is a flat `{colors.info}` fill (imagery inside the banner may carry its own art). Depth comes from tint steps within a hue (Purple 10→60), never from gradient fills.
 
 ## Typography
 
 ### Font Family
-- **Display**: `SF Pro Display, system-ui, -apple-system, sans-serif` — Apple's proprietary display face, optimized for sizes ≥ 19px. Defines the voice of every headline.
-- **Body / UI**: `SF Pro Text, system-ui, -apple-system, sans-serif` — the text-optimized variant used for body copy, captions, buttons, and links below 20px.
-- **OpenType features**: `font-variant-numeric: numerator` is enabled on numeric links (pricing tables, spec sheets). Display sizes rely on tight tracking rather than contextual ligatures.
+- **Everything**: `Pretendard, Pretendard Variable, -apple-system, system-ui, sans-serif` — the library ships Pretendard Regular/Medium/SemiBold/Bold. One family for display, body and UI; hierarchy is weight- and tint-driven.
+- Numerals: use `font-variant-numeric: tabular-nums` on amounts, countdowns and stats so ₩ figures align.
 
 ### Hierarchy
 
 | Token | Size | Weight | Line Height | Letter Spacing | Use |
 |---|---|---|---|---|---|
-| `{typography.hero-display}` | 56px | 600 | 1.07 | -0.28px | Hero headline; the signature "Apple tight" tracking |
-| `{typography.display-lg}` | 40px | 600 | 1.10 | 0 | Tile headlines atop every product tile |
-| `{typography.display-md}` | 34px | 600 | 1.47 | -0.374px | Section heads (SF Pro Text at display proportions) |
-| `{typography.lead}` | 28px | 400 | 1.14 | 0.196px | Product tile subcopy |
-| `{typography.lead-airy}` | 24px | 300 | 1.5 | 0 | Environment-page lead paragraphs (the rare weight 300) |
-| `{typography.tagline}` | 21px | 600 | 1.19 | 0.231px | Sub-tile tagline; sub-nav category name |
-| `{typography.body-strong}` | 17px | 600 | 1.24 | -0.374px | Inline strong emphasis |
-| `{typography.body}` | 17px | 400 | 1.47 | -0.374px | Default paragraph |
-| `{typography.dense-link}` | 17px | 400 | 2.41 | 0 | Footer / store utility link lists (relaxed leading) |
-| `{typography.caption}` | 14px | 400 | 1.43 | -0.224px | Secondary captions, button text |
-| `{typography.caption-strong}` | 14px | 600 | 1.29 | -0.224px | Emphasized captions |
-| `{typography.button-large}` | 18px | 300 | 1.0 | 0 | Store hero CTAs (the rare weight 300) |
-| `{typography.button-utility}` | 14px | 400 | 1.29 | -0.224px | Utility/nav button labels |
-| `{typography.fine-print}` | 12px | 400 | 1.0 | -0.12px | Fine-print, footer body |
-| `{typography.micro-legal}` | 10px | 400 | 1.3 | -0.08px | Micro legal disclaimers |
-| `{typography.nav-link}` | 12px | 400 | 1.0 | -0.12px | Global nav menu items |
+| `{typography.title-xl}` | 22px | 700 | 1.3 | -0.02em | Screen-level hero titles (rare) |
+| `{typography.title-lg}` | 20px | 700 | 1.3 | -0.02em | Segment title (방문형/기자단), store name on detail |
+| `{typography.title}` | 18px | 700 | 1.35 | -0.02em | Section headers ("어느 SNS로 체험할까요?", "걸어서 갈 수 있어요👀") |
+| `{typography.headline}` | 16px | 700 | 1.4 | -0.01em | Banner headline, stat values, result count ("근처 체험 24개 발견!") |
+| `{typography.body-strong}` | 15px | 600 | 1.45 | -0.01em | Store names in lists/cards, radio card labels |
+| `{typography.body}` | 15px | 400 | 1.5 | -0.01em | Paragraphs (매장 소개), descriptions |
+| `{typography.label}` | 14px | 500 | 1.4 | -0.01em | Chips, form labels, secondary emphasis |
+| `{typography.price}` | 16px | 700 | 1.3 | -0.01em | `최대 ₩N 지원`, cta-bar amount (tabular-nums) |
+| `{typography.caption}` | 13px | 400 | 1.4 | 0 | Meta rows (카테고리 · 거리), helper text |
+| `{typography.caption-strong}` | 13px | 600 | 1.4 | 0 | 🎫 N 남음, info-strip values, notice banner |
+| `{typography.badge}` | 12px | 600 | 1.0 | 0 | SNS badges, link-state chips |
+| `{typography.micro}` | 11px | 500 | 1.3 | 0 | Grade suffix, timestamps, legal micro |
+| `{typography.button-large}` | 16px | 700 | 1.0 | -0.01em | Primary CTA label ("체험권 발급받기") |
+| `{typography.button-utility}` | 14px | 600 | 1.0 | 0 | FAB, secondary buttons, 더 둘러보기 |
+| `{typography.nav-link}` | 11px | 500 | 1.0 | 0 | Bottom nav labels |
 
 ### Principles
-
-- **Negative letter-spacing at display sizes.** Every headline at 17px and up carries a slight tracking tighten (`-0.12 → -0.374px`). This produces the iconic "Apple tight" headline cadence. Never used at 12px or below.
-- **Body copy at 17px, not 16px.** Apple breaks the SaaS convention and runs paragraph text at 17px. The extra pixel gives the page an unmistakable "reading, not scanning" pace.
-- **Weight 300 is real and rare.** Used deliberately on a handful of large-size reads (`{typography.button-large}` at 18px/300 and `{typography.lead-airy}` at 24px/300). It's not an accident — it's a light-atmosphere cue reserved for moments where the content should feel airy.
-- **Weight 600, not 700, for headlines.** Apple's headlines sit at weight 600. Weight 700 is used sparingly for `{typography.tagline}` (21px) when a touch more assertion is needed.
-- **Line-height is context-specific.** Display sizes use 1.07–1.19 (tight). Body uses 1.47. Utility link stacks in the footer/store use an unusually relaxed 2.41 (`{typography.dense-link}`). The 2.41 is not a bug — it's how the footer's dense link columns breathe.
-- **Weight 500 is deliberately absent.** The ladder is 300 / 400 / 600 / 700. Mid-weight readings always use 600.
+- **Weight over size.** The ladder spans only 11→22px; emphasis is created with 600/700 weights and gray tints, not big display sizes. There is no 30px+ hero type in this system.
+- **Money is loud.** Support amounts are always `{typography.price}` at 700 in `{colors.ink}` — never muted, never purple (purple marks *interaction*, black marks *value*).
+- **-0.02em on titles only.** Pretendard reads slightly wide at 18px+; tighten titles, leave captions at 0.
+- **500 exists.** Unlike the previous system, Medium (500) is a real rung — used for chips, labels and nav where 400 is too light and 600 too shouty.
+- **Line-height ~1.4–1.5 body, 1.0 controls.** Buttons, badges and nav labels are single-line locked.
 
 ### Note on Font Substitutes
-SF Pro is Apple's proprietary system font. When building off-system:
-
-- Use `system-ui, -apple-system, BlinkMacSystemFont` as the first stack entry — on macOS/iOS/Safari this resolves to the real SF Pro.
-- For non-Apple platforms, **Inter** (Google Fonts, variable) is the closest open-source equivalent. Inter at weight 600 with `font-feature-settings: "ss03"` approximates SF Pro's rounded "a" character.
-- Nudge `letter-spacing` down by `-0.01em` on display sizes to re-create the Apple tight feel; Inter's default tracking runs slightly wider than SF Pro.
-- For body text, tighten line-height by `0.03` (from 1.47 → 1.44) when substituting Inter — Inter's taller x-height needs less leading.
+Pretendard is open source (SIL OFL) — ship it, don't substitute. Load the variable dynamic-subset via CDN (`pretendardvariable-dynamic-subset.min.css`) with `system-ui` fallback; on Apple devices the fallback (SF Pro/Apple SD Gothic Neo) is metrically close, so FOUT is mild. Do not swap in Noto Sans KR — its taller x-height and looser tracking break the compact card rhythm.
 
 ## Layout
 
 ### Spacing System
-- **Base unit:** 8px. Sub-base values (2, 4, 5, 6, 7) are used for tight typographic adjustments; structural layout snaps to 8/12/16/20/24.
-- **Tokens:** `{spacing.xxs}` 4px · `{spacing.xs}` 8px · `{spacing.sm}` 12px · `{spacing.md}` 17px · `{spacing.lg}` 24px · `{spacing.xl}` 32px · `{spacing.xxl}` 48px · `{spacing.section}` 80px.
-- **Section vertical padding:** `{spacing.section}` (80px) inside a product tile; tiles stack edge-to-edge with 0 gap (the color change provides the break).
-- **Card padding:** `{spacing.lg}` (24px) inside utility grid cards.
-- **Button padding:** 8–11px vertical, 15–22px horizontal.
-- **Universal rhythm constants:** the 17px body line-height multiplier (~25px line) and 21px tagline size show up on every analyzed page.
+- **Base unit:** 4px. Structural layout snaps to 8/12/16/20/24.
+- **Tokens:** `{spacing.xxs}` 4px · `{spacing.xs}` 8px · `{spacing.sm}` 12px · `{spacing.md}` 16px · `{spacing.lg}` 20px · `{spacing.xl}` 24px · `{spacing.xxl}` 32px · `{spacing.section}` 40px.
+- **Screen gutter:** 20px (`{spacing.lg}`) left/right on every screen.
+- **Section rhythm:** 32–40px between sections; 12px between a section header and its content.
+- **Card internals:** 12–16px padding; list rows 12px vertical.
+- **Grid gap:** 12px between 2-column cards; 8px between chips.
 
 ### Grid & Container
-- **Max content width:** ~980px on text-heavy sections (environment), ~1440px on product grids (store, accessories), full-bleed for product tiles (homepage).
-- **Column patterns:** 3 to 5 column utility card grid on store/accessories; 2-column side-by-side tiles on homepage occasional sections; single-column centered stack on product tile heroes.
-- **Gutters:** 20–24px between cards in a utility grid.
+- **Viewport:** mobile-first 480px max shell, centered on wider screens.
+- **Column patterns:** 2-column card grid (home sections), single-column rows (explore list), full-bleed only for the map and the store-detail hero photo.
+- **Fixed furniture:** top app bar 52px; bottom nav 72px (+safe area); cta-bar 76px above the nav on detail screens.
 
 ### Whitespace Philosophy
-Apple's whitespace is the product's pedestal. Every tile begins with at least 64px of air above its headline and 48–64px below. Product renders are never crowded; the nearest content to a product image is at least 40px away. The footer is the only area that breaks this — there, Apple goes deliberately dense to make the full information architecture visible at a glance.
+Whitespace separates *sections*, borders separate *items*. Inside a section the system is intentionally dense — rows touch via 1px dividers or 12px gaps — while 32–40px of air isolates one job (discover nearby) from the next (browse all). Nothing floats in a void: every block is anchored to a section header.
 
 ## Elevation & Depth
 
 | Level | Treatment | Use |
 |---|---|---|
-| Flat | No shadow, no border | Full-bleed tiles, global nav, footer, body sections |
-| Soft hairline | 1px `rgba(0, 0, 0, 0.08)` border | Utility cards, sub-nav frosted-glass separator |
-| Backdrop blur | `backdrop-filter: blur(N)` on Parchment 80% | Sub-nav and the iPhone buy floating sticky bar |
-| Product shadow | `rgba(0, 0, 0, 0.22) 3px 5px 30px 0` | Product renders resting on a surface (the only true "shadow" in the system) |
+| Flat | No shadow, no border | Screen background, section headers, text |
+| Hairline card | 1px `{colors.hairline}` border | Cards, chips, inputs, stat/info strips |
+| Floating | `0 4px 14px rgba(0,0,0,0.18)` | Black map FAB |
+| Overlay card | `0 8px 24px rgba(0,0,0,0.12)` | Map bottom card, toasts |
+| Sheet | `0 -8px 24px rgba(0,0,0,0.10)` + `{rounded.xl}` top corners | Bottom sheets over the map |
 
-**Shadow philosophy.** Apple uses **exactly one** drop-shadow, and it is applied to photographic product imagery — never to cards, never to buttons, never to text. Elevation in the UI comes from (a) surface-color change (light tile ↔ dark tile) and (b) backdrop-blur on sticky bars. The single shadow is about giving the product weight, not about UI hierarchy.
+**Shadow philosophy.** Shadows mean "this surface floats above another surface" — FAB over list, card over map, sheet over map. Cards resting in the document flow never carry shadows; their edge is the 1px hairline. Never shadow text or badges.
 
 ### Decorative Depth
-- **Atmospheric imagery** on the environment page (photographic vista) supplies mood; no CSS gradient involved.
-- **Edge-to-edge tile alternation** creates rhythm without borders or shadows — the color change itself is the divider.
-- **Backdrop-filter blur** on `{component.sub-nav-frosted}` and `{component.floating-sticky-bar}` creates a "floating over content" effect that's functional, not decorative.
+- **Tint steps** (Purple 10/20 behind purple content, Green 10 behind green text) create soft emphasis without elevation.
+- **The promo banner** may contain its own illustrative art (coupon graphics, stickers) — decoration lives *inside* the slot, never on the chrome.
+- **No backdrop blur.** Sticky surfaces are opaque white with a soft top border.
 
 ## Shapes
 
@@ -410,102 +491,111 @@ Apple's whitespace is the product's pedestal. Every tile begins with at least 64
 
 | Token | Value | Use |
 |---|---|---|
-| `{rounded.none}` | 0px | Full-bleed product tiles (no corner rounding) |
-| `{rounded.xs}` | 5px | Inline links when styled as subtle chips (rare) |
-| `{rounded.sm}` | 8px | Dark utility buttons (Sign In, Bag), inline card imagery |
-| `{rounded.md}` | 11px | White Pearl Button capsules |
-| `{rounded.lg}` | 18px | Store utility cards, accessories grid cards |
-| `{rounded.pill}` | 9999px | Primary blue pill CTAs, sub-nav buy button, configurator option chips, search input — the signature Apple pill |
-| `{rounded.full}` | 9999px / 50% | Circular control chips floating over photography |
+| `{rounded.none}` | 0px | Full-bleed hero photo, map canvas |
+| `{rounded.xs}` | 4px | SNS badges |
+| `{rounded.sm}` | 8px | Menu highlight rows, small thumbnails, inline chips |
+| `{rounded.md}` | 12px | Cards, buttons, inputs, radio cards, list thumbnails — the workhorse radius |
+| `{rounded.lg}` | 16px | Promo banner, stat strip, map bottom card, section cards |
+| `{rounded.xl}` | 20px | Bottom sheet top corners |
+| `{rounded.pill}` | 9999px | Category chips, keyword chips, link-state chips, map FAB, map marker pills |
+| `{rounded.full}` | 9999px / 50% | Radio dots, step-timeline markers, icon buttons |
 
 ### Photography Geometry
-- **Hero imagery**: full-bleed, 21:9 or taller on the homepage; 16:9 on environment and shop pages. Product renders are photographic-realistic, often shot on a tinted surface that becomes the tile background.
-- **Product renders**: PNG/WebP with transparency; rest on a surface tile and pick up the system shadow.
-- **Accessory grid**: square 1:1 crops at `{rounded.lg}` (18px) radius, light neutral backgrounds, product centered with 20–40px internal padding.
-- **No rounded imagery in hero tiles** — images are full-bleed rectangular. Rounding (`{rounded.sm}`, `{rounded.lg}`) appears only on inline card imagery.
-- Lazy-loading via responsive `srcset` and `sizes` across all breakpoints; CDN-optimized WebP.
+- **Card imagery**: 4:3 crops on 2-column home cards, `{rounded.md}` (12px), object-cover.
+- **List thumbnails**: square ~96px, `{rounded.md}`.
+- **Store-detail hero**: full-bleed edge-to-edge, no rounding, ~4:3, single photo.
+- **Map snippet** (store detail): full-width static map at `{rounded.md}` with address row below.
+- In storyboard/schema mode all imagery renders the single placeholder thumb — geometry above still applies.
 
 ## Components
 
 ### Top Navigation
 
-**`global-nav`** — Persistent, ultra-thin black nav bar pinned to the top of every page. Background `{colors.surface-black}`, height 44px, text `{colors.on-dark}` in `{typography.nav-link}` (12px / 400 / -0.12px tracking). Links are quiet, spaced ~20px apart, running edge-to-edge across the top. Right-aligned cluster: Search, Bag icons — always visible. On mobile, collapses to hamburger at ~834px and the Apple logo centers.
+**`top-app-bar`** — White 52px bar. Home variant: left = location selector (`📍 {지역명} ⌄` in `{typography.title}` 18px/700, tap opens region picker); right = search + bell icon buttons (24px line icons, `{colors.ink}`). Detail variant: left = back chevron; title optional. No border — the bar and canvas share white; scrolled state may add `{colors.divider-soft}` bottom border.
 
-**`sub-nav-frosted`** — Surface-specific nav that sticks below the global nav. Background `{colors.canvas-parchment}` at 80% opacity with backdrop-filter blur, creating a frosted-glass effect. Height 52px. Content on left: product category name ("iPhone", "Store", "Accessories") in `{typography.tagline}` (21px / 600). Content right: inline nav links in `{typography.button-utility}` (14px), ending in a persistent `{component.button-primary}` ("Buy") or a utility link.
+**`segment-title`** — The explore header pattern: two `{typography.title-lg}` (20px/700) words side by side ("방문형 기자단"), active in `{colors.ink}`, inactive in `{colors.body-disabled}`. Tap swaps datasets in place. This *is* the screen title — no separate heading.
+
+**`bottom-nav`** — Flat white 72px bar, 5 tabs: 홈 · 탐색 · 체험권 · 혜택 · 마이. Line icon (24px) + `{typography.nav-link}` label. Active tab: icon filled + label in `{colors.primary}`; inactive: `{colors.body-muted}`. Hairline top border `{colors.divider-soft}`.
 
 ### Buttons
 
-**`button-primary`** — The signature Apple action. Background `{colors.primary}` (Action Blue #0066cc), text `{colors.on-primary}` in `{typography.body}` (SF Pro Text 17px / 400), rounded `{rounded.pill}` (full pill — capsule-shaped), padding 11px × 22px. The full-pill radius IS the brand action signal.
-- Active state: `{component.button-primary-active}` — `transform: scale(0.95)` (the system-wide micro-interaction).
-- Focus state: `{component.button-primary-focus}` — 2px solid `{colors.primary-focus}` outline.
+**`button-primary`** — The purple commit action ("체험권 발급받기"). Background `{colors.primary}`, text white `{typography.button-large}` (16px/700), rounded `{rounded.md}` (12px — rounded-rect, *not* a pill), height 52px. Active: `{component.button-primary-active}` background `{colors.primary-strong}` + `transform: scale(0.97)`. Disabled: `{component.button-primary-disabled}` sunken gray bg + disabled text.
 
-**`button-secondary-pill`** — Used as the second CTA when two blue pills appear together ("Learn more" / "Buy"). Background transparent, text `{colors.primary}`, 1px solid `{colors.primary}` border, rounded `{rounded.pill}`, padding 11px × 22px. Reads as a "ghost pill."
+**`button-secondary`** — White bg, 1px `{colors.hairline}` border, `{typography.button-utility}` label, `{rounded.md}`, 44px. Neutral secondary actions (닫기, 복사).
 
-**`button-dark-utility`** — Global nav actions (Sign In, Bag, language selector). Background `{colors.ink}` (#1d1d1f), text `{colors.on-dark}` in `{typography.button-utility}` (14px / 400 / -0.224px tracking), rounded `{rounded.sm}` (8px), padding 8px × 15px. Active state shrinks via `transform: scale(0.95)`.
+**`button-text`** — Inline text action in `{colors.primary}` ("더 둘러보기 ›" uses `{colors.body-muted}` variant when it's a quiet nav link).
 
-**`button-pearl-capsule`** — Product-card secondary button. Background `{colors.surface-pearl}` (#fafafc), text `{colors.ink-muted-80}` in `{typography.caption}` (14px), 3px solid `{colors.divider-soft}` border (functions as a soft ring rather than a visible line), rounded `{rounded.md}` (11px), padding 8px × 14px.
+**`map-fab`** — Black pill floating at bottom-center of the explore list: `📍 지도 보기` in white `{typography.button-utility}`, height 44px, `{rounded.pill}`, shadow Floating. Swaps to `☰ 목록 보기` on the map.
 
-**`button-store-hero`** — A larger primary CTA used on store hero surfaces. Same Action Blue + Paper White as `{component.button-primary}`, but with `{typography.button-large}` (18px / 300 — note the rare weight 300) and slightly more padding (14px × 28px). Used sparingly on the store landing.
-
-**`button-icon-circular`** — Floats over photography. 44 × 44px, background `{colors.surface-chip-translucent}` at ~64% alpha, icon in `{colors.ink}`, rounded `{rounded.full}`. Used for carousel controls, close buttons, and in-image controls (product image thumbnails on the iPhone buy page).
-
-**`text-link`** — Inline body links in `{colors.primary}` (Action Blue). Underlined or non-underlined per context.
-
-**`text-link-on-dark`** — Inline body links on dark tiles in `{colors.primary-on-dark}` (Sky Link Blue #2997ff) — Action Blue would disappear against `{colors.surface-tile-1}`.
+**`icon-button`** — 40×40 tap target, 24px line icon, no background; used in app bars (search, bell, filter, copy).
 
 ### Cards & Containers
 
-**`product-tile-light`** — Full-bleed light tile. Background `{colors.canvas}` (white), text `{colors.ink}`, rounded `{rounded.none}` (0 — tiles touch edges), vertical padding `{spacing.section}` (80px). Centered stack: product name in `{typography.display-lg}` (40px / 600) → one-line tagline in `{typography.lead}` (28px / 400) → two `{component.button-primary}` CTAs ("Learn more" / "Buy") → product render resting on the surface with the system shadow.
+**`experience-card`** — 2-column home card. Stack: 4:3 photo (`{rounded.md}`) → SNS badge row (blog/insta/tiktok) → `🎫 {N} 남음` in `{typography.caption-strong}` → store name `{typography.body-strong}` 1-line ellipsis → `최대 ₩{N} 지원` in `{typography.price}`. No outer border — the image edge and text stack read as the card.
 
-**`product-tile-parchment`** — Same as `{component.product-tile-light}` but on `{colors.canvas-parchment}` (#f5f5f7). Used to break two consecutive white tiles.
+**`experience-row`** — Explore list row. Left: square 96px thumbnail (`{rounded.md}`). Right column: SNS badges · store name (`{typography.body-strong}`, up to 2 lines) · `{카테고리} · {거리}` in `{typography.caption}` muted · `최대 ₩{N} 지원` in `{typography.price}`. Top-right: `🎫 {N} 남음`. Rows separated by 16px gaps (no divider lines).
 
-**`product-tile-dark`** — Full-bleed dark tile. Background `{colors.surface-tile-1}` (#272729), text `{colors.on-dark}`, rounded `{rounded.none}`, vertical padding `{spacing.section}` (80px). Same content stack as the light tile but with `{component.text-link-on-dark}` for inline copy and `{component.button-primary}` (Action Blue still works on the dark surface). Used on the homepage product grid as the alternating dark band.
+**`promo-banner`** — Marketing slot on home. `{colors.info}` blue fill, `{rounded.lg}`, ~110px tall, white headline + small white pill tag; may contain slot-owned art. Content is a CMS/marketing concern; the chrome is this component.
 
-**`product-tile-dark-2`** — Variant on `{colors.surface-tile-2}` (#2a2a2c). Used where a dark tile sits directly above or below `{component.product-tile-dark}` to create the faintest separation through micro-step lightness change.
+**`stat-strip`** — Home 3-stat card: white, hairline border, `{rounded.lg}`, three equal columns divided by `{colors.divider-soft}` rules. Column = caption label (`{colors.body-muted}`) over value (`{typography.headline}`); the personal-action column (참여 예정) renders its value in `{colors.primary}` with a 🎫 prefix.
 
-**`product-tile-dark-3`** — Variant on `{colors.surface-tile-3}` (#252527). Used at the bottom of the stack and in embedded video/player frames.
+**`info-strip`** — Store-detail meta card: white, hairline border, `{rounded.md}`, 2–3 columns (체험 마감일 / 리뷰 마감 기한 / 잔여). Label in `{typography.caption}` muted, value in `{typography.body-strong}`; the 잔여 value rides the 🎫 glyph in `{colors.primary}`.
 
-**`store-utility-card`** — Used in store grid and accessories grid. Background `{colors.canvas}` (white), 1px solid `{colors.hairline}` border, rounded `{rounded.lg}` (18px), padding `{spacing.lg}` (24px). Top: product image (1:1 crop with `{rounded.sm}` (8px) inner image radius). Below: product name in `{typography.body-strong}` (17px / 600), price in `{typography.body}` (17px / 400), and a `{component.text-link}` ("Buy" or "Learn more"). No shadow by default; product render itself carries the system product-shadow.
+**`notice-banner`** — Purple-tint advisory: bg `{colors.primary-tint-soft}`, `{rounded.md}`, leading 💬 icon, single line of `{typography.caption-strong}` in `{colors.primary}` ("체험권 발급 후 24시간 내로 사용하지 않으면 사라져요").
 
-**`configurator-option-chip`** — Pill-shaped tappable cell used in the iPhone 17 Pro buy page. Background `{colors.canvas}`, text `{colors.ink}` in `{typography.caption}`, rounded `{rounded.pill}`, padding 12px × 16px. Contains a small product thumbnail + label + price delta. Arranged in a grid of 4–5 options per row.
+**`radio-select-card`** — The channel selection unit ("어느 SNS로 체험할까요?"). White, `{rounded.md}`, hairline border, 14–16px padding. Left: radio dot (selected = purple ring + dot) + `{채널} · {등급}등급` label + `link-state-chip`. Right: support amount `{typography.price}`. Selected: `{component.radio-select-card-selected}` — 1.5px `{colors.primary}` border. Disabled (미연동): `{component.radio-select-card-disabled}` — `{colors.canvas-soft}` bg, gray text, right side reads `확인불가`.
 
-**`configurator-option-chip-selected`** — Selected state. Border upgrades to 2px solid `{colors.primary-focus}`. Same shape, same content.
+**`link-state-chip`** — Tiny pill after channel names: `연동 완료` (green border + `{colors.success-strong}` text) / `연동 필요` (hairline border + muted text).
 
-**`environment-quote-card`** — A photographic-canvas hero specific to the environment page. Dark photographic backdrop (mountain vista at dawn) with `{colors.surface-tile-1}` as the fallback color, centered white-text headline in `{typography.display-lg}` (40px), small green "Apple 2030" pictographic logo above the headline, single `{component.button-primary}` below. Padding `{spacing.section}` (80px).
+**`menu-highlight-row`** — Required-menu rows: bg `{colors.primary-tint-soft}`, `{rounded.sm}`, menu name in `{colors.primary}` `{typography.body-strong}`, price right-aligned `{colors.ink}`. Stacked with 8px gaps under the "필수로 주문해야하는 메뉴가 있어요 (택 1)" section header.
 
-**`floating-sticky-bar`** — Floats at the bottom of the viewport on the iPhone 17 Pro buy page during scroll. Background `{colors.canvas-parchment}` at 80% opacity with `backdrop-filter: blur(N)`, height 64px, padding 12px × 32px. Left: running price total in `{typography.body}`. Right: `{component.button-primary}` ("Add to Bag").
+**`keyword-chip`** — `#{키워드}` pills: `{colors.surface-sunken}` bg, `{colors.body-secondary}` text, `{rounded.pill}`.
+
+**`step-timeline`** — "체험권 이용방법이 궁금해요" walkthrough: purple filled circles (24px, white number) connected by a 2px `{colors.primary-tint}` vertical rule; each step = `{typography.body-strong}` title + `{typography.caption}` muted description.
+
+**`map-marker-pill`** — Map pin: white pill, `{colors.border-strong}` 1px border, two stacked lines (`{매장명}` caption-strong / `최대 {N}원` caption) with a small tail. Selected: `{component.map-marker-pill-selected}` — `{colors.primary}` 1.5px border + `{colors.primary-tint-soft}` fill.
+
+**`map-bottom-card`** — Selected-pin summary floating above the bottom nav: white `{rounded.lg}` card, Overlay shadow, experience-row layout inside (thumbnail + badges + name + meta + price + 🎫 남음).
+
+**`bottom-sheet`** — List sheet over the map: white, `{rounded.xl}` top corners, Sheet shadow, drag handle bar (36×4px `{colors.border-strong}`), containing the category chip row + result count + experience-rows.
+
+**`cta-bar`** — Fixed purchase bar on detail screens: white, top border `{colors.divider-soft}`, left = label `지원 금액` (`{typography.caption}` muted) over `₩{N}` (`{typography.price}` 18px), right = `{component.button-primary}`.
 
 ### Inputs & Forms
 
-**`search-input`** — The accessories search input. Background `{colors.canvas}`, text `{colors.ink}` in `{typography.body}` (17px), 1px solid `rgba(0, 0, 0, 0.08)` border, rounded `{rounded.pill}` (full pill — search is also pill-shaped, matching the CTA grammar), padding 12px × 20px, height 44px. Leading icon: search glyph at 14px, muted tint.
+**`text-field`** — 48px fixed height (library spec: "텍스트필드 높이 48 고정"), white bg, 1px `{colors.hairline}` border, `{rounded.md}`, `{typography.body}` at Md-16 (or Sm-14 compact), placeholder in `{colors.body-disabled}`. Focus: border → `{colors.primary}`. Error: border → `{colors.error}` + caption below in error text. TextArea: hug height with min-height 48 and vertical padding.
 
-Error and validation states were not surfaced in the analyzed pages.
+**`search-input`** — Sunken variant for in-list search: `{colors.surface-sunken}` bg, borderless, `{rounded.md}`, 44px, leading search glyph.
+
+**`category-chip`** — Icon + label pill (전체/카페/식당/뷰티/헬스…). Default: white bg, hairline border. Selected: `{component.category-chip-selected}` — 1.5px `{colors.ink}` border (black marks *filter* selection; purple stays reserved for data selection). Horizontal scroll row with a trailing filter icon-button.
+
+**Radio / Checkbox** — 20px circle/square, 1.5px `{colors.border-strong}` border; checked = `{colors.primary}` fill + white check/dot (library `Radio`/`Checkbox`/`CheckMark`).
 
 ### Footer
 
-**`footer`** — Background `{colors.canvas-parchment}` (#f5f5f7), text `{colors.ink-muted-80}`. Link columns in `{typography.dense-link}` (17px / 400 / 2.41 line-height — the relaxed leading is what makes the dense columns scannable). Column headings in `{typography.caption-strong}` (14px / 600). Legal row at the very bottom in `{typography.fine-print}` (12px / 400) with `{colors.ink-muted-48}` text. Vertical padding 64px.
+**`footer`** — `{colors.canvas-soft}` block above the bottom nav on long pages: business info and legal links in `{typography.caption}` `{colors.body-muted}`, links underlined. Padding 24px 20px.
 
 ## Do's and Don'ts
 
 ### Do
-- Use `{colors.primary}` (Action Blue #0066cc) for every interactive element — links, pill CTAs, focus signals — and nothing else. The single accent is non-negotiable.
-- Set headlines in `{typography.hero-display}` or `{typography.display-lg}` with negative letter-spacing (`-0.28 → -0.374px`) to get the signature "Apple tight" cadence.
-- Run body copy at `{typography.body}` (17px / 400 / 1.47 / -0.374px) — not 16px. The extra pixel defines the brand's reading pace.
-- Alternate `{component.product-tile-light}` (or parchment) and `{component.product-tile-dark}` for full-bleed section rhythm. The color change IS the divider.
-- Reserve `{rounded.pill}` for the primary blue CTA and any other element that should read as an "action" (configurator chips, search input, sticky bar CTA).
-- Apply the single product-shadow (`rgba(0, 0, 0, 0.22) 3px 5px 30px`) only to product renders resting on a surface — never on cards, buttons, or text.
-- Use `transform: scale(0.95)` as the active/press state on every button — it's the system-wide micro-interaction.
-- Keep the global nav `{colors.surface-black}` (true black) — it's the only place pure black appears on most pages.
+- Use `{colors.primary}` (#9333EA) for every *selected/interactive* signal — CTA fill, radio selection, active nav, selected marker — and nowhere else.
+- Keep money bold and black: `최대 ₩N 지원` in `{typography.price}`; pair with the 🎫 glyph for remaining slots (`🎫 N 남음`).
+- Put the three SNS badges (green/pink/cyan) on every campaign card in the same order (블로그 → 인스타 → 틱톡).
+- Border cards with 1px `{colors.hairline}` and round them `{rounded.md}`/`{rounded.lg}`; reserve shadows for surfaces that float (FAB, map card, sheet).
+- Use black for *filter* selection (category chips) and purple for *data* selection (channel radio cards) — the two selection grammars must not blend.
+- Keep the promo banner's saturated blue confined to the marketing slot.
+- Write section headers as friendly sentences with the 👀/! energy of the reference screens ("걸어서 갈 수 있어요👀", "근처 체험 N개 발견!").
+- Render schema labels (STORYBOARD mode) in exactly the same components — placeholders inherit the real geometry.
 
 ### Don't
-- Don't introduce a second accent color; every "click me" signal is `{colors.primary}` (Action Blue).
-- Don't add shadows to cards, buttons, or text — shadow is reserved for product imagery.
-- Don't use gradients as decorative backgrounds; atmosphere comes from photography.
-- Don't set body copy at weight 500 — Apple's ladder is 300 / 400 / 600 / 700, with 500 deliberately absent. Body is always 400; strong inline is 600; display is 600.
-- Don't round full-bleed tiles — tiles are rectangular and edge-to-edge; the color change is the divider.
-- Don't tighten line-height below 1.47 for body copy — the editorial leading is part of the brand.
-- Don't mix radii grammars — use `{rounded.sm}` for compact utility, `{rounded.lg}` for utility cards, `{rounded.pill}` for pills, and nothing in between (except the rare `{rounded.md}` Pearl Button).
-- Don't use `{colors.primary-on-dark}` (Sky Link Blue) on light surfaces — it's the dark-tile-only variant. Action Blue is for light surfaces.
+- Don't introduce dark section tiles or parchment alternation — the canvas is always white; rhythm comes from section spacing and hairline cards.
+- Don't use purple for money, store names or informational text — purple always implies "selected/tappable".
+- Don't repurpose the SNS badge colors (green/pink/cyan) for states or categories.
+- Don't make the primary CTA a full pill — pills belong to chips and the map FAB; commit buttons are `{rounded.md}` rounded-rects.
+- Don't exceed 22px type or drop below 11px; the compact ladder is the brand's density.
+- Don't use gradients, backdrop blur, or decorative shadows on in-flow cards.
+- Don't render any grade-gating UI (lock overlays, "등급 부족") — per policy P1, grade only changes the amount shown.
+- Don't put borders and shadows on the same element (border *or* float, never both).
 
 ## Responsive Behavior
 
@@ -513,50 +603,43 @@ Error and validation states were not surfaced in the analyzed pages.
 
 | Name | Width | Key Changes |
 |---|---|---|
-| Small phone | ≤ 419px | Single-column tiles; sub-nav collapses to category name + primary CTA only; hero typography drops to 28px |
-| Phone | 420–640px | Single-column stack; product renders scale to 80% of tile width; hero h1 drops to 34px |
-| Large phone | 641–735px | Tiles transition to tighter padding (48px vertical vs 80px); fine-print wraps |
-| Tablet portrait | 736–833px | Global nav collapses to hamburger; sub-nav hides category chips, keeps primary CTA |
-| Tablet landscape | 834–1023px | Global nav returns fully expanded; 3-column utility grids become 2-column |
-| Small desktop | 1024–1068px | Product tiles use 2/3 width with margin gutters; hero h1 stays at 40px |
-| Desktop | 1069–1440px | Full layout; 4–5 column store grids; 1440px content max |
-| Wide desktop | ≥ 1441px | Content locks at 1440px, margins absorb extra width |
-
-The structural breakpoints that matter for agents: 1440px (content lock), 1068px (small-desktop), 833px (tablet landscape switch), 734px (tablet portrait), 640px (phone), 480px (small phone).
+| Small phone | ≤ 359px | 2-column cards drop to 1.5-column peek scroll; chip row tightens |
+| Phone | 360–479px | Reference layout: 2-column grids, 20px gutters |
+| Shell max | 480px | Layout locks; the app renders as a centered 480px column |
+| Tablet / Desktop | > 480px | Same 480px shell centered on `{colors.canvas-soft}`; no desktop-specific layout (admin console excepted) |
 
 ### Touch Targets
-- Minimum 44 × 44px. `{component.button-primary}` lands at ~44 × 100px (with the full-pill radius making the visible hit area more generous than the label suggests).
-- `{component.button-icon-circular}` is exactly 44 × 44px.
-- Global nav utility links are smaller (~32 × 80px) — they deliberately sit at a tighter target because they're precision desktop actions, and the mobile hamburger replaces them at ≤ 833px.
+- Minimum 44×44px. Primary CTA is 52px tall; list rows ≥ 96px; bottom-nav tabs ≥ 56×72px.
+- Icon buttons pad 24px glyphs to 40–44px targets.
+- Map marker pills are small visually but carry a ≥ 44px invisible hit slop.
 
 ### Collapsing Strategy
-- **Global nav**: full horizontal link row on desktop → collapses to Apple logo + hamburger + bag icon at 834px and below.
-- **Sub-nav**: category name + inline links + primary CTA → category name + primary CTA only at mobile; inline links move into a hamburger tray.
-- **Product tiles**: stack from 2-column to 1-column at 834px; vertical padding tightens from 80px → 48px at small-phone.
-- **Utility grids** (store, accessories): 5-col → 4-col (1440px) → 3-col (1068px) → 2-col (834px) → 1-col (640px).
-- **Hero typography**: `{typography.hero-display}` (56px) → `{typography.display-lg}` (40px) at 1068px → 34px at 640px → 28px at 419px.
+- **Explore header**: segment title + icons persist; the category chip row is horizontally scrollable at every width.
+- **Map mode**: list ↔ map swap in place via the FAB; the bottom sheet covers ~45% of the viewport and scrolls internally.
+- **Detail cta-bar**: always fixed; page content gets bottom padding = cta-bar + nav heights.
+- **Home grids**: fixed 2-column; cards shrink fluidly, image aspect stays 4:3.
 
 ### Image Behavior
-- All product imagery uses responsive `srcset` with breakpoint-matched crops.
-- Hero photography may switch art direction at mobile (e.g., the environment page's vista crops to a taller aspect ratio on mobile, framing the subject differently).
-- Product renders maintain their 1:1 or 4:3 aspect ratios across breakpoints; only scale changes.
-- Lazy-loading is default; the above-fold hero loads eagerly.
+- Card/list imagery uses `next/image` with `sizes` matched to the 2-col/96px slots; object-cover.
+- Store hero loads eagerly; below-fold imagery lazy.
+- Storyboard mode replaces all photos with the single schema placeholder — aspect boxes must not collapse.
 
 ## Iteration Guide
 
-1. Focus on ONE component at a time. Reference its YAML key directly (`{component.product-tile-dark}`, `{component.search-input}`).
-2. Variants of an existing component (`-active`, `-focus`, `-2`, `-3`) live as separate entries in `components:`.
+1. Focus on ONE component at a time. Reference its YAML key directly (`{component.radio-select-card}`, `{component.map-fab}`).
+2. Variants live as separate entries (`-selected`, `-disabled`, `-active`) in `components:`.
 3. Use `{token.refs}` everywhere — never inline hex.
-4. Never document hover. Default and Active/Pressed states only.
-5. Display headlines stay SF Pro Display 600 with negative letter-spacing. Body stays SF Pro Text 400 at 17px. The boundary is unbreakable.
-6. The single drop-shadow (`rgba(0, 0, 0, 0.22) 3px 5px 30px`) is reserved for product photography only.
-7. When in doubt about emphasis: alternate surface (light → dark tile) before adding chrome.
+4. Never document hover. Default and Active/Pressed (scale 0.97) states only — this is a touch product.
+5. Purple = interaction, black = value, pastel = identity (SNS), blue = marketing. Check every new element against this sentence before shipping.
+6. Section headers are sentences, not labels — keep the friendly voice.
+7. When in doubt about emphasis: bump weight or add a tint background before adding size, color or elevation.
 
 ## Known Gaps
 
-- Form validation and error states were not surfaced on the analyzed pages; only the neutral search input is documented.
-- The homepage's embedded video/player frame uses `{colors.surface-black}`; interior player controls are not documented (they're a platform widget, not a web-design token).
-- Some component imagery is dynamic (rotating product hero) and its specific copy varies per surface — component specs name the structure, not the rotating content.
-- Dark-mode counterparts for store and accessories utility cards were not surfaced on the analyzed pages; the system documented is the daytime/light-dominant variant Apple ships by default.
-- Atmospheric photography (environment page mountain vista) is a content asset, not a design token; the documented `{component.environment-quote-card}` describes the structural surface only.
-- The exact backdrop-filter blur radius on `{component.sub-nav-frosted}` and `{component.floating-sticky-bar}` is platform-dependent; production CSS uses `saturate(180%) blur(20px)` as a typical baseline but the value isn't formalized as a token.
+- The library's Pink/Mint (insta/tiktok badge) exact hexes were not present in the extracted variable scales; #EC4899/#0891B2 are matched from the reference screens and may be refined against the source file.
+- Dark mode is not defined — the library ships light-only semantic tokens.
+- The filter icon-button next to category chips opens a filter surface that has no reference screen yet (sheet assumed).
+- Region picker (location selector ⌄ on home) interaction is not specified beyond the trigger.
+- Empty/loading states are not drawn in the reference set; current implementation reuses dashed-border empty cards with muted text until specified.
+- Owner (사장님) and admin surfaces have no reference screens; they inherit tokens and the card grammar but their layouts are extrapolated.
+- The reference screens show some placeholder policy numbers (e.g. "72시간 내 사용", "이용 후 7일 이내") that conflict with shipped policy (24h use / 72h review); the implementation follows policy, the visuals follow this system.

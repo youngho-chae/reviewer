@@ -2,44 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Apple design system — SF Pro stack, near-black ink, 17px body */
-html, body { background:#ffffff; color:#1d1d1f; }
+/* CATCHPASS 디자인 시스템 v2 — Pretendard, 퍼플 액센트, 흰 캔버스 (DESIGN.md v2.0)
+   Pretendard 로드는 layout.tsx의 <link>에서 수행 (@tailwind 뒤 @import는 무효) */
+html, body { background:#ffffff; color:#171717; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, Roboto, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, system-ui, Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
-  font-size: 17px;
-  line-height: 1.47;
-  letter-spacing: -0.022em;
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
 }
 * { -webkit-font-smoothing: antialiased; }
 button, a { touch-action: manipulation; }
 
-/* Apple system-wide micro-interaction: scale(0.95) on press */
+/* 터치 마이크로 인터랙션: 눌림 시 scale(0.97) */
 button, a[role="button"], a.cp-action {
-  transition: transform 0.12s ease, opacity 0.12s ease;
+  transition: transform 0.12s ease, opacity 0.12s ease, background-color 0.12s ease;
 }
 button:active:not(:disabled), a[role="button"]:active, a.cp-action:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 
-/* Display headings — SF Pro Display 600 with negative letter-spacing */
+/* 타이틀 — Pretendard 700, 타이트 트래킹 (사이즈 사다리 11~22px) */
 .font-display {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.026em;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-/* Product shadow — single drop-shadow reserved for photographic surfaces (emoji cover plates) */
-.product-shadow {
-  filter: drop-shadow(rgba(0,0,0,0.22) 3px 5px 30px);
-}
+/* v1 잔재 호환 — 사진에 드롭섀도 금지 (no-op) */
+.product-shadow { filter: none; }
 
-/* Frosted parchment sub-nav surface */
+/* 스티키 서피스 — 불투명 화이트 + 소프트 보더 (블러 금지) */
 .frosted-parchment {
-  background: rgba(245, 245, 247, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #ffffff;
+  border-bottom: 1px solid #F5F5F5;
 }
+
+/* 금액·수치 정렬 */
+.tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* mobile viewport scaffolding */
 .mobile-shell {

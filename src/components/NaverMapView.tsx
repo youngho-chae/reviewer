@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
+import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
+import ChannelIcons from "./ChannelIcons";
 
 export interface MapStorePin {
   storeId: string;
@@ -25,8 +27,16 @@ declare global {
   }
 }
 
-// [P1] 등급은 참여 자격이 아니므로 핀에 등급을 인코딩하지 않는다 — 단일 브랜드 컬러.
-const PIN_COLOR = "#0066cc";
+// map-marker-pill (DESIGN.md v2) — 흰 pill 2줄(매장명/최대 금액).
+// 기본 보더 #D4D4D4, 선택 시 퍼플(#9333EA) 보더 + Purple 10 배경.
+// [P1] 등급은 참여 자격이 아니므로 핀에 등급을 인코딩하지 않는다.
+const PIN_BORDER = "#D4D4D4";
+const PIN_SELECTED = "#9333EA";
+const PIN_SELECTED_BG = "#FAF5FF";
+
+function markerAmount(p: MapStorePin): string {
+  return STORYBOARD ? "최대 지원금액" : `최대 ${p.supportAmount.toLocaleString()}원`;
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
@@ -151,39 +161,42 @@ export default function NaverMapView({
     markersRef.current = [];
 
     for (const p of pins) {
-      const color = PIN_COLOR;
+      const isSel = selected?.storeId === p.storeId;
+      const border = isSel ? PIN_SELECTED : PIN_BORDER;
+      const bg = isSel ? PIN_SELECTED_BG : "#ffffff";
       const name = escapeHtml(p.name);
-      // 단일 섹션 — 매장명 · 지원금 한 줄 (금액 = 내 등급 기준 혜택)
+      // map-marker-pill — 2줄 (매장명 / 최대 금액), 선택 시 퍼플 강조
       const html = `
         <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
-          <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:#ffffff;border:1.5px solid ${color};border-radius:9999px;box-shadow:0 3px 10px rgba(0,18,14,.18);font-size:11.5px;line-height:1.3;font-weight:600;white-space:nowrap;max-width:240px;">
-            <span style="color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;min-width:0;">${name}</span>
-            <span style="color:#cccccc;flex-shrink:0;">·</span>
-            <span style="color:#1d1d1f;font-weight:700;flex-shrink:0;">${p.supportAmount.toLocaleString()}원</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 14px;background:${bg};border:${isSel ? "1.5px" : "1px"} solid ${border};border-radius:9999px;box-shadow:0 3px 10px rgba(0,0,0,.14);line-height:1.25;white-space:nowrap;max-width:220px;">
+            <span style="color:#171717;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:190px;">${name}</span>
+            <span style="color:#171717;font-size:12px;font-weight:700;">${markerAmount(p)}</span>
           </div>
-          <svg width="14" height="10" viewBox="0 0 14 10" style="margin-top:-1px;display:block;"><path d="M7 10 L0 0 L14 0 Z" fill="#ffffff" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" /><path d="M2 1 L12 1" stroke="#ffffff" stroke-width="2" /></svg>
+          <svg width="14" height="9" viewBox="0 0 14 9" style="margin-top:-1px;display:block;"><path d="M7 9 L1 0 L13 0 Z" fill="${bg}" stroke="${border}" stroke-width="1" stroke-linejoin="round" /><path d="M3 1 L11 1" stroke="${bg}" stroke-width="2.5" /></svg>
         </div>`;
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(p.lat, p.lng),
         map: mapRef.current,
-        icon: { content: html, anchor: new naver.maps.Point(120, 36) },
+        icon: { content: html, anchor: new naver.maps.Point(110, 48) },
       });
       naver.maps.Event.addListener(marker, "click", () => setSelected(p));
       markersRef.current.push(marker);
     }
 
-    // 핀 집합 바뀌면 중심도 따라감
-    if (pins.length > 0) {
-      const avg = pins.reduce(
-        (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
-        { lat: 0, lng: 0 }
-      );
-      try {
-        mapRef.current.setCenter(
-          new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
-        );
-      } catch {}
-    }
+  }, [pins, selected, sdkReady, sdkFailed]);
+
+  // 핀 집합이 바뀌면 중심 재계산 (선택 변경으로는 이동하지 않음)
+  useEffect(() => {
+    if (!sdkReady || sdkFailed || !mapRef.current || !window.naver?.maps) return;
+    if (pins.length === 0) return;
+    const naver = window.naver;
+    const avg = pins.reduce(
+      (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
+      { lat: 0, lng: 0 }
+    );
+    try {
+      mapRef.current.setCenter(new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length));
+    } catch {}
   }, [pins, sdkReady, sdkFailed]);
 
   // unmount 시 마커/맵 정리
@@ -228,33 +241,43 @@ export default function NaverMapView({
           </div>
         )}
         {selected && (
-          <div className="absolute left-0 right-0 bottom-0 mx-auto max-w-[480px] p-3" onClick={() => setSelected(null)}>
-            <div className="rounded-lg bg-white shadow-card overflow-hidden border border-hairline" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-stretch">
-                <div className="w-24 bg-parchment relative">
+          /* map-bottom-card (DESIGN.md v2) — 선택 핀 요약, experience-row 문법 */
+          <div className="absolute left-0 right-0 bottom-0 mx-auto max-w-[480px] p-4" onClick={() => setSelected(null)}>
+            <Link
+              href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`}
+              className="cp-action block rounded-lg bg-white shadow-card p-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex gap-3">
+                <div className="relative w-[88px] h-[88px] shrink-0 rounded-md overflow-hidden bg-sunken">
                   <Image
                     src={photoForStore(selected.storeId, selected.category)}
                     alt={selected.name}
                     fill
-                    sizes="96px"
+                    sizes="88px"
                     className="object-cover"
                   />
                 </div>
-                <div className="flex-1 p-3 min-w-0">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-[15px] font-semibold truncate">{selected.name}</div>
-                      <div className="text-[12px] text-muted mt-0.5 truncate">{selected.area} · {selected.category}</div>
+                    {selected.requiredChannels ? (
+                      <ChannelIcons channels={selected.requiredChannels} size={12} />
+                    ) : (
+                      <span />
+                    )}
+                    <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
+                      <span aria-hidden>🎫</span>
+                      <span className="tabular-nums">{sbNum(SBUI.remain, String(selected.remain))}</span> 남음
                     </div>
-                    <button onClick={() => setSelected(null)} className="text-muted text-[12px] px-2 flex-shrink-0">닫기</button>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <div className="text-[13px] font-medium truncate">지원 ₩{selected.supportAmount.toLocaleString()} · 잔여 {selected.remain}매</div>
-                    <Link href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`} className="text-[12px] bg-ink text-white px-3 py-1.5 rounded-full whitespace-nowrap">매장 상세 →</Link>
+                  <div className="mt-1 text-[15px] font-semibold text-ink truncate">{selected.name}</div>
+                  <div className="mt-0.5 text-[13px] text-muted truncate">
+                    {selected.category} · {SBUI.distance}
                   </div>
+                  <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         )}
       </div>
@@ -325,14 +348,13 @@ function StaticMapFallback({
               style={{ left: `${x}px`, top: `${y}px` }}
             >
               <div
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white shadow-sm border text-[11px] font-semibold max-w-[220px] whitespace-nowrap"
-                style={{ borderColor: PIN_COLOR }}
+                className="flex flex-col items-center px-3.5 py-1.5 rounded-pill bg-white shadow-sm border max-w-[200px] whitespace-nowrap leading-tight"
+                style={{ borderColor: PIN_BORDER }}
               >
-                <span className="text-ink truncate min-w-0">{p.name}</span>
-                <span className="text-mutedSoft">·</span>
-                <span className="text-ink font-bold">{p.supportAmount.toLocaleString()}원</span>
+                <span className="text-ink text-[12px] font-semibold truncate max-w-[180px]">{p.name}</span>
+                <span className="text-ink text-[12px] font-bold">{markerAmount(p)}</span>
               </div>
-              <div className="text-[14px] -mt-0.5 leading-none">▼</div>
+              <div className="text-[12px] -mt-0.5 leading-none text-borderStrong">▼</div>
             </button>
           );
         })}

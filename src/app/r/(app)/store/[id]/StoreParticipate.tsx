@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Grade, SnsKind } from "@/lib/types";
@@ -7,11 +7,9 @@ import {
   CHANNEL_ORDER,
   CHANNEL_LABEL,
   CHANNEL_REVIEW_CONDITIONS,
-  CHANNEL_BADGE_BG,
-  CHANNEL_SHORT,
-  defaultChannel,
 } from "@/lib/channels";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { SBUI, sbNum } from "@/lib/storyboard";
 
 interface Props {
   campaignId: string;
@@ -20,12 +18,15 @@ interface Props {
   myChannelGrades: Partial<Record<SnsKind, Grade>>;
   myActivePassId: string | null;
   remain: number;
+  children?: ReactNode; // 라디오 섹션과 리뷰 조건 사이의 정적 섹션들 (서버 렌더)
 }
 
 function supportFor(base: number, g: Grade): number {
   return Math.round((base * SUPPORT_MULTIPLIER[g]) / 100) * 100;
 }
 
+/* 어느 SNS로 체험할까요? — radio-select-card + cta-bar (DESIGN.md v2)
+   [P1] 등급은 참여 자격이 아님 — 채널 연동 여부만 선택 가능 조건이고, 등급은 금액만 바꾼다. */
 export default function StoreParticipate({
   campaignId,
   base,
@@ -33,6 +34,7 @@ export default function StoreParticipate({
   myChannelGrades,
   myActivePassId,
   remain,
+  children,
 }: Props) {
   const router = useRouter();
 
@@ -41,22 +43,21 @@ export default function StoreParticipate({
     [requiredChannels],
   );
 
-  // 기본 선택 — 연동된 채널 중 우선순위(블로그→인스타→틱톡) 첫 번째, 없으면 우선순위 첫 채널
-  // [P1] 등급은 참여 자격이 아님 — 연동 여부만 본다.
+  // Default = 연동된 채널 중 우선순위(블로그→인스타→틱톡) 첫 번째
   const initial = useMemo(() => {
-    const connectedFirst = ordered.find((c) => !!myChannelGrades[c]);
-    return connectedFirst ?? defaultChannel(ordered) ?? ordered[0];
+    return ordered.find((c) => !!myChannelGrades[c]) ?? null;
   }, [ordered, myChannelGrades]);
 
-  const [selected, setSelected] = useState<SnsKind>(initial);
+  const [selected, setSelected] = useState<SnsKind | null>(initial);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const myGrade: Grade | undefined = myChannelGrades[selected];
+  const myGrade: Grade | undefined = selected ? myChannelGrades[selected] : undefined;
   const connected = !!myGrade;
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
-  const conditions = CHANNEL_REVIEW_CONDITIONS[selected] ?? [];
+  const conditions = selected ? CHANNEL_REVIEW_CONDITIONS[selected] ?? [] : [];
+  const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
 
   async function go() {
     setBusy(true);
@@ -83,156 +84,177 @@ export default function StoreParticipate({
 
   return (
     <>
-      {/* 채널 선택 — 칩 */}
-      <section className="bg-parchment py-12 px-6">
-        <h3 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-3">참여 채널 선택</h3>
-        <div className="flex flex-wrap gap-2">
+      {/* 채널 선택 — radio-select-card */}
+      <section className="px-5 mt-9">
+        <h3 className="text-[18px] font-bold text-ink tracking-title">어느 SNS로 체험할까요?</h3>
+        <p className="mt-1 text-[13px] text-muted">채널을 선택하면 혜택과 리뷰 작성 조건이 달라져요.</p>
+        <div className="mt-3 space-y-2.5">
           {ordered.map((ch) => {
-            const able = !!myChannelGrades[ch]; // 연동 여부만 표시 (등급 무관 — P1)
+            const g = myChannelGrades[ch];
+            const isConnected = !!g;
             const isSel = ch === selected;
+            if (!isConnected) {
+              return (
+                <div
+                  key={ch}
+                  className="rounded-md border border-hairlineSoft bg-parchment px-4 py-3.5 flex items-center gap-3"
+                  aria-disabled
+                >
+                  <span className="w-5 h-5 rounded-full border-[1.5px] border-borderStrong bg-canvas shrink-0" />
+                  <span className="flex-1 flex items-center gap-2 min-w-0">
+                    <span className="text-[15px] font-semibold text-mutedSoft truncate">{CHANNEL_LABEL[ch]}</span>
+                    <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill border border-hairline text-[11px] text-muted">연동 필요</span>
+                  </span>
+                  <span className="text-[14px] font-semibold text-mutedSoft shrink-0">확인불가</span>
+                </div>
+              );
+            }
             return (
               <button
                 key={ch}
                 type="button"
                 onClick={() => setSelected(ch)}
-                className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill border text-[14px] ${
-                  isSel ? "bg-ink text-white border-ink" : "bg-canvas text-ink border-hairline"
+                aria-pressed={isSel}
+                className={`w-full rounded-md px-4 py-3.5 flex items-center gap-3 bg-canvas text-left ${
+                  isSel ? "border-[1.5px] border-brand" : "border border-hairline"
                 }`}
               >
                 <span
-                  className={`inline-flex items-center justify-center w-5 h-5 rounded-[5px] text-[10px] font-bold ${CHANNEL_BADGE_BG[ch]}`}
-                >
-                  {CHANNEL_SHORT[ch]}
+                  className={`w-5 h-5 rounded-full shrink-0 grid place-items-center ${
+                    isSel ? "border-[6px] border-brand bg-canvas" : "border-[1.5px] border-borderStrong bg-canvas"
+                  }`}
+                />
+                <span className="flex-1 flex items-center gap-2 min-w-0">
+                  <span className="text-[15px] font-semibold text-ink truncate">
+                    {CHANNEL_LABEL[ch]} · {g}등급
+                  </span>
+                  <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill border border-success text-[11px] font-semibold text-successStrong">
+                    연동 완료
+                  </span>
                 </span>
-                <span>{CHANNEL_LABEL[ch]}</span>
-                {!able && <span className={`text-[10px] ${isSel ? "text-white/70" : "text-muted"}`}>🔒</span>}
+                <span className="text-[16px] font-bold text-ink tabular-nums shrink-0">
+                  {sbNum(SBUI.support, `₩${supportFor(base, g).toLocaleString()}`)}
+                </span>
               </button>
             );
           })}
         </div>
-
-        {/* 선택 채널 — 내 등급 → 받을 수 있는 금액 자동 계산 */}
-        <div className="mt-4 rounded-lg bg-canvas border border-hairline p-5">
-          <div className="text-[13px] text-muted">{CHANNEL_LABEL[selected]}로 참여 시</div>
-          {connected ? (
-            <>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="font-display text-[34px] leading-none text-ink">
-                  ₩{selectedSupport.toLocaleString()}
-                </span>
-                <span className="text-[13px] text-muted">내 {myGrade}등급 기준</span>
-              </div>
-              {base > selectedSupport && (
-                <div className="mt-1.5 text-[12px] text-muted">
-                  최대 ₩{base.toLocaleString()} (S등급) · 등급이 오르면 지원금도 올라가요
-                </div>
-              )}
-              <div className="mt-1.5 text-[12px] text-muted">
-                지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요.
-              </div>
-            </>
-          ) : (
-            <div className="mt-1 text-[15px] text-ink2 leading-[1.5]">
-              아직 <span className="font-semibold">{CHANNEL_LABEL[selected]}</span>를 연동하지 않았어요.<br />
-              <span className="text-[13px] text-muted">SNS 채널 추가·변경은 고객센터로 문의해주세요.</span>
-            </div>
-          )}
-        </div>
-
-        {/* 선택 채널에 맞는 리뷰 작성 조건 */}
-        <div className="mt-5">
-          <h4 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-2">
-            {CHANNEL_LABEL[selected]} 리뷰 작성 조건
-          </h4>
-          <ul className="space-y-1.5">
-            {conditions.map((c) => (
-              <li key={c.key} className="flex items-start gap-2 text-[14px] text-ink">
-                <span className="text-brand mt-0.5">·</span>
-                <span>
-                  {c.label}
-                  <span className="text-muted text-[12px]"> — {c.hint}</span>
-                </span>
-              </li>
-            ))}
-            <li className="flex items-start gap-2 text-[14px] text-ink">
-              <span className="text-brand mt-0.5">·</span>
-              <span>광고 표시 문구 자동 삽입 (필수)</span>
-            </li>
-          </ul>
-        </div>
+        {connected && base > selectedSupport && (
+          <p className="mt-2 text-[12px] text-muted">
+            최대 {sbNum(SBUI.support, `₩${base.toLocaleString()}`)} (S등급) · 등급이 오르면 지원금도 올라가요
+          </p>
+        )}
+        <p className="mt-1 text-[12px] text-muted">지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요.</p>
       </section>
 
-      {/* Sticky CTA — 최종 선택 채널 + 금액 + 참여하기 */}
-      <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] frosted-parchment border-t border-hairline z-20">
-        <div className="px-6 pt-2.5 pb-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[12px] text-muted">
-              {CHANNEL_LABEL[selected]} · 내 {connected ? `${myGrade}등급` : "미연동"}
-            </span>
-            <span className="text-[15px] font-semibold text-ink">
-              {connected ? `₩${selectedSupport.toLocaleString()}` : "—"}
-            </span>
+      {/* 정적 섹션들 (필수 메뉴 · 키워드 · 소개 · 지도 · 이용 방법) */}
+      {children}
+
+      {/* 리뷰 작성 조건 — 선택 채널 기준 */}
+      <section className="px-5 mt-9">
+        <h3 className="text-[18px] font-bold text-ink tracking-title">리뷰 작성 조건</h3>
+        {selected ? (
+          <ul className="mt-3 space-y-2.5">
+            {conditions.map((cnd) => (
+              <li key={cnd.key} className="text-[15px] text-ink leading-[1.5]">
+                <span className="mr-1.5 text-muted" aria-hidden>·</span>
+                {cnd.label}
+                <div className="ml-4 text-[13px] text-muted">{cnd.hint}</div>
+              </li>
+            ))}
+            <li className="text-[15px] text-ink leading-[1.5]">
+              <span className="mr-1.5 text-muted" aria-hidden>·</span>
+              광고 표시 문구 포함 <span className="text-error font-semibold">(필수)</span>
+            </li>
+          </ul>
+        ) : (
+          <p className="mt-3 text-[14px] text-muted">채널을 연동하면 작성 조건이 표시돼요.</p>
+        )}
+      </section>
+
+      {/* cta-bar — 하단 고정: 지원 금액 + 체험권 발급받기 */}
+      <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] bg-canvas border-t border-hairlineSoft z-20">
+        <div className="px-5 py-3 flex items-center gap-4">
+          <div className="shrink-0">
+            <div className="text-[12px] text-muted">지원 금액</div>
+            <div className="text-[18px] font-bold text-ink tabular-nums leading-tight">
+              {connected ? sbNum(SBUI.support, `₩${selectedSupport.toLocaleString()}`) : "—"}
+            </div>
           </div>
           {myActivePassId ? (
             <Link
               href={`/r/passes/${myActivePassId}`}
-              className="cp-action block h-11 rounded-pill bg-brand text-white grid place-items-center text-[17px]"
+              className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold"
             >
-              내 체험권 보기 →
+              내 체험권 보기
             </Link>
           ) : remain <= 0 ? (
-            <button disabled className="w-full h-11 rounded-pill bg-parchment text-muted text-[17px] border border-hairline">
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
               마감되었습니다
             </button>
-          ) : !connected ? (
-            <button disabled className="w-full h-11 rounded-pill bg-parchment text-muted text-[17px] border border-hairline">
-              {CHANNEL_LABEL[selected]} 미연동
+          ) : !anyConnected ? (
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
+              SNS 연동 필요
             </button>
           ) : (
-            <button onClick={() => setOpen(true)} className="w-full h-11 rounded-pill bg-brand text-white text-[17px]">
-              참여하기
+            <button
+              onClick={() => setOpen(true)}
+              disabled={!connected}
+              className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+            >
+              체험권 발급받기
             </button>
           )}
         </div>
       </div>
 
-      {/* 참여 확인 모달 */}
-      {open && (
+      {/* 참여 확인 모달 — 하단 시트 */}
+      {open && selected && (
         <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setOpen(false)}>
-          <div className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-lg p-8" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-[28px] leading-[1.14] text-ink text-center">참여 신청 확인</h2>
-            <p className="mt-3 text-[15px] text-ink2 text-center leading-[1.47]">
+          <div className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl p-6 pb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center pb-3">
+              <span className="w-9 h-1 rounded-pill bg-borderStrong" />
+            </div>
+            <h2 className="text-[20px] font-bold text-ink tracking-title text-center">체험권을 발급받을까요?</h2>
+            <p className="mt-2 text-[14px] text-muted text-center leading-[1.5]">
               발급 후 24시간 이내 매장 방문 시<br />결제 전 QR을 제시해주세요.
             </p>
-            <div className="mt-7 space-y-3 text-[15px]">
-              <div className="flex justify-between border-b border-hairline pb-3">
+            <div className="mt-6 space-y-3 text-[15px]">
+              <div className="flex justify-between border-b border-hairlineSoft pb-3">
                 <span className="text-muted">참여 채널</span>
-                <span className="text-ink">{CHANNEL_LABEL[selected]}</span>
+                <span className="text-ink font-semibold">{CHANNEL_LABEL[selected]}</span>
               </div>
-              <div className="flex justify-between border-b border-hairline pb-3">
+              <div className="flex justify-between border-b border-hairlineSoft pb-3">
                 <span className="text-muted">내 {CHANNEL_LABEL[selected]} 등급</span>
-                <span className="text-ink">{myGrade}등급</span>
+                <span className="text-ink font-semibold">{myGrade}등급</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between pb-1">
                 <span className="text-muted">받을 지원금</span>
-                <span className="text-ink font-semibold">₩{selectedSupport.toLocaleString()}</span>
+                <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `₩${selectedSupport.toLocaleString()}`)}</span>
               </div>
             </div>
-            <p className="mt-4 text-[12px] text-muted leading-[1.5] text-center">
-              방문이 어려워지면 사용 전 언제든 취소할 수 있어요.<br />
-              리뷰는 사용 후 72시간 이내 제출해야 해요.
+            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
+              방문이 어려워지면 사용 전 언제든 취소할 수 있어요. 리뷰는 사용 후 72시간 이내 제출해야 해요.
             </p>
-            {err && <div className="mt-4 text-error text-[13px]">{err}</div>}
-            <div className="mt-7 space-y-3">
-              <button onClick={go} disabled={busy} className="w-full h-11 rounded-pill bg-brand text-white text-[17px] disabled:opacity-50">
+            {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setOpen(false)}
+                className="cp-action h-[52px] px-5 rounded-md border border-hairline text-[15px] font-semibold text-ink"
+              >
+                취소
+              </button>
+              <button
+                onClick={go}
+                disabled={busy}
+                className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:opacity-60"
+              >
                 {busy ? "발급 중..." : "발급받고 체험권 보기"}
               </button>
-              <button onClick={() => setOpen(false)} className="w-full h-11 text-brand text-[15px]">취소</button>
             </div>
           </div>
         </div>
       )}
-      {err && !open && <div className="fixed bottom-32 left-0 right-0 text-center text-error text-[13px] z-30">{err}</div>}
     </>
   );
 }

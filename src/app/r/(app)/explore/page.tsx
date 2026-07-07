@@ -1,9 +1,7 @@
 import { after } from "next/server";
-import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
-import Icon from "@/components/Icon";
 import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
 
 export const dynamic = "force-dynamic";
@@ -80,35 +78,14 @@ export default async function ReviewerExplore({
 
   // 지도 클라이언트 ID는 env로만 주입 (미설정 시 SDK 로드 실패 → 리스트 폴백 카드)
   const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "";
-  const activePassCount = db.passes.filter(
-    (p) => p.reviewerId === me.id && (p.status === "active" || p.status === "used"),
-  ).length;
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
-
-  const topBar = (
-    <div className="sticky top-0 z-30 frosted-parchment border-b border-hairlineSoft">
-      <div className="h-13 px-5 flex items-center justify-between">
-        <div className="text-[15px] font-semibold text-ink">탐색</div>
-        <Link
-          href="/r/notifications"
-          className="cp-action relative w-9 h-9 rounded-full flex items-center justify-center text-ink"
-          aria-label="알림"
-        >
-          <Icon name="bell" variant={unread > 0 ? "bold" : "border"} size={22} />
-          {unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />}
-        </Link>
-      </div>
-    </div>
-  );
 
   return (
     <ExploreView
       cards={cards}
       pressCards={pressCards}
       mapClientId={mapClientId}
-      topBar={topBar}
-      myGrade={me.grade}
-      activePassCount={activePassCount}
+      unread={unread}
       initialMode={sp.mode === "map" ? "map" : "list"}
       initialCategory={sp.cat || "전체"}
       initialSort={(sp.sort as "recommended" | "distance" | "new" | "topSupport" | "closing") || "recommended"}

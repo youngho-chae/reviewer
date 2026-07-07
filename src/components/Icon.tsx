@@ -28,7 +28,11 @@ export type IconName =
   | "camera"
   | "clipboard"
   | "store"
-  | "navigation";
+  | "navigation"
+  | "flag"
+  | "gift"
+  | "filter"
+  | "copy";
 
 export type IconVariant = "border" | "bold";
 
@@ -76,6 +80,14 @@ const PATHS: Record<IconName, string> = {
     "M4.5 9.5h15v9.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V9.5ZM4 9.5L5.5 5h13L20 9.5M10 21v-5h4v5",
   // Paper-plane style 화살표 — 길찾기/내비게이션 신호
   navigation: "M3.5 11.5L20.5 3.5l-8 17-2.5-7-6.5-2Z",
+  // 깃발 — 탐색 탭 (디자인 시스템 v2)
+  flag: "M5.5 21V4.2c0-.4.3-.8.7-.9C7.6 3 9 3 10.5 3.8c2 1.1 3.9 1.1 6 .3.9-.4 2 .3 2 1.3v8.2c0 .5-.3.9-.7 1-1.9.6-3.8.6-5.8-.4-2-1-3.9-1-6.5-.2M5.5 14.5V21",
+  // 선물 상자 — 혜택 탭
+  gift: "M4 11h16v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20v-9ZM3.5 7.5h17V11h-17V7.5ZM12 7.5v14M12 7.5C10 7.5 7.5 7 7.5 5.2 7.5 3.8 8.7 3 9.8 3c1.6 0 2.2 2 2.2 4.5ZM12 7.5c2 0 4.5-.5 4.5-2.3C16.5 3.8 15.3 3 14.2 3 12.6 3 12 5 12 7.5Z",
+  // 필터 슬라이더 — 탐색 필터 버튼
+  filter: "M4 7.5h9M17 7.5h3M4 16.5h3M11 16.5h9M15 5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM9 14.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z",
+  // 복사 — 주소 복사
+  copy: "M9 9.5a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 20 9.5v10a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 9 19.5v-10ZM6 15.5H5A1.5 1.5 0 0 1 3.5 14V4.5A1.5 1.5 0 0 1 5 3h9.5A1.5 1.5 0 0 1 16 4.5v1",
 };
 
 // 아이콘 별로 bold 모드에서 fill을 쓸지(닫힌 형태) stroke만 굵게 쓸지(선형) 결정.
@@ -92,6 +104,8 @@ const FILLED_BOLD: Partial<Record<IconName, boolean>> = {
   clipboard: true,
   store: true,
   navigation: true,
+  flag: true,
+  gift: true,
 };
 
 export default function Icon({ name, variant = "border", size = 22, className, ...rest }: Props) {

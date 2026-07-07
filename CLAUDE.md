@@ -20,6 +20,7 @@ CATCHPASS: 등급 기반 리뷰 체험권 플랫폼 (Next.js 15 App Router, 모�
 
 ## 기술 메모
 
+- **디자인 시스템 v2 (정본 `DESIGN.md`)**: Primary 퍼플 #9333EA · Pretendard · 파스텔 SNS 배지 · 헤어라인 라운드 카드 · 타이포 11~22px. v1 Apple 톤(Action Blue·다크 타일·SF Pro)은 파기 — 재도입 금지. 규칙: 퍼플=인터랙션, 검정=가치(금액), 파스텔=SNS 아이덴티티, 블루=마케팅 슬롯 전용. 화면설계서(Figma 보드)는 v1 기준으로 남아 있음(v2 반영은 별도 지시 대기).
 - 등급·배율: `src/lib/grade.ts` (gradeMeets는 P1 위반으로 삭제됨 — 재도입 금지).
 - 발급: `src/app/api/passes/route.ts` — 자기 등급 버킷 우선, 소진 시 잔여 버킷(N→C부터). `consumedSlot`으로 만료/취소 시 복구.
 - 스토리보드 모드: `src/lib/storyboard.ts`의 `STORYBOARD` 플래그 (true = 스키마 라벨 렌더, 시드 버전 1000+ 계열).

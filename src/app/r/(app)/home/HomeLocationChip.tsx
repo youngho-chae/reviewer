@@ -36,5 +36,5 @@ export default function HomeLocationChip({ fallbackArea }: Props) {
     );
   }, []);
 
-  return <span className="text-brand">{area}</span>;
+  return <span className="text-ink">{area}</span>;
 }

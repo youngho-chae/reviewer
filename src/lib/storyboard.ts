@@ -33,6 +33,12 @@ export const SBUI = {
   reward: "보상",
   boxGrade: "박스등급",
   liveCount: "참여자수",
+  // 디자인 시스템 v2 시안 필드
+  distance: "거리",
+  saved: "아낀금액",
+  endDate: "체험마감일",
+  reviewDue: "리뷰마감기한",
+  area: "지역",
 } as const;
 
 // 숫자 자리표시 — "지원금액"처럼 라벨을 그대로 반환 (실데이터일 땐 포맷된 값 반환)
