@@ -7,10 +7,14 @@ export const dynamic = "force-dynamic";
 // 서버사이드 호출이라 NCP "Web 서비스 URL" 화이트리스트 불필요.
 // Client ID/Secret만 있으면 작동.
 
-const KEY_ID = process.env.NAVER_MAP_CLIENT_ID || "xucmechng0";
-const KEY_SECRET = process.env.NAVER_MAP_CLIENT_SECRET || "LHX9wYjHXQFcjCAq8yyxNNfvIiDa8orX9cR04cUb";
+// NCP 키는 환경변수로만 주입한다(소스 하드코딩 폴백 제거).
+const KEY_ID = process.env.NAVER_MAP_CLIENT_ID || "";
+const KEY_SECRET = process.env.NAVER_MAP_CLIENT_SECRET || "";
 
 export async function GET(req: NextRequest) {
+  if (!KEY_ID || !KEY_SECRET) {
+    return NextResponse.json({ error: "map_not_configured" }, { status: 503 });
+  }
   const url = new URL(req.url);
   const center = url.searchParams.get("center") || "126.978,37.5665";
   const level = url.searchParams.get("level") || "11";

@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 // 좌표(lat,lng) → 한국 행정구역(시·구·동) 라벨로 변환.
 // 서버에서 NCP 키로 호출하므로 클라이언트 키 노출 없음.
 
-const KEY_ID = process.env.NAVER_MAP_CLIENT_ID || "xucmechng0";
-const KEY_SECRET = process.env.NAVER_MAP_CLIENT_SECRET || "LHX9wYjHXQFcjCAq8yyxNNfvIiDa8orX9cR04cUb";
+// NCP 키는 환경변수로만 주입한다(소스 하드코딩 폴백 제거). 미설정 시 라벨 없이 graceful 반환.
+const KEY_ID = process.env.NAVER_MAP_CLIENT_ID || "";
+const KEY_SECRET = process.env.NAVER_MAP_CLIENT_SECRET || "";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -16,6 +17,10 @@ export async function GET(req: NextRequest) {
   const lng = parseFloat(url.searchParams.get("lng") || "");
   if (!isFinite(lat) || !isFinite(lng)) {
     return NextResponse.json({ error: "invalid_coords" }, { status: 400 });
+  }
+  // 키 미설정 시 지역 라벨을 생략(클라이언트는 첫 매장 지역으로 폴백).
+  if (!KEY_ID || !KEY_SECRET) {
+    return NextResponse.json({ label: null, raw: null });
   }
 
   // Naver Reverse Geocoding API — coords=lng,lat (X=lng, Y=lat 순서 주의)
