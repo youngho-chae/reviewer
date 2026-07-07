@@ -1,8 +1,11 @@
-# CATCHPASS 화면설계서 (SDD) — Figma 환경 & 생성 스크립트
+# CATCHPASS 설계 문서 세트 (기능정의서 + 화면설계서)
 
-> SDD = Screen Design Document (화면설계서).
-> 목표: 디자이너·프론트엔드가 **PRD v3.0과 1:1로 일치하는 화면설계서**를 Figma에서 유지·확장할 수 있는 환경.
-> 대상 Figma 파일: `MCP-TEST` — https://www.figma.com/design/gzLEmvFbtwhktwEGN1En3F/MCP-TEST
+> 문서 계층: **PRD(제품 요구) → 기능정의서(화면별 기능 요구·제약·디자인 의도) → 화면설계서(스토리보드/시각화)**.
+> 디자이너·프론트엔드는 **기능정의서를 단일 기준**으로 삼고, 화면설계서로 배치를 확인한다.
+>
+> - **기능정의서**: [`기능정의서.md`](./기능정의서.md) — IA 전 화면의 요구사항 ID 계층 + 정량 제약(최대/최소·자릿수·기간) + 디자인 의도(토스트·고정영역·키보드·캐러셀). FE·디자이너 공용 원본.
+> - **화면설계서(SDD)**: Figma `MCP-TEST` — https://www.figma.com/design/gzLEmvFbtwhktwEGN1En3F/MCP-TEST · 생성 스크립트는 아래 §3.
+> - 두 문서 모두 PRD v3.0(`PRD.md`)·구현 코드와 1:1 (카피 원문주의).
 
 ## 1. 현재 Figma에 구축 완료된 것 (2026-07-06)
 
