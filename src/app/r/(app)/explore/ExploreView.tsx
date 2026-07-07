@@ -6,6 +6,7 @@ import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
 import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
 import { photoForStore } from "@/lib/store-photo";
+import { SBUI } from "@/lib/storyboard";
 import { Grade, SnsKind } from "@/lib/types";
 
 export interface ExploreStoreCard extends MapStorePin {
@@ -67,20 +68,6 @@ const CAT_GROUPS = [
   { key: "액티비티", label: "액티비티", match: (c: string) => ["PT", "필라테스", "마사지", "애견미용", "동물병원"].includes(c) },
 ];
 
-function formatRemainingDays(endAt: number): { label: string; urgent: boolean } {
-  const now = Date.now();
-  const diff = endAt - now;
-  if (diff <= 0) return { label: "마감", urgent: true };
-  if (diff < DAY) {
-    return { label: "오늘 23:59 마감", urgent: true };
-  }
-  const date = new Date(endAt);
-  const day = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const d = date.getDate().toString().padStart(2, "0");
-  return { label: `~ ${m}.${d}(${day}) 마감`, urgent: diff < 2 * DAY };
-}
-
 // 결정론적 도보 시간 mock (storeId 해시 기반, 3~12분)
 function walkMinutes(storeId: string): number {
   let h = 0;
@@ -96,9 +83,6 @@ function cardLabel(card: ExploreStoreCard): { text: string; tone: "new" | "closi
   if (card.endAt - now < SEVEN_DAYS) return { text: "이번 주만", tone: "week" };
   return null;
 }
-
-// 곧 마감 카드용 B급 한 줄 카피 (txt 미팅 산출물)
-const CLOSING_TEASE = "지금 안 가면 남들 인스타에서 보게 됨";
 
 export default function ExploreView({
   cards,
@@ -394,13 +378,13 @@ export default function ExploreView({
                       <div className="text-[11px] text-muted">기자단 · {p.category}</div>
                       <div className="text-[15px] font-semibold text-ink truncate mt-0.5">{p.storeName}</div>
                       <div className="text-[11px] text-muted mt-0.5">
-                        {p.area} · 자료팩 {p.kitPhotos}장
+                        {p.area} · 자료팩 {SBUI.count2}
                       </div>
                       <div className="flex items-end justify-between mt-1.5">
                         <div className="text-[12px] text-success font-semibold">
-                          정산 ₩{p.payout.toLocaleString()}
+                          {SBUI.payout}
                         </div>
-                        <div className="text-[11px] text-muted">잔여 {p.slotsLeft}/{p.slotsTotal}</div>
+                        <div className="text-[11px] text-muted">{SBUI.remain}/{SBUI.quota}</div>
                       </div>
                     </div>
                   </Link>
@@ -512,8 +496,6 @@ export default function ExploreView({
  * ─────────────────────────────────────────────────────────────*/
 function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade: Grade }) {
   const label = cardLabel(card);
-  const remaining = formatRemainingDays(card.endAt);
-  const walk = walkMinutes(card.storeId);
   return (
     <Link
       href={card.accessible ? `/r/store/${card.storeId}?campaign=${card.campaignId}` : "/r/grade"}
@@ -547,9 +529,9 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
             <span>
               <Icon name="lock" variant="bold" size={12} className="inline mb-0.5" />
               <br />
-              {card.grade}등급
+              {SBUI.grade}
               <br />
-              <span className="font-normal opacity-80">전용 🤫</span>
+              <span className="font-normal opacity-80">전용</span>
             </span>
           </div>
         )}
@@ -561,25 +543,20 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
             <div className="text-[11px] text-muted mt-0.5 truncate">{card.category} · {card.area}</div>
             <div className="flex items-center gap-1.5 mt-1.5">
               <span className="inline-flex items-center text-[11px] text-ink font-medium">
-                <span className="mr-0.5" aria-hidden>🚶</span>도보 {walk}분
+                <span className="mr-0.5" aria-hidden>🚶</span>{SBUI.walk}
               </span>
               <span className="text-[11px] text-muted">·</span>
-              <span className="text-[11px] text-muted">{card.grade}등급 이상</span>
+              <span className="text-[11px] text-muted">{SBUI.gradeReq}</span>
             </div>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[13px] text-success font-semibold">
-                최대 ₩{card.supportAmount.toLocaleString()} 체험 지원
-              </span>
+              <span className="text-[13px] text-success font-semibold">{SBUI.support}</span>
               <ChannelIcons channels={card.requiredChannels} size={16} />
             </div>
-            {label?.tone === "closing" && (
-              <div className="text-[11px] text-error mt-1 italic">{CLOSING_TEASE}</div>
-            )}
           </div>
           <div className="text-right shrink-0">
-            <div className="text-[12px] text-ink2">잔여 <span className="font-bold text-ink">{card.remain}자리</span></div>
-            <div className={`text-[11px] mt-1.5 ${remaining.urgent ? "text-error font-bold" : "text-muted"}`}>
-              {remaining.label}
+            <div className="text-[12px] text-ink2">{SBUI.remain}</div>
+            <div className="text-[11px] mt-1.5 text-muted">
+              {SBUI.deadline}
             </div>
           </div>
         </div>
@@ -590,7 +567,6 @@ function RowCard({ card, myGrade: _myGrade }: { card: ExploreStoreCard; myGrade:
 
 function GridCard({ card }: { card: ExploreStoreCard }) {
   const label = cardLabel(card);
-  const walk = walkMinutes(card.storeId);
   return (
     <Link
       href={card.accessible ? `/r/store/${card.storeId}?campaign=${card.campaignId}` : "/r/grade"}
@@ -621,30 +597,25 @@ function GridCard({ card }: { card: ExploreStoreCard }) {
         )}
         <div className="absolute top-2 right-2">
           <span className="text-[10px] font-semibold text-ink bg-canvas/95 px-1.5 py-0.5 rounded-pill backdrop-blur-sm">
-            도보 {walk}분
+            {SBUI.walk}
           </span>
         </div>
         {!card.accessible && (
           <div className="absolute inset-0 bg-ink/55 flex flex-col items-center justify-center text-white text-[12px] font-semibold text-center px-3 leading-tight">
             <Icon name="lock" variant="bold" size={16} />
-            <span className="mt-1">{card.grade}등급들만</span>
-            <span className="text-[11px] font-normal opacity-90">몰래 가는 중 🤫</span>
+            <span className="mt-1">{SBUI.grade} 전용</span>
+            <span className="text-[11px] font-normal opacity-90">(등급 부족 상태)</span>
           </div>
         )}
       </div>
       <div className="p-3">
         <div className="text-[10px] text-muted uppercase tracking-wider mb-0.5">{card.category}</div>
         <h3 className="text-[15px] font-bold text-ink truncate tracking-[-0.022em]">{card.name}</h3>
-        <p className="text-[11px] text-muted mt-0.5 truncate">{card.area} · ★ {card.rating}</p>
+        <p className="text-[11px] text-muted mt-0.5 truncate">{card.area} · ★ {SBUI.rating}</p>
         <div className="flex items-center justify-between mt-2 gap-1">
-          <span className="text-[13px] text-success font-semibold">
-            최대 ₩{card.supportAmount.toLocaleString()}
-          </span>
+          <span className="text-[13px] text-success font-semibold">{SBUI.support}</span>
           <ChannelIcons channels={card.requiredChannels} size={15} />
         </div>
-        {label?.tone === "closing" && (
-          <div className="text-[10px] text-error mt-0.5 italic truncate">{CLOSING_TEASE}</div>
-        )}
       </div>
     </Link>
   );

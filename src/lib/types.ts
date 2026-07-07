@@ -175,7 +175,7 @@ export type ShareChannel = "kakao" | "sms" | "instagram_dm" | "copy_link";
 export type MatrixKey = "RR" | "RO" | "OR" | "OO";
 
 export interface Invite {
-  token: string;          // 8자 base62, /r/i/<token>로 진입
+  token: string;          // 8자 영대문자·숫자(31자 charset, 혼동 문자 0/O/1/I/L 제외), /r/i/<token>로 진입
   referrerId: string;
   referrerKind: UserKind;
   targetKind: UserKind;

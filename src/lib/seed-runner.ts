@@ -3,6 +3,30 @@ import crypto from "node:crypto";
 import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
 import { channelGradesFromSns, bestGrade } from "./grade";
 import { CHANNEL_REVIEW_CONDITIONS, defaultChannel } from "./channels";
+import { STORYBOARD } from "./storyboard";
+
+// ─────────────────────────────────────────────────────────────
+// [스토리보드 모드] design/storyboard-schema 브랜치 전용.
+// 시드의 모든 표시용 문자열 데이터를 한글 스키마 라벨로 치환하여,
+// 디자인 파트가 "어떤 위치에 어떤 데이터가 들어가는지"를 스토리보드로 확인할 수 있게 함.
+// 실데이터 원복은 backup/real-mockdata 브랜치 참조.
+// ─────────────────────────────────────────────────────────────
+const SB = {
+  storeName: "매장명",
+  category: "카테고리",
+  area: "지역",
+  hours: "영업시간",
+  address: "주소",
+  visitTitle: "캠페인명",
+  pressTitle: "기자단명",
+  visitDesc: "캠페인설명",
+  pressDesc: "기자단설명",
+  menu: "메뉴명",
+  nickname: "닉네임",
+  ownerStore: "매장명",
+  keyword: "키워드",
+  material: "자료명",
+};
 
 // 결정론적 ID — 서버리스 인스턴스 간 동일 ID 보장
 function detId(prefix: string, seed: string): string {
@@ -376,9 +400,9 @@ export function runSeed(db: DBShape) {
     id: detId("ow", "demo@store.com"),
     email: "demo@store.com",
     passwordHash: hash("demo1234"),
-    storeName: "CATCHPASS 데모 매장군",
-    category: "한식",
-    area: "서울",
+    storeName: STORYBOARD ? SB.ownerStore : "CATCHPASS 데모 매장군",
+    category: STORYBOARD ? SB.category : "한식",
+    area: STORYBOARD ? SB.area : "서울",
     plan: "Standard",
     createdAt: now - 1000 * 60 * 60 * 24 * 7,
   };
@@ -399,23 +423,23 @@ export function runSeed(db: DBShape) {
     const store: Store = {
       id: storeId,
       ownerId: owner.id,
-      name: s.name,
-      category: s.category,
-      area: s.area,
+      name: STORYBOARD ? SB.storeName : s.name,
+      category: STORYBOARD ? SB.category : s.category,
+      area: STORYBOARD ? SB.area : s.area,
       coverEmoji: s.coverEmoji,
       rating: s.rating,
       reviewCount: s.reviewCount,
-      hours: "11:30 - 21:30",
+      hours: STORYBOARD ? SB.hours : "11:30 - 21:30",
       lat: s.lat,
       lng: s.lng,
-      address: s.address,
+      address: STORYBOARD ? SB.address : s.address,
       naverPlaceId: s.naverPlaceId,
     };
     db.stores.push(store);
 
     const menuNames = pickMenus(s.menus, s.naverPlaceId);
     const menus: RequiredMenu[] = menuNames.map((name) => ({
-      name,
+      name: STORYBOARD ? SB.menu : name,
       price: priceForCategory(s.category, name),
     }));
     // 홈 큐레이션 타일(최근 등록 / 곧 마감 / 파격 지원금)이 의미있게 보이도록 날짜 스프레드.
@@ -434,7 +458,7 @@ export function runSeed(db: DBShape) {
       id: detId("cp", `${s.naverPlaceId}-default`),
       storeId,
       kind: "visit",
-      title: `${s.name} 체험단`,
+      title: STORYBOARD ? SB.visitTitle : `${s.name} 체험단`,
       startAt: now - 1000 * 60 * 60 * 24 * 2,
       endAt,
       supportAmount: s.supportAmount ?? 100000,
@@ -442,8 +466,12 @@ export function runSeed(db: DBShape) {
       used: { S: 0, A: 0, B: 0, C: 0 },
       requiredChannels: s.requiredChannels,
       requiredMenus: menus,
-      description: s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menuNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
-      highlightKeywords: [`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[],
+      description: STORYBOARD
+        ? SB.visitDesc
+        : s.description ?? `${s.area}의 ${s.name}에서 시그니처 메뉴(${menuNames.join(", ")})를 체험하고 정성스러운 후기를 남겨주세요.`,
+      highlightKeywords: STORYBOARD
+        ? [SB.keyword, SB.keyword]
+        : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: detUseCode(`${s.naverPlaceId}-default`),
     };
@@ -458,7 +486,7 @@ export function runSeed(db: DBShape) {
       id: detId("cp", `${pressStore.id}-press`),
       storeId: pressStore.id,
       kind: "press",
-      title: `${pressStore.name} 기자단 모집`,
+      title: STORYBOARD ? SB.pressTitle : `${pressStore.name} 기자단 모집`,
       startAt: now - 1000 * 60 * 60 * 24,
       endAt: now + 1000 * 60 * 60 * 24 * 21,
       supportAmount: 150000,
@@ -466,27 +494,31 @@ export function runSeed(db: DBShape) {
       used: { S: 0, A: 0, B: 0, C: 0 },
       requiredChannels: ["naver_blog", "instagram"],
       requiredMenus: [],
-      description: `${pressStore.name}의 신메뉴 출시 보도용 콘텐츠를 작성해주세요. 자료팩(제품 사진/매장 사진/브랜드 스토리)을 참고하여 자연스러운 후기 형태로 작성해주시면 됩니다.`,
+      description: STORYBOARD
+        ? SB.pressDesc
+        : `${pressStore.name}의 신메뉴 출시 보도용 콘텐츠를 작성해주세요. 자료팩(제품 사진/매장 사진/브랜드 스토리)을 참고하여 자연스러운 후기 형태로 작성해주시면 됩니다.`,
       createdAt: now - 1000 * 60 * 60 * 24 * 35,
-      pressKeywords: ["가을 신메뉴", "프리미엄 다이닝", "한남 맛집"],
-      pressMaterials: [
-        "신메뉴 상세 사진 8장 (.zip)",
-        "브랜드 스토리 텍스트 (2,400자)",
-        "사장님 인터뷰 영상 (3분)",
-        "로고/심볼 가이드 (PDF)",
-      ],
+      pressKeywords: STORYBOARD ? [SB.keyword, SB.keyword, SB.keyword] : ["가을 신메뉴", "프리미엄 다이닝", "한남 맛집"],
+      pressMaterials: STORYBOARD
+        ? [SB.material, SB.material, SB.material, SB.material]
+        : [
+            "신메뉴 상세 사진 8장 (.zip)",
+            "브랜드 스토리 텍스트 (2,400자)",
+            "사장님 인터뷰 영상 (3분)",
+            "로고/심볼 가이드 (PDF)",
+          ],
       pressMinChars: 1500,
       useCode: detUseCode(`${pressStore.id}-press`),
     });
   }
-  // 2) 네일 아틀리에 기자단 (뷰티 카테고리)
-  const nailStore = db.stores.find((s) => s.category === "네일아트");
+  // 2) 두 번째 매장 기자단 — 스토리보드에서는 카테고리가 모두 "카테고리"이므로 인덱스로 선택
+  const nailStore = STORYBOARD ? db.stores[2] : db.stores.find((s) => s.category === "네일아트");
   if (nailStore) {
     db.campaigns.push({
       id: detId("cp", `${nailStore.id}-press`),
       storeId: nailStore.id,
       kind: "press",
-      title: `${nailStore.name} 시즌 컬렉션 기자단`,
+      title: STORYBOARD ? SB.pressTitle : `${nailStore.name} 시즌 컬렉션 기자단`,
       startAt: now - 1000 * 60 * 60 * 24 * 2,
       endAt: now + 1000 * 60 * 60 * 24 * 14,
       supportAmount: 120000,
@@ -494,14 +526,18 @@ export function runSeed(db: DBShape) {
       used: { S: 0, A: 0, B: 0, C: 0 },
       requiredChannels: ["instagram", "tiktok"],
       requiredMenus: [],
-      description: `시즌 한정 컬렉션의 화보 컷을 활용해 SNS 콘텐츠를 작성합니다. 자료팩에서 디자인 14종 고해상도 사진과 브랜드 톤매뉴얼을 받아보실 수 있습니다.`,
+      description: STORYBOARD
+        ? SB.pressDesc
+        : `시즌 한정 컬렉션의 화보 컷을 활용해 SNS 콘텐츠를 작성합니다. 자료팩에서 디자인 14종 고해상도 사진과 브랜드 톤매뉴얼을 받아보실 수 있습니다.`,
       createdAt: now - 1000 * 60 * 60 * 24 * 35,
-      pressKeywords: ["압구정 네일", "시즌 컬렉션", "프리미엄 네일아트"],
-      pressMaterials: [
-        "디자인 14종 화보 (.zip)",
-        "브랜드 톤매뉴얼 (PDF)",
-        "인플루언서 게시 가이드 (1.2k자)",
-      ],
+      pressKeywords: STORYBOARD ? [SB.keyword, SB.keyword, SB.keyword] : ["압구정 네일", "시즌 컬렉션", "프리미엄 네일아트"],
+      pressMaterials: STORYBOARD
+        ? [SB.material, SB.material, SB.material]
+        : [
+            "디자인 14종 화보 (.zip)",
+            "브랜드 톤매뉴얼 (PDF)",
+            "인플루언서 게시 가이드 (1.2k자)",
+          ],
       pressMinChars: 1200,
       useCode: detUseCode(`${nailStore.id}-press`),
     });
@@ -518,7 +554,7 @@ export function runSeed(db: DBShape) {
     id: detId("rv", "demo@reviewer.com"),
     email: "demo@reviewer.com",
     passwordHash: hash("demo1234"),
-    nickname: "북촌리뷰어",
+    nickname: STORYBOARD ? SB.nickname : "북촌리뷰어",
     sns: demoSns,
     channelGrades: demoChannelGrades,
     grade: bestGrade(Object.values(demoChannelGrades)),
@@ -538,7 +574,7 @@ export function runSeed(db: DBShape) {
     id: detId("rv", "demo-a@reviewer.com"),
     email: "demo-a@reviewer.com",
     passwordHash: hash("demo1234"),
-    nickname: "성수러버",
+    nickname: STORYBOARD ? SB.nickname : "성수러버",
     sns: reviewerASns,
     channelGrades: reviewerAGrades,
     grade: bestGrade(Object.values(reviewerAGrades)),
@@ -554,7 +590,7 @@ export function runSeed(db: DBShape) {
     id: detId("rv", "demo-c@reviewer.com"),
     email: "demo-c@reviewer.com",
     passwordHash: hash("demo1234"),
-    nickname: "신규유저",
+    nickname: STORYBOARD ? SB.nickname : "신규유저",
     sns: reviewerCSns,
     channelGrades: reviewerCGrades,
     grade: bestGrade(Object.values(reviewerCGrades)),
@@ -761,6 +797,32 @@ export function runSeed(db: DBShape) {
     db.passes.push(pass);
   }
 
+  // 7) CANCELLED — 사용 전 직접 취소 (삼청동 브런치). demo@reviewer.com 시점.
+  //    취소 시 슬롯은 이미 복구되므로 camp.used를 증가시키지 않는다 (net-zero).
+  //    PRD §7.8 — 데모 패스가 7개 PassStatus를 모두 커버하도록 보강.
+  const cancelledCamp = findCampaign("2012466103");
+  if (cancelledCamp) {
+    const cancelledStore = db.stores.find((s) => s.id === cancelledCamp.storeId);
+    if (cancelledStore) {
+      const issuedAt = now - 2 * day;
+      const cancelledPass: Pass = {
+        id: detId("ps", "demo-cancelled-1"),
+        code: detPassCode("demo-cancelled-1"),
+        reviewerId: reviewer.id,
+        campaignId: cancelledCamp.id,
+        storeId: cancelledStore.id,
+        ownerId: cancelledStore.ownerId,
+        reviewerGrade: "B",
+        consumedSlot: "B", // 취소 시 이미 복구됨 → camp.used는 증가시키지 않음
+        issuedAt,
+        expiresAt: issuedAt + 24 * hour,
+        cancelledAt: now - 40 * hour, // 발급 후 몇 시간 뒤 취소
+        status: "cancelled",
+      };
+      db.passes.push(cancelledPass);
+    }
+  }
+
   // ── 기자단 데모 패스 — 모든 상태 커버 ──
   const pressCampaigns = db.campaigns.filter((c) => c.kind === "press");
   if (pressCampaigns.length > 0) {
@@ -863,7 +925,7 @@ export function runSeed(db: DBShape) {
     date: new Date(now).toISOString().slice(0, 10),
     todayBoxCount: 0,
     liveStream: [
-      { nickname: "성수러버", rewardText: "다음 체험 지원금 +50% 부스트", ts: now - 2 * day, matrix: "RR" },
+      { nickname: STORYBOARD ? SB.nickname : "성수러버", rewardText: "다음 체험 지원금 +50% 부스트", ts: now - 2 * day, matrix: "RR" },
     ],
   };
 

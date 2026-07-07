@@ -4,7 +4,7 @@ import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
-import { channelOffers, bestEligibleSupport } from "@/lib/grade";
+import { SBUI } from "@/lib/storyboard";
 import type { Grade } from "@/lib/types";
 import Icon from "@/components/Icon";
 import StoreParticipate from "./StoreParticipate";
@@ -29,10 +29,6 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const minNeededGrade: Grade =
     c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
   const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
-
-  // 채널별 등급으로 내가 받을 수 있는 최대 혜택
-  const offers = channelOffers(c.requiredChannels, me.channelGrades, minNeededGrade, c.supportAmount);
-  const myBest = bestEligibleSupport(offers);
 
   return (
     <div className="pb-32 bg-canvas">
@@ -66,27 +62,23 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           {store.name}
         </h1>
         <p className="mt-3 text-[19px] leading-[1.4] text-ink2">
-          {store.category} · ★ {store.rating} <span className="text-muted">(네이버 리뷰 {store.reviewCount.toLocaleString()}건)</span>
+          {store.category} · ★ {SBUI.rating} <span className="text-muted">({SBUI.reviewCount})</span>
         </p>
         {store.address && <p className="mt-2 text-[14px] text-muted">{store.address}</p>}
       </section>
 
       {/* Dark product tile — pricing hero */}
       <section className="bg-tile1 text-white py-16 px-6 text-center">
-        <div className="text-[12px] tracking-[0.18em] text-mutedSoft uppercase mb-3">
-          {myBest > 0 ? "내가 받을 수 있는 지원금" : "최대 멤버십 할인 지원금"}
-        </div>
-        <div className="font-display text-[56px] leading-[1.07] tracking-[-0.026em]">
-          ₩{(myBest > 0 ? myBest : c.supportAmount).toLocaleString()}
+        <div className="text-[12px] tracking-[0.18em] text-mutedSoft uppercase mb-3">내가 받을 수 있는 지원금</div>
+        <div className="font-display text-[40px] leading-[1.07] tracking-[-0.026em]">
+          {SBUI.support}
         </div>
         <p className="mt-4 text-[15px] text-mutedSoft leading-[1.4]">
-          {myBest > 0
-            ? "연동 채널·등급에 따라 자동 계산된 금액이에요."
-            : `최대 ₩${c.supportAmount.toLocaleString()} (S등급) · 채널·등급에 따라 달라져요.`}
+          연동 채널·등급에 따라 자동 계산된 금액이에요.
         </p>
         <div className="mt-8 max-w-[280px] mx-auto grid grid-cols-3 gap-3 text-left">
           <div className="text-center">
-            <div className="text-[19px] font-semibold tracking-[-0.022em]">{remain}매</div>
+            <div className="text-[15px] font-semibold tracking-[-0.022em]">{SBUI.remain}</div>
             <div className="text-[12px] text-mutedSoft mt-1">잔여</div>
           </div>
           <div className="text-center border-l border-r border-white/10">
@@ -131,7 +123,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
                 <span className="text-[15px] text-ink flex-1">{m.name}</span>
                 {typeof m.price === "number" && m.price > 0 && (
                   <span className="text-[14px] font-medium text-ink tabular-nums">
-                    ₩{m.price.toLocaleString()}
+                    {SBUI.price}
                   </span>
                 )}
               </div>
@@ -139,7 +131,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
           {c.requiredMenus.some((m) => typeof m.price === "number" && m.price > 0) && (
             <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-              위 메뉴 결제 시 내 채널 등급에 맞춘 지원금(최대 <span className="text-ink font-medium">₩{c.supportAmount.toLocaleString()}</span>)이
+              위 메뉴 결제 시 내 채널 등급에 맞춘 지원금(최대 <span className="text-ink font-medium">{SBUI.support}</span>)이
               매장 할인으로 즉시 차감됩니다.
             </p>
           )}

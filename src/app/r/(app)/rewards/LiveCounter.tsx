@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { ViralCounter } from "@/lib/types";
+import { SBUI } from "@/lib/storyboard";
 
 /**
  * 혜택 탭 상단의 라이브 카운터 — 실제 발생한 보상 이벤트만 표시한다 (조작·노이즈 없음).
@@ -40,10 +41,10 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
         <span className="relative rounded-full h-2 w-2 bg-[#ff453a]" />
       </span>
       <div className="text-[12px] leading-[1.45] flex-1 min-w-0">
-        오늘 열린 박스 <span className="font-semibold tabular-nums">{c.todayBoxCount.toLocaleString()}</span>개
+        오늘 열린 박스 <span className="font-semibold">{SBUI.liveCount}</span>개
         <div className="text-[11px] text-white/70 mt-0.5 truncate">
-          최근: {top.nickname} — <strong className="text-[#ffd60a]">{top.rewardText}</strong>
-          <span className="opacity-60"> · {top.matrix}</span>
+          최근: {top.nickname} — <strong className="text-[#ffd60a]">{SBUI.reward}</strong>
+          <span className="opacity-60"> · {SBUI.matrix}</span>
         </div>
       </div>
     </div>

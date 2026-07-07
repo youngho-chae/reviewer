@@ -9,6 +9,7 @@ import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
+import { SBUI } from "@/lib/storyboard";
 import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
@@ -88,12 +89,12 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <div className="mt-6 flex items-start justify-between">
                 <div>
                   <div className="text-[12px] text-muted">할인 금액</div>
-                  <div className="font-display text-[34px] leading-[1.1] text-ink mt-1">
-                    ₩{displaySupport.toLocaleString()}
+                  <div className="font-display text-[22px] leading-[1.1] text-ink mt-1">
+                    {SBUI.support}
                   </div>
                   {boost && displaySupport > entitledSupport && (
                     <div className="mt-1 text-[11px] text-brand font-medium">
-                      🎁 초대 보상 +{boost.value}% 부스트 포함
+                      🎁 초대 보상 부스트 포함
                     </div>
                   )}
                   <div className="mt-1 text-[11px] text-muted">매장에서 결제 시 즉시 할인해 드려요</div>
@@ -154,7 +155,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         <h1 className="font-display text-[28px] leading-[1.14] text-ink">{store?.name}</h1>
         <p className="mt-2 text-[15px] text-ink2">{campaign?.title}</p>
         <p className="mt-1 text-[14px] text-muted">
-          지원금 ₩{entitledSupport.toLocaleString()}
+          지원금 {SBUI.support}
           {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
         </p>
       </section>
@@ -166,7 +167,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[15px] font-semibold text-ink">사용 완료</div>
-                  <div className="mt-1 text-[14px] text-ink2">결제 ₩{pass.paidAmount?.toLocaleString()} · 지원 ₩{pass.supportApplied?.toLocaleString()}</div>
+                  <div className="mt-1 text-[14px] text-ink2">결제 {SBUI.price} · 지원 {SBUI.support}</div>
                 </div>
                 {pass.usedAt && (
                   <div className="text-right">
@@ -180,9 +181,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   </div>
                 )}
               </div>
-              {pass.paidAmount && pass.supportApplied !== undefined && pass.paidAmount > pass.supportApplied && (
-                <div className="mt-2 text-[12px] text-muted">초과분 ₩{(pass.paidAmount - pass.supportApplied).toLocaleString()}은 직접 결제하셨습니다</div>
-              )}
+              <div className="mt-2 text-[12px] text-muted">초과분 {SBUI.price}은 직접 결제하셨습니다</div>
             </div>
 
             {/* T1 트리거 — 패스 사용 직후 친구 초대 카드 (viral) */}
@@ -193,7 +192,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <span className="text-[28px]" aria-hidden>🎁</span>
               <div className="flex-1 min-w-0">
                 <div className="text-[14px] font-semibold text-ink">
-                  ₩{(pass.supportApplied ?? 0).toLocaleString()} 절약 완료! 친구도 받게 해줄래요?
+                  {SBUI.support} 절약 완료! 친구도 받게 해줄래요?
                 </div>
                 <div className="text-[11px] text-muted mt-0.5">친구 가입 즉시 내 행운 박스 오픈 + 친구는 첫 캠페인 +50% 지원금</div>
               </div>
