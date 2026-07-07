@@ -50,6 +50,10 @@ export default function PlanPicker({ current }: { current: Plan }) {
       >
         {busy ? "변경 중..." : plan === current ? "현재 플랜과 동일" : `${plan} 플랜으로 변경`}
       </button>
+      <p className="mt-2 text-[11px] text-muted leading-[1.5]">
+        변경 즉시 모집 정책이 적용됩니다. 유료 플랜 요금은 결제(PG) 연동 전까지 운영팀이 확인 후 청구하며,
+        미납 시 플랜이 Free로 조정될 수 있어요.
+      </p>
       {msg && <div className="mt-2 text-[12px] text-muted">{msg}</div>}
     </div>
   );

@@ -57,13 +57,16 @@ export async function POST(req: NextRequest) {
   } else {
     pass.status = "rejected";
     pass.reviewStatus = "rejected";
-    const tail = reason ? ` 사유: ${String(reason).slice(0, 100)}` : " 자세한 사유는 채널톡으로 안내됩니다.";
+    // 반려 사유를 pass에 구조화 저장 — 체험자 화면에 그대로 노출되어 재작성 근거가 된다
+    pass.rejectReason = String(reason || "").slice(0, 500) || "작성 조건 미충족";
+    pass.rejectedAt = now;
+    const canResubmit = (pass.resubmitCount ?? 0) < 1;
     db.notifications.push({
       id: rid("nt"),
       userId: pass.reviewerId,
       role: "reviewer",
       title: "후기 반려 안내",
-      body: `${storeName} 후기가 반려되었습니다.${tail}`,
+      body: `${storeName} 후기가 반려되었습니다. 사유: ${pass.rejectReason}${canResubmit ? " · 수정 후 1회 재제출할 수 있습니다." : ""}`,
       createdAt: now,
       read: false,
       link: `/r/passes/${pass.id}`,

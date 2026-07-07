@@ -44,6 +44,10 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token") || "";
   const required = process.env.ADMIN_REFRESH_TOKEN || "";
+  // 운영(production)에서는 토큰 미설정 시 우회가 아니라 차단한다 — 데이터 갱신은 관리자 전용.
+  if (!required && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "ADMIN_REFRESH_TOKEN이 설정되지 않아 비활성화된 엔드포인트입니다" }, { status: 503 });
+  }
   if (required && token !== required) {
     return NextResponse.json({ error: "토큰이 일치하지 않습니다" }, { status: 401 });
   }

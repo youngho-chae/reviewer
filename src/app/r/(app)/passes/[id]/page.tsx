@@ -4,15 +4,17 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { supportForGrade } from "@/lib/grade";
 import { CHANNEL_LABEL, defaultChannel } from "@/lib/channels";
+import { findSupportBoost, boostedLimit } from "@/lib/referral";
+import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
+import { SBUI } from "@/lib/storyboard";
 import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
 import OwnerUseForm from "./OwnerUseForm";
-
-const REVIEW_DEADLINE_MS = 72 * 60 * 60 * 1000;
+import CancelPassButton from "./CancelPassButton";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,11 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
 
   // 이 체험권으로 받을 수 있는 지원금 = 기준 지원금 × 채널 등급 배율
   const entitledSupport = supportForGrade(campaign?.supportAmount ?? 0, pass.reviewerGrade);
+  // 초대 보상(지원금 부스트) 보유 시 사용 처리 단계에서 자동 가산 — 미리 보여준다
+  const boost = pass.status === "active" ? findSupportBoost(db, me.id) : null;
+  const displaySupport = boost
+    ? boostedLimit(campaign?.supportAmount ?? 0, entitledSupport, boost.value)
+    : entitledSupport;
 
   // Active state — Apple environment-quote-card / dark product tile treatment
   if (pass.status === "active") {
@@ -82,9 +89,15 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <div className="mt-6 flex items-start justify-between">
                 <div>
                   <div className="text-[12px] text-muted">할인 금액</div>
-                  <div className="font-display text-[34px] leading-[1.1] text-ink mt-1">
-                    ₩{entitledSupport.toLocaleString()}
+                  <div className="font-display text-[22px] leading-[1.1] text-ink mt-1">
+                    {SBUI.support}
                   </div>
+                  {boost && displaySupport > entitledSupport && (
+                    <div className="mt-1 text-[11px] text-brand font-medium">
+                      🎁 초대 보상 부스트 포함
+                    </div>
+                  )}
+                  <div className="mt-1 text-[11px] text-muted">매장에서 결제 시 즉시 할인해 드려요</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[12px] text-muted">남은 시간</div>
@@ -110,7 +123,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               </p>
 
               {/* 사장님 사용 처리 — 코드를 노출하지 않고 직접 입력받음 */}
-              <OwnerUseForm passId={pass.id} supportAmount={entitledSupport} />
+              <OwnerUseForm passId={pass.id} supportAmount={displaySupport} />
+
+              {/* 방문이 어려운 경우 취소 유도 — 슬롯을 다른 체험자에게 돌려줌 */}
+              <CancelPassButton passId={pass.id} />
             </div>
           </div>
         </div>
@@ -139,7 +155,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         <h1 className="font-display text-[28px] leading-[1.14] text-ink">{store?.name}</h1>
         <p className="mt-2 text-[15px] text-ink2">{campaign?.title}</p>
         <p className="mt-1 text-[14px] text-muted">
-          지원금 ₩{entitledSupport.toLocaleString()}
+          지원금 {SBUI.support}
           {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
         </p>
       </section>
@@ -151,7 +167,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[15px] font-semibold text-ink">사용 완료</div>
-                  <div className="mt-1 text-[14px] text-ink2">결제 ₩{pass.paidAmount?.toLocaleString()} · 지원 ₩{pass.supportApplied?.toLocaleString()}</div>
+                  <div className="mt-1 text-[14px] text-ink2">결제 {SBUI.price} · 지원 {SBUI.support}</div>
                 </div>
                 {pass.usedAt && (
                   <div className="text-right">
@@ -165,9 +181,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   </div>
                 )}
               </div>
-              {pass.paidAmount && pass.supportApplied !== undefined && pass.paidAmount > pass.supportApplied && (
-                <div className="mt-2 text-[12px] text-muted">초과분 ₩{(pass.paidAmount - pass.supportApplied).toLocaleString()}은 직접 결제하셨습니다</div>
-              )}
+              <div className="mt-2 text-[12px] text-muted">초과분 {SBUI.price}은 직접 결제하셨습니다</div>
             </div>
 
             {/* T1 트리거 — 패스 사용 직후 친구 초대 카드 (viral) */}
@@ -178,7 +192,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <span className="text-[28px]" aria-hidden>🎁</span>
               <div className="flex-1 min-w-0">
                 <div className="text-[14px] font-semibold text-ink">
-                  ₩{(pass.supportApplied ?? 0).toLocaleString()} 절약 완료! 친구도 받게 해줄래요?
+                  {SBUI.support} 절약 완료! 친구도 받게 해줄래요?
                 </div>
                 <div className="text-[11px] text-muted mt-0.5">친구 가입 즉시 내 행운 박스 오픈 + 친구는 첫 캠페인 +50% 지원금</div>
               </div>
@@ -219,14 +233,53 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         )}
         {pass.status === "expired" && (
           <div className="mt-8 rounded-md bg-parchment p-5 text-[15px] text-muted">
-            24시간이 지나 만료된 체험권입니다.
+            24시간이 지나 만료된 체험권입니다. 모집 자리는 다른 체험자에게 돌아갔어요.
           </div>
         )}
-        {pass.status === "rejected" && (
-          <div className="mt-8 rounded-md bg-error/5 border border-error/20 p-5 text-[15px] text-ink">
-            반려된 리뷰입니다. 사유 안내와 재작성 가능 여부는 채널톡으로 문의해주세요.
+        {pass.status === "cancelled" && (
+          <div className="mt-8 rounded-md bg-parchment p-5 text-[15px] text-muted">
+            직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 다시 참여할 수 있어요.
           </div>
         )}
+        {pass.status === "rejected" && (() => {
+          const isPress = campaign?.kind === "press";
+          const resubmitDeadline = isPress
+            ? (campaign?.endAt ?? 0)
+            : (pass.rejectedAt ?? 0) + REVIEW_DEADLINE_MS;
+          const canResubmit = (pass.resubmitCount ?? 0) < 1 && Date.now() < resubmitDeadline;
+          return (
+            <div className="mt-8">
+              <div className="rounded-md bg-error/5 border border-error/20 p-5">
+                <div className="text-[15px] font-semibold text-ink">리뷰가 반려되었습니다</div>
+                <div className="mt-2 text-[14px] text-ink2 leading-[1.5]">
+                  사유: {pass.rejectReason ?? "작성 조건 미충족 (자세한 내용은 고객센터 문의)"}
+                </div>
+                {canResubmit ? (
+                  <div className="mt-2 text-[13px] text-muted">
+                    사유를 반영해 수정한 뒤 아래에서 1회 재제출할 수 있어요
+                    {!isPress && pass.rejectedAt ? " (반려 후 72시간 이내)" : ""}.
+                  </div>
+                ) : (
+                  <div className="mt-2 text-[13px] text-muted">
+                    재제출 기한이 지났거나 이미 재제출했습니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+                  </div>
+                )}
+              </div>
+              {canResubmit && (
+                isPress ? (
+                  <Link
+                    href={`/r/press/${campaign?.id}/write?pass=${encodeURIComponent(pass.id)}`}
+                    className="cp-action mt-4 flex h-12 items-center justify-center rounded-pill bg-brand text-white text-[15px] font-medium"
+                  >
+                    수정해서 재제출하기 →
+                  </Link>
+                ) : (
+                  <ReviewForm passId={pass.id} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+                )
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

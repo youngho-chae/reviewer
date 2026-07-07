@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { gradeMeets, SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { SBUI } from "@/lib/storyboard";
+import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
@@ -44,39 +45,20 @@ const THRESHOLDS: Record<Grade, { next: Grade; needReviews: number }> = {
 export default async function ReviewerGrade() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
-  const now = Date.now();
 
+  // 등급 진행도 (진행도 바는 구조 표현이므로 실제 비율 유지)
   const myPasses = db.passes.filter((p) => p.reviewerId === me.id);
   const completed = myPasses.filter((p) => p.status === "completed").length;
-  const submitted = myPasses.filter((p) => ["review_submitted", "completed", "rejected"].includes(p.status)).length;
-  const issued = myPasses.length;
-  const completionRate = issued ? Math.round((submitted / issued) * 100) : 0;
-  const activePasses = myPasses.filter((p) => p.status === "active" || p.status === "used").length;
-
-  // 등급 진행도
   const t = THRESHOLDS[me.grade];
   const progress = t.needReviews > 0 ? Math.min(100, Math.round((completed / t.needReviews) * 100)) : 100;
 
-  // 30일 성과 지표
+  // 30일 성과 지표 — val은 스토리보드에서 노출하지 않고 단위(타입)만 사용
   const metrics = [
-    { name: "완료율", val: completionRate, target: 85, unit: "%", invert: false },
-    { name: "리뷰 품질 점수", val: me.qualityScore || 0, target: 90, unit: "점", invert: false },
-    { name: "광고표시 준수율", val: 100, target: 100, unit: "%", invert: false },
-    { name: "노쇼율", val: me.noShowCount, target: 5, unit: "%", invert: true },
+    { name: "완료율", unit: "%", invert: false },
+    { name: "리뷰 품질 점수", unit: "점", invert: false },
+    { name: "광고표시 준수율", unit: "%", invert: false },
+    { name: "노쇼율", unit: "%", invert: true },
   ];
-
-  // 내 등급으로 참여 가능한 캠페인 / 최대 지원금
-  const visit = db.campaigns.filter((c) => c.kind === "visit" && c.endAt > now);
-  const accessibleCount = visit.filter((c) => {
-    const min: Grade = c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-    return gradeMeets(me.grade, min);
-  }).length;
-  const myMaxSupport = visit
-    .filter((c) => {
-      const min: Grade = c.quota.C > 0 ? "C" : c.quota.B > 0 ? "B" : c.quota.A > 0 ? "A" : "S";
-      return gradeMeets(me.grade, min);
-    })
-    .reduce((m, c) => Math.max(m, c.supportAmount), 0);
 
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
@@ -164,15 +146,15 @@ export default async function ReviewerGrade() {
           <div className="text-[11px] uppercase tracking-[0.14em] text-white/70">내 등급으로 받는 혜택</div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-[22px] font-semibold leading-none tabular-nums">{accessibleCount}</div>
+              <div className="text-[13px] font-semibold leading-tight">{SBUI.count}</div>
               <div className="text-[10px] text-white/70 mt-1.5">참여 가능 매장</div>
             </div>
             <div className="border-l border-r border-white/10">
-              <div className="text-[18px] font-semibold leading-none tabular-nums">₩{myMaxSupport.toLocaleString()}</div>
+              <div className="text-[13px] font-semibold leading-tight">{SBUI.support}</div>
               <div className="text-[10px] text-white/70 mt-1.5">최대 지원금</div>
             </div>
             <div>
-              <div className="text-[22px] font-semibold leading-none tabular-nums">{activePasses}</div>
+              <div className="text-[13px] font-semibold leading-tight">{SBUI.count}</div>
               <div className="text-[10px] text-white/70 mt-1.5">사용 가능 체험권</div>
             </div>
           </div>
@@ -190,7 +172,7 @@ export default async function ReviewerGrade() {
           </span>
           <div className="flex-1">
             <div className="text-[14px] font-semibold text-ink">내 체험권</div>
-            <div className="text-[11px] text-muted mt-0.5">사용 가능 {activePasses}개 · 작성 대기/완료 포함</div>
+            <div className="text-[11px] text-muted mt-0.5">사용 가능 {SBUI.count} · 작성 대기/완료 포함</div>
           </div>
           <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
         </Link>
@@ -202,17 +184,16 @@ export default async function ReviewerGrade() {
         <p className="text-[14px] text-ink2 mb-7 leading-[1.47]">목표 지표를 모두 달성하면 다음 등급으로 자동 승급합니다.</p>
         <div className="space-y-5">
           {metrics.map((m, i) => {
-            const ok = m.invert ? m.val <= m.target : m.val >= m.target;
             return (
               <div key={i} className="pb-5 border-b border-hairlineSoft last:border-b-0">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-[16px] text-ink">{m.name}</span>
-                  <span className={`text-[18px] font-semibold tracking-[-0.022em] tabular-nums ${ok ? "text-brand" : "text-ink"}`}>
-                    {m.val}{m.unit}
+                  <span className="text-[14px] font-semibold tracking-[-0.022em] text-ink">
+                    {m.unit === "%" ? "비율값" : m.unit === "점" ? "점수값" : "값"}
                   </span>
                 </div>
                 <div className="text-[12px] text-muted">
-                  목표 {m.invert ? "≤" : "≥"} {m.target}{m.unit} · {ok ? "달성" : "진행 중"}
+                  목표값 · 달성여부
                 </div>
               </div>
             );

@@ -1,0 +1,65 @@
+// R-04a · 체험권 상세 — 7-상태 분기 + 리뷰 폼(R-05 포함) (PRD v3.0 §4-A · §6.3 · §6.4 · §6.7)
+const DATA = {
+  pageId: "72514:68633", x: 2920, y: 0,
+  id: "R-04a", title: "체험권 상세 (7-상태 분기 + 리뷰 폼)", route: "/r/passes/[id]",
+  device: "Mobile Web 480", ver: "1.0", date: "2026-07-06", author: "PO",
+  status: "작성완료", prdRef: "PRD §6.3 · §6.4 · §6.7 · §7.5",
+  mockups: [
+    {
+      name: "R-04a · active (대표 상태)", caption: "active — 다크 티켓 + QR + 사용 처리 + 취소",
+      blocks: [
+        { t: "bar", left: "‹ 닫기", label: " ", right: "화면 밝기를 최대로" },
+        { t: "card", title: "A등급 · CATCHPASS", lines: ["강남 스시 오마카세 · 강남 · 일식"], pin: 1 },
+        { t: "card", big: true, title: "₩176,000", lines: ["할인 금액 · 🎁 초대 보상 +10% 부스트 포함", "매장에서 결제 시 즉시 할인해 드려요", "남은 시간 11:42:10 (24h 카운트다운)"], pin: 2 },
+        { t: "divider" },
+        { t: "qr", pin: 3 },
+        { t: "p", text: "결제 시 사장님께 보여주세요 — \"캐치랭크 멤버십 쿠폰 사용할게요\"" },
+        { t: "input", label: "사장님 사용 처리 — 4자리 코드 직접 입력 (＋선택: 결제 금액)", pin: 4 },
+        { t: "btn", label: "사용 처리", kind: "dark" },
+        { t: "btn", label: "방문이 어려워요 — 참여 취소", kind: "ghost", pin: 5 },
+      ],
+    },
+    {
+      name: "R-04a · used / rejected (미니)", caption: "used — 리뷰 폼 · rejected — 사유 + 1회 재제출",
+      blocks: [
+        { t: "pill", label: "used · 리뷰 작성 대기", kind: "blue" },
+        { t: "card", title: "사용 완료 · 결제 ₩200,000 · 지원 ₩176,000", lines: ["리뷰 마감 2일 23시간 (72h 카운트다운)"], pin: 6 },
+        { t: "card", title: "리뷰 인증 폼 (R-05)", lines: ["1 작성 채널(참여 시 확정·재선택 불가) · 2 광고 문구 포함 확인(필수)", "3 리뷰 URL · 4 채널별 자가점검 전 항목 체크 → [제출하고 인증 받기]"], pin: 7 },
+        { t: "divider" },
+        { t: "pill", label: "rejected · 반려", kind: "red" },
+        { t: "card", title: "리뷰가 반려되었습니다", lines: ["사유: 사진 5장 미만 — 본문 사진을 추가해주세요 (rejectReason 원문 노출)", "반려 후 72시간 이내 1회 재제출 가능 → 수정 후 아래 폼으로 재제출"], pin: 8 },
+      ],
+    },
+  ],
+  desc: [
+    ["1", "표시", "티켓 헤더", "등급 배지 + 매장명/지역/카테고리. 본인 소유가 아니면 404.", "타인 pass 404", "—"],
+    ["2", "표시", "할인 금액 + 부스트", "supportForGrade(기준, 채널등급). 미사용 초대 부스트 보유 시 boostedLimit로 가산 금액 미리 표시 — 상한은 기준 지원금(S 100%)·100원 단위. \"매장에서 즉시 할인\" 부담 주체 고지.", "부스트는 실제 이득 시에만 소진", "R-06b 혜택"],
+    ["3", "표시", "QR", "pass 고유 8자 코드(A-HJ-NP-Z2-9) 인코딩. 사장님 /o/scan 스캔 경로(B)용.", "—", "O-02"],
+    ["4", "입력", "사용 처리 (경로 A)", "캠페인 4자리 코드는 화면에 노출되지 않음 — 사장님이 직접 입력 = 사장님 확인으로 간주. POST /api/passes/use-by-code. 결제액 미입력 시 지원금 한도 전액 적용.", "코드 불일치 400", "used 전이"],
+    ["5", "액션", "참여 취소 (v3.0)", "확인 단계 후 POST /api/passes/cancel → cancelled + 모집 슬롯 즉시 복구. 노쇼로 집계하지 않음(만료 방치보다 취소 유도). 같은 캠페인 재참여 가능.", "active 상태에서만", "R-04 목록"],
+    ["6", "표시", "used · 리뷰 마감", "usedAt+72h 카운트다운. 기한 경과 시 서버가 제출 차단 + 스윕이 noShowCount+1 및 양측 알림(1회).", "기한 초과 400", "—"],
+    ["7", "입력", "리뷰 폼 (R-05)", "채널 고정 표기 · 광고 표시 문구(채널별 표준+복사) 포함 확인은 서버 필수 검증(adNotice) 후 adNoticeConfirmed 보존 · 채널별 자가점검 전 항목 체크 필수 → POST /api/passes/review.", "우측 예외 표", "review_submitted"],
+    ["8", "표시", "rejected · 재제출", "rejectReason(최대 500자) 원문 노출. 재제출 조건: resubmitCount<1 그리고 rejectedAt+72h 이내(기자단은 캠페인 종료 전). 충족 시 폼 재노출, 미충족 시 고객센터 안내. 2차 반려는 종착.", "재제출 1회 한정", "AD-01"],
+  ],
+  exceptions: [
+    ["만료 후 사용 시도", "\"만료된 체험권입니다\"", "400 · expired 확정 저장"],
+    ["4자리 코드 불일치", "\"사용처리 코드가 일치하지 않습니다\"", "400"],
+    ["이미 사용 처리됨", "\"이미 사용 처리된 체험권입니다\"", "400"],
+    ["광고 표기 미확인 제출", "\"경제적 대가 표기(광고 문구) 포함 여부를 확인해주세요\"", "400 (서버 강제)"],
+    ["리뷰 기한(72h) 초과 제출", "\"리뷰 제출 기한(사용 후 72시간)이 지났습니다\"", "400"],
+    ["재제출 기한 초과", "\"재제출 기한(반려 후 72시간)이 지났습니다\"", "400"],
+    ["2회째 재제출", "\"재제출은 1회만 가능합니다. 고객센터로 문의해주세요.\"", "400"],
+  ],
+  states: [
+    ["active · 24h", "blue"], ["used · 리뷰 대기 72h", "blue"], ["review_submitted · 검수 중", "gray"],
+    ["completed · 등급 반영", "green"], ["expired · 슬롯 복구+노쇼", "red"], ["cancelled · 슬롯 복구", "gray"],
+    ["rejected · 사유+1회 재제출", "red"],
+  ],
+  data: [
+    "POST /api/passes/use-by-code — { passId, code(4자리), paidAmount? } · 부스트: findSupportBoost→boostedLimit, 이득 시 usedAt 소진+supportBoostPct 기록",
+    "POST /api/passes/cancel — { passId } · active 한정 → cancelled + restoreQuotaSlot + 사장님 알림",
+    "POST /api/passes/review — { passId, reviewUrl, selfCheck{채널별 key}, adNotice:true } · 재제출 시 resubmitCount=1",
+    "라이프사이클 스윕(src/lib/pass-lifecycle.ts): 만료 확정+슬롯 복구+noShow+1+양측 알림 · 72h 초과 처리 · 만료 6h 전 리마인드",
+  ],
+  changelog: [["2026-07-06", "1.0", "VER.1 최초 작성 — cancelled 상태·부스트 표시·반려 재제출·광고표기 서버 강제(v3.0) 반영", "PO"]],
+};

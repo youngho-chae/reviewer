@@ -6,6 +6,7 @@ import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import GradeBadge from "@/components/GradeBadge";
 import PassesTabs from "./PassesTabs";
 import PassPendingBanner from "./PassPendingBanner";
+import { SBUI } from "@/lib/storyboard";
 import type { Pass, Campaign, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ const statusLabel = (s: string) => ({
   review_submitted: "검수 대기",
   completed: "완료",
   expired: "만료",
+  cancelled: "취소함",
   rejected: "반려",
 } as any)[s] || s;
 
@@ -27,6 +29,7 @@ const statusCls = (s: string) => ({
   review_submitted: "text-muted",
   completed: "text-brand",
   expired: "text-mutedSoft",
+  cancelled: "text-mutedSoft",
   rejected: "text-error",
 } as any)[s] || "text-muted";
 
@@ -122,13 +125,6 @@ export default async function MyPasses({
     return { p, store, c };
   });
 
-  const pendingPay = press
-    .filter((p) => p.status === "review_submitted")
-    .reduce((s, p) => {
-      const c = db.campaigns.find((x) => x.id === p.campaignId);
-      return s + (c?.supportAmount || 0);
-    }, 0);
-
   return (
     <div className="pb-24 bg-canvas">
       {/* Sub-nav */}
@@ -176,8 +172,8 @@ export default async function MyPasses({
                   <div className="flex items-end justify-between mt-5 pt-4 border-t border-dashed border-hairline">
                     <div>
                       <div className="text-[12px] text-muted">할인 금액</div>
-                      <div className="text-[22px] font-semibold text-ink tracking-[-0.022em] leading-none mt-1">
-                        ₩{(c?.supportAmount ?? 0).toLocaleString()}
+                      <div className="text-[15px] font-semibold text-ink tracking-[-0.022em] leading-none mt-1">
+                        {SBUI.support}
                       </div>
                     </div>
                     <div className="text-right">
@@ -216,7 +212,7 @@ export default async function MyPasses({
                 <div className="text-[11px] text-muted mt-2">검수 중</div>
               </div>
               <div className="text-center">
-                <div className="text-[15px] font-semibold tracking-[-0.022em] text-ink leading-none">₩{Math.round(pendingPay / 1000)}K</div>
+                <div className="text-[13px] font-semibold tracking-[-0.022em] text-ink leading-none">{SBUI.payout}</div>
                 <div className="text-[11px] text-muted mt-2">정산 예정</div>
               </div>
             </div>
@@ -240,8 +236,8 @@ export default async function MyPasses({
 
                     <div className="mt-4 pt-4 border-t border-hairline">
                       <div className="text-[12px] text-muted">정산 예정금</div>
-                      <div className="text-[26px] font-semibold text-ink tracking-[-0.022em] leading-none mt-1">
-                        ₩{(c?.supportAmount ?? 0).toLocaleString()}
+                      <div className="text-[16px] font-semibold text-ink tracking-[-0.022em] leading-none mt-1">
+                        {SBUI.payout}
                       </div>
                       <div className="text-[12px] text-muted mt-1">3.3% 원천징수 후 입금</div>
                     </div>
@@ -257,6 +253,13 @@ export default async function MyPasses({
                       <div className="mt-5 p-3 bg-parchment rounded-sm text-[13px] text-muted text-center">
                         운영팀 검수 중 · 최대 72시간
                       </div>
+                    ) : p.status === "rejected" ? (
+                      <Link
+                        href={`/r/press/${c?.id}/write?pass=${p.id}`}
+                        className="cp-action block mt-5 h-11 rounded-pill border border-error/40 text-error grid place-items-center text-[14px]"
+                      >
+                        반려 사유 확인 · 재제출 →
+                      </Link>
                     ) : null}
                   </div>
                 );

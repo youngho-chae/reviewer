@@ -84,7 +84,7 @@ export default async function RefereeLandingPage({
                   {preview}
                 </div>
                 <div className="text-[12px] opacity-85 mt-3">
-                  + 박스 오픈 시 0~5,000원 보너스 캐시
+                  체험권 사용 시 자동 적용 · 유효기간 14일
                 </div>
               </div>
             </div>

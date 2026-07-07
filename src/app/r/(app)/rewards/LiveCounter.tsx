@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { ViralCounter } from "@/lib/types";
+import { SBUI } from "@/lib/storyboard";
 
 /**
- * 혜택 탭 상단의 라이브 N명 카운터 — 사회적 증거 + FOMO.
- * 1.8초 주기로 /api/referral/counter 폴링.
+ * 혜택 탭 상단의 라이브 카운터 — 실제 발생한 보상 이벤트만 표시한다 (조작·노이즈 없음).
+ * 10초 주기로 /api/referral/counter 폴링.
  */
 export default function LiveCounter({ initial }: { initial: ViralCounter }) {
   const [c, setC] = useState<ViralCounter>(initial);
@@ -20,10 +21,10 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
         if (!cancelled) setC(j);
       } catch {}
       finally {
-        if (!cancelled) timer = setTimeout(tick, 1800);
+        if (!cancelled) timer = setTimeout(tick, 10_000);
       }
     }
-    timer = setTimeout(tick, 1800);
+    timer = setTimeout(tick, 10_000);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
@@ -31,6 +32,7 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
   }, []);
 
   const top = c.liveStream[0];
+  if (!top) return null;
 
   return (
     <div className="rounded-md bg-ink text-white px-4 py-3 flex items-center gap-3">
@@ -39,15 +41,11 @@ export default function LiveCounter({ initial }: { initial: ViralCounter }) {
         <span className="relative rounded-full h-2 w-2 bg-[#ff453a]" />
       </span>
       <div className="text-[12px] leading-[1.45] flex-1 min-w-0">
-        오늘 이 박스로{" "}
-        <span className="font-semibold tabular-nums">{c.todayBoxCount.toLocaleString()}</span>명이 평균{" "}
-        <strong className="text-[#ffd60a]">₩{c.todayAvgReward.toLocaleString()}</strong> 받았어요
-        {top && (
-          <div className="text-[11px] text-white/70 mt-0.5 truncate">
-            방금 {top.nickname}이(가) ₩{top.reward.toLocaleString()} 받음
-            <span className="opacity-60"> · {top.matrix}</span>
-          </div>
-        )}
+        오늘 열린 박스 <span className="font-semibold">{SBUI.liveCount}</span>개
+        <div className="text-[11px] text-white/70 mt-0.5 truncate">
+          최근: {top.nickname} — <strong className="text-[#ffd60a]">{SBUI.reward}</strong>
+          <span className="opacity-60"> · {SBUI.matrix}</span>
+        </div>
       </div>
     </div>
   );

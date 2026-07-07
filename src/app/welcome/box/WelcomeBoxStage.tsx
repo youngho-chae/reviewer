@@ -6,8 +6,7 @@ import type { Reward } from "@/lib/types";
 interface AcceptResp {
   ok: true;
   referrerReward: Reward;
-  refereeMainReward: Reward;
-  refereeBonusReward: Reward;
+  refereeReward: Reward;
 }
 
 type Stage = "shake" | "spin" | "reveal";
@@ -110,8 +109,8 @@ export default function WelcomeBoxStage({
           )}
           {stage !== "shake" && (
             <div className="flex justify-center gap-2 mb-4">
-              <SlotReel done={stage === "reveal"} finalIc={data?.refereeMainReward.kind === "membership_discount" ? "💎" : "💰"} />
-              <SlotReel done={stage === "reveal"} finalIc={data?.refereeBonusReward ? "💵" : "🎯"} />
+              <SlotReel done={stage === "reveal"} finalIc={data?.refereeReward.kind === "membership_discount" ? "💎" : "💰"} />
+              <SlotReel done={stage === "reveal"} finalIc="🎁" />
               <SlotReel done={stage === "reveal"} finalIc="🎉" />
             </div>
           )}
@@ -130,18 +129,13 @@ export default function WelcomeBoxStage({
               >
                 <div className="text-[11px] uppercase tracking-[0.18em] text-muted">확정 보상</div>
                 <div className="font-display text-[44px] leading-tight text-ink mt-2 tracking-[-0.028em]">
-                  {data.refereeMainReward.kind === "support_bonus_pct" && `+${data.refereeMainReward.value}%`}
-                  {data.refereeMainReward.kind === "membership_discount" && `${data.refereeMainReward.value}% 할인`}
+                  {data.refereeReward.kind === "support_bonus_pct" && `+${data.refereeReward.value}%`}
+                  {data.refereeReward.kind === "membership_discount" && `${data.refereeReward.value}% 할인`}
                 </div>
                 <div className="text-[13px] text-muted mt-1">
-                  {data.refereeMainReward.kind === "support_bonus_pct" && "첫 캠페인 지원금 가산"}
-                  {data.refereeMainReward.kind === "membership_discount" && "첫 달 멤버십"}
+                  {data.refereeReward.kind === "support_bonus_pct" && "첫 체험 지원금 부스트 — 체험권 사용 시 자동 적용"}
+                  {data.refereeReward.kind === "membership_discount" && "첫 달 멤버십 — 결제 시 자동 적용"}
                 </div>
-                {data.refereeBonusReward && (
-                  <div className="mt-3 text-[13px] text-success font-semibold">
-                    + 보너스 캐시 ₩{data.refereeBonusReward.value.toLocaleString()}
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-2 mt-6">
@@ -160,7 +154,7 @@ export default function WelcomeBoxStage({
               </div>
 
               <div className="text-center mt-4 text-[11px] text-muted leading-[1.4]">
-                보상 유효기간 14일 · 본 보상은 캐치랭크 마케팅 정책에 따라 지급됩니다
+                보상 유효기간 14일 · 지원금 부스트는 기준 지원금(100%)을 넘지 않는 선에서 가산됩니다
               </div>
             </>
           )}

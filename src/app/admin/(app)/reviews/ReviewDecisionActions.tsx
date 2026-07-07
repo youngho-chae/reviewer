@@ -55,8 +55,8 @@ export default function ReviewDecisionActions({ passId }: { passId: string }) {
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="반려 사유 (선택, 체험자 알림에 표시)"
-            maxLength={100}
+            placeholder="반려 사유 — 체험자 화면에 그대로 표시되어 재작성 근거가 됩니다"
+            maxLength={500}
             className="w-full h-10 px-3 rounded-md border border-hairline focus:border-error focus:outline-none text-[13px]"
           />
           <div className="flex gap-2">

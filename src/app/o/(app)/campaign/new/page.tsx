@@ -177,6 +177,10 @@ export default function NewCampaign() {
             />
           </div>
         </section>
+        <p className="text-[12px] text-muted leading-[1.5] -mt-2">
+          지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다
+          (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.
+        </p>
 
         {/* 사용처리 4자리 코드 — 필수 */}
         <section>
@@ -190,7 +194,7 @@ export default function NewCampaign() {
             className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[18px] font-semibold tracking-[0.4em] text-center"
           />
           <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-            체험자 체험권 화면에 표시됩니다. 체험자가 QR을 보여주거나, 사장님이 이 4자리를 직접 입력하면 사용 처리됩니다.
+            체험자 화면에는 노출되지 않아요. 체험자가 제시한 체험권 화면에 사장님이 이 4자리를 직접 입력하거나, QR을 스캔하면 사용 처리됩니다.
           </p>
         </section>
 

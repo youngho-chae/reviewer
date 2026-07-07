@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import LogoutButton from "@/components/LogoutButton";
+import DeleteAccountButton from "@/components/DeleteAccountButton";
 
 export const dynamic = "force-dynamic";
 
@@ -82,8 +83,17 @@ export default async function OwnerMe() {
           </a>
         </div>
 
+        {/* 법적 고지 */}
+        <div className="mt-6 flex items-center gap-4 text-[12px]">
+          <Link href="/legal/terms" className="text-muted underline">이용약관</Link>
+          <Link href="/legal/privacy" className="text-muted underline">개인정보처리방침</Link>
+        </div>
+
         <div className="mt-8">
           <LogoutButton />
+        </div>
+        <div className="mt-6">
+          <DeleteAccountButton />
         </div>
       </div>
     </div>

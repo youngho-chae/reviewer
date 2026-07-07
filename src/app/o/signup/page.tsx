@@ -20,6 +20,8 @@ function OwnerSignup() {
   const [storeName, setStoreName] = useState("");
   const [category, setCategory] = useState("한식");
   const [area, setArea] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,10 +29,11 @@ function OwnerSignup() {
     e.preventDefault();
     setLoading(true); setErr(null);
     if (!email || !password || !storeName || !area) { setErr("모든 항목을 입력해주세요"); setLoading(false); return; }
+    if (!agreeTerms || !agreePrivacy) { setErr("이용약관과 개인정보 수집·이용에 동의해주세요"); setLoading(false); return; }
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ role: "owner", email, password, storeName, category, area }),
+      body: JSON.stringify({ role: "owner", email, password, storeName, category, area, agreeTerms: agreeTerms && agreePrivacy }),
     });
     if (!res.ok) {
       const { error } = await res.json();
@@ -60,6 +63,23 @@ function OwnerSignup() {
           <option>한식</option><option>일식</option><option>양식</option><option>중식</option><option>카페</option><option>주점</option>
         </select>
         <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="동네 (예: 북촌)" className="w-full h-14 px-4 rounded-sm border border-hairline focus:border-ink focus:outline-none text-[16px]" />
+
+        {/* 필수 동의 — 약관/개인정보 (개인정보보호법상 명시적 동의) */}
+        <div className="pt-1 space-y-2.5">
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} className="mt-0.5 w-4.5 h-4.5 accent-[#1d1d1f]" />
+            <span className="text-[13px] text-ink2 leading-[1.45]">
+              (필수) <a href="/legal/terms" target="_blank" className="text-ink underline">이용약관</a>에 동의합니다
+            </span>
+          </label>
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} className="mt-0.5 w-4.5 h-4.5 accent-[#1d1d1f]" />
+            <span className="text-[13px] text-ink2 leading-[1.45]">
+              (필수) <a href="/legal/privacy" target="_blank" className="text-ink underline">개인정보 수집·이용</a>에 동의합니다
+            </span>
+          </label>
+        </div>
+
         {err && <div className="text-error text-[14px]">{err}</div>}
         <button disabled={loading} type="submit" className="w-full h-14 rounded-sm bg-ink text-white text-[16px] font-medium disabled:opacity-50">{loading ? "처리 중..." : "가입하고 시작하기"}</button>
       </form>

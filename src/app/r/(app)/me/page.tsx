@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
+import DeleteAccountButton from "@/components/DeleteAccountButton";
 import { getDBAsync } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -143,8 +144,17 @@ export default async function Me() {
           SNS 채널 추가·변경은 고객센터(help@catchrank.co.kr)로 문의해주세요.
         </p>
 
+        {/* 법적 고지 — 가입 전에도 접근 가능한 /legal 문서로 연결 */}
+        <div className="mt-6 flex items-center gap-4 text-[12px]">
+          <Link href="/legal/terms" className="text-muted underline">이용약관</Link>
+          <Link href="/legal/privacy" className="text-muted underline">개인정보처리방침</Link>
+        </div>
+
         <div className="mt-8">
           <LogoutButton />
+        </div>
+        <div className="mt-6">
+          <DeleteAccountButton />
         </div>
       </section>
     </div>

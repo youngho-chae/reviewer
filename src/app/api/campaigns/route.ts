@@ -5,6 +5,7 @@ import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 import { CHANNEL_ORDER } from "@/lib/channels";
+import { availableQuotaBonus, consumeQuotaBonus } from "@/lib/referral";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 월간 모집 팀 수 정책 검증
+  // 월간 모집 팀 수 정책 검증 — 초대 보상(quota_bonus)은 플랜 한도에 가산되며 사용 시 소진
   const policy = PLAN_POLICY[owner.plan];
   if (policy.monthlyTeamLimit !== null) {
     const monthStart = currentMonthStart();
@@ -46,15 +47,19 @@ export async function POST(req: NextRequest) {
     const monthlyUsed = db.campaigns
       .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
       .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
-    const remaining = policy.monthlyTeamLimit - monthlyUsed;
+    const bonus = availableQuotaBonus(db, owner.id);
+    const remaining = policy.monthlyTeamLimit + bonus - monthlyUsed;
     if (totalQuota > remaining) {
       return NextResponse.json(
         {
-          error: `${owner.plan} 플랜은 월 ${policy.monthlyTeamLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용 · 잔여 ${Math.max(0, remaining)}팀).`,
+          error: `${owner.plan} 플랜은 월 ${policy.monthlyTeamLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용${bonus > 0 ? ` · 보너스 +${bonus}팀` : ""} · 잔여 ${Math.max(0, remaining)}팀).`,
         },
         { status: 400 },
       );
     }
+    // 플랜 한도를 초과하는 분량만큼 보너스 소진
+    const overPlan = monthlyUsed + totalQuota - policy.monthlyTeamLimit;
+    if (overPlan > 0) consumeQuotaBonus(db, owner.id, overPlan);
   }
 
   // 필수 주문 메뉴 — { name, price? } 형태로 정규화

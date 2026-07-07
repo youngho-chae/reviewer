@@ -96,18 +96,30 @@ export default async function PressWrite({ params, searchParams }: { params: Pro
         ))}
       </div>
 
-      {/* 작성 폼 */}
+      {/* 작성 폼 — 반려 시 캠페인 종료 전 1회 재제출 가능 */}
       <h2 className="px-5 mt-6 text-[16px] font-bold">✍️ 작성 제출</h2>
       <div className="px-5 mt-3">
         <div className="mb-3 text-[12px] text-muted">
           상태: <span className="text-ink font-medium">{statusLabel}</span>
         </div>
-        {pass.status === "active" ? (
-          <PressWriteForm
-            passId={pass.id}
-            channels={c.requiredChannels}
-            keywords={c.pressKeywords || []}
-          />
+        {pass.status === "rejected" && pass.rejectReason && (
+          <div className="mb-3 rounded-md border border-error/20 bg-error/5 p-4">
+            <div className="text-[13px] font-semibold text-ink">반려 사유</div>
+            <div className="mt-1 text-[13px] text-ink2 leading-[1.5]">{pass.rejectReason}</div>
+          </div>
+        )}
+        {pass.status === "active" ||
+        (pass.status === "rejected" && (pass.resubmitCount ?? 0) < 1 && Date.now() < c.endAt) ? (
+          <>
+            {pass.status === "rejected" && (
+              <p className="mb-3 text-[12px] text-muted">사유를 반영해 수정한 뒤 재제출해주세요. 재제출은 1회만 가능합니다.</p>
+            )}
+            <PressWriteForm
+              passId={pass.id}
+              channels={c.requiredChannels}
+              keywords={c.pressKeywords || []}
+            />
+          </>
         ) : (
           <div className="rounded-md border border-hairline p-4">
             <div className="text-[13px] font-medium">제출된 URL</div>

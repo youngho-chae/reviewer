@@ -6,6 +6,7 @@ import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import type { Grade, SnsKind } from "@/lib/types";
 import { photoForStore } from "@/lib/store-photo";
+import { SBUI } from "@/lib/storyboard";
 import Icon from "@/components/Icon";
 import GradeBadge from "@/components/GradeBadge";
 import ChannelIcons from "@/components/ChannelIcons";
@@ -242,7 +243,7 @@ export default async function ReviewerHome() {
               />
               <div className="absolute top-2 left-2">
                 <span className="text-[10px] font-semibold text-ink bg-canvas/90 px-1.5 py-0.5 rounded-pill backdrop-blur-sm">
-                  도보 {p.walkMin}분
+                  {SBUI.walk}
                 </span>
               </div>
             </div>
@@ -250,15 +251,13 @@ export default async function ReviewerHome() {
               <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
               <p className="text-[11px] text-muted mt-0.5 truncate">{p.category} · {p.area}</p>
               <div className="flex items-center gap-1.5 mt-1.5">
-                <span className="text-[13px] text-success font-semibold">
-                  최대 ₩{p.supportAmount.toLocaleString()}
-                </span>
+                <span className="text-[13px] text-success font-semibold">{SBUI.support}</span>
                 <ChannelIcons channels={p.requiredChannels} size={15} />
               </div>
               <div className="text-[11px] text-muted mt-1">
                 <span className="text-[#ffa500]" aria-hidden>★</span>{" "}
-                <span className="text-ink font-semibold">{p.rating}</span>{" "}
-                <span>({p.reviewCount.toLocaleString()})</span>
+                <span className="text-ink font-semibold">{SBUI.rating}</span>{" "}
+                <span>({SBUI.reviewCount})</span>
               </div>
             </div>
           </Link>
@@ -308,24 +307,22 @@ export default async function ReviewerHome() {
               </div>
               {!p.accessible && (
                 <div className="absolute inset-0 bg-ink/55 flex flex-col items-center justify-center text-white text-[11px] font-semibold text-center px-3 leading-tight">
-                  <span>{p.grade}등급들만</span>
-                  <span className="text-[10px] font-normal opacity-90">몰래 가는 중 🤫</span>
+                  <span>{SBUI.grade} 전용</span>
+                  <span className="text-[10px] font-normal opacity-90">(등급 부족 상태)</span>
                 </div>
               )}
             </div>
             <div className="p-3">
               <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
-              <p className="text-[11px] text-muted mt-0.5 truncate">{p.area} · 도보 {p.walkMin}분</p>
+              <p className="text-[11px] text-muted mt-0.5 truncate">{p.area} · {SBUI.walk}</p>
               <div className="flex items-center justify-between gap-1 mt-1.5">
-                <span className="text-[14px] text-success font-bold tabular-nums">
-                  ₩{p.supportAmount.toLocaleString()}
-                </span>
+                <span className="text-[14px] text-success font-bold tabular-nums">{SBUI.support}</span>
                 <ChannelIcons channels={p.requiredChannels} size={15} />
               </div>
               <div className="text-[11px] text-muted mt-0.5">
                 <span className="text-[#ffa500]" aria-hidden>★</span>{" "}
-                <span className="text-ink font-semibold">{p.rating}</span>{" "}
-                <span>({p.reviewCount.toLocaleString()})</span>
+                <span className="text-ink font-semibold">{SBUI.rating}</span>{" "}
+                <span>({SBUI.reviewCount})</span>
               </div>
             </div>
           </Link>

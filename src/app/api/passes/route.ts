@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
     storeId: c.storeId,
     ownerId: db.stores.find((s) => s.id === c.storeId)!.ownerId,
     reviewerGrade: channelGrade,
+    consumedSlot, // 만료/취소 시 이 슬롯을 복구
     reviewChannel: selectedChannel,
     issuedAt: now,
     // 방문형은 24시간 사용 기한, 기자단은 캠페인 종료까지 작성 가능

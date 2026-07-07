@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { BoxGrade, InviteStats } from "@/lib/types";
+import { SBUI } from "@/lib/storyboard";
 
 interface Props {
   stats: InviteStats;
@@ -17,7 +18,6 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
   const cur = MILESTONES.find((m) => stats.accepted >= m.at && stats.accepted < m.end) ?? MILESTONES[2];
   const progress = Math.min(1, (stats.accepted - cur.at) / Math.max(1, cur.end - cur.at));
   const next = MILESTONES.find((m) => m.at > stats.accepted);
-  const remaining = next ? next.at - stats.accepted : 0;
 
   return (
     <div className="rounded-2xl p-5 bg-gradient-to-br from-brand to-[#0040a0] text-white relative overflow-hidden">
@@ -31,8 +31,7 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
           <span className="text-[#ffd60a]">{cur.label}</span>
         </div>
         <div className="text-[12px] opacity-90 mt-1.5">
-          누적 성공 초대 <strong className="tabular-nums">{stats.accepted}명</strong> · 보너스 캐시{" "}
-          <strong className="tabular-nums">₩{stats.cumulativeCash.toLocaleString()}</strong>
+          누적 성공 초대 <strong>{SBUI.count}</strong> · 박스가 클수록 지원금 부스트 UP
         </div>
 
         {/* 진행 바 */}
@@ -44,8 +43,8 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
             />
           </div>
           <div className="flex justify-between text-[11px] mt-1.5 opacity-85">
-            <span>발송 {stats.sent} · 클릭 {stats.clicked}</span>
-            <span>{next ? `다음 박스까지 친구 ${remaining}명` : "최고 등급 달성"}</span>
+            <span>발송 {SBUI.count} · 클릭 {SBUI.count}</span>
+            <span>{next ? `다음 박스까지 친구 ${SBUI.count}` : "최고 등급 달성"}</span>
           </div>
         </div>
 
@@ -57,8 +56,8 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
         </Link>
         <div className="text-[10.5px] opacity-75 mt-2 leading-[1.4]">
           {myKind === "reviewer"
-            ? "친구가 가입하면 친구는 첫 캠페인 +50% 지원금, 나는 박스 즉시 오픈"
-            : "동료 사장님이 가입하면 양쪽 모두 첫 달 멤버십 50% 할인 + 모집 한도 보너스"}
+            ? "친구가 가입하면 친구는 첫 체험 지원금 +50%, 나는 다음 체험 지원금 부스트 (일반 +10% / 실버 +20% / 골드 +30%)"
+            : "동료 사장님이 가입하면 상대는 첫 달 멤버십 50% 할인, 나는 멤버십 할인 또는 모집 한도 보너스"}
         </div>
       </div>
     </div>

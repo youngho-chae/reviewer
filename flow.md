@@ -1,0 +1,168 @@
+# CATCHPASS · 유저 시나리오 (User Flows) — VER.1
+
+> 이 문서는 **사용자 관점의 여정(플로우)**만 다룬다. 화면별 기능 요구·제약은 [`docs/기능정의서.md`](docs/기능정의서.md),
+> 화면 구조·라우트는 [`docs/IA.md`](docs/IA.md), 정책·운영 규칙은 [`docs/운영정책서.md`](docs/운영정책서.md),
+> 데이터·개인정보는 [`docs/데이터정책서.md`](docs/데이터정책서.md), 제품 요구사항은 [`PRD.md`](PRD.md)를 본다.
+>
+> 표기: `[/route]` = 화면, `→ POST /api/...` = 서버 호출. 모든 흐름은 **구현 코드(브랜치 `mvp/ver1`) 기준**이며, 카피 원문은 큰따옴표로 표기한다.
+
+액터: **체험자(Reviewer, `/r/*`)** · **사장님(Owner, `/o/*`)** · **운영팀(Admin, `/admin/*`)** · **비회원**.
+
+---
+
+## 시나리오 A — 체험자: 가입부터 첫 방문형 리뷰까지 (핵심 여정)
+
+```
+[/r/signup] Step 0 — 컨셉 히어로 "선정 기다리는 체험단 말고, 등급으로 받는 체험권." → [시작하기]
+[/r/signup] Step 1 — 이메일 / 비밀번호(최소 6자) / 닉네임 + 필수 동의 2종(이용약관·개인정보, /legal/* 링크)
+    · 둘 다 체크해야 [다음] 활성 (클라이언트) + /api/auth/signup가 agreeTerms 미포함 시 400 (서버)
+[/r/signup] Step 2 — SNS 채널 3종(블로그/인스타/틱톡) URL + 영향력 수치 직접 입력 → 채널별 등급 자동 산정
+    · 1개 이상 연동 시 영향력 기반 N~A 산정 · [연동 없이 시작 (N등급)] 보조 액션
+    → 가입 완료 → 세션 쿠키(30일) → invite 파라미터 있으면 /welcome/box, 없으면 /r/home
+
+[/r/home] 큐레이팅 홈 (발견 전용 — 리스트/필터/지도는 /r/explore에서)
+    · GPS reverse-geocode 지역 헤드라인 "{지역} 어디 가볼까?" (실패 시 첫 매장 지역 폴백)
+    · 검색바(탭 → /r/explore) + [📍 지도] 칩(→ /r/explore?mode=map)
+    · 3-카드 큐레이션: 최근 등록(🆕)/곧 마감(⏰)/파격 지원금(💸) → /r/explore?sort=new|closing|topSupport
+    · "걸어서 갈 수 있는 곳 👀" 2단 그리드(최대 4개) + "한 번에 다 모았어요 👀" 전체 리스트
+    · 등급 부족 카드는 ink/55 오버레이 + "{등급}등급들만 몰래 가는 중 🤫"
+
+[/r/explore] 탐색 (리스트 + 지도 통합)
+    · 3-stat(곧 마감/신규/평균 지원금) + 검색바 + 방문형/기자단 탭 + 카테고리 6그룹 + 정렬 5종 + [리스트/그리드]
+    · RowCard(1단 축약) / GridCard(2단) — 참여 채널 아이콘(블/인/틱), 개인화 지원금, 잔여·마감일
+    · 하단 FAB [📍 지도] ↔ [☰ 리스트]
+[/r/explore?mode=map] 지도 — 풀스크린 Naver Map + 등급색 핀, 핀 탭 → 하단 토스트 카드([상세 →])
+
+[/r/store/[id]] 매장 상세 · 채널 선택 참여
+    · 4:3 히어로 + 평점 "★ N (네이버 리뷰 N건)" + 다크 지원금 히어로(연동 시 내 금액 / 미연동 시 기준 최대)
+    · 이용 방법 3단계 · 필수 메뉴(+가격) · 매장 소개 + 강조 키워드 칩
+    · 채널 선택 칩(블로그→인스타→틱톡 우선) → 선택 채널 등급 배율로 지원금 자동 계산 + 채널별 리뷰 조건 노출
+    · "지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요" 고지
+    · Sticky CTA: 최종 채널 + 금액 + [참여하기]
+    → POST /api/passes { campaignId, channel }
+        · 선택 채널 등급으로 자격·quota 차감(consumedSlot 기록) · Pass 생성(active, 24h TTL) · 사장님 알림
+        → /r/passes/{passId}
+
+[/r/passes/[id]] active = 티켓 + QR
+    · 할인 큰 숫자(등급 배율 지원금, 미사용 초대 부스트 보유 시 "🎁 초대 보상 +N% 부스트 포함" 가산)
+    · QR(pass 8자 코드) + "결제 시 사장님께 보여주세요" · 24h 카운트다운
+    · 사용 처리 입력 폼 — 4자리 코드 미노출, 사장님이 직접 입력(+선택 결제 금액)
+      → POST /api/passes/use-by-code (체험자 세션, code === campaign.useCode 검증 시 used)
+    · [방문이 어려워요 — 참여 취소] → 2단 확인 → POST /api/passes/cancel → cancelled + 모집 슬롯 즉시 복구 (노쇼 미집계)
+
+  (경로 B) 사장님 /o/scan에서 QR 스캔 또는 4자리 조회 → POST /api/passes/use → used + 체험자 알림
+
+[/r/passes/[id]] used = 리뷰 인증 폼
+    · 결제·지원 적용액 + usedAt+72h 카운트다운
+    · ReviewForm: ① 채널 고정 표기 ② 광고 표시 문구 박스[복사]+포함 확인 체크 ③ URL 입력 ④ 채널별 자가점검
+    → POST /api/passes/review { passId, reviewUrl, selfCheck, adNotice:true }
+        · 서버 검증: 72h 기한 / adNotice 필수 / 자가점검 전 항목 → review_submitted (adNoticeConfirmed=true)
+
+[/r/passes/[id]] review_submitted → 운영팀 검수(최대 72시간) → completed(등급 반영) 또는 rejected
+[/r/passes/[id]] rejected — 사유(rejectReason) 원문 노출 + 반려 후 72h 내 1회 재제출(resubmitCount<1) → 재검수
+[/r/passes/[id]] cancelled — "직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 다시 참여할 수 있어요."
+```
+
+---
+
+## 시나리오 B — 체험자: 기자단(비방문) 콘텐츠 작성
+
+```
+[/r/explore] 기자단 탭 → 카드(자료팩 N장 · 정산 예정금 ₩ · "3.3% 원천징수 후 입금")
+[/r/press/[id]] 기자단 브리프 — 정산 예정금 · 마감 D-N · 자료팩(신청 전 blur) · 필수 키워드 · 게시 채널
+    → [참여 신청하기] POST /api/passes (kind=press) → /r/passes 기자단 탭 등록
+[/r/passes] 기자단 탭 — 통계 스트립(작성 중 / 검수 중 / 정산 예정 ₩) + 상태별 CTA
+[/r/press/[id]/write?pass=...] 기자단 작성 — 자료팩 풀공개 + 광고 문구 박스[복사]
+    · PressWriteForm: ① 작성 채널 ② 광고 문구 포함 체크(필수) ③ 게시 URL ④ 자가점검(필수 키워드·자료팩 활용)
+    · 본문 입력 UI 없음 — 본인 채널에 게시, URL만 제출(운영팀 표본 검수)
+    → POST /api/passes/review { reviewChannel, reviewUrl, pressSelfCheck } → review_submitted → 검수 → completed(정산)
+    · 반려 시 캠페인 종료 전 1회 재제출
+```
+
+> ※ 기자단은 **별도 보관소 화면이 없다.** 신청·작성·검수·정산 현황은 모두 `/r/passes`의 기자단 탭에서 본다.
+
+---
+
+## 시나리오 C — 사장님: 첫 진입부터 캠페인 오픈
+
+```
+[/o/login] → /o/home
+[/o/home] 인사 + "최근 후기 N건 운영팀 검수 중" + 현재 플랜 스트립 + 이번 달 모집 현황
+    · 진행 중 캠페인 [체험단 N]/[기자단 N] 탭 — 카드에 등급별 모집 인원 + 3구간 카운터(방문 예정/완료/총 모집)
+    · [+ 새 캠페인]
+[/o/campaign/new] 새 캠페인
+    · 매장 선택("제목은 매장명으로 자동") · 진행 일수 · 지원금(= S등급 100% 기준치)
+    · 총 모집 인원(단일 입력) — 월 한도 카드(사용/보너스/잔여), 초과 시 [생성] 비활성
+    · 사용처리 코드(숫자 4자리 필수, 진행 중 캠페인 간 중복 차단, 체험자 미노출)
+    · 필수 채널(블/인/틱 1개+) · 필수 메뉴(+가격) · 강조 키워드(최대 5개) · 매장 소개(최대 500자)
+    → POST /api/campaigns { storeId, days, supportAmount, totalQuota, useCode, requiredChannels[], requiredMenus[], highlightKeywords[], description }
+        · title 자동 · distributeQuota 자동 분배 · 월 한도 검증(quota_bonus 가산·소진) · 즉시 활성
+```
+
+---
+
+## 시나리오 D — 사장님: 손님 체험권 사용 처리 (QR 또는 4자리)
+
+```
+[/o/scan] [📷 카메라 스캔](QR=pass 8자 코드 단건 조회) 또는 4자리 숫자 입력(캠페인 useCode 조회)
+    → POST /api/passes/lookup { code } (4자리→useCode 최근 발급분 / 8자→pass 고유 코드)
+[/o/scan] 결과 카드 — 캠페인명 · 익명 #last4(등급) · 상태 · 지원금 한도
+    · 실 결제 금액 입력 → 적용 지원금 = min(결제액, 한도+부스트)
+    → POST /api/passes/use { code } → used + supportApplied 기록 + 체험자 알림 → /o/home
+```
+
+> 캠페인 생성 시 지정한 4자리는 체험자 체험권 화면에 **노출되지 않으며**, 사장님만 인지해 사용 처리에 쓴다.
+
+---
+
+## 시나리오 E — 사장님: 후기 모니터링 (직접 검수 없음)
+
+```
+[/o/reviews] "체험자가 게시한 후기를 조회할 수 있습니다. 사장님은 직접 검수하지 않으며,
+             광고 표시 누락·재작성 요청 등은 채널톡으로 운영팀에 접수해주세요."
+    · 통계(운영팀 검수 중 N / 통과 누적 N)
+    · 후기 카드 — 등급 배지 + 익명 #last4 + 채널 + 상태 뱃지(검수 중/통과/반려) + 게시 URL + 본문 line-clamp-3
+    · [💬 채널톡으로 문의하기] (ChannelIO, 미로드 시 mailto 폴백)
+[/api/passes/approve] 410 Gone — 사장님 직접 검수 폐기
+```
+
+## 시나리오 E-1 — 운영팀: 후기 검수
+
+```
+[/admin/login] admin 로그인 → [/admin/reviews]
+    · 인증 게이트(admin 아니면 redirect) · 통계(대기 N / 최근 7일 N)
+    · review_submitted 리스트(오래된 것 우선) — 익명 #last4 + 종류 + 채널 + [게시물 열기 ↗] + 자가점검 칩
+    · [검수 통과] → POST /api/admin/reviews/decide {approve} → completed + completedReviews++ + 양측 알림
+    · [반려] → 사유 입력(≤500자, "체험자 화면에 그대로 표시…") → {reject, reason} → rejected(rejectReason/rejectedAt 보존) + 양측 알림
+    · 반려된 체험자는 72h 내 1회 재제출 → "후기 재제출"로 다시 검수 대기열 등장
+```
+
+---
+
+## 시나리오 F — 사장님: 성과 확인
+
+```
+[/o/report] 최근 30일 누계 — 총 노출 추정(영향력×30% 도달) + 스파크라인 · 작성 완료율 · 광고표시 준수율 · CPM · 채널별 분포 · 등급별 ROI
+```
+
+---
+
+## 시나리오 G — 바이럴(레퍼럴): 초대부터 양면 보상까지
+
+```
+[/r/passes/[id]] used(T1 트리거) — "₩X 절약 완료! 친구도 받게 해줄래요?" → /r/invite/new?store=&campaign=
+[/r/rewards] 혜택 탭 — 친구 초대 박스 카드(basic/silver/gold + 진행도) + [🎁 친구에게 쏘기]
+[/r/invite/new] 매트릭스(RR/RO/OR/OO) 자동 결정 + 자동 메시지 + 4채널 공유 시트
+    → POST /api/referral/invite → 토큰(8자, 14일 TTL) URL 발급
+
+[/r/i/<token>] 피추천자 랜딩(비회원) — 유효/만료/사용됨 분기. 로그인 상태면 /welcome/box 자동 이동
+    → [박스 받고 가입하기] /r/signup?invite=<token>
+[/welcome/box?token=] 환영 박스 — 슬롯머신(0.6s shake → 1.8s spin → 2.2s reveal) + 컨페티
+    → POST /api/referral/accept { token, mode:"accept" }
+        · 발신자 행운 박스: 체험자 지원금 부스트(+10/20/30%) / 사장님 quota_bonus(+3팀) 또는 membership_discount(₩10,000)
+        · 피추천자 환영 박스: 첫 체험 지원금 +50% 부스트(체험자) 또는 멤버십 50% 할인(사장님)
+        · viralCounter.liveStream에 실제 이벤트 1줄 기록(조작 수치 없음)
+[/r/passes/[id]] completed(T2 트리거) — "검수 통과! 행운 박스 더 키우러 갈까요?" → /r/invite/new
+```
+
+> 보상 재원·어뷰징 가드·상한 규칙은 [`docs/운영정책서.md`](docs/운영정책서.md) §바이럴 참조. 보상 3종은 전부 실사용 경로가 구현되어 있다.

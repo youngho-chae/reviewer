@@ -1,6 +1,7 @@
 // 매장 ID + 카테고리 기반 결정론적 썸네일 매핑.
 // - 음식/카페/주점 등은 실제 음식 사진 5장 풀에서 순환 (중복 허용 — 사용자 명시)
 // - 미용/네일/병의원/애견/운동/요가 등은 카테고리 전용 SVG 커버 사용
+import { STORYBOARD } from "./storyboard";
 
 const FOOD_PHOTOS = [
   "/store-photos/photo-1.jpg",
@@ -45,7 +46,12 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
+// [스토리보드] STORYBOARD=true면 모든 썸네일을 "썸네일" 스키마 placeholder 1종으로 통일 —
+// 디자인 파트가 이미지 자리를 레이아웃으로 잡을 수 있게 함. 실데이터 원복은 STORYBOARD=false.
+const STORYBOARD_THUMB = "/store-photos/storyboard-thumb.svg";
+
 export function photoForStore(storeId: string, category?: string): string {
+  if (STORYBOARD) return STORYBOARD_THUMB;
   if (category && CATEGORY_COVERS[category]) return CATEGORY_COVERS[category];
   if (category && !FOOD_CATEGORIES.has(category)) {
     // 정의되지 않은 비음식 카테고리는 일단 음식 풀 폴백 (디자인 변화 최소화)

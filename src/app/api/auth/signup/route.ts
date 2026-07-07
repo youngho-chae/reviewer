@@ -14,6 +14,7 @@ interface ReviewerSignup {
   password: string;
   nickname: string;
   sns?: { kind: SnsKind; url: string; influence: number }[];
+  agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
 }
 interface OwnerSignup {
   role: "owner";
@@ -22,6 +23,7 @@ interface OwnerSignup {
   storeName: string;
   category: string;
   area: string;
+  agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
 }
 
 export async function POST(req: NextRequest) {
@@ -32,6 +34,10 @@ export async function POST(req: NextRequest) {
   const password = String(body.password || "");
   if (!email || !password) return NextResponse.json({ error: "이메일/비밀번호를 입력해주세요" }, { status: 400 });
   if (password.length < 6) return NextResponse.json({ error: "비밀번호는 6자 이상이어야 합니다" }, { status: 400 });
+  // 이용약관·개인정보 수집 동의 — 법적 필수 (개인정보보호법)
+  if (!body.agreeTerms) {
+    return NextResponse.json({ error: "이용약관과 개인정보 수집·이용에 동의해주세요" }, { status: 400 });
+  }
 
   if (body.role === "reviewer") {
     if (db.reviewers.some((r) => r.email === email)) {
@@ -53,6 +59,7 @@ export async function POST(req: NextRequest) {
       grade,
       channelGrades,
       createdAt: Date.now(),
+      termsAgreedAt: Date.now(),
       completedReviews: 0,
       qualityScore: 0,
       noShowCount: 0,
@@ -74,6 +81,7 @@ export async function POST(req: NextRequest) {
       area: body.area,
       plan: "Free",
       createdAt: Date.now(),
+      termsAgreedAt: Date.now(),
     };
     db.owners.push(owner);
     const store: Store = {
