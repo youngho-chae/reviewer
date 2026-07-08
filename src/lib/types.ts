@@ -9,6 +9,23 @@ export interface SnsAccount {
   influence: number; // 일방문자/팔로워/구독자 자연수
 }
 
+// ── 등급 월간 재평가 (2026-07-08 설계) ──
+// 매월 말(KST) 직전 월 활동을 평가해 채널별 등급을 갱신한다.
+//   GS_ch = 0.70·I(지수) + 0.20·F(성실 이행) + 0.10·W(상생지수) − P(패널티)
+// 리뷰 품질은 주관 평가 배제 원칙으로 점수 요소에서 제외 — 반려 종착만 패널티로 반영.
+export interface GradeHistoryEntry {
+  month: string; // 평가 대상 월 "YYYY-MM" (KST)
+  channel?: SnsKind; // 채널별 항목 (undefined = 종합 등급 변동 요약)
+  from: Grade;
+  to: Grade;
+  breakdown: { I: number; F: number; W: number; P: number; GS: number };
+  neutralized?: boolean; // 표본 부족(당월 이벤트 <2건) — F/W 중립, GS = I − P
+  skipped?: boolean; // 당월 이벤트 0건 — 등급 유지, 기록만
+  sCandidate?: boolean; // GS≥90 & 당월 노쇼 0 & 완료 5건↑ — S는 운영팀 부여(자동 승급 없음)
+  winWinQualified?: boolean; // 당월 상생 리뷰어 기준(W≥60 & 완료 3건↑) 충족 여부
+  at: number; // 재평가 실행 시각
+}
+
 export interface Reviewer {
   id: string;
   email: string;
@@ -22,9 +39,17 @@ export interface Reviewer {
   createdAt: number;
   termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
   completedReviews: number;
+  // @deprecated 재평가 설계(2026-07-08)에서 리뷰 품질 요소가 제외되어 미사용 확정.
+  // 제거하지 않고 유지만 한다 (데이터정책서 §qualityScore 참조).
   qualityScore: number; // 0~100
   noShowCount: number;
   inviteStats?: InviteStats; // 바이럴(레퍼럴) — 추천 발신/수락/박스 등급 누적
+  // ── 등급 월간 재평가 ──
+  gradeHistory?: GradeHistoryEntry[];
+  lastRegradeAt?: number;
+  // 상생 리뷰어 뱃지 — 표면적 신뢰 표식(지원금 배율·참여 조건 무영향, P1 무관).
+  // 유예 1개월: lastQualifiedMonth가 평가월 직전 월이면 유지, 2개월 연속 미달 시 회수.
+  winWinBadge?: { since: number; lastQualifiedMonth: string };
 }
 
 export interface Owner {
@@ -149,6 +174,7 @@ export interface Pass {
   rejectReason?: string;
   rejectedAt?: number;
   resubmitCount?: number; // 반려 후 재제출 횟수 (최대 1회 허용)
+  completedAt?: number; // 운영팀 검수 승인 시각 — 월간 재평가의 완료·상생 집계 귀속 기준
   // 라이프사이클 스윕 중복 방지 플래그
   overdueHandled?: boolean; // 리뷰 기한(이용 후 7일) 초과 처리 완료
   expiringSoonNotified?: boolean; // 만료 6시간 전 알림 발송 완료
@@ -254,5 +280,6 @@ export interface DBShape {
   // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거
+  lastRegradeMonth?: string; // 등급 월간 재평가가 완료된 마지막 평가 대상 월 "YYYY-MM" (KST)
   naverDataFetched?: number; // 마지막 Naver Place 자동 갱신 timestamp
 }

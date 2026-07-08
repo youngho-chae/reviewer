@@ -49,6 +49,14 @@ export default async function Me() {
           <span className="text-[14px] text-ink">{me.grade}등급</span>
           <span className="text-[13px] text-brand">자세히 →</span>
         </Link>
+        {me.winWinBadge && (
+          <div className="mt-2.5 flex justify-center">
+            {/* 상생 리뷰어 — 표시용 신뢰 표식 (지원금 배율·참여 조건 무영향) */}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-brandSoft text-brand text-[13px] font-semibold">
+              🤝 상생 리뷰어
+            </span>
+          </div>
+        )}
       </section>
 
       {/* stat-strip — 내 활동 요약 (v2) */}

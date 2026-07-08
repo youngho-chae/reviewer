@@ -3,6 +3,7 @@ import path from "node:path";
 import { DBShape } from "./types";
 import { kvAvailable, kvLoad, kvSave } from "./kv";
 import { sweepPassLifecycle } from "./pass-lifecycle";
+import { sweepMonthlyRegrade } from "./grade-regrade";
 
 // 3-단 영속성 계층:
 //   1) Vercel KV (Upstash Redis REST API) — 환경변수 있으면 우선 사용 → 멀티 인스턴스 공유 가능
@@ -46,8 +47,8 @@ function persist(db: DBShape) {
 // 시드 스키마/내용이 변경될 때마다 bump → 기존 DB를 무시하고 재시드.
 // 운영 환경에서 KV/디스크에 남아있던 옛 시드를 자동 정리.
 // 스토리보드 브랜치(design/storyboard-schema)는 시드 내용이 다르므로 별도 버전(1000+).
-// 현재 v14(2026-07-08: 관심 목록 시드 — 진행 가능 2건 + 마감 2건·종료 캠페인)를 반영하여 1014로 bump.
-const SEED_VERSION = 1014;
+// 현재 v15(2026-07-08: 등급 월간 재평가 — 직전 월 활동 시드 + completedAt)를 반영하여 1015로 bump.
+const SEED_VERSION = 1015;
 
 function ensureSeeded(db: DBShape) {
   if (!db.seeded || (db.seedVersion ?? 0) < SEED_VERSION) {
@@ -78,8 +79,11 @@ export function getDB(): DBShape {
   }
   const db = globalThis.__catchpass_db!;
   ensureSeeded(db);
-  // 라이프사이클 스윕 — 만료 확정/슬롯 복구/기한 초과 처리 (lazy 배치)
-  if (sweepPassLifecycle(db)) persist(db);
+  // 라이프사이클 스윕이 먼저 — 월 경계 직전 만료 건을 확정한 뒤 월간 재평가를 돌린다.
+  // (|| 단락 평가로 재평가가 건너뛰어지지 않도록 각각 실행)
+  const swept = sweepPassLifecycle(db);
+  const regraded = sweepMonthlyRegrade(db);
+  if (swept || regraded) persist(db);
   return db;
 }
 
@@ -96,7 +100,9 @@ export async function getDBAsync(): Promise<DBShape> {
     if (fresh) {
       globalThis.__catchpass_db = fresh;
       ensureSeeded(fresh);
-      if (sweepPassLifecycle(fresh)) {
+      const swept = sweepPassLifecycle(fresh);
+      const regraded = sweepMonthlyRegrade(fresh);
+      if (swept || regraded) {
         await kvSave(fresh);
         persist(fresh);
       }
@@ -107,6 +113,7 @@ export async function getDBAsync(): Promise<DBShape> {
       const db: DBShape = { ...empty };
       ensureSeeded(db);
       sweepPassLifecycle(db);
+      sweepMonthlyRegrade(db);
       await kvSave(db);
       globalThis.__catchpass_db = db;
       await maybeAutoRefresh(db);

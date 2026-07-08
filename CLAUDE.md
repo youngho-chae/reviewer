@@ -22,6 +22,7 @@ CATCHPASS: 등급 기반 리뷰 체험권 플랫폼 (Next.js 15 App Router, 모�
 
 - **디자인 시스템 v2 (정본 `DESIGN.md`)**: Primary 퍼플 #9333EA · Pretendard · 파스텔 SNS 배지 · 헤어라인 라운드 카드 · 타이포 11~22px. v1 Apple 톤(Action Blue·다크 타일·SF Pro)은 파기 — 재도입 금지. 규칙: 퍼플=인터랙션, 검정=가치(금액), 파스텔=SNS 아이덴티티, 블루=마케팅 슬롯 전용. 화면설계서(Figma 보드)는 v1 기준으로 남아 있음(v2 반영은 별도 지시 대기).
 - 등급·배율: `src/lib/grade.ts` (gradeMeets는 P1 위반으로 삭제됨 — 재도입 금지).
+- **등급 월간 재평가 (2026-07-08)**: `src/lib/grade-regrade.ts` — 매월 말(KST) lazy 스윕. GS = 0.70 지수(`indexScoreV1`) + 0.20 성실 이행 + 0.10 상생지수 − 패널티. 컷 S90/A70/B50/C30 · 월 ±1등급 · S 자동 부여 금지(sCandidate 기록만) · 리뷰 품질 요소 없음(반려 종착만 패널티) · 상생지수는 비율·건별 캡 1.0·완료 전제(절대 금액 사용 금지) · 상생 리뷰어 뱃지(W≥60&완료 3건↑, 표시 전용). **재평가 산출물(GS·패널티·뱃지)을 참여/발급 분기에서 참조하면 P1 위반.** 정본: 운영정책서 §10.
 - 발급: `src/app/api/passes/route.ts` — 자기 등급 버킷 우선, 소진 시 잔여 버킷(N→C부터). `consumedSlot`으로 만료/취소 시 복구.
 - **2026-07-07 회의 확정 수치**: 체험권 유효 **발급 후 72h**(연장·복구 불가) · 리뷰 **이용 후 7일** · active 동시 보유 **5장** · 취소 후 동일 캠페인 **12h 재신청 제한** · '걸어서 갈 수 있어요' 반경 **3km**. MVP는 방문형만(`src/lib/flags.ts PRESS_ENABLED=false`). 캠페인 노출은 발급 소진 ≠ 종료(`src/lib/campaign-visibility.ts`). 관심 목록은 캠페인 단위(`db.interests`, `/r/interests`). 스키마 라벨은 형식 마스크(`000,000원`/`00건` — `SBUI`), 금액은 원 접미(₩ 접두 금지).
 - 스토리보드 모드: `src/lib/storyboard.ts`의 `STORYBOARD` 플래그 (true = 스키마 라벨 렌더, 시드 버전 1000+ 계열).

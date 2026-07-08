@@ -71,7 +71,7 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
         userId: p.reviewerId,
         role: "reviewer",
         title: "리뷰 기한 초과",
-        body: `${store?.name ?? "매장"} 리뷰 제출 기한(이용 후 7일)이 지났습니다. 반복 시 캠페인 참여가 제한될 수 있습니다.`,
+        body: `${store?.name ?? "매장"} 리뷰 제출 기한(이용 후 7일)이 지났습니다. 반복 시 월간 등급 재평가에 감점으로 반영됩니다.`,
         createdAt: now,
         read: false,
         link: `/r/passes/${p.id}`,

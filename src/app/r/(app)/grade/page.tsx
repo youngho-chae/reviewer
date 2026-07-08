@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { SBUI } from "@/lib/storyboard";
+import { SBUI, sbNum } from "@/lib/storyboard";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { GRADE_CUTS, WINWIN_BADGE, kstMonthKey, kstMonthEnd } from "@/lib/grade-regrade";
 import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
@@ -27,39 +28,59 @@ const BENEFITS: { g: Grade; d: string; amt: string }[] = [
   { g: "N", d: "모든 캠페인 참여 · 기준 지원금의 10%", amt: "10% 지원금" },
 ];
 
+// 진입 조건 = 월간 등급 점수(GS) 컷 (운영정책서 §등급 월간 재평가)
 const TIER_REQUIRE: Record<Grade, string> = {
-  S: "운영팀 부여 영역 (자동 진입 불가)",
-  A: "SNS 영향력 가중 합산 50,000 이상",
-  B: "SNS 영향력 가중 합산 10,000 이상",
-  C: "SNS 영향력 가중 합산 1,000 이상",
-  N: "SNS 1개 이상 연동 시 자동 산정",
+  S: "월간 등급 점수 90점 이상 + 운영팀 부여 (자동 승급 없음)",
+  A: "월간 등급 점수 70점 이상",
+  B: "월간 등급 점수 50점 이상",
+  C: "월간 등급 점수 30점 이상",
+  N: "SNS 1개 이상 연동 시 지수 평가로 시작",
 };
 
-const THRESHOLDS: Record<Grade, { next: Grade; needReviews: number }> = {
-  N: { next: "C", needReviews: 1 },
-  C: { next: "B", needReviews: 5 },
-  B: { next: "A", needReviews: 15 },
-  A: { next: "S", needReviews: 30 },
-  S: { next: "S", needReviews: 0 },
-};
+// 점수 분해 행 정의 — 가중치는 유한 범주(정책 상수)라 원문 노출
+const SCORE_ROWS: { key: "I" | "F" | "W"; name: string; weight: string; hint: string }[] = [
+  { key: "I", name: "지수 점수", weight: "70%", hint: "캐치랭크 지수 평가 모델 — 채널 영향력 기반" },
+  { key: "F", name: "성실 이행", weight: "20%", hint: "지난달 체험 완료율 (노쇼·기한 초과·최종 반려 제외)" },
+  { key: "W", name: "상생지수", weight: "10%", hint: "추가 결제의 비율·빈도만 반영 (금액 아님)" },
+];
+
+function fmtKstDate(ts: number): string {
+  const d = new Date(ts + 9 * 60 * 60 * 1000);
+  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function fmtMonth(month: string): string {
+  return month.replace("-", ".");
+}
 
 export default async function ReviewerGrade() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
 
-  // 등급 진행도 (진행도 바는 구조 표현이므로 실제 비율 유지)
-  const myPasses = db.passes.filter((p) => p.reviewerId === me.id);
-  const completed = myPasses.filter((p) => p.status === "completed").length;
-  const t = THRESHOLDS[me.grade];
-  const progress = t.needReviews > 0 ? Math.min(100, Math.round((completed / t.needReviews) * 100)) : 100;
+  // 최신 월간 재평가 결과 (channel 미지정 = 종합 요약 행)
+  const summaries = (me.gradeHistory ?? []).filter((h) => !h.channel);
+  const latest = summaries.length > 0 ? summaries[summaries.length - 1] : null;
+  const latestScored = latest && !latest.skipped ? latest : null;
 
-  // 30일 성과 지표 — val은 스토리보드에서 노출하지 않고 단위(타입)만 사용
-  const metrics = [
-    { name: "완료율", unit: "%", invert: false },
-    { name: "리뷰 품질 점수", unit: "점", invert: false },
-    { name: "광고표시 준수율", unit: "%", invert: false },
-    { name: "노쇼율", unit: "%", invert: true },
-  ];
+  // 다음 재평가일 = 이번 달 말일 (KST)
+  const nextRegradeAt = kstMonthEnd(kstMonthKey(Date.now()));
+
+  // 다음 등급 컷까지 진행도 — 최신 GS 기준 (구조 표현이므로 실제 비율 유지)
+  const cutOf = (g: Grade) => GRADE_CUTS.find((c) => c.grade === g)?.min ?? 0;
+  const nextGradeOf: Partial<Record<Grade, Grade>> = { N: "C", C: "B", B: "A", A: "S" };
+  const nextGrade = nextGradeOf[me.grade];
+  const progress =
+    latestScored && nextGrade
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            Math.round(
+              ((latestScored.breakdown.GS - cutOf(me.grade)) / (cutOf(nextGrade) - cutOf(me.grade))) * 100,
+            ),
+          ),
+        )
+      : null;
 
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
@@ -80,7 +101,7 @@ export default async function ReviewerGrade() {
         </div>
       </div>
 
-      {/* 내 등급 히어로 — 화이트 캔버스 + 등급 배지 + 다음 등급 진행도 */}
+      {/* 내 등급 히어로 — 등급 배지 + (보유 시) 상생 리뷰어 뱃지 + 다음 컷 진행도 */}
       <section className="px-5 pt-6 pb-8 text-center">
         <div className="flex justify-center mb-4">
           <GradeBadge grade={me.grade} size="xl" />
@@ -89,25 +110,140 @@ export default async function ReviewerGrade() {
           {me.grade}등급
         </h1>
         <p className="mt-1.5 text-[14px] text-ink2 leading-[1.4]">{TIER_COPY[me.grade].desc}</p>
+        {me.winWinBadge && (
+          <div className="mt-3 flex justify-center">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-brandSoft text-brand text-[13px] font-semibold">
+              🤝 상생 리뷰어
+            </span>
+          </div>
+        )}
 
-        {me.grade !== "S" && (
+        {progress != null && nextGrade && (
           <div className="mt-6 max-w-[300px] mx-auto">
             <div className="flex justify-between text-[13px] text-muted mb-2">
-              <span>다음 등급까지</span>
-              <span className="text-ink font-semibold tabular-nums">{t.next} · {progress}%</span>
+              <span>다음 등급 컷({nextGrade})까지</span>
+              <span className="text-ink font-semibold tabular-nums">{progress}%</span>
             </div>
             <div className="h-1 bg-brandTint rounded-pill overflow-hidden">
               <div className="h-full bg-brand rounded-pill transition-all" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-2 text-[12px] text-muted">
-              완료 리뷰 {Math.max(0, t.needReviews - completed)}건이면 승급
+              다음 재평가일 {sbNum(SBUI.date, fmtKstDate(nextRegradeAt))} · 월 변동 폭 ±1등급
             </div>
           </div>
         )}
       </section>
 
-      {/* 채널별 등급 — 연동 채널을 독립 평가 (v2.16) */}
+      {/* 월간 등급 점수 분해 — 지난달 재평가 결과 (지수 70% · 성실 20% · 상생 10% − 패널티) */}
       <section className="px-5 mt-1">
+        <h2 className="text-[18px] font-bold text-ink tracking-title mb-2">지난달 등급 점수</h2>
+        <p className="text-[12px] text-muted mb-3 leading-[1.5]">
+          매월 말 직전 한 달의 활동을 평가해요. 등급은 오를 수도, 내려갈 수도 있어요.
+        </p>
+        {latestScored ? (
+          <div className="rounded-lg border border-hairline overflow-hidden">
+            {SCORE_ROWS.map((row) => (
+              <div key={row.key} className="px-4 py-3.5 border-b border-hairlineSoft">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[14px] font-medium text-ink">
+                    {row.name} <span className="text-[11px] text-muted">({row.weight})</span>
+                  </span>
+                  <span className="text-[14px] font-semibold text-ink tabular-nums">
+                    {latestScored.neutralized && row.key !== "I"
+                      ? "중립"
+                      : sbNum(SBUI.score, `${latestScored.breakdown[row.key]}점`)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted mt-0.5">{row.hint}</div>
+              </div>
+            ))}
+            {latestScored.breakdown.P > 0 && (
+              <div className="px-4 py-3.5 border-b border-hairlineSoft bg-errorSoft/40">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[14px] font-medium text-error">패널티 (차감)</span>
+                  <span className="text-[14px] font-semibold text-error tabular-nums">
+                    −{sbNum(SBUI.score, `${latestScored.breakdown.P}점`)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted mt-0.5">노쇼·리뷰 기한 초과·최종 반려 — 연속 발생 시 가중</div>
+              </div>
+            )}
+            <div className="px-4 py-3.5 bg-sunken/60">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[14px] font-bold text-ink">월간 등급 점수</span>
+                <span className="text-[16px] font-bold text-brand tabular-nums">
+                  {sbNum(SBUI.score, `${latestScored.breakdown.GS}점`)}
+                </span>
+              </div>
+              {latestScored.neutralized && (
+                <div className="text-[11px] text-muted mt-0.5">지난달 활동 표본이 적어 지수 중심으로 평가했어요.</div>
+              )}
+              {latestScored.sCandidate && (
+                <div className="text-[11px] text-brand font-semibold mt-0.5">S 등급 후보 — 운영팀 확인 후 부여됩니다.</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-hairline px-4 py-5 text-[13px] text-muted leading-[1.5]">
+            아직 재평가 이력이 없어요. 첫 재평가는 가입 다음 달 말일({sbNum(SBUI.date, fmtKstDate(nextRegradeAt))})에 진행되며,
+            그 전까지는 연동 시 산정된 지수 등급이 유지됩니다.
+          </div>
+        )}
+      </section>
+
+      {/* 상생지수 안내 — 모순 방지 원칙 카피 (운영정책서 원문주의) */}
+      <section className="px-5 mt-5">
+        <div className="rounded-md bg-brandSoft p-4">
+          <div className="text-[14px] font-bold text-ink">🤝 상생지수와 상생 리뷰어</div>
+          <p className="mt-1.5 text-[12px] text-ink2 leading-[1.6]">
+            상생지수는 추가 결제의 <b>비율과 빈도</b>만 반영해요. 결제 금액 자체는 반영되지 않으며, 리뷰까지 완료한
+            체험만 집계됩니다. 상생지수만으로는 등급이 오르지 않아요(가중치 10%).
+          </p>
+          <p className="mt-2 text-[12px] text-ink2 leading-[1.6]">
+            한 달 상생지수 {WINWIN_BADGE.minW}점 이상 + 완료 {WINWIN_BADGE.minCompleted}건 이상이면{" "}
+            <b>상생 리뷰어</b> 뱃지를 드려요. 프로모션이 있을 때 우선 지급 대상이 됩니다. 뱃지는 표시용이며 지원금
+            비율·참여 조건은 달라지지 않아요.
+          </p>
+        </div>
+      </section>
+
+      {/* 등급 변동 이력 — 월간 재평가 기록 (최근 6개월) */}
+      {summaries.length > 0 && (
+        <section className="px-5 mt-8">
+          <h2 className="text-[18px] font-bold text-ink tracking-title mb-3">등급 변동 이력</h2>
+          <div className="rounded-lg border border-hairline overflow-hidden">
+            {summaries
+              .slice(-6)
+              .reverse()
+              .map((h, i, arr) => (
+                <div
+                  key={h.month}
+                  className={`flex items-center gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-hairlineSoft" : ""}`}
+                >
+                  <span className="text-[12px] text-muted tabular-nums w-[56px] shrink-0">
+                    {sbNum(SBUI.month, fmtMonth(h.month))}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <GradeBadge grade={h.from} size="sm" />
+                    <span className="text-[12px] text-muted">→</span>
+                    <GradeBadge grade={h.to} size="sm" />
+                  </span>
+                  <span className="flex-1 min-w-0 text-right text-[11px] text-muted">
+                    {h.skipped
+                      ? "활동 없음 · 등급 유지"
+                      : h.neutralized
+                        ? "표본 부족 · 지수 중심"
+                        : sbNum(SBUI.score, `${h.breakdown.GS}점`)}
+                    {h.winWinQualified && <span className="ml-1.5 text-brand font-semibold">🤝</span>}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {/* 채널별 등급 — 연동 채널을 독립 평가 (v2.16) */}
+      <section className="px-5 mt-8">
         <h2 className="text-[18px] font-bold text-ink tracking-title mb-2">채널별 등급</h2>
         <p className="text-[12px] text-muted mb-3 leading-[1.5]">
           연동한 채널마다 영향력을 따로 평가해요. 참여 시 선택한 채널의 등급에 맞춰 지원금이 정해집니다.
@@ -176,31 +312,8 @@ export default async function ReviewerGrade() {
         </Link>
       </section>
 
-      {/* 최근 30일 성과 (기존 유지) */}
-      <section className="px-5 pt-10 pb-8">
-        <h2 className="text-[18px] font-bold text-ink tracking-title mb-2">최근 30일 성과</h2>
-        <p className="text-[13px] text-ink2 mb-5 leading-[1.5]">목표 지표를 모두 달성하면 다음 등급으로 자동 승급합니다.</p>
-        <div className="rounded-lg border border-hairline overflow-hidden">
-          {metrics.map((m, i) => {
-            return (
-              <div key={i} className={`px-4 py-4 ${i < metrics.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
-                <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-[14px] font-medium text-ink">{m.name}</span>
-                  <span className="text-[14px] font-semibold text-ink tabular-nums">
-                    {m.unit === "%" ? "비율값" : m.unit === "점" ? "점수값" : "값"}
-                  </span>
-                </div>
-                <div className="text-[12px] text-muted">
-                  목표값 · 달성여부
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 등급별 혜택 사다리 — 진입 조건(혜택 탭에서 이동) 통합 (v2.9) */}
-      <section className="px-5 pb-10">
+      {/* 등급별 혜택 사다리 — 진입 조건(GS 컷) 통합 */}
+      <section className="px-5 pt-10 pb-10">
         <h2 className="text-[18px] font-bold text-ink tracking-title mb-4">등급별 혜택</h2>
         <div className="space-y-2.5">
           {BENEFITS.map((b) => {
@@ -227,7 +340,8 @@ export default async function ReviewerGrade() {
           })}
         </div>
         <p className="mt-6 text-[11px] text-muted leading-[1.5] text-center">
-          등급은 완료 리뷰 수, 리뷰 점수, 작성 완료율, 노쇼 빈도, SNS 영향력을 종합해 매월 재계산됩니다.
+          등급은 매월 말 지수 점수(70%)·성실 이행(20%)·상생지수(10%)와 패널티를 종합해 재평가됩니다. 변동 폭은 월
+          ±1등급이며, 등급은 지원금 비율에만 영향을 주고 참여 자격을 제한하지 않아요.
         </p>
       </section>
     </div>

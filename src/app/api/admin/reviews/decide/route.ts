@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
   if (decision === "approve") {
     pass.status = "completed";
     pass.reviewStatus = "approved";
+    // 승인 시각 — 월간 등급 재평가의 완료·상생 집계 귀속 기준
+    pass.completedAt = now;
     // 검수 통과 시 체험자 누적 완료 리뷰 +1 (등급 산정 반영)
     const reviewer = db.reviewers.find((r) => r.id === pass.reviewerId);
     if (reviewer) reviewer.completedReviews += 1;

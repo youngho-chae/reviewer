@@ -38,6 +38,8 @@ export const SBUI = {
   distance: "00m", // 현 위치 기준 매장까지 거리 — 실데이터는 00m / 0.0km / 00km (formatDistance)
   walk: "00m", // (구) 도보 시간 — distance와 동일 형식으로 통합
   rating: "0.0", // 평점
+  score: "00점", // 등급 점수 (월간 재평가 GS·요소 점수)
+  month: "0000.00", // 연월 (등급 변동 이력)
   // 코드
   token: "ABC12345", // 초대 코드 (영대문자·숫자 8자)
   // 범주값 — 값의 종류가 유한하므로 라벨명 유지

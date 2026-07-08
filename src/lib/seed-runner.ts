@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
 import { channelGradesFromSns, bestGrade } from "./grade";
+import { kstMonthKey, kstMonthStart, prevMonthKey } from "./grade-regrade";
 import { CHANNEL_REVIEW_CONDITIONS, defaultChannel } from "./channels";
 import { STORYBOARD } from "./storyboard";
 
@@ -575,17 +576,19 @@ export function runSeed(db: DBShape) {
     sns: demoSns,
     channelGrades: demoChannelGrades,
     grade: bestGrade(Object.values(demoChannelGrades)),
-    createdAt: now - 1000 * 60 * 60 * 24 * 5,
-    completedReviews: 3,
+    // 직전 월 활동 시드가 재평가 대상이 되도록 평가월 이전 가입으로 설정
+    createdAt: now - 1000 * 60 * 60 * 24 * 45,
+    completedReviews: 6, // 지난달 완료 3건 포함 누적
     qualityScore: 88,
-    noShowCount: 0,
+    noShowCount: 1, // 지난달 리뷰 기한 초과 1건 (스윕이 집계했을 값과 일치)
     // 바이럴 — 이미 2명 초대해서 일반 박스 단계
     inviteStats: { sent: 3, clicked: 3, accepted: 2, boxGrade: "basic" },
   };
   db.reviewers.push(reviewer);
 
   // 보조 체험자 (다른 등급/매장 데모) — 사장님 화면에서 다양한 reviewer 표시용
-  const reviewerASns = [{ kind: "instagram" as SnsKind, url: "https://instagram.com/sub", influence: 60000 }];
+  // 영향력 450k = 지수점수 A밴드 상단 → 지난달 고성과와 합쳐 GS≥90 S 후보 데모 (S 자동 부여 없음)
+  const reviewerASns = [{ kind: "instagram" as SnsKind, url: "https://instagram.com/sub", influence: 450000 }];
   const reviewerAGrades = channelGradesFromSns(reviewerASns);
   const reviewerA: Reviewer = {
     id: detId("rv", "demo-a@reviewer.com"),
@@ -595,8 +598,8 @@ export function runSeed(db: DBShape) {
     sns: reviewerASns,
     channelGrades: reviewerAGrades,
     grade: bestGrade(Object.values(reviewerAGrades)),
-    createdAt: now - 1000 * 60 * 60 * 24 * 30,
-    completedReviews: 11,
+    createdAt: now - 1000 * 60 * 60 * 24 * 60,
+    completedReviews: 16, // 지난달 완료 5건 포함 누적
     qualityScore: 92,
     noShowCount: 0,
   };
@@ -611,8 +614,8 @@ export function runSeed(db: DBShape) {
     sns: reviewerCSns,
     channelGrades: reviewerCGrades,
     grade: bestGrade(Object.values(reviewerCGrades)),
-    createdAt: now - 1000 * 60 * 60 * 24 * 2,
-    completedReviews: 0,
+    createdAt: now - 1000 * 60 * 60 * 24 * 40,
+    completedReviews: 1, // 지난달 완료 1건 (표본 부족 재평가 데모)
     qualityScore: 70,
     noShowCount: 0,
   };
@@ -984,6 +987,80 @@ export function runSeed(db: DBShape) {
       createdAt: now - (5 + i) * day,
     })),
   ];
+
+  // ── 등급 월간 재평가 데모 시드 (2026-07-08) — 직전 KST 월 활동 ──
+  // lastRegradeMonth는 시드하지 않는다 → 재시드 후 첫 DB 로드에서 sweepMonthlyRegrade가
+  // 이 데이터를 평가한다. 종료 캠페인(used=quota)에 귀속해 현재 노출/잔여에 영향 없음.
+  //   demo   : 완료 3건(초과 결제율 0.8 한 건) + 리뷰 기한 초과 1건 → F 75 · W 27 · P −7 → 블로그 A→B 하락 데모
+  //   demo-a : 완료 5건(초과 결제율 1.0×3 + 0.9×2 → W 96)·노쇼 0 → GS≥90 S 후보 + 상생 리뷰어 뱃지 (S 자동 부여 없음 → A 유지)
+  //   demo-c : 완료 1건 → 표본 부족(neutralized) — 지수 단독 유지 데모
+  const prevMonth = prevMonthKey(kstMonthKey(now));
+  const prevStart = kstMonthStart(prevMonth);
+  const tsInPrevMonth = (dayOfMonth: number, hourOfDay = 12) =>
+    prevStart + (dayOfMonth - 1) * day + hourOfDay * hour;
+
+  type PrevMonthPass = {
+    key: string;
+    reviewerId: string;
+    grade: Pass["reviewerGrade"];
+    campaignIdx: number; // endedCampaignIds 인덱스
+    useDay: number; // 이용일 (직전 월의 KST 일자, ≤ 25 — 승인 시각까지 월 내 귀속 보장)
+    paid: number;
+    support: number;
+    overdue?: boolean; // 리뷰 기한 초과(패널티) 케이스 — 완료 아님
+    channel?: SnsKind;
+  };
+  const prevMonthPasses: PrevMonthPass[] = [
+    // demo — 완료 3건 + 기한 초과 1건
+    { key: "pm-demo-1", reviewerId: reviewer.id, grade: "A", campaignIdx: 0, useDay: 3, paid: 100000, support: 100000 },
+    { key: "pm-demo-2", reviewerId: reviewer.id, grade: "A", campaignIdx: 0, useDay: 8, paid: 144000, support: 80000 }, // 초과율 0.8
+    { key: "pm-demo-3", reviewerId: reviewer.id, grade: "A", campaignIdx: 1, useDay: 14, paid: 64000, support: 64000 },
+    { key: "pm-demo-4", reviewerId: reviewer.id, grade: "A", campaignIdx: 1, useDay: 10, paid: 80000, support: 80000, overdue: true },
+    // demo-a — 완료 5건 (지원금 대비 2배·1.9배 결제 = 초과율 캡 1.0/0.9)
+    { key: "pm-a-1", reviewerId: reviewerA.id, grade: "A", campaignIdx: 0, useDay: 4, paid: 160000, support: 80000, channel: "instagram" },
+    { key: "pm-a-2", reviewerId: reviewerA.id, grade: "A", campaignIdx: 0, useDay: 9, paid: 160000, support: 80000, channel: "instagram" },
+    { key: "pm-a-3", reviewerId: reviewerA.id, grade: "A", campaignIdx: 1, useDay: 13, paid: 160000, support: 80000, channel: "instagram" },
+    { key: "pm-a-4", reviewerId: reviewerA.id, grade: "A", campaignIdx: 1, useDay: 18, paid: 152000, support: 80000, channel: "instagram" },
+    { key: "pm-a-5", reviewerId: reviewerA.id, grade: "A", campaignIdx: 0, useDay: 22, paid: 152000, support: 80000, channel: "instagram" },
+    // demo-c — 완료 1건 (표본 부족)
+    { key: "pm-c-1", reviewerId: reviewerC.id, grade: "C", campaignIdx: 1, useDay: 12, paid: 32000, support: 32000, channel: "instagram" },
+  ];
+  for (const pm of prevMonthPasses) {
+    const campId = endedCampaignIds[pm.campaignIdx];
+    if (!campId) continue;
+    const camp = db.campaigns.find((c) => c.id === campId)!;
+    const pmStore = db.stores.find((s) => s.id === camp.storeId)!;
+    const usedAt = tsInPrevMonth(pm.useDay);
+    const issuedAt = usedAt - 20 * hour;
+    const p: Pass = {
+      id: detId("ps", pm.key),
+      code: detPassCode(pm.key),
+      reviewerId: pm.reviewerId,
+      campaignId: camp.id,
+      storeId: pmStore.id,
+      ownerId: pmStore.ownerId,
+      reviewerGrade: pm.grade,
+      reviewChannel: pm.channel ?? "naver_blog",
+      issuedAt,
+      expiresAt: issuedAt + 72 * hour,
+      usedAt,
+      paidAmount: pm.paid,
+      supportApplied: pm.support,
+      status: pm.overdue ? "used" : "completed",
+    };
+    if (pm.overdue) {
+      // usedAt+7d(직전 월 내) 초과 — 스윕 재처리 방지 플래그, 재평가에서 해당 월 패널티로 귀속
+      p.overdueHandled = true;
+    } else {
+      p.reviewSubmittedAt = usedAt + 2 * day;
+      p.reviewUrl = STORYBOARD ? "리뷰URL" : `https://blog.naver.com/demo/${pm.key}`;
+      p.reviewStatus = "approved";
+      p.adNoticeConfirmed = true;
+      p.completedAt = usedAt + 3 * day; // 검수 승인 시각 — 월간 재평가의 완료·상생 귀속 기준
+    }
+    // 종료 캠페인의 used는 이미 quota와 동일(발급 소진 종료) — 추가 증가 없음
+    db.passes.push(p);
+  }
 
   // ── 바이럴(레퍼럴) 시드 ──
   // 라이브 카운터 — 실제 시드 이벤트(DEMO2024 초대 수락)만 기록. 조작 수치 없음 (VER.1 MVP 원칙).
