@@ -79,8 +79,14 @@ export default async function ReviewerExplore({
       };
     });
 
-  // 지도 클라이언트 ID는 env로만 주입 (미설정 시 SDK 로드 실패 → 리스트 폴백 카드)
-  const mapClientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || "";
+  // 지도 클라이언트 ID는 env로만 주입 (미설정 시 SDK 로드 실패 → 리스트 폴백 카드).
+  // NEXT_PUBLIC_ 전용 변수가 없으면 서버 지도 키(NAVER_MAP_CLIENT_ID)로 폴백한다 —
+  // page.tsx는 force-dynamic 서버 컴포넌트라 런타임에 서버 env를 읽어 prop으로 넘길 수 있고,
+  // client ID는 SDK URL에 그대로 노출되는 공개 값이므로 클라이언트 전달이 안전하다.
+  const mapClientId =
+    process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID ||
+    process.env.NAVER_MAP_CLIENT_ID ||
+    "";
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
   return (
