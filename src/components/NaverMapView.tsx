@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
-import { mockDistanceM, walkMinutes } from "@/lib/distance-mock";
+import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
 import Icon from "./Icon";
 
 export interface MapStorePin {
@@ -366,7 +366,7 @@ export default function NaverMapView({
                       <div className="flex-1 min-w-0">
                         <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
                         <div className="mt-1 text-[13px] text-muted truncate">
-                          {p.category} · {sbNum(SBUI.distance, `도보 ${walkMinutes(p.storeId)}분`)}
+                          {p.category} · {sbNum(SBUI.distance, formatDistance(mockDistanceM(p.storeId)))}
                         </div>
                         <div className="mt-1.5 text-[16px] font-bold text-ink tabular-nums">
                           최대 {sbNum(SBUI.support, `${p.supportAmount.toLocaleString()}원`)} 지원

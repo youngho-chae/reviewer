@@ -7,7 +7,7 @@ import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
-import { walkMinutes } from "@/lib/distance-mock";
+import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
 import { CHANNEL_ORDER, CHANNEL_LABEL } from "@/lib/channels";
 import { SnsKind } from "@/lib/types";
 
@@ -141,7 +141,7 @@ export default function ExploreView({
     list = [...list].sort((a, b) => {
       switch (sort) {
         case "distance":
-          return walkMinutes(a.storeId) - walkMinutes(b.storeId);
+          return mockDistanceM(a.storeId) - mockDistanceM(b.storeId);
         case "new":
           return b.createdAt - a.createdAt;
         case "topSupport":
@@ -513,7 +513,7 @@ export default function ExploreView({
  *   우상단 🎫 N 남음(발급 소진 시 '발급 마감'). [P1] 등급 게이트 없음.
  * ─────────────────────────────────────────────────────────────*/
 function ExperienceRow({ card }: { card: ExploreStoreCard }) {
-  const walk = walkMinutes(card.storeId);
+  const distanceM = mockDistanceM(card.storeId);
   return (
     <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action flex gap-3">
       <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
@@ -533,7 +533,7 @@ function ExperienceRow({ card }: { card: ExploreStoreCard }) {
         </div>
         <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{card.name}</div>
         <div className="mt-0.5 text-[13px] text-muted">
-          {card.category} · {sbNum(SBUI.distance, `도보 ${walk}분`)}
+          {card.category} · {sbNum(SBUI.distance, formatDistance(distanceM))}
         </div>
         <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
       </div>

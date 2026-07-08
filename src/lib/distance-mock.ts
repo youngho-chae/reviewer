@@ -22,3 +22,13 @@ export function mockDistanceM(storeId: string): number {
 export function walkMinutes(storeId: string): number {
   return Math.max(1, Math.round(mockDistanceM(storeId) / 80));
 }
+
+/**
+ * 거리 표기 (2026-07-08) — 현 위치 기준 매장까지의 거리.
+ * 1km 미만 "850m" · 10km 미만 "1.2km" · 그 이상 "12km"
+ */
+export function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  const km = meters / 1000;
+  return km < 10 ? `${km.toFixed(1)}km` : `${Math.round(km)}km`;
+}

@@ -4,7 +4,7 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
-import { walkMinutes } from "@/lib/distance-mock";
+import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
 import { campaignExposure, campaignRemain, type CampaignExposure } from "@/lib/campaign-visibility";
 import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
@@ -124,7 +124,7 @@ export default async function ReviewerInterests({
               </div>
               <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{p.name}</div>
               <div className="mt-0.5 text-[13px] text-muted">
-                {p.category} · {sbNum(SBUI.distance, `도보 ${walkMinutes(p.storeId)}분`)}
+                {p.category} · {sbNum(SBUI.distance, formatDistance(mockDistanceM(p.storeId)))}
               </div>
               <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
             </div>
