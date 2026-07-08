@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
@@ -96,6 +96,31 @@ export default function ExploreView({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [mapSelected, setMapSelected] = useState(false);
+
+  // 지도 바텀시트(피크) 드래그 — 위로 40px 이상 쓸어올리면 목록 보기로 자동 전환 (2026-07-08).
+  // move/up은 window에서 추적한다 — 손가락이 시트 밖(지도 위)으로 나가도 제스처가 이어지고,
+  // 칩 탭·가로 스크롤은 pointer capture를 쓰지 않아 그대로 동작한다.
+  const sheetDragCleanup = useRef<(() => void) | null>(null);
+  function onSheetPointerDown(e: React.PointerEvent) {
+    sheetDragCleanup.current?.();
+    const startY = e.clientY;
+    const onMove = (ev: PointerEvent) => {
+      if (startY - ev.clientY > 40) {
+        cleanup();
+        setMode("list");
+      }
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+      sheetDragCleanup.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
+    sheetDragCleanup.current = cleanup;
+  }
 
   const filterActive = cats.size > 0 || channels.size > 0;
 
@@ -337,19 +362,23 @@ export default function ExploreView({
             </div>
           )}
 
-          {/* bottom-sheet — 핀 미선택 시 리스트 시트 */}
+          {/* bottom-sheet(피크) — 핀 미선택 시. 디폴트는 카테고리 탭+필터 아이콘 영역까지만 노출,
+              위로 쓸어올리면 목록 보기로 자동 전환 (2026-07-08) */}
           {!mapSelected && (
-            <div className="absolute inset-x-0 bottom-0 z-30 bg-canvas rounded-t-xl shadow-sheet" style={{ maxHeight: "48%" }}>
-              <div className="flex justify-center pt-2.5 pb-1">
+            <div
+              className="absolute inset-x-0 bottom-0 z-30 bg-canvas rounded-t-xl shadow-sheet"
+              style={{ touchAction: "pan-x" }}
+              onPointerDown={onSheetPointerDown}
+            >
+              <button
+                type="button"
+                onClick={() => setMode("list")}
+                className="w-full flex flex-col items-center pt-2.5 pb-1"
+                aria-label="위로 올려 목록 보기"
+              >
                 <span className="w-9 h-1 rounded-pill bg-borderStrong" />
-              </div>
-              <div className="mt-1">{chipRow}</div>
-              {countSortRow}
-              <div className="overflow-y-auto px-5 mt-3 pb-6 space-y-4" style={{ maxHeight: "calc(48dvh - 150px)" }}>
-                {tab === "visit"
-                  ? filtered.map((p) => <ExperienceRow key={`sheet-${p.storeId}`} card={p} />)
-                  : filteredPress.map((p) => <PressRow key={`sheet-${p.campaignId}`} card={p} />)}
-              </div>
+              </button>
+              <div className="mt-1 pb-4">{chipRow}</div>
             </div>
           )}
         </div>
@@ -368,7 +397,7 @@ export default function ExploreView({
             mode === "map"
               ? mapSelected
                 ? "calc(var(--bottom-nav-h, 72px) + 148px)"
-                : "calc(48dvh + var(--bottom-nav-h, 72px) - 56px)"
+                : "calc(var(--bottom-nav-h, 72px) + 108px)" // 피크 시트(핸들+칩 행) 위
               : "calc(var(--bottom-nav-h, 72px) + 16px)",
         }}
         aria-label={mode === "list" ? "지도 보기로 전환" : "목록 보기로 전환"}
