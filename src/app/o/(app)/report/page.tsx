@@ -109,8 +109,8 @@ export default async function OwnerReport() {
       {/* CPM */}
       <div className="mx-5 mt-3 rounded-lg border border-hairline bg-canvas p-4">
         <div className="text-[14px] font-bold text-ink">CPM (1,000 노출당 비용)</div>
-        <div className="mt-1 text-[20px] font-bold text-ink tabular-nums">₩{cpm.toLocaleString()}</div>
-        <div className="text-[11px] text-muted mt-1 tabular-nums">총 지원 ₩{totalSupport.toLocaleString()} / 추정 노출 {totalImpressions.toLocaleString()}회</div>
+        <div className="mt-1 text-[20px] font-bold text-ink tabular-nums">{cpm.toLocaleString()}원</div>
+        <div className="text-[11px] text-muted mt-1 tabular-nums">총 지원 {totalSupport.toLocaleString()}원 / 추정 노출 {totalImpressions.toLocaleString()}회</div>
       </div>
 
       {/* 채널별 */}
@@ -139,7 +139,7 @@ export default async function OwnerReport() {
                 <span className="text-[11px] font-bold text-ink w-6 text-center">{g}</span>
                 <span className="text-[13px] text-muted tabular-nums">{v.count}건</span>
               </div>
-              <div className="text-[13px] font-bold text-ink tabular-nums">₩{v.support.toLocaleString()}</div>
+              <div className="text-[13px] font-bold text-ink tabular-nums">{v.support.toLocaleString()}원</div>
             </div>
           );
         })}

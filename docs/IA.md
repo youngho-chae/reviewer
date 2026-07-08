@@ -23,8 +23,8 @@
 |---|---|---|
 | R-00 | 가입·온보딩 (3-step: 컨셉 → 계정+필수동의 → SNS 연동) | `/r/signup` |
 | R-00b | 로그인 | `/r/login` |
-| R-01 | 홈 (큐레이팅·발견 전용) | `/r/home` |
-| R-02 | 탐색 (리스트 + 지도 통합) | `/r/explore` (`?mode=map` `?sort=` `?cat=`) |
+| R-01 | 홈 (큐레이팅·발견 전용 · 지역 변경 `?area=`) | `/r/home` |
+| R-02 | 탐색 (**기본 지도 보기** + 리스트 전환) | `/r/explore` (`?mode=list` `?sort=` `?cat=`) — 기본 `mode=map` |
 | R-03 | 매장 상세 · 채널 선택 참여 | `/r/store/[id]` |
 | R-04 | 내 체험권 (방문형/기자단 탭) | `/r/passes` |
 | R-04a | 체험권 상세 (7-상태 분기, QR/사용/리뷰/재제출/취소) | `/r/passes/[id]` |
@@ -32,15 +32,19 @@
 | R-06 | 등급 (배지·진행도·채널별 등급·혜택 사다리) | `/r/grade` |
 | R-06b | 혜택 (바이럴: 박스·라이브 카운터·내 보상·보낸 초대) | `/r/rewards` |
 | R-07 | MY (프로필·메뉴 허브·약관·회원 탈퇴) | `/r/me` |
+| R-12 | **관심 목록** (캠페인 단위 저장 · 진행 가능/마감 필터, MY 하위 진입) | `/r/interests` (`?f=open|closed`) |
 | R-07a | 알림함 | `/r/notifications` |
-| R-08a | 기자단 브리프 | `/r/press/[id]` |
-| R-09 | 기자단 작성 | `/r/press/[id]/write?pass=<id>` |
+| R-08a | 기자단 브리프 — **MVP 제외**(`PRESS_ENABLED=false` 시 `/r/home` redirect) | `/r/press/[id]` |
+| R-09 | 기자단 작성 — 기존 발급 건 마무리용으로만 유지 | `/r/press/[id]/write?pass=<id>` |
 | R-10 | 친구에게 쏘기 (매트릭스 + 공유 시트) | `/r/invite/new` |
 | R-11 | 피추천자 랜딩 (비회원 진입) | `/r/i/[token]` |
 | W-01 | 환영 박스 (가입 직후 슬롯 박스) — reviewer/owner 공용 | `/welcome/box?token=<token>` |
 | L-01 | 이용약관 (비로그인 접근) | `/legal/terms` |
 | L-02 | 개인정보처리방침 (비로그인 접근) | `/legal/privacy` |
 
+> **[MVP 범위 — 2026-07-07 회의]** 1차 출시는 **방문형 체험단만** 제공한다. 기자단은 `src/lib/flags.ts`의 `PRESS_ENABLED=false`로
+> 게이트되어 탐색 세그먼트·신규 신청·발급 API가 비활성이며(기존 발급 건의 작성·검수만 허용), 예약형 체험단은 추후 버전에서 확장한다.
+>
 > **기자단 보관소(구 R-08)는 별도 화면이 아니다.** 기자단 신청·작성·검수·정산 현황은 모두 `/r/passes`의 **기자단 탭**에서 본다.
 > (재설계 전 잔재였던 독립 `/r/press` 인덱스 화면은 도달 경로가 없어 VER.1에서 제거됨 — `/r/press/[id]`(브리프)·`/r/press/[id]/write`(작성)만 존재.)
 
@@ -101,7 +105,7 @@
 /r/store/[id]                       매장 상세·참여        /r/passes             내 체험권(방문형/기자단 탭)
 /r/passes/[id]                      체험권 상세(7-상태)   /r/grade              등급
 /r/rewards                          혜택(바이럴)          /r/me                 MY(+탈퇴)
-/r/notifications                    알림함
+/r/interests                        관심 목록(MY 하위)     /r/notifications      알림함
 /r/press/[id]  /r/press/[id]/write  기자단 브리프 · 작성
 /r/invite/new                       친구 초대            /r/i/[token]          피추천자 랜딩(비회원)
 /welcome/box                        환영 박스(공용)
@@ -140,4 +144,5 @@ Figma 화면설계서 보드가 작성된 화면(노드ID는 [`sdd/README.md`](s
 
 | 버전 | 일자 | 내용 |
 |---|---|---|
+| 1.1 | 2026-07-07 | **회의 확정 반영** — 탐색 기본 화면을 지도 보기로 변경(`?mode=list`가 예외), 홈 지역 변경(`?area=`), **R-12 관심 목록**(`/r/interests`, MY 하위) 신설, 기자단 MVP 제외 게이트(R-08a redirect·R-09는 기존 건 마무리용) 명시. |
 | 1.0 | 2026-07-07 | PRD.md §3에서 분리 신설. 화면 인벤토리·BottomNav·라우트 맵·게이트 규칙 정리. 도달 불가하던 `/r/press` 인덱스 화면 제거 반영(기자단은 `/r/passes` 탭). |

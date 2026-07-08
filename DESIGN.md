@@ -541,7 +541,7 @@ Whitespace separates *sections*, borders separate *items*. Inside a section the 
 
 **`info-strip`** — Store-detail meta card: white, hairline border, `{rounded.md}`, 2–3 columns (체험 마감일 / 리뷰 마감 기한 / 잔여). Label in `{typography.caption}` muted, value in `{typography.body-strong}`; the 잔여 value rides the 🎫 glyph in `{colors.primary}`.
 
-**`notice-banner`** — Purple-tint advisory: bg `{colors.primary-tint-soft}`, `{rounded.md}`, leading 💬 icon, single line of `{typography.caption-strong}` in `{colors.primary}` ("체험권 발급 후 24시간 내로 사용하지 않으면 사라져요").
+**`notice-banner`** — Purple-tint advisory: bg `{colors.primary-tint-soft}`, `{rounded.md}`, leading 💬 icon, single line of `{typography.caption-strong}` in `{colors.primary}` ("체험권 발급 후 72시간 내로 사용하지 않으면 사라져요").
 
 **`radio-select-card`** — The channel selection unit ("어느 SNS로 체험할까요?"). White, `{rounded.md}`, hairline border, 14–16px padding. Left: radio dot (selected = purple ring + dot) + `{채널} · {등급}등급` label + `link-state-chip`. Right: support amount `{typography.price}`. Selected: `{component.radio-select-card-selected}` — 1.5px `{colors.primary}` border. Disabled (미연동): `{component.radio-select-card-disabled}` — `{colors.canvas-soft}` bg, gray text, right side reads `확인불가`.
 
@@ -642,4 +642,5 @@ Whitespace separates *sections*, borders separate *items*. Inside a section the 
 - Region picker (location selector ⌄ on home) interaction is not specified beyond the trigger.
 - Empty/loading states are not drawn in the reference set; current implementation reuses dashed-border empty cards with muted text until specified.
 - Owner (사장님) and admin surfaces have no reference screens; they inherit tokens and the card grammar but their layouts are extrapolated.
-- The reference screens show some placeholder policy numbers (e.g. "72시간 내 사용", "이용 후 7일 이내") that conflict with shipped policy (24h use / 72h review); the implementation follows policy, the visuals follow this system.
+- ~~The reference screens show placeholder policy numbers ("72시간 내 사용", "이용 후 7일 이내") that conflict with shipped policy~~ — **resolved 2026-07-07**: the meeting adopted the reference numbers as official policy (72h pass validity / review within 7 days of use), so visuals and policy now agree.
+- Schema-label placeholders render as **format masks**, not label names (2026-07-07): amounts `000,000원`, counts `00건`, quantities `00개`, dates `0000.00.00`, deadlines `00월 00일 까지`, distance `도보 00분`. Real data follows the same format (원 suffix, no ₩ prefix).

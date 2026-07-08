@@ -6,13 +6,18 @@ export default function PassesTabs({
   pressCount,
   visitView,
   pressView,
+  showPress = true,
 }: {
   visitCount: number;
   pressCount: number;
   visitView: ReactNode;
   pressView: ReactNode;
+  // [MVP] 기자단 제외 — 과거 기자단 패스가 없으면 탭 자체를 숨긴다 (src/lib/flags.ts)
+  showPress?: boolean;
 }) {
   const [tab, setTab] = useState<"visit" | "press">("visit");
+
+  if (!showPress) return <>{visitView}</>;
 
   return (
     <>

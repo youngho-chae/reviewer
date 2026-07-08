@@ -50,7 +50,7 @@ export default async function OwnerMe() {
             </div>
             <div>
               <div className="text-[12px] text-muted">누적 지원</div>
-              <div className="text-[18px] font-bold text-ink tabular-nums mt-1">₩{totalSupport.toLocaleString()}</div>
+              <div className="text-[18px] font-bold text-ink tabular-nums mt-1">{totalSupport.toLocaleString()}원</div>
             </div>
           </div>
         </div>

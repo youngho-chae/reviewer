@@ -44,7 +44,7 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
           </div>
           <div className="flex justify-between text-[11px] mt-1.5 opacity-85">
             <span>발송 {SBUI.count} · 클릭 {SBUI.count}</span>
-            <span>{next ? `다음 박스까지 친구 ${SBUI.count}` : "최고 등급 달성"}</span>
+            <span>{next ? `다음 박스까지 친구 ${SBUI.quota}` : "최고 등급 달성"}</span>
           </div>
         </div>
 

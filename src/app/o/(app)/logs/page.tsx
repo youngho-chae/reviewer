@@ -57,7 +57,7 @@ export default async function OwnerLogs() {
         </div>
       </div>
       <div className="px-5 pt-1 pb-3 text-[13px] text-muted">
-        총 <span className="tabular-nums">{passes.length}</span>건 · 누적 지원 <span className="font-bold text-ink tabular-nums">₩{totalSupport.toLocaleString()}</span>
+        총 <span className="tabular-nums">{passes.length}</span>건 · 누적 지원 <span className="font-bold text-ink tabular-nums">{totalSupport.toLocaleString()}원</span>
       </div>
 
       <div className="mt-3">
@@ -84,12 +84,12 @@ export default async function OwnerLogs() {
                       </div>
                       <div className="text-right whitespace-nowrap">
                         {p.supportApplied ? (
-                          <div className="text-[13px] font-bold text-ink tabular-nums">₩{p.supportApplied.toLocaleString()}</div>
+                          <div className="text-[13px] font-bold text-ink tabular-nums">{p.supportApplied.toLocaleString()}원</div>
                         ) : (
                           <div className="text-[12px] text-muted">-</div>
                         )}
                         {p.paidAmount ? (
-                          <div className="text-[11px] text-muted tabular-nums">결제 ₩{p.paidAmount.toLocaleString()}</div>
+                          <div className="text-[11px] text-muted tabular-nums">결제 {p.paidAmount.toLocaleString()}원</div>
                         ) : null}
                       </div>
                     </div>

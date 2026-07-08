@@ -44,7 +44,7 @@ export default async function MembershipPage() {
         <div className="text-[12px] font-semibold text-brand">현재 플랜</div>
         <div className="mt-1 text-[20px] font-bold text-ink tracking-title">{me.plan}</div>
         <div className="text-[13px] text-ink2 mt-1">
-          <span className="font-bold text-ink tabular-nums">₩{(PLANS.find((p) => p.key === me.plan)?.price ?? "0")}</span>/월 · {planSummary(me.plan)}
+          <span className="font-bold text-ink tabular-nums">{(PLANS.find((p) => p.key === me.plan)?.price ?? "0")}원</span>/월 · {planSummary(me.plan)}
         </div>
       </div>
 
@@ -60,7 +60,7 @@ export default async function MembershipPage() {
                   <div className="text-[12px] text-muted mt-0.5">{p.desc}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[18px] font-bold text-ink tabular-nums">₩{p.price}</div>
+                  <div className="text-[18px] font-bold text-ink tabular-nums">{p.price}원</div>
                   <div className="text-[11px] text-muted">/월</div>
                 </div>
               </div>

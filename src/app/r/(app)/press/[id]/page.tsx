@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import { PRESS_ENABLED } from "@/lib/flags";
 import GradeBadge from "@/components/GradeBadge";
 import PressApplyButton from "./PressApplyButton";
 
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타그램", tiktok: "틱톡" };
 
 export default async function PressBrief({ params }: { params: Promise<{ id: string }> }) {
+  // [MVP] 기자단 제외 — 신규 진입 차단 (src/lib/flags.ts)
+  if (!PRESS_ENABLED) redirect("/r/home");
   const me = await getCurrentReviewer();
   const { id } = await params;
   const db = await getDBAsync();

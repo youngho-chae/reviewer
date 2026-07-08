@@ -233,12 +233,12 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         )}
         {pass.status === "expired" && (
           <div className="mt-6 rounded-md bg-sunken p-5 text-[15px] text-muted">
-            24시간이 지나 만료된 체험권입니다. 모집 자리는 다른 체험자에게 돌아갔어요.
+            사용 기한(발급 후 72시간)이 지나 만료된 체험권입니다. 만료된 체험권은 연장·복구되지 않으며, 모집 자리는 다른 체험자에게 돌아갔어요.
           </div>
         )}
         {pass.status === "cancelled" && (
           <div className="mt-6 rounded-md bg-sunken p-5 text-[15px] text-muted">
-            직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 다시 참여할 수 있어요.
+            직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요.
           </div>
         )}
         {pass.status === "rejected" && (() => {
@@ -257,7 +257,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                 {canResubmit ? (
                   <div className="mt-2 text-[13px] text-muted">
                     사유를 반영해 수정한 뒤 아래에서 1회 재제출할 수 있어요
-                    {!isPress && pass.rejectedAt ? " (반려 후 72시간 이내)" : ""}.
+                    {!isPress && pass.rejectedAt ? " (반려 후 7일 이내)" : ""}.
                   </div>
                 ) : (
                   <div className="mt-2 text-[13px] text-muted">

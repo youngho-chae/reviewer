@@ -107,11 +107,11 @@ export interface Campaign {
 }
 
 export type PassStatus =
-  | "active" // 24시간 카운트다운 중
+  | "active" // 72시간(발급 후) 카운트다운 중
   | "used" // QR 스캔 완료 → 리뷰 대기
   | "review_submitted" // 리뷰 등록됨, 검수 대기
   | "completed" // 검수 완료
-  | "expired" // 24시간 경과 미사용 (모집 슬롯 복구됨)
+  | "expired" // 72시간 경과 미사용 (모집 슬롯 복구됨 · 연장/복구 불가)
   | "cancelled" // 체험자가 사용 전 직접 취소 (모집 슬롯 복구됨)
   | "rejected"; // 리뷰 반려 — 기한 내 1회 재제출 가능
 
@@ -150,7 +150,7 @@ export interface Pass {
   rejectedAt?: number;
   resubmitCount?: number; // 반려 후 재제출 횟수 (최대 1회 허용)
   // 라이프사이클 스윕 중복 방지 플래그
-  overdueHandled?: boolean; // 리뷰 기한(72h) 초과 처리 완료
+  overdueHandled?: boolean; // 리뷰 기한(이용 후 7일) 초과 처리 완료
   expiringSoonNotified?: boolean; // 만료 6시간 전 알림 발송 완료
   status: PassStatus;
 }
@@ -217,6 +217,15 @@ export interface ViralCounter {
   liveStream: Array<{ nickname: string; rewardText: string; ts: number; matrix: MatrixKey }>;
 }
 
+// 관심 목록 (2026-07-07 회의) — 매장이 아니라 "캠페인 단위"로 저장.
+// 캠페인이 완전히 종료되어도 목록에서 유지하고 '마감된 체험' 표기만 한다
+// (소진됐다 살아나는 노출 구조를 만들지 않는다 — 상태는 렌더 시점에 계산).
+export interface Interest {
+  reviewerId: string;
+  campaignId: string;
+  createdAt: number;
+}
+
 export interface NotificationItem {
   id: string;
   userId: string;
@@ -240,6 +249,8 @@ export interface DBShape {
   invites?: Invite[];
   rewards?: Reward[];
   viralCounter?: ViralCounter;
+  // ── 관심 목록 (캠페인 단위) ──
+  interests?: Interest[];
   // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거

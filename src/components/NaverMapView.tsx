@@ -2,10 +2,10 @@
 import Script from "next/script";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
-import ChannelIcons from "./ChannelIcons";
+import { mockDistanceM, walkMinutes } from "@/lib/distance-mock";
 
 export interface MapStorePin {
   storeId: string;
@@ -80,12 +80,50 @@ export default function NaverMapView({
     return !!window.naver?.maps;
   });
   const [sdkFailed, setSdkFailed] = useState(false);
-  const [selected, setSelected] = useState<MapStorePin | null>(null);
+
+  // ── 선택 카드 캐러셀 (2026-07-07 회의) ──
+  // 지도에서 매장을 선택하면 카드가 뜨고, 좌우 스와이프로 다른 매장을 볼 수 있다.
+  // 카드 순서 = 사용자 현재 위치 기준 거리순 (프로토타입은 mock 거리).
+  const sortedPins = useMemo(
+    () => [...pins].sort((a, b) => mockDistanceM(a.storeId) - mockDistanceM(b.storeId)),
+    [pins],
+  );
+  const [selIdx, setSelIdx] = useState<number | null>(null);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const scrollRaf = useRef<number>(0);
+  const selected: MapStorePin | null = selIdx != null ? sortedPins[selIdx] ?? null : null;
+
+  // 핀 클릭 → 해당 카드로 선택 + 캐러셀 위치 동기화
+  function selectPin(p: MapStorePin) {
+    const i = sortedPins.findIndex((s) => s.storeId === p.storeId);
+    if (i < 0) return;
+    setSelIdx(i);
+    requestAnimationFrame(() => {
+      const el = carouselRef.current;
+      if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "auto" });
+    });
+  }
+
+  // 스와이프 → 스냅된 카드 인덱스로 선택 갱신 (선택 핀 강조 이동)
+  function onCarouselScroll() {
+    cancelAnimationFrame(scrollRaf.current);
+    scrollRaf.current = requestAnimationFrame(() => {
+      const el = carouselRef.current;
+      if (!el || el.clientWidth === 0) return;
+      const i = Math.round(el.scrollLeft / el.clientWidth);
+      setSelIdx((prev) => (prev === i ? prev : Math.min(sortedPins.length - 1, Math.max(0, i))));
+    });
+  }
 
   // 선택 상태가 변하면 부모에 알림 (FAB 위치 조정 등)
   useEffect(() => {
     onSelectionChange?.(!!selected);
   }, [selected, onSelectionChange]);
+
+  // 핀 집합이 바뀌면 선택 해제 (없어진 핀 참조 방지)
+  useEffect(() => {
+    setSelIdx(null);
+  }, [pins]);
 
   // SDK 인증 실패 글로벌 콜백
   useEffect(() => {
@@ -179,10 +217,12 @@ export default function NaverMapView({
         map: mapRef.current,
         icon: { content: html, anchor: new naver.maps.Point(110, 48) },
       });
-      naver.maps.Event.addListener(marker, "click", () => setSelected(p));
+      naver.maps.Event.addListener(marker, "click", () => selectPin(p));
       markersRef.current.push(marker);
     }
 
+    // selectPin은 sortedPins에서 파생되며 pins 변경 시 함께 갱신됨
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pins, selected, sdkReady, sdkFailed]);
 
   // 핀 집합이 바뀌면 중심 재계산 (선택 변경으로는 이동하지 않음)
@@ -227,7 +267,7 @@ export default function NaverMapView({
       />
       <div className={fullscreen ? "relative w-full h-full" : "relative"}>
         {sdkFailed ? (
-          <StaticMapFallback pins={pins} onSelect={setSelected} fullscreen={fullscreen} />
+          <StaticMapFallback pins={pins} onSelect={selectPin} fullscreen={fullscreen} />
         ) : (
           <div
             ref={mapEl}
@@ -241,43 +281,54 @@ export default function NaverMapView({
           </div>
         )}
         {selected && (
-          /* map-bottom-card (DESIGN.md v2) — 선택 핀 요약, experience-row 문법 */
-          <div className="absolute left-0 right-0 bottom-0 mx-auto max-w-[480px] p-4" onClick={() => setSelected(null)}>
-            <Link
-              href={`/r/store/${selected.storeId}?campaign=${selected.campaignId}`}
-              className="cp-action block rounded-lg bg-white shadow-card p-3"
-              onClick={(e) => e.stopPropagation()}
+          /* map-bottom-card 캐러셀 (2026-07-07 회의) — 좌우 스와이프로 거리순 다음 매장 탐색.
+             카드 정보 = 매장명·카테고리·거리·지원금만 (채널·마감일·등급은 과도한 정보로 미노출). */
+          <div className="absolute left-0 right-0 bottom-0 mx-auto max-w-[480px]" onClick={() => setSelIdx(null)}>
+            <div
+              ref={carouselRef}
+              onScroll={onCarouselScroll}
+              className="flex overflow-x-auto snap-x snap-mandatory"
+              style={{ scrollbarWidth: "none" }}
             >
-              <div className="flex gap-3">
-                <div className="relative w-[88px] h-[88px] shrink-0 rounded-md overflow-hidden bg-sunken">
-                  <Image
-                    src={photoForStore(selected.storeId, selected.category)}
-                    alt={selected.name}
-                    fill
-                    sizes="88px"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    {selected.requiredChannels ? (
-                      <ChannelIcons channels={selected.requiredChannels} size={12} />
-                    ) : (
-                      <span />
-                    )}
-                    <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
-                      <span aria-hidden>🎫</span>
-                      <span className="tabular-nums">{sbNum(SBUI.remain, String(selected.remain))}</span> 남음
+              {sortedPins.map((p) => (
+                <div key={p.storeId} className="w-full shrink-0 snap-start p-4">
+                  <Link
+                    href={`/r/store/${p.storeId}?campaign=${p.campaignId}`}
+                    className="cp-action block rounded-lg bg-white shadow-card p-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex gap-3 items-center">
+                      <div className="relative w-[88px] h-[88px] shrink-0 rounded-md overflow-hidden bg-sunken">
+                        <Image
+                          src={photoForStore(p.storeId, p.category)}
+                          alt={p.name}
+                          fill
+                          sizes="88px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
+                        <div className="mt-1 text-[13px] text-muted truncate">
+                          {p.category} · {sbNum(SBUI.distance, `도보 ${walkMinutes(p.storeId)}분`)}
+                        </div>
+                        <div className="mt-1.5 text-[16px] font-bold text-ink tabular-nums">
+                          최대 {sbNum(SBUI.support, `${p.supportAmount.toLocaleString()}원`)} 지원
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-1 text-[15px] font-semibold text-ink truncate">{selected.name}</div>
-                  <div className="mt-0.5 text-[13px] text-muted truncate">
-                    {selected.category} · {SBUI.distance}
-                  </div>
-                  <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+                  </Link>
                 </div>
-              </div>
-            </Link>
+              ))}
+            </div>
+            <div className="pb-2 flex justify-center gap-1" aria-hidden>
+              {sortedPins.slice(0, 8).map((p, i) => (
+                <span
+                  key={p.storeId}
+                  className={`w-1.5 h-1.5 rounded-full ${i === Math.min(selIdx ?? 0, 7) ? "bg-ink" : "bg-borderStrong"}`}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -9,7 +9,7 @@ import { SnsKind } from "@/lib/types";
 export const runtime = "nodejs";
 
 // 체험자가 리뷰 등록.
-//  - 방문형: 사용(used) 후 72시간 이내 제출. 반려(rejected) 시 기한 내 1회 재제출 가능.
+//  - 방문형: 이용(used) 후 7일 이내 제출. 반려(rejected) 시 기한 내 1회 재제출 가능.
 //  - 기자단: active 상태(캠페인 종료 전)에 제출. 반려 시 캠페인 종료 전 1회 재제출 가능.
 //  - 광고 표기(경제적 대가 고지) 확인은 서버가 필수 검증하고 pass에 보존한다.
 export async function POST(req: NextRequest) {
@@ -49,13 +49,13 @@ export async function POST(req: NextRequest) {
     if (pass.status !== "used" && !isResubmit) {
       return NextResponse.json({ error: "사용 후에만 리뷰 등록 가능" }, { status: 400 });
     }
-    // 제출 기한 — 최초: 사용 처리 후 72시간 / 재제출: 반려 시점 후 72시간 (검수 지연이 체험자에게 불리하지 않도록)
+    // 제출 기한 — 최초: 이용(사용 처리) 후 7일 / 재제출: 반려 시점 후 7일 (검수 지연이 체험자에게 불리하지 않도록)
     const deadline = isResubmit
       ? (pass.rejectedAt ?? Date.now()) + REVIEW_DEADLINE_MS
       : (pass.usedAt ?? 0) + REVIEW_DEADLINE_MS;
     if (Date.now() > deadline) {
       return NextResponse.json(
-        { error: isResubmit ? "재제출 기한(반려 후 72시간)이 지났습니다" : "리뷰 제출 기한(사용 후 72시간)이 지났습니다" },
+        { error: isResubmit ? "재제출 기한(반려 후 7일)이 지났습니다" : "리뷰 제출 기한(이용 후 7일)이 지났습니다" },
         { status: 400 },
       );
     }

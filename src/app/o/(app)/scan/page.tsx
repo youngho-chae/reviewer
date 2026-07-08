@@ -96,7 +96,7 @@ export default function ScanPage() {
             <div className="text-[12px] text-muted">{result.campaign?.title}</div>
             <div className="mt-1 text-[18px] font-bold text-ink tracking-title">{result.reviewer?.nickname} <span className="text-[14px] text-muted font-medium">({result.reviewer?.grade}등급)</span></div>
             <div className="mt-2 text-[13px] text-muted">상태: {result.pass.status}</div>
-            <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">₩{result.campaign?.supportAmount.toLocaleString()}</span></div>
+            <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{result.campaign?.supportAmount.toLocaleString()}원</span></div>
 
             {result.pass.status === "active" ? (
               <>
@@ -104,7 +104,7 @@ export default function ScanPage() {
                   <div className="text-[14px] font-semibold text-ink mb-2">실 결제 금액 입력</div>
                   <input value={paidAmount} onChange={(e) => setPaidAmount(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" className="w-full h-12 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px] tabular-nums" />
                   <div className="mt-1 text-[12px] text-muted tabular-nums">
-                    적용 지원금: ₩{Math.min(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}
+                    적용 지원금: {Math.min(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원
                   </div>
                 </div>
                 <button onClick={useNow} disabled={busy || !paidAmount} className="mt-4 w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft">

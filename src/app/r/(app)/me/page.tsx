@@ -63,7 +63,7 @@ export default async function Me() {
             <div className="text-[12px] text-muted mt-2">리뷰 점수</div>
           </div>
           <div>
-            <div className="text-[16px] font-bold tabular-nums leading-none">₩{Math.round(totalSupport / 1000)}K</div>
+            <div className="text-[16px] font-bold tabular-nums leading-none">{totalSupport.toLocaleString()}원</div>
             <div className="text-[12px] text-muted mt-2">누적 혜택</div>
           </div>
         </div>
@@ -107,6 +107,10 @@ export default async function Me() {
           </Link>
           <Link href="/r/passes" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
             <span className="text-[15px] text-ink">내 체험권 (사용 가능 / 신청 내역)</span>
+            <span className="text-brand text-[15px]">→</span>
+          </Link>
+          <Link href="/r/interests" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
+            <span className="text-[15px] text-ink">관심 목록</span>
             <span className="text-brand text-[15px]">→</span>
           </Link>
           <Link href="/r/rewards" className="flex items-center justify-between px-5 py-4">

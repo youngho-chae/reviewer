@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     userId: pass.reviewerId,
     role: "reviewer",
     title: "체험권 사용 처리",
-    body: `결제 ₩${paid.toLocaleString()} · 지원 ₩${support.toLocaleString()} 적용. 리뷰를 작성해주세요.`,
+    body: `결제 ${paid.toLocaleString()}원 · 지원 ${support.toLocaleString()}원 적용. 리뷰를 작성해주세요.`,
     createdAt: Date.now(),
     read: false,
     link: `/r/passes/${pass.id}`,

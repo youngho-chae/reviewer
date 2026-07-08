@@ -89,12 +89,12 @@ export default function OwnerUseForm({ passId, supportAmount }: Props) {
             onChange={(e) => setPaid(e.target.value.replace(/\D/g, ""))}
             inputMode="numeric"
             placeholder={supportAmount.toLocaleString()}
-            className="w-full h-11 pl-7 pr-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+            className="w-full h-11 pl-3 pr-9 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] tabular-nums"
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-muted">₩</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[14px] text-muted">원</span>
         </div>
         <div className="mt-1 text-[11px] text-muted">
-          적용 지원금: ₩{appliedPreview.toLocaleString()}
+          적용 지원금: {appliedPreview.toLocaleString()}원
         </div>
       </div>
 

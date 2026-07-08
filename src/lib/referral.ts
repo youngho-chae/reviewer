@@ -285,7 +285,7 @@ export function snapshotCounter(db: DBShape): ViralCounter {
 export function rewardLabel(r: Reward): string {
   switch (r.kind) {
     case "support_bonus_pct": return `다음 체험 지원금 +${r.value}% 부스트`;
-    case "membership_discount": return r.value <= 100 ? `멤버십 ${r.value}% 할인` : `멤버십 ₩${r.value.toLocaleString()} 할인`;
+    case "membership_discount": return r.value <= 100 ? `멤버십 ${r.value}% 할인` : `멤버십 ${r.value.toLocaleString()}원 할인`;
     case "quota_bonus": return `이번 달 모집 한도 +${r.value}팀`;
   }
 }

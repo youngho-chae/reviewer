@@ -32,7 +32,8 @@ export type IconName =
   | "flag"
   | "gift"
   | "filter"
-  | "copy";
+  | "copy"
+  | "heart";
 
 export type IconVariant = "border" | "bold";
 
@@ -88,6 +89,9 @@ const PATHS: Record<IconName, string> = {
   filter: "M4 7.5h9M17 7.5h3M4 16.5h3M11 16.5h9M15 5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM9 14.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z",
   // 복사 — 주소 복사
   copy: "M9 9.5a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 20 9.5v10a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 9 19.5v-10ZM6 15.5H5A1.5 1.5 0 0 1 3.5 14V4.5A1.5 1.5 0 0 1 5 3h9.5A1.5 1.5 0 0 1 16 4.5v1",
+  // 하트 — 관심 목록 저장 토글
+  heart:
+    "M12 20.3S3.8 15.4 2.9 10.5C2.3 7.4 4.4 4.5 7.4 4.5c1.9 0 3.5 1.1 4.6 2.8 1.1-1.7 2.7-2.8 4.6-2.8 3 0 5.1 2.9 4.5 6-.9 4.9-9.1 9.8-9.1 9.8Z",
 };
 
 // 아이콘 별로 bold 모드에서 fill을 쓸지(닫힌 형태) stroke만 굵게 쓸지(선형) 결정.
@@ -106,6 +110,7 @@ const FILLED_BOLD: Partial<Record<IconName, boolean>> = {
   navigation: true,
   flag: true,
   gift: true,
+  heart: true,
 };
 
 export default function Icon({ name, variant = "border", size = 22, className, ...rest }: Props) {

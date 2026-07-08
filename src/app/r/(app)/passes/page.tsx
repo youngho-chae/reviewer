@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
+import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
+import { PRESS_ENABLED } from "@/lib/flags";
 import GradeBadge from "@/components/GradeBadge";
 import PassesTabs from "./PassesTabs";
 import PassPendingBanner from "./PassPendingBanner";
@@ -10,8 +12,6 @@ import { SBUI } from "@/lib/storyboard";
 import type { Pass, Campaign, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const REVIEW_DEADLINE_MS = 72 * 60 * 60 * 1000;
 
 const statusLabel = (s: string) => ({
   active: "사용 가능",
@@ -143,6 +143,7 @@ export default async function MyPasses({
       <PassesTabs
         visitCount={visit.length}
         pressCount={press.length}
+        showPress={PRESS_ENABLED || press.length > 0}
         visitView={
           <div className="px-5 mt-5 space-y-3 pb-8">
             {visitItems.map(({ p, store, c, days, hours, reviewLeft, highlight }) => {

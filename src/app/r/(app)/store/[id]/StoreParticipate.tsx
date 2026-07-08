@@ -18,6 +18,7 @@ interface Props {
   myChannelGrades: Partial<Record<SnsKind, Grade>>;
   myActivePassId: string | null;
   remain: number;
+  ended?: boolean; // 캠페인 기간 종료 — 상세는 열람 가능하되 신청 차단 (관심 목록 경유)
   children?: ReactNode; // 라디오 섹션과 리뷰 조건 사이의 정적 섹션들 (서버 렌더)
 }
 
@@ -34,6 +35,7 @@ export default function StoreParticipate({
   myChannelGrades,
   myActivePassId,
   remain,
+  ended = false,
   children,
 }: Props) {
   const router = useRouter();
@@ -133,40 +135,38 @@ export default function StoreParticipate({
                   </span>
                 </span>
                 <span className="text-[16px] font-bold text-ink tabular-nums shrink-0">
-                  {sbNum(SBUI.support, `₩${supportFor(base, g).toLocaleString()}`)}
+                  {sbNum(SBUI.support, `${supportFor(base, g).toLocaleString()}원`)}
                 </span>
               </button>
             );
           })}
         </div>
-        {connected && base > selectedSupport && (
-          <p className="mt-2 text-[12px] text-muted">
-            최대 {sbNum(SBUI.support, `₩${base.toLocaleString()}`)} (S등급) · 등급이 오르면 지원금도 올라가요
-          </p>
-        )}
-        <p className="mt-1 text-[12px] text-muted">지원금은 매장이 결제 시 직접 할인해 드리는 금액이에요.</p>
+        {/* [2026-07-07 회의] 타 등급 최대 지원금 비교·동기부여 문구는 노출하지 않는다 — 등급별 상이 사실만 안내 */}
+        <p className="mt-2 text-[12px] text-muted">지원금은 채널별 내 등급에 따라 달라져요 · 매장이 결제 시 직접 할인해 드리는 금액이에요.</p>
       </section>
 
       {/* 정적 섹션들 (필수 메뉴 · 키워드 · 소개 · 지도 · 이용 방법) */}
       {children}
 
-      {/* 리뷰 작성 조건 — 선택 채널 기준 */}
+      {/* 리뷰 작성 조건 — 선택 채널 기준.
+          [2026-07-07 회의] 장문 세부 요구 대신 사진 수·글자 수 등 핵심 조건 중심으로 단순화.
+          조건 자체는 채널별 가변 데이터(CHANNEL_REVIEW_CONDITIONS)로 유지한다. */}
       <section className="px-5 mt-9">
         <h3 className="text-[18px] font-bold text-ink tracking-title">리뷰 작성 조건</h3>
         {selected ? (
-          <ul className="mt-3 space-y-2.5">
-            {conditions.map((cnd) => (
-              <li key={cnd.key} className="text-[15px] text-ink leading-[1.5]">
-                <span className="mr-1.5 text-muted" aria-hidden>·</span>
-                {cnd.label}
-                <div className="ml-4 text-[13px] text-muted">{cnd.hint}</div>
-              </li>
-            ))}
-            <li className="text-[15px] text-ink leading-[1.5]">
-              <span className="mr-1.5 text-muted" aria-hidden>·</span>
-              광고 표시 문구 포함 <span className="text-error font-semibold">(필수)</span>
-            </li>
-          </ul>
+          <>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {conditions.map((cnd) => (
+                <span key={cnd.key} className="px-3 py-1.5 rounded-pill bg-sunken text-[14px] text-ink2 font-medium">
+                  {cnd.label}
+                </span>
+              ))}
+              <span className="px-3 py-1.5 rounded-pill bg-errorSoft text-[14px] text-error font-semibold">
+                광고 표시 문구 필수
+              </span>
+            </div>
+            <p className="mt-2 text-[12px] text-muted">세부 조건은 리뷰 제출 화면에서 자가 점검으로 확인해요.</p>
+          </>
         ) : (
           <p className="mt-3 text-[14px] text-muted">채널을 연동하면 작성 조건이 표시돼요.</p>
         )}
@@ -178,10 +178,14 @@ export default function StoreParticipate({
           <div className="shrink-0">
             <div className="text-[12px] text-muted">지원 금액</div>
             <div className="text-[18px] font-bold text-ink tabular-nums leading-tight">
-              {connected ? sbNum(SBUI.support, `₩${selectedSupport.toLocaleString()}`) : "—"}
+              {connected ? sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) : "—"}
             </div>
           </div>
-          {myActivePassId ? (
+          {ended ? (
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
+              마감된 체험이에요
+            </button>
+          ) : myActivePassId ? (
             <Link
               href={`/r/passes/${myActivePassId}`}
               className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold"
@@ -217,7 +221,7 @@ export default function StoreParticipate({
             </div>
             <h2 className="text-[20px] font-bold text-ink tracking-title text-center">체험권을 발급받을까요?</h2>
             <p className="mt-2 text-[14px] text-muted text-center leading-[1.5]">
-              발급 후 24시간 이내 매장 방문 시<br />결제 전 QR을 제시해주세요.
+              발급 후 72시간 이내 매장 방문 시<br />결제 전 QR을 제시해주세요.
             </p>
             <div className="mt-6 space-y-3 text-[15px]">
               <div className="flex justify-between border-b border-hairlineSoft pb-3">
@@ -230,11 +234,12 @@ export default function StoreParticipate({
               </div>
               <div className="flex justify-between pb-1">
                 <span className="text-muted">받을 지원금</span>
-                <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `₩${selectedSupport.toLocaleString()}`)}</span>
+                <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}</span>
               </div>
             </div>
             <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-              방문이 어려워지면 사용 전 언제든 취소할 수 있어요. 리뷰는 사용 후 72시간 이내 제출해야 해요.
+              방문이 어려워지면 사용 전 언제든 취소할 수 있어요(같은 캠페인 재신청은 12시간 뒤부터).
+              기한이 지난 체험권은 연장·복구되지 않아요. 리뷰는 이용 후 7일 이내 제출해야 해요.
             </p>
             {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
             <div className="mt-5 flex gap-2">

@@ -5,7 +5,9 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
+import { campaignRemain } from "@/lib/campaign-visibility";
 import Icon from "@/components/Icon";
+import InterestToggle from "./InterestToggle";
 import ChannelIcons from "@/components/ChannelIcons";
 import StoreParticipate from "./StoreParticipate";
 import AddressCopy from "./AddressCopy";
@@ -19,28 +21,34 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const db = await getDBAsync();
   const store = db.stores.find((s) => s.id === id);
   if (!store) return notFound();
-  const campaigns = db.campaigns.filter((c) => c.storeId === store.id && c.endAt > Date.now());
-  const c = campaigns.find((x) => x.id === campaignId) || campaigns[0];
+  const now = Date.now();
+  // 종료된 캠페인도 상세는 렌더한다 (관심 목록에서 진입 가능) — 단 신청은 차단 (2026-07-07 회의)
+  const allCampaigns = db.campaigns.filter((c) => c.storeId === store.id && c.kind === "visit");
+  const openCampaigns = allCampaigns.filter((c) => c.endAt > now);
+  const c = allCampaigns.find((x) => x.id === campaignId) || openCampaigns[0];
   if (!c) return notFound();
 
-  const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
-  const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
-  const remain = totalQ - usedQ;
+  const ended = c.endAt <= now;
+  const remain = campaignRemain(c);
+  const interested = (db.interests ?? []).some((i) => i.reviewerId === me.id && i.campaignId === c.id);
   const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
 
   const endDate = new Date(c.endAt);
-  const endLabel = `${endDate.getFullYear()}.${String(endDate.getMonth() + 1).padStart(2, "0")}.${String(endDate.getDate()).padStart(2, "0")}`;
+  // 체험 마감일 표기 형식: "00월 00일 까지" (SBUI.endDate 마스크와 동일)
+  const endLabel = `${String(endDate.getMonth() + 1).padStart(2, "0")}월 ${String(endDate.getDate()).padStart(2, "0")}일`;
   const placeUrl = store.naverPlaceId ? `https://m.place.naver.com/restaurant/${store.naverPlaceId}` : null;
   const mapLink = `https://map.naver.com/p/search/${encodeURIComponent(store.name)}`;
 
   return (
     <div className="pb-40 bg-canvas">
-      {/* top-app-bar — 뒤로가기 */}
+      {/* top-app-bar — 뒤로가기 + 관심 목록 토글 */}
       <div className="sticky top-0 z-30 bg-canvas">
-        <div className="h-[52px] px-3 flex items-center">
+        <div className="h-[52px] px-3 flex items-center justify-between">
           <Link href="/r/explore" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="뒤로">
             <Icon name="chevron-left" variant="border" size={22} />
           </Link>
+          {/* 관심 목록 — 캠페인 단위 저장 (2026-07-07 회의) */}
+          <InterestToggle campaignId={c.id} initialSaved={interested} />
         </div>
       </div>
 
@@ -74,18 +82,26 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
           <div className="py-3.5 px-2 text-center border-l border-r border-hairlineSoft">
             <div className="text-[12px] text-muted">리뷰 마감 기한</div>
-            <div className="mt-1 text-[14px] font-semibold text-ink">이용 후 72시간 이내</div>
+            <div className="mt-1 text-[14px] font-semibold text-ink">이용 후 7일 이내</div>
           </div>
           <div className="py-3.5 px-2 text-center">
             <div className="text-[12px] text-brand font-semibold">🎫 잔여</div>
-            <div className="mt-1 text-[14px] font-bold text-brand tabular-nums">{sbNum(SBUI.remain, String(remain))}</div>
+            <div className="mt-1 text-[14px] font-bold text-brand tabular-nums">{sbNum(SBUI.remain, `${remain}개`)}</div>
           </div>
         </div>
 
-        {/* notice-banner — 사용 기한 고지 (정책: 발급 후 24시간) */}
+        {/* 종료 캠페인 — 관심 목록 경유 진입 시 신청 불가 안내 (2026-07-07 회의) */}
+        {ended && (
+          <div className="mt-3 rounded-md bg-sunken px-3.5 py-3 flex items-center gap-2">
+            <span aria-hidden>⏰</span>
+            <span className="text-[13px] font-semibold text-muted">마감된 체험입니다 · 새 캠페인이 열리면 다시 참여할 수 있어요.</span>
+          </div>
+        )}
+
+        {/* notice-banner — 사용 기한 고지 (정책: 발급 후 72시간, 연장·복구 불가) */}
         <div className="mt-3 rounded-md bg-brandSoft px-3.5 py-3 flex items-center gap-2">
           <span aria-hidden>💬</span>
-          <span className="text-[13px] font-semibold text-brand">체험권 발급 후 24시간 내로 사용하지 않으면 사라져요.</span>
+          <span className="text-[13px] font-semibold text-brand">체험권 발급 후 72시간 내로 사용하지 않으면 사라져요.</span>
         </div>
       </section>
 
@@ -97,6 +113,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         myChannelGrades={me.channelGrades ?? {}}
         myActivePassId={myActivePass?.id ?? null}
         remain={remain}
+        ended={ended}
       >
         {/* 필수 주문 메뉴 */}
         {c.requiredMenus.length > 0 && (
@@ -123,8 +140,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           <section className="px-5 mt-9">
             <h3 className="text-[18px] font-bold text-ink tracking-title">리뷰에 꼭 작성해주세요</h3>
             <div className="mt-3 flex flex-wrap gap-2">
-              {c.highlightKeywords.map((kw) => (
-                <span key={kw} className="px-3 py-1.5 rounded-pill bg-sunken text-[14px] text-ink2 font-medium">
+              {c.highlightKeywords.map((kw, i) => (
+                <span key={`${kw}-${i}`} className="px-3 py-1.5 rounded-pill bg-sunken text-[14px] text-ink2 font-medium">
                   #{kw}
                 </span>
               ))}
