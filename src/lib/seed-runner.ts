@@ -935,6 +935,56 @@ export function runSeed(db: DBShape) {
     link: "/r/passes",
   });
 
+  // ── 관심 목록 시드 (2026-07-08) — 진행 가능 + 마감 케이스를 모두 커버 ──
+  // '마감된 체험'용: 기간이 종료된 캠페인 2건을 별도 생성.
+  // 홈·탐색에는 노출되지 않지만(campaignExposure=closed) 관심 목록에는 "마감된 체험"으로 유지되고,
+  // 상세 진입 시 열람은 가능하되 CTA가 [마감된 체험이에요]로 비활성되는 흐름을 시연한다.
+  const endedSeeds = [
+    { placeId: "1621388960", key: "ended-1" }, // 한남 코너 다이닝 지난 캠페인
+    { placeId: "959481202", key: "ended-2" }, // 북촌 한정식 지난 캠페인
+  ];
+  const endedCampaignIds: string[] = [];
+  for (const es of endedSeeds) {
+    const endedStore = db.stores.find((s) => s.id === detId("st", es.placeId));
+    if (!endedStore) continue;
+    const endedCampaign: Campaign = {
+      id: detId("cp", `${es.placeId}-${es.key}`),
+      storeId: endedStore.id,
+      kind: "visit",
+      title: STORYBOARD ? SB.visitTitle : `${endedStore.name} 지난 체험단`,
+      startAt: now - 40 * day,
+      endAt: now - 3 * day, // 기간 종료 → closed
+      supportAmount: 80000,
+      quota: { S: 1, A: 2, B: 3, C: 4 },
+      used: { S: 1, A: 2, B: 3, C: 4 }, // 발급 소진 상태로 종료
+      requiredChannels: ["naver_blog", "instagram"],
+      requiredMenus: [{ name: STORYBOARD ? SB.menu : "시그니처 메뉴", price: 25000 }],
+      description: STORYBOARD ? SB.visitDesc : `${endedStore.name}의 지난 시즌 체험 캠페인입니다.`,
+      highlightKeywords: STORYBOARD ? [SB.keyword] : [endedStore.area],
+      createdAt: now - 40 * day,
+      useCode: detUseCode(`${es.placeId}-${es.key}`),
+    };
+    db.campaigns.push(endedCampaign);
+    endedCampaignIds.push(endedCampaign.id);
+  }
+
+  // demo@reviewer.com의 관심 목록 — 진행 가능 2건(성수 3채널 모집 / 홍대 틱톡 단독 모집) + 마감 2건
+  const interestOpenCampaigns = ["31906212", "9990001234"]
+    .map((pid) => findCampaign(pid))
+    .filter((c): c is NonNullable<typeof c> => !!c);
+  db.interests = [
+    ...interestOpenCampaigns.map((c, i) => ({
+      reviewerId: reviewer.id,
+      campaignId: c.id,
+      createdAt: now - (1 + i) * day,
+    })),
+    ...endedCampaignIds.map((id, i) => ({
+      reviewerId: reviewer.id,
+      campaignId: id,
+      createdAt: now - (5 + i) * day,
+    })),
+  ];
+
   // ── 바이럴(레퍼럴) 시드 ──
   // 라이브 카운터 — 실제 시드 이벤트(DEMO2024 초대 수락)만 기록. 조작 수치 없음 (VER.1 MVP 원칙).
   // todayBoxCount는 snapshotCounter가 rewards 발행 시각 기준으로 매번 재계산한다.
