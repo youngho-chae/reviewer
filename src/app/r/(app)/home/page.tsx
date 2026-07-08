@@ -83,8 +83,8 @@ export default async function ReviewerHome({
 
   // 지역 변경(2026-07-07 회의) — 홈에서 지역을 바꾸면 '걸어서 갈 수 있어요'만 해당 지역 기준으로 변경.
   // 전국 체험단 리스트(아래 전체 리스트)는 영향받지 않는다.
-  const areas = Array.from(new Set(cards.map((p) => p.area))).sort();
-  const selectedArea = areaParam && areas.includes(areaParam) ? areaParam : undefined;
+  // 2026-07-08: 지역 선택은 /r/location(시도→시군구) 페이지에서 — 임의 지역 라벨을 그대로 수용.
+  const selectedArea = areaParam || undefined;
 
   // 걸어서 갈 수 있어요 — 반경 3km 이내, 가까운 순 최대 10개 · 1단 캐러셀 (지역 선택 시 해당 지역 기준)
   const nearby = cards
@@ -102,7 +102,7 @@ export default async function ReviewerHome({
       {/* top-app-bar — 위치 선택 + 검색/알림 */}
       <div className="sticky top-0 z-30 bg-canvas">
         <div className="h-[52px] px-5 flex items-center justify-between">
-          <HomeLocationChip fallbackArea={repArea} areas={areas} selectedArea={selectedArea} />
+          <HomeLocationChip fallbackArea={repArea} selectedArea={selectedArea} />
           <div className="flex items-center gap-1">
             <Link href="/r/explore" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
               <Icon name="search" variant="border" size={22} />

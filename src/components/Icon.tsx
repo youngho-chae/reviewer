@@ -33,7 +33,8 @@ export type IconName =
   | "gift"
   | "filter"
   | "copy"
-  | "heart";
+  | "heart"
+  | "crosshair";
 
 export type IconVariant = "border" | "bold";
 
@@ -92,6 +93,9 @@ const PATHS: Record<IconName, string> = {
   // 하트 — 관심 목록 저장 토글
   heart:
     "M12 20.3S3.8 15.4 2.9 10.5C2.3 7.4 4.4 4.5 7.4 4.5c1.9 0 3.5 1.1 4.6 2.8 1.1-1.7 2.7-2.8 4.6-2.8 3 0 5.1 2.9 4.5 6-.9 4.9-9.1 9.8-9.1 9.8Z",
+  // 크로스헤어(GPS) — 현 위치로 갱신
+  crosshair:
+    "M12 18.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M12 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z",
 };
 
 // 아이콘 별로 bold 모드에서 fill을 쓸지(닫힌 형태) stroke만 굵게 쓸지(선형) 결정.
