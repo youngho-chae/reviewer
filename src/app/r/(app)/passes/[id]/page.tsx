@@ -201,9 +201,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
 
             <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
             <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-              실제 게시 후 URL을 제출해주세요. 작성 조건은 본인이 직접 점검합니다.
+              실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
             </p>
-            <ReviewForm passId={pass.id} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+            <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
           </div>
         )}
 
@@ -274,7 +274,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                     수정해서 재제출하기 →
                   </Link>
                 ) : (
-                  <ReviewForm passId={pass.id} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+                  <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
                 )
               )}
             </div>

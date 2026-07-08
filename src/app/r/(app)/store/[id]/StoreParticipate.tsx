@@ -7,6 +7,7 @@ import {
   CHANNEL_ORDER,
   CHANNEL_LABEL,
   CHANNEL_REVIEW_CONDITIONS,
+  CHANNEL_AD_NOTICE,
 } from "@/lib/channels";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
@@ -51,6 +52,7 @@ export default function StoreParticipate({
   }, [ordered, myChannelGrades]);
 
   const [selected, setSelected] = useState<SnsKind | null>(initial);
+  const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -60,6 +62,17 @@ export default function StoreParticipate({
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
   const conditions = selected ? CHANNEL_REVIEW_CONDITIONS[selected] ?? [] : [];
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
+
+  async function copyNotice() {
+    if (!selected) return;
+    try {
+      await navigator.clipboard.writeText(CHANNEL_AD_NOTICE[selected]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   async function go() {
     setBusy(true);
@@ -149,23 +162,46 @@ export default function StoreParticipate({
       {children}
 
       {/* 리뷰 작성 조건 — 선택 채널 기준.
-          [2026-07-07 회의] 장문 세부 요구 대신 사진 수·글자 수 등 핵심 조건 중심으로 단순화.
+          [2026-07-08] 광고 표시 문구 원문·복사 버튼과 세부 조건을 여기(작성 전)에 노출한다.
+          작성 후 확인·수정하는 일이 없도록 사전 인지가 목적 — 리뷰 제출 화면은 자가 점검만 수행.
           조건 자체는 채널별 가변 데이터(CHANNEL_REVIEW_CONDITIONS)로 유지한다. */}
       <section className="px-5 mt-9">
         <h3 className="text-[18px] font-bold text-ink tracking-title">리뷰 작성 조건</h3>
         {selected ? (
           <>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {conditions.map((cnd) => (
-                <span key={cnd.key} className="px-3 py-1.5 rounded-pill bg-sunken text-[14px] text-ink2 font-medium">
-                  {cnd.label}
-                </span>
+            <p className="mt-1 text-[13px] text-muted">
+              리뷰를 작성하기 <span className="font-semibold text-ink2">전에</span> 아래 조건을 꼭 확인해주세요. 제출 화면에서는 자가 점검만 진행해요.
+            </p>
+            <div className="mt-3 rounded-md border border-hairline overflow-hidden">
+              {conditions.map((cnd, i) => (
+                <div
+                  key={cnd.key}
+                  className={`px-4 py-3.5 ${i < conditions.length - 1 ? "border-b border-hairlineSoft" : ""}`}
+                >
+                  <div className="text-[15px] font-semibold text-ink">{cnd.label}</div>
+                  {cnd.hint && <div className="text-[12px] text-muted mt-0.5">{cnd.hint}</div>}
+                </div>
               ))}
-              <span className="px-3 py-1.5 rounded-pill bg-errorSoft text-[14px] text-error font-semibold">
-                광고 표시 문구 필수
-              </span>
             </div>
-            <p className="mt-2 text-[12px] text-muted">세부 조건은 리뷰 제출 화면에서 자가 점검으로 확인해요.</p>
+
+            {/* 광고 표시 문구 — 게시물에 반드시 포함 (공정위 추천·보증 광고 안내) */}
+            <div className="mt-3 rounded-md border border-brand bg-brandSoft p-4">
+              <div className="text-[14px] font-semibold text-ink">광고 표시 문구 (필수 포함)</div>
+              <div className="mt-2 p-3 bg-canvas rounded-sm text-[14px] text-ink leading-[1.5] break-keep">
+                {CHANNEL_AD_NOTICE[selected]}
+              </div>
+              <button
+                type="button"
+                onClick={copyNotice}
+                className="cp-action mt-2.5 inline-flex items-center gap-1.5 h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold"
+              >
+                <span>📋</span>
+                <span>{copied ? "복사됨" : "문구 복사"}</span>
+              </button>
+              <div className="text-[11px] text-ink2 mt-3 pt-3 border-t border-dashed border-hairline leading-[1.5]">
+                공정거래위원회 추천·보증 광고 안내에 따라 경제적 이해관계는 명확히 표시되어야 합니다.
+              </div>
+            </div>
           </>
         ) : (
           <p className="mt-3 text-[14px] text-muted">채널을 연동하면 작성 조건이 표시돼요.</p>
