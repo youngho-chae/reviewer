@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
+import MockMapView from "@/components/MockMapView";
 import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
 import { photoForStore } from "@/lib/store-photo";
@@ -357,9 +358,8 @@ export default function ExploreView({
           {mapClientId ? (
             <NaverMapView pins={filtered} clientId={mapClientId} fullscreen onSelectionChange={setMapSelected} />
           ) : (
-            <div className="px-5 py-16 text-center text-muted text-[14px]">
-              지도를 불러올 수 없어요 · <button className="underline" onClick={() => setMode("list")}>목록으로 보기</button>
-            </div>
+            // 지도 키 미주입 시 임시(데모) 지도 — 지도뷰 UI·인터랙션을 키 없이 완결 제공 (2026-07-08)
+            <MockMapView pins={filtered} onSelectionChange={setMapSelected} />
           )}
 
           {/* bottom-sheet(피크) — 핀 미선택 시. 디폴트는 카테고리 탭+필터 아이콘 영역까지만 노출,
