@@ -44,12 +44,12 @@ export interface ReviewCondition {
 }
 
 // 채널별 리뷰 작성 조건 (자가 점검 항목) — 채널 특성에 맞게 분기 (v2.16).
+// 수치는 가변 데이터로 유지 (2026-07-07 회의). 블로그 기준 상향: 사진 15장·본문 1000자·90일 유지 (2026-07-08).
 export const CHANNEL_REVIEW_CONDITIONS: Record<SnsKind, ReviewCondition[]> = {
   naver_blog: [
-    { key: "photos", label: "사진 5장 이상", hint: "메뉴/매장/분위기를 골고루 담았어요" },
-    { key: "body500", label: "본문 500자 이상", hint: "방문 경험을 충분히 묘사했어요" },
-    { key: "menus", label: "메뉴 / 매장 / 분위기 사진 포함", hint: "각 카테고리당 1장 이상" },
-    { key: "days30", label: "30일 이상 게시 유지", hint: "조기 삭제 시 등급 점수가 차감될 수 있어요" },
+    { key: "photos15", label: "사진 15장 이상", hint: "메뉴/매장/분위기를 골고루 담았어요" },
+    { key: "body1000", label: "본문 1000자 이상", hint: "방문 경험을 충분히 묘사했어요" },
+    { key: "days90", label: "90일 이상 게시 유지", hint: "조기 삭제 시 등급 점수가 차감될 수 있어요" },
   ],
   instagram: [
     { key: "photos3", label: "피드 사진/영상 3장 이상", hint: "메뉴와 매장이 보이게 담았어요" },
