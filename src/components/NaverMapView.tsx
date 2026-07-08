@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, walkMinutes } from "@/lib/distance-mock";
+import Icon from "./Icon";
 
 export interface MapStorePin {
   storeId: string;
@@ -124,6 +125,48 @@ export default function NaverMapView({
   useEffect(() => {
     setSelIdx(null);
   }, [pins]);
+
+  // 카드 스와이프/핀 탭으로 선택이 바뀌면 지도 포커스를 해당 핀으로 이동 (2026-07-08)
+  useEffect(() => {
+    if (!selected || !mapRef.current || !window.naver?.maps) return;
+    try {
+      mapRef.current.panTo(new window.naver.maps.LatLng(selected.lat, selected.lng));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.storeId]);
+
+  // 현 위치 파란 점 — 권한 허용 시 1회 표시 (지도 위 현재 위치 인지용)
+  const myLocRef = useRef<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!sdkReady || sdkFailed || !mapRef.current) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        try {
+          const naver = window.naver;
+          myLocRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const html = `<div style="width:16px;height:16px;border-radius:50%;background:#3B82F6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,130,246,.25);"></div>`;
+          new naver.maps.Marker({
+            position: new naver.maps.LatLng(pos.coords.latitude, pos.coords.longitude),
+            map: mapRef.current,
+            icon: { content: html, anchor: new naver.maps.Point(8, 8) },
+            zIndex: 50,
+          });
+        } catch {}
+      },
+      () => {},
+      { maximumAge: 60000, timeout: 8000 },
+    );
+  }, [sdkReady, sdkFailed]);
+
+  // 현 위치로 지도 이동 (우하단 GPS 버튼)
+  function recenterToMe() {
+    const loc = myLocRef.current;
+    if (!loc || !mapRef.current || !window.naver?.maps) return;
+    try {
+      mapRef.current.panTo(new window.naver.maps.LatLng(loc.lat, loc.lng));
+    } catch {}
+  }
 
   // SDK 인증 실패 글로벌 콜백
   useEffect(() => {
@@ -279,6 +322,19 @@ export default function NaverMapView({
           <div className="absolute inset-0 grid place-items-center bg-parchment text-muted text-[13px] pointer-events-none">
             지도를 불러오는 중...
           </div>
+        )}
+
+        {/* GPS 리센터 버튼 — 현 위치로 지도 이동 (권한 허용 + 위치 확보 시 동작) */}
+        {sdkReady && !sdkFailed && (
+          <button
+            type="button"
+            onClick={recenterToMe}
+            className="cp-action absolute right-3 z-20 w-10 h-10 rounded-full bg-white shadow-card flex items-center justify-center text-ink"
+            style={{ bottom: selected ? 172 : 128 }}
+            aria-label="현 위치로 지도 이동"
+          >
+            <Icon name="crosshair" variant="border" size={18} />
+          </button>
         )}
         {selected && (
           /* map-bottom-card 캐러셀 (2026-07-07 회의) — 좌우 스와이프로 거리순 다음 매장 탐색.
