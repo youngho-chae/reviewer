@@ -87,6 +87,13 @@ export default async function ReviewerExplore({
     process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID ||
     process.env.NAVER_MAP_CLIENT_ID ||
     "";
+  if (!mapClientId) {
+    // 런타임 env에 지도 키가 없음 → 탐색에서 "지도를 불러올 수 없어요" 폴백.
+    // 배포 로그에서 이 경고가 보이면 env 미설정/미배포가 원인 (도메인 허용 문제가 아님).
+    console.warn(
+      "[map] Naver map client ID missing at runtime — set NAVER_MAP_CLIENT_ID (or NEXT_PUBLIC_NAVER_MAP_CLIENT_ID) in the deployment env and redeploy.",
+    );
+  }
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
   return (
