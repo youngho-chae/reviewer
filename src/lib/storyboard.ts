@@ -35,8 +35,8 @@ export const SBUI = {
   deadline: "00월 00일", // 마감일
   endDate: "00월 00일 까지", // 체험 마감일
   reviewDue: "이용 후 7일 이내", // 리뷰 마감 기한 (고정 정책 카피)
-  distance: "0.0km", // 현 위치 기준 매장까지 거리 — 실데이터는 00m / 0.0km / 00km (formatDistance)
-  walk: "0.0km", // (구) 도보 시간 — distance와 동일 형식으로 통합
+  distance: "00m", // 현 위치 기준 매장까지 거리 — 실데이터는 00m / 0.0km / 00km (formatDistance)
+  walk: "00m", // (구) 도보 시간 — distance와 동일 형식으로 통합
   rating: "0.0", // 평점
   // 코드
   token: "ABC12345", // 초대 코드 (영대문자·숫자 8자)
