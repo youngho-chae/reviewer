@@ -158,8 +158,9 @@ export default async function ReviewerHome({
           <Icon name="chevron-right" variant="border" size={14} />
         </Link>
       </section>
-      {/* 1단 가로 캐러셀 — 최대 10개, 스냅 스크롤 (2026-07-08 회의) */}
-      <section className="overflow-x-auto snap-x" style={{ scrollbarWidth: "none" }}>
+      {/* 1단 가로 캐러셀 — 최대 10개, 스냅 스크롤 (2026-07-08 회의).
+          scrollPaddingLeft 20px: snap-start 기준점을 좌측 패딩 안쪽으로 — 없으면 초기 스냅이 패딩을 침범한다 */}
+      <section className="overflow-x-auto snap-x" style={{ scrollbarWidth: "none", scrollPaddingLeft: 20 }}>
         <div className="flex gap-3 px-5">
           {nearby.map((p) => (
             <div key={p.storeId} className="w-[168px] shrink-0 snap-start">
