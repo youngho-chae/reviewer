@@ -86,11 +86,11 @@ export default async function ReviewerHome({
   const areas = Array.from(new Set(cards.map((p) => p.area))).sort();
   const selectedArea = areaParam && areas.includes(areaParam) ? areaParam : undefined;
 
-  // 걸어서 갈 수 있어요 — 반경 3km 이내, 가까운 순 4개 (지역 선택 시 해당 지역 기준)
+  // 걸어서 갈 수 있어요 — 반경 3km 이내, 가까운 순 최대 10개 · 1단 캐러셀 (지역 선택 시 해당 지역 기준)
   const nearby = cards
     .filter((p) => (selectedArea ? p.area === selectedArea : p.distanceM <= NEARBY_RADIUS_M))
     .sort((a, b) => a.distanceM - b.distanceM)
-    .slice(0, 4);
+    .slice(0, 10);
   // 전국 체험단 전체 리스트 — 최신 등록순 (마감 임박순 아님, 2026-07-07 회의)
   const all = [...cards].sort((a, b) => b.createdAt - a.createdAt);
 
@@ -158,15 +158,20 @@ export default async function ReviewerHome({
           <Icon name="chevron-right" variant="border" size={14} />
         </Link>
       </section>
-      <section className="px-5 grid grid-cols-2 gap-3">
-        {nearby.map((p) => (
-          <ExperienceCard key={p.storeId} card={p} />
-        ))}
-        {nearby.length === 0 && (
-          <div className="col-span-2 py-12 text-center text-muted text-[13px]">
-            {selectedArea ? `${selectedArea}에는 지금 모집 중인 체험이 없어요` : "현재 모집 중인 체험이 없어요"}
-          </div>
-        )}
+      {/* 1단 가로 캐러셀 — 최대 10개, 스냅 스크롤 (2026-07-08 회의) */}
+      <section className="overflow-x-auto snap-x" style={{ scrollbarWidth: "none" }}>
+        <div className="flex gap-3 px-5">
+          {nearby.map((p) => (
+            <div key={p.storeId} className="w-[168px] shrink-0 snap-start">
+              <ExperienceCard card={p} />
+            </div>
+          ))}
+          {nearby.length === 0 && (
+            <div className="w-full py-12 text-center text-muted text-[13px]">
+              {selectedArea ? `${selectedArea}에는 지금 모집 중인 체험이 없어요` : "현재 모집 중인 체험이 없어요"}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* 내가 체험할 수 있는 전체 리스트 👀 */}

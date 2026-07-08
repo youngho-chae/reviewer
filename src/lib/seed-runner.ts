@@ -96,7 +96,8 @@ const SEED_STORES: SeedStore[] = [
     lat: 37.5446, lng: 127.0556,
     rating: 4.8, reviewCount: 524,
     menus: ["크루아상 세트", "시그니처 라떼", "휘낭시에"],
-    requiredChannels: ["instagram", "naver_blog"],
+    // 블로그·인스타·틱톡 3채널 모두 모집하는 케이스 (2026-07-08 — 채널 조합 QA/데모)
+    requiredChannels: ["naver_blog", "instagram", "tiktok"],
   },
   {
     naverPlaceId: "959481202",
@@ -147,6 +148,22 @@ const SEED_STORES: SeedStore[] = [
     menus: ["떡볶이 세트", "트러플 떡갈비", "수제 만두"],
     requiredChannels: ["instagram", "tiktok"],
     supportAmount: 50000,
+  },
+  {
+    // 틱톡 "단독" 모집 매장 — 틱톡 미연동 계정(demo@reviewer.com: 블A·인C)이
+    // 상세에서 [연동 필요]·확인불가 + CTA "SNS 연동 필요" 예외 케이스를 보게 하는 시드 (2026-07-08)
+    naverPlaceId: "9990001234",
+    name: "홍대 탕후루 팝업",
+    category: "디저트",
+    area: "홍대",
+    coverEmoji: "🍡",
+    address: "서울 마포구 홍익로 20",
+    lat: 37.5552, lng: 126.9226,
+    rating: 4.6, reviewCount: 154,
+    menus: ["과일 탕후루 세트", "흑임자 아이스크림", "수제 젤리 박스"],
+    requiredChannels: ["tiktok"],
+    supportAmount: 40000,
+    description: "숏폼 전용 체험 — 틱톡 채널에 15초 이상 영상 후기를 게시해주세요.",
   },
   {
     naverPlaceId: "2012466103",
