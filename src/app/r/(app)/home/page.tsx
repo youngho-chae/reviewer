@@ -119,7 +119,7 @@ export default async function ReviewerHome({
         <div className="h-[52px] px-5 flex items-center justify-between">
           <HomeLocationChip fallbackArea={repArea} selectedArea={selectedArea} />
           <div className="flex items-center gap-1">
-            <Link href="/r/explore" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
+            <Link href="/r/search" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
               <Icon name="search" variant="border" size={22} />
             </Link>
             <Link href="/r/notifications" className="cp-action relative w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="알림">

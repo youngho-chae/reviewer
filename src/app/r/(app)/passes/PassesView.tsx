@@ -1,0 +1,330 @@
+"use client";
+import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import Icon from "@/components/Icon";
+import { photoForStore } from "@/lib/store-photo";
+import { SBUI, sbNum } from "@/lib/storyboard";
+import { fmtKoDateTime } from "@/lib/dates";
+import { CHANNEL_LABEL } from "@/lib/channels";
+import type { SnsKind } from "@/lib/types";
+import CancelPassButton from "./[id]/CancelPassButton";
+
+/**
+ * 체험권 목록 (2026-07-08 레퍼런스 개편)
+ *  - 헤더: [방문형 | 기자단] 세그먼트 타이틀 + 검색·알림
+ *  - 서브 탭: 체험권(active/취소/만료) / 리뷰작성(작성 대기/검수 중/완료/반려) — 퍼플 언더라인
+ *  - 상태 필터 칩(검정 활성 pill) + 썸네일 카드(상태별 액션 버튼)
+ */
+export interface VisitPassItem {
+  id: string;
+  storeId: string;
+  campaignId: string;
+  storeName: string;
+  category: string;
+  status: string;
+  channel: SnsKind | null;
+  grade: string;
+  support: number; // 이 체험권으로 받는 지원금 (등급 적용액)
+  expiresAt: number;
+  usedAt: number | null;
+  reviewDeadline: number | null; // usedAt + 7일
+  rejectReason: string | null;
+  highlight: boolean;
+}
+
+// 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
+const ISSUED_STATUSES = ["active", "cancelled", "expired"] as const;
+const REVIEW_STATUSES = ["used", "review_submitted", "completed", "rejected"] as const;
+
+const BADGE: Record<string, { label: string; cls: string }> = {
+  active: { label: "사용가능", cls: "bg-successSoft text-successStrong" },
+  cancelled: { label: "취소", cls: "bg-sunken text-mutedSoft" },
+  expired: { label: "만료", cls: "bg-sunken text-mutedSoft" },
+  used: { label: "작성 대기", cls: "bg-warningSoft text-warning" },
+  review_submitted: { label: "검수 중", cls: "bg-sunken text-muted" },
+  completed: { label: "완료", cls: "bg-successSoft text-successStrong" },
+  rejected: { label: "반려", cls: "bg-errorSoft text-error" },
+};
+
+const ISSUED_CHIPS: { key: string; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "active", label: "사용가능" },
+  { key: "cancelled", label: "취소" },
+  { key: "expired", label: "만료" },
+];
+const REVIEW_CHIPS: { key: string; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "used", label: "작성 대기" },
+  { key: "review_submitted", label: "검수 중" },
+  { key: "completed", label: "완료" },
+  { key: "rejected", label: "반려" },
+];
+
+export default function PassesView({
+  items,
+  showPress,
+  pressCount,
+  pressView,
+  unread,
+}: {
+  items: VisitPassItem[];
+  showPress: boolean;
+  pressCount: number;
+  pressView: ReactNode;
+  unread: number;
+}) {
+  const [segment, setSegment] = useState<"visit" | "press">("visit");
+  const [tab, setTab] = useState<"issued" | "review">("issued");
+  const [chip, setChip] = useState("all");
+
+  const tabItems = useMemo(() => {
+    const statuses = tab === "issued" ? ISSUED_STATUSES : REVIEW_STATUSES;
+    return items.filter((it) => (statuses as readonly string[]).includes(it.status));
+  }, [items, tab]);
+  const filtered = chip === "all" ? tabItems : tabItems.filter((it) => it.status === chip);
+  const chips = tab === "issued" ? ISSUED_CHIPS : REVIEW_CHIPS;
+
+  return (
+    <div>
+      {/* 세그먼트 타이틀 + 검색·알림 (탐색과 동일 문법) */}
+      <div className="sticky top-0 z-10 bg-canvas">
+        <div className="h-[52px] px-5 flex items-center justify-between">
+          <div className="flex items-baseline gap-3">
+            <button
+              type="button"
+              onClick={() => setSegment("visit")}
+              className={`cp-action text-[20px] tracking-title ${segment === "visit" ? "font-bold text-ink" : "font-semibold text-mutedSoft"}`}
+            >
+              방문형
+            </button>
+            {/* 기자단은 MVP 제외 — 과거 발급분이 있을 때만 전환 가능, 없으면 비활성 표기 */}
+            <button
+              type="button"
+              onClick={() => showPress && setSegment("press")}
+              disabled={!showPress}
+              className={`cp-action text-[20px] tracking-title ${segment === "press" ? "font-bold text-ink" : "font-semibold text-mutedSoft"} disabled:cursor-default`}
+              aria-disabled={!showPress}
+            >
+              기자단{showPress && pressCount > 0 ? ` ${pressCount}` : ""}
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <Link href="/r/search" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
+              <Icon name="search" variant="border" size={22} />
+            </Link>
+            <Link href="/r/notifications" className="cp-action relative w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="알림">
+              <Icon name="bell" variant={unread > 0 ? "bold" : "border"} size={22} />
+              {unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />}
+            </Link>
+          </div>
+        </div>
+
+        {segment === "visit" && (
+          <>
+            {/* 서브 탭 — 체험권 / 리뷰작성 (퍼플 언더라인) */}
+            <div className="grid grid-cols-2 border-b border-hairlineSoft">
+              {(
+                [
+                  { key: "issued", label: "체험권" },
+                  { key: "review", label: "리뷰작성" },
+                ] as const
+              ).map((t) => {
+                const active = tab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => {
+                      setTab(t.key);
+                      setChip("all");
+                    }}
+                    className={`cp-action h-11 text-[15px] border-b-2 -mb-px ${
+                      active ? "border-brand text-brand font-bold" : "border-transparent text-muted font-medium"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {segment === "press" ? (
+        pressView
+      ) : (
+        <>
+          {/* 상태 필터 칩 — 검정 활성 pill */}
+          <div className="px-5 pt-4 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {chips.map((c) => {
+              const active = chip === c.key;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setChip(c.key)}
+                  className={`shrink-0 h-10 px-4 rounded-pill text-[14px] ${
+                    active ? "bg-ink text-white font-semibold" : "bg-sunken text-ink2 font-medium"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="px-5 mt-4 space-y-3 pb-8">
+            {filtered.map((it) => (
+              <PassCard key={it.id} it={it} tab={tab} />
+            ))}
+            {filtered.length === 0 && (
+              <div className="py-16 text-center">
+                <p className="text-[15px] text-muted">
+                  {tab === "issued" ? "해당하는 체험권이 없어요." : "리뷰 단계의 체험이 없어요."}
+                </p>
+                <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
+                  홈에서 체험권 받기 →
+                </Link>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
+  const badge = BADGE[it.status] ?? { label: it.status, cls: "bg-sunken text-muted" };
+  const isActive = it.status === "active";
+
+  return (
+    <div
+      className={`rounded-lg bg-canvas p-4 ${
+        isActive || it.highlight ? "border-[1.5px] border-brand" : "border border-hairline"
+      }`}
+    >
+      {/* 헤더 행 — 썸네일 + 가게명·채널/등급·지원금 + 상태 뱃지 */}
+      <div className="flex gap-3">
+        <div className="relative w-[76px] h-[76px] shrink-0 rounded-md overflow-hidden bg-sunken">
+          <Image src={photoForStore(it.storeId, it.category)} alt={it.storeName} fill sizes="76px" className="object-cover" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-[15px] font-bold text-ink tracking-title leading-[1.35] truncate">{it.storeName}</h3>
+            <span className={`shrink-0 inline-flex items-center px-2 py-1 rounded-pill text-[11px] font-semibold ${badge.cls}`}>
+              {badge.label}
+            </span>
+          </div>
+          <p className="text-[13px] text-muted mt-0.5 truncate">
+            {it.channel ? CHANNEL_LABEL[it.channel] : "채널 미정"} · {it.grade}등급 적용
+          </p>
+          <p className="mt-1.5 text-[16px] tabular-nums">
+            <span className="font-bold text-ink">{sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
+            <span className="text-[13px] text-muted">지원</span>
+          </p>
+        </div>
+      </div>
+
+      {it.highlight && (
+        <div className="mt-3 text-[12px] text-brand font-semibold">✓ 방금 발급된 체험권이에요</div>
+      )}
+
+      {/* 상태별 하단 영역 */}
+      {isActive && (
+        <>
+          <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
+            <span className="text-muted">유효기간</span>
+            <span className="font-semibold text-ink tabular-nums">
+              {sbNum(SBUI.dateTime, fmtKoDateTime(it.expiresAt))}까지
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <CancelPassButton passId={it.id} variant="row" />
+            <StoreInfoButton it={it} />
+          </div>
+          <Link
+            href={`/r/passes/${it.id}`}
+            className="cp-action mt-2 flex h-11 items-center justify-center rounded-md bg-brand text-white text-[14px] font-bold"
+          >
+            체험권 보기
+          </Link>
+        </>
+      )}
+
+      {it.status === "cancelled" && (
+        <>
+          <div className="mt-3.5 flex">
+            <StoreInfoButton it={it} />
+          </div>
+          <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
+            같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요.
+          </div>
+        </>
+      )}
+
+      {it.status === "expired" && (
+        <div className="mt-3.5 flex">
+          <StoreInfoButton it={it} />
+        </div>
+      )}
+
+      {/* 리뷰작성 탭 상태들 */}
+      {it.status === "used" && (
+        <>
+          {it.reviewDeadline && (
+            <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
+              <span className="text-muted">리뷰 마감</span>
+              <span className="font-semibold text-brand tabular-nums">
+                {sbNum(SBUI.dateTime, fmtKoDateTime(it.reviewDeadline))}까지
+              </span>
+            </div>
+          )}
+          <Link
+            href={`/r/passes/${it.id}`}
+            className="cp-action mt-3 flex h-11 items-center justify-center rounded-md bg-brand text-white text-[14px] font-bold"
+          >
+            리뷰 작성하기
+          </Link>
+        </>
+      )}
+
+      {it.status === "review_submitted" && (
+        <div className="mt-3.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted text-center">
+          운영팀 검수 중 · 최대 72시간
+        </div>
+      )}
+
+      {it.status === "rejected" && (
+        <>
+          {it.rejectReason && (
+            <p className="mt-3 text-[12px] text-error leading-[1.5] truncate">사유: {it.rejectReason}</p>
+          )}
+          <Link
+            href={`/r/passes/${it.id}`}
+            className="cp-action mt-2.5 flex h-11 items-center justify-center rounded-md border border-error/40 text-error text-[14px] font-semibold"
+          >
+            수정 재제출 →
+          </Link>
+        </>
+      )}
+
+      {it.status === "completed" && (
+        <div className="mt-3.5 text-[13px] text-successStrong font-semibold">✓ 검수 통과 — 등급 점수에 반영됐어요</div>
+      )}
+    </div>
+  );
+}
+
+function StoreInfoButton({ it }: { it: VisitPassItem }) {
+  return (
+    <Link
+      href={`/r/store/${it.storeId}?campaign=${it.campaignId}`}
+      className="cp-action flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink flex items-center justify-center"
+    >
+      체험 정보
+    </Link>
+  );
+}

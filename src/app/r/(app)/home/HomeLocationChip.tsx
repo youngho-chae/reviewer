@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { STORYBOARD } from "@/lib/storyboard";
 import Icon from "@/components/Icon";
+import LocationSheet from "./LocationSheet";
 
 interface Props {
   fallbackArea: string;
@@ -13,13 +13,14 @@ interface Props {
 
 /**
  * 홈 상단 현재 위치 영역 (2026-07-08 레퍼런스 반영):
- *  - {지역명 ⌄} 탭 → 현위치 설정 페이지(/r/location)로 전환 — 시도 1차 → 시군구 2차 선택
+ *  - {지역명 ⌄} 탭 → 현위치 설정 **바텀시트**(LocationSheet) — 시도 1차 → 시군구 2차 + 최근 선택
  *  - 구분선 우측 GPS(크로스헤어) 아이콘 탭 → 선택 지역 해제 + 현 위치로 갱신
  *  - '걸어서 갈 수 있어요'만 선택 지역 기준으로 변경(탐색은 진입 시 현재 위치 기본값)
  */
 export default function HomeLocationChip({ fallbackArea, selectedArea }: Props) {
   const router = useRouter();
   const [gpsArea, setGpsArea] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   function locate() {
     // [스토리보드] fallbackArea("지역")를 GPS로 덮어쓰지 않음
@@ -52,14 +53,15 @@ export default function HomeLocationChip({ fallbackArea, selectedArea }: Props) 
 
   return (
     <div className="flex items-center gap-2">
-      <Link
-        href={`/r/location?current=${encodeURIComponent(label)}`}
+      <button
+        type="button"
+        onClick={() => setSheetOpen(true)}
         className="cp-action inline-flex items-center gap-1 text-[18px] font-bold text-ink tracking-title"
-        aria-label="지역 변경 — 현위치 설정으로 이동"
+        aria-label="지역 변경 — 현위치 설정 열기"
       >
         <span className="text-ink">{label}</span>
         <Icon name="chevron-down" variant="border" size={16} className="text-muted" />
-      </Link>
+      </button>
       <span className="w-px h-4 bg-hairline" aria-hidden />
       <button
         type="button"
@@ -72,6 +74,8 @@ export default function HomeLocationChip({ fallbackArea, selectedArea }: Props) 
       >
         <Icon name="crosshair" variant="border" size={19} />
       </button>
+
+      {sheetOpen && <LocationSheet current={label} onClose={() => setSheetOpen(false)} />}
     </div>
   );
 }

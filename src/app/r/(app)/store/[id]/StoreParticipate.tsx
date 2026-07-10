@@ -11,6 +11,8 @@ import {
 } from "@/lib/channels";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
+import { fmtKoDateTime } from "@/lib/dates";
+import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
 
 interface Props {
   campaignId: string;
@@ -248,7 +250,7 @@ export default function StoreParticipate({
         </div>
       </div>
 
-      {/* 참여 확인 모달 — 하단 시트 */}
+      {/* 참여 확인 모달 — 하단 시트 (2026-07-08 레퍼런스: 결제 기한 강조 + 꼭 확인해주세요) */}
       {open && selected && (
         <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setOpen(false)}>
           <div className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl p-6 pb-8" onClick={(e) => e.stopPropagation()}>
@@ -256,32 +258,47 @@ export default function StoreParticipate({
               <span className="w-9 h-1 rounded-pill bg-borderStrong" />
             </div>
             <h2 className="text-[20px] font-bold text-ink tracking-title text-center">체험권을 발급받을까요?</h2>
-            <p className="mt-2 text-[14px] text-muted text-center leading-[1.5]">
-              발급 후 72시간 이내 매장 방문 시<br />결제 전 QR을 제시해주세요.
-            </p>
-            <div className="mt-6 space-y-3 text-[15px]">
-              <div className="flex justify-between border-b border-hairlineSoft pb-3">
+
+            {/* 결제 기한 카드 — 발급 시점 + 72h */}
+            <div className="mt-5 rounded-md bg-brandSoft px-4 py-4 text-center">
+              <div className="text-[13px] text-ink2">지금 발급하면</div>
+              <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
+                {sbNum(SBUI.dateTime, fmtKoDateTime(Date.now() + PASS_VALIDITY_MS))}까지 결제
+              </div>
+              <div className="mt-1.5 text-[12px] text-muted">발급 후 72시간 · 결제 전 QR을 제시해주세요</div>
+            </div>
+
+            <div className="mt-5 space-y-3 text-[15px]">
+              <div className="flex justify-between">
                 <span className="text-muted">참여 채널</span>
                 <span className="text-ink font-semibold">{CHANNEL_LABEL[selected]}</span>
               </div>
-              <div className="flex justify-between border-b border-hairlineSoft pb-3">
-                <span className="text-muted">내 {CHANNEL_LABEL[selected]} 등급</span>
+              <div className="flex justify-between">
+                <span className="text-muted">채널 등급</span>
                 <span className="text-ink font-semibold">{myGrade}등급</span>
               </div>
-              <div className="flex justify-between pb-1">
-                <span className="text-muted">받을 지원금</span>
+              <div className="flex justify-between">
+                <span className="text-muted">지원 금액</span>
                 <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}</span>
               </div>
             </div>
-            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-              방문이 어려워지면 사용 전 언제든 취소할 수 있어요(같은 캠페인 재신청은 12시간 뒤부터).
-              기한이 지난 체험권은 연장·복구되지 않아요. 리뷰는 이용 후 7일 이내 제출해야 해요.
-            </p>
+
+            {/* 꼭 확인해주세요 — 정책 고지 4종 */}
+            <div className="mt-5 rounded-md bg-sunken px-4 py-3.5">
+              <div className="text-[13px] font-bold text-ink">ⓘ 꼭 확인해주세요</div>
+              <ul className="mt-2 space-y-1 text-[12px] text-muted leading-[1.55] list-disc pl-4">
+                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요.</li>
+                <li>같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.</li>
+                <li>기한이 지난 체험권은 연장·복구되지 않아요.</li>
+                <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
+              </ul>
+            </div>
+
             {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
             <div className="mt-5 flex gap-2">
               <button
                 onClick={() => setOpen(false)}
-                className="cp-action h-[52px] px-5 rounded-md border border-hairline text-[15px] font-semibold text-ink"
+                className="cp-action h-[52px] px-6 rounded-md bg-sunken text-[15px] font-semibold text-ink"
               >
                 취소
               </button>

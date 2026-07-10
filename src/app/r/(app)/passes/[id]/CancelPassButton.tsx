@@ -4,7 +4,14 @@ import { useRouter } from "next/navigation";
 
 // 사용 전(active) 체험권 취소 — 확인 단계 후 POST /api/passes/cancel.
 // 취소 시 모집 슬롯이 즉시 복구되므로, 방문이 어려우면 만료 방치보다 취소를 유도한다.
-export default function CancelPassButton({ passId }: { passId: string }) {
+// variant "link"(기본) = 상세 화면의 밑줄 텍스트 / "row" = 목록 카드의 아웃라인 행 버튼.
+export default function CancelPassButton({
+  passId,
+  variant = "link",
+}: {
+  passId: string;
+  variant?: "link" | "row";
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,6 +36,16 @@ export default function CancelPassButton({ passId }: { passId: string }) {
   }
 
   if (!confirming) {
+    if (variant === "row") {
+      return (
+        <button
+          onClick={() => setConfirming(true)}
+          className="cp-action flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
+        >
+          참여 취소
+        </button>
+      );
+    }
     return (
       <button onClick={() => setConfirming(true)} className="cp-action mt-4 text-[13px] text-muted underline">
         방문이 어려워요 — 참여 취소
@@ -37,7 +54,7 @@ export default function CancelPassButton({ passId }: { passId: string }) {
   }
 
   return (
-    <div className="mt-4 rounded-md border border-hairline bg-canvas p-4 text-left w-full">
+    <div className={`rounded-md border border-hairline bg-canvas p-4 text-left w-full ${variant === "row" ? "" : "mt-4"}`}>
       <div className="text-[14px] font-semibold text-ink">참여를 취소할까요?</div>
       <p className="mt-1.5 text-[12px] text-muted leading-[1.5]">
         취소하면 이 체험권은 사용할 수 없고, 모집 자리는 다른 체험자에게 돌아갑니다.
