@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
@@ -9,8 +10,10 @@ import ChannelIcons from "@/components/ChannelIcons";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
-import { CHANNEL_ORDER, CHANNEL_LABEL } from "@/lib/channels";
+import { compareRecommended } from "@/lib/recommend";
+import { regionCenter, haversineM, type LatLng } from "@/lib/geo";
 import { SnsKind } from "@/lib/types";
+import FilterSheet from "./FilterSheet";
 
 export interface ExploreStoreCard extends MapStorePin {
   rating: number;
@@ -20,6 +23,8 @@ export interface ExploreStoreCard extends MapStorePin {
   createdAt: number;
   requiredChannels: SnsKind[];
   soldOut: boolean; // 발급 소진(살아있는 체험권만 남음) — 노출 유지 + 발급 마감 표시
+  planRank: number; // 사장님 멤버십 랭크 (추천순 — Premium 3 > Standard 2 > Basic 1 > Free 0)
+  participating?: boolean; // 내가 진행 중인 패스를 보유한 캠페인 — 제외하지 않고 "참여 중" 표시
   // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상에 포함
   address?: string;
   keywords?: string[];
@@ -49,9 +54,13 @@ interface Props {
   mapClientId: string;
   unread: number;
   initialMode: "list" | "map";
-  initialCategory: string;
+  initialCategory: string; // 콤마 구분 다중 (?cat=)
   initialSort: SortKey;
   initialSearch?: string;
+  initialChannels?: SnsKind[]; // ?ch= 복원 (필터 재진입 유지)
+  // [§5 지역 연동] 홈에서 선택한 지역 — 지도 초기 포커스(3km)·리스트 거리 기준점.
+  // 탐색 내 지역 변경(필터 시트)은 탐색 한정 — 홈의 선택 지역에는 영향을 주지 않는다.
+  initialArea?: string | null;
   // [MVP] 기자단 제외 — false면 세그먼트·리스트를 렌더하지 않는다 (src/lib/flags.ts)
   pressEnabled?: boolean;
 }
@@ -88,20 +97,53 @@ export default function ExploreView({
   initialCategory,
   initialSort,
   initialSearch = "",
+  initialChannels = [],
+  initialArea = null,
   pressEnabled = false,
 }: Props) {
+  const router = useRouter();
   const [mode, setMode] = useState<"list" | "map">(initialMode);
   const [tab, setTab] = useState<"visit" | "press">("visit");
-  // [통합 필터] 카테고리·SNS 채널 모두 다중 선택. 빈 Set = 전체.
+  // [통합 필터] 카테고리·SNS 채널 모두 다중 선택. 빈 Set = 전체. (?cat= 콤마 다중 복원)
   const [cats, setCats] = useState<Set<string>>(
-    () => new Set(initialCategory && initialCategory !== "전체" ? [initialCategory] : []),
+    () =>
+      new Set(
+        initialCategory && initialCategory !== "전체"
+          ? initialCategory.split(",").filter((k) => CAT_GROUPS.some((g) => g.key === k))
+          : [],
+      ),
   );
-  const [channels, setChannels] = useState<Set<SnsKind>>(() => new Set());
+  const [channels, setChannels] = useState<Set<SnsKind>>(() => new Set(initialChannels));
+  // [§8 지역 필터] 탐색 한정 지역 상태 — 필터 시트에서 변경, 홈 area와 독립
+  const [area, setArea] = useState<string | null>(initialArea);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>(initialSort);
   const [search, setSearch] = useState(initialSearch);
   const [searchOpen, setSearchOpen] = useState(!!initialSearch);
   const [mapSelected, setMapSelected] = useState(false);
+
+  // 지역 기준점 — 있으면 거리 정렬·표기의 기준이 되고 지도 초기 포커스(반경 3km)로 전달
+  const areaCenter = useMemo<LatLng | null>(() => (area ? regionCenter(area) : null), [area]);
+  // 거리 계산 — 지역 기준점(하버사인) 우선, 없으면 현위치 mock (§7-3 가까운순 기준점)
+  const distanceOf = useMemo(
+    () =>
+      (p: ExploreStoreCard) =>
+        areaCenter ? haversineM(areaCenter, { lat: p.lat, lng: p.lng }) : mockDistanceM(p.storeId),
+    [areaCenter],
+  );
+
+  // 필터 적용값을 URL에 반영 — 새로고침·뒤로가기에도 유지 (§8-4). 홈 area와는 독립.
+  function syncUrl(next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null }) {
+    const params = new URLSearchParams();
+    if (mode === "list") params.set("mode", "list");
+    if (sort !== "recommended") params.set("sort", sort);
+    if (search) params.set("q", search);
+    if (next.cats.size > 0) params.set("cat", [...next.cats].join(","));
+    if (next.channels.size > 0) params.set("ch", [...next.channels].join(","));
+    if (next.area) params.set("area", next.area);
+    const qs = params.toString();
+    router.replace(`/r/explore${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
 
   // 지도 바텀시트(피크) 드래그 — 위로 40px 이상 쓸어올리면 목록 보기로 자동 전환 (2026-07-08).
   // move/up은 window에서 추적한다 — 손가락이 시트 밖(지도 위)으로 나가도 제스처가 이어지고,
@@ -128,7 +170,9 @@ export default function ExploreView({
     sheetDragCleanup.current = cleanup;
   }
 
-  const filterActive = cats.size > 0 || channels.size > 0;
+  // 적용 중 필터 개수 — 필터 아이콘 뱃지에 표기 (§8-4)
+  const filterCount = cats.size + channels.size + (area ? 1 : 0);
+  const filterActive = filterCount > 0;
 
   const matchCat = useMemo(() => {
     if (cats.size === 0) return (_c: string) => true;
@@ -150,7 +194,7 @@ export default function ExploreView({
     list = [...list].sort((a, b) => {
       switch (sort) {
         case "distance":
-          return mockDistanceM(a.storeId) - mockDistanceM(b.storeId);
+          return distanceOf(a) - distanceOf(b);
         case "new":
           return b.createdAt - a.createdAt;
         case "topSupport":
@@ -159,12 +203,12 @@ export default function ExploreView({
           return a.endAt - b.endAt;
         case "recommended":
         default:
-          // 내 등급 기준 받을 수 있는 혜택(지원금) 큰 순
-          return b.supportAmount - a.supportAmount;
+          // [§4] 사장님 멤버십 플랜 랭크 → 캠페인 최신순 (issued_out은 최후순위) — src/lib/recommend.ts
+          return compareRecommended(a, b);
       }
     });
     return list;
-  }, [cards, matchCat, channels, search, sort]);
+  }, [cards, matchCat, channels, search, sort, distanceOf]);
 
   const filteredPress = useMemo(() => {
     return pressCards.filter((p) => {
@@ -175,25 +219,23 @@ export default function ExploreView({
 
   const resultCount = tab === "visit" ? filtered.length : filteredPress.length;
 
+  // 상단 카테고리 칩은 즉시 반영 유지 — 필터 시트는 draft 후 [적용하기] (2026-07-10 §8)
   function toggleCat(key: string) {
     setCats((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      syncUrl({ cats: next, channels, area });
       return next;
     });
   }
-  function toggleChannel(ch: SnsKind) {
-    setChannels((prev) => {
-      const next = new Set(prev);
-      if (next.has(ch)) next.delete(ch);
-      else next.add(ch);
-      return next;
-    });
-  }
-  function resetFilters() {
-    setCats(new Set());
-    setChannels(new Set());
+  // 필터 시트 [적용하기] 커밋 — draft 상태를 한 번에 반영 + URL 유지
+  function applyFilters(next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null }) {
+    setCats(next.cats);
+    setChannels(next.channels);
+    setArea(next.area);
+    setFilterOpen(false);
+    syncUrl(next);
   }
 
   /* ── 공용 조각 ── */
@@ -266,7 +308,11 @@ export default function ExploreView({
       <div className="flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         <div className="flex gap-2 py-1">
           <button
-            onClick={() => setCats(new Set())}
+            onClick={() => {
+              const next = new Set<string>();
+              setCats(next);
+              syncUrl({ cats: next, channels, area });
+            }}
             className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill text-[14px] font-medium whitespace-nowrap bg-canvas ${
               cats.size === 0 ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink2"
             }`}
@@ -299,7 +345,12 @@ export default function ExploreView({
         aria-label="통합 필터 열기"
       >
         <Icon name="filter" variant={filterActive ? "bold" : "border"} size={18} />
-        {filterActive && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand" />}
+        {/* 적용 중 필터 개수 뱃지 (§8-4) */}
+        {filterActive && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-pill bg-brand text-white text-[10px] font-bold grid place-items-center tabular-nums">
+            {filterCount}
+          </span>
+        )}
       </button>
     </div>
   );
@@ -314,7 +365,8 @@ export default function ExploreView({
           className="bg-transparent focus:outline-none appearance-none pr-1"
           aria-label="정렬방식"
         >
-          <option value="recommended">정렬방식</option>
+          {/* 기본 정렬 = 추천순 (사장님 멤버십 랭크 → 최신순) — placeholder 표기 제거 (§4-1) */}
+          <option value="recommended">{SORT_LABEL.recommended}</option>
           <option value="distance">{SORT_LABEL.distance}</option>
           <option value="new">{SORT_LABEL.new}</option>
           <option value="topSupport">{SORT_LABEL.topSupport}</option>
@@ -325,14 +377,32 @@ export default function ExploreView({
     </div>
   );
 
+  // 검색 0건 대체 추천 — 추천순 상위 4개 (§7-4)
+  const fallbackRecommended = useMemo(
+    () => [...cards].sort(compareRecommended).slice(0, 4),
+    [cards],
+  );
+
   const visitList = (
     <div className="px-5 mt-4 space-y-4 pb-32">
       {filtered.map((p) => (
-        <ExperienceRow key={p.storeId} card={p} />
+        <ExperienceRow key={p.campaignId} card={p} distanceM={distanceOf(p)} />
       ))}
       {filtered.length === 0 && (
-        <div className="py-16 text-center text-muted text-[14px]">
-          {search ? `"${search}" 검색 결과가 없어요 — 다른 동네 찾아볼까요?` : "지금은 동네가 잠깐 쉬는 중"}
+        <div className="py-10">
+          <div className="text-center text-muted text-[14px]">
+            {search ? `"${search}" 검색 결과가 없어요 — 다른 동네 찾아볼까요?` : "지금은 동네가 잠깐 쉬는 중"}
+          </div>
+          {search && fallbackRecommended.length > 0 && (
+            <div className="mt-10">
+              <h3 className="text-[16px] font-bold text-ink tracking-title">이런 체험은 어때요?</h3>
+              <div className="mt-4 space-y-4">
+                {fallbackRecommended.map((p) => (
+                  <ExperienceRow key={p.campaignId} card={p} distanceM={distanceOf(p)} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -364,10 +434,17 @@ export default function ExploreView({
         // ── 지도 모드 (기본, 2026-07-07 회의) — 풀맵 + 바텀시트(리스트) / 핀 선택 시 스와이프 카드 캐러셀 ──
         <div className="fixed inset-x-0 top-0 z-20 mx-auto max-w-[480px] bg-canvas" style={{ bottom: "var(--bottom-nav-h, 72px)" }}>
           {mapClientId ? (
-            <NaverMapView pins={filtered} clientId={mapClientId} fullscreen onSelectionChange={setMapSelected} />
+            <NaverMapView
+              pins={filtered}
+              clientId={mapClientId}
+              fullscreen
+              onSelectionChange={setMapSelected}
+              // [§5] 홈 선택 지역(또는 필터 지역)의 행정 기준점 — 초기 포커스 + 반경 3km 필터
+              initialSearchCenter={areaCenter}
+            />
           ) : (
             // 지도 키 미주입 시 임시(데모) 지도 — 지도뷰 UI·인터랙션을 키 없이 완결 제공 (2026-07-08)
-            <MockMapView pins={filtered} onSelectionChange={setMapSelected} />
+            <MockMapView pins={filtered} onSelectionChange={setMapSelected} initialSearchCenter={areaCenter} />
           )}
 
           {/* bottom-sheet(피크) — 핀 미선택 시. 디폴트는 카테고리 탭+필터 아이콘 영역까지만 노출,
@@ -423,93 +500,18 @@ export default function ExploreView({
         )}
       </button>
 
-      {/* ─────────────────────────────────────────────────────────
-        * 통합 필터 바텀시트 (2026-07-07 회의)
-        *  - SNS 채널·카테고리 모두 다중 선택
-        *  - '적용' 버튼 없이 선택 즉시 백그라운드 실시간 반영
-        *  - 초기화는 작은 아이콘으로 가볍게 제공
-        * ────────────────────────────────────────────────────────*/}
+      {/* 통합 필터 바텀시트 — draft 후 [적용하기] 커밋 (2026-07-10 §8, FilterSheet.tsx) */}
       {filterOpen && (
-        <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setFilterOpen(false)}>
-          <div
-            className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl px-5 pt-3 pb-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pb-2">
-              <span className="w-9 h-1 rounded-pill bg-borderStrong" />
-            </div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-[18px] font-bold text-ink tracking-title">필터</h2>
-              <div className="flex items-center gap-1">
-                {filterActive && (
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="cp-action inline-flex items-center gap-1 h-8 px-2 rounded-md text-[12px] text-muted"
-                    aria-label="필터 초기화"
-                  >
-                    <span aria-hidden>↺</span> 초기화
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setFilterOpen(false)}
-                  className="cp-action w-8 h-8 rounded-full flex items-center justify-center text-ink"
-                  aria-label="닫기"
-                >
-                  <Icon name="x" variant="border" size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="text-[14px] font-semibold text-ink">SNS 채널</div>
-              <div className="mt-2.5 flex gap-2 flex-wrap">
-                {CHANNEL_ORDER.map((ch) => {
-                  const active = channels.has(ch);
-                  return (
-                    <button
-                      key={ch}
-                      type="button"
-                      onClick={() => toggleChannel(ch)}
-                      aria-pressed={active}
-                      className={`h-10 px-3.5 rounded-pill text-[14px] font-medium bg-canvas whitespace-nowrap ${
-                        active ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink2"
-                      }`}
-                    >
-                      {CHANNEL_LABEL[ch]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <div className="text-[14px] font-semibold text-ink">카테고리</div>
-              <div className="mt-2.5 flex gap-2 flex-wrap">
-                {CAT_GROUPS.map((g) => {
-                  const active = cats.has(g.key);
-                  return (
-                    <button
-                      key={g.key}
-                      type="button"
-                      onClick={() => toggleCat(g.key)}
-                      aria-pressed={active}
-                      className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill text-[14px] font-medium bg-canvas whitespace-nowrap ${
-                        active ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink2"
-                      }`}
-                    >
-                      <span aria-hidden>{g.ic}</span>
-                      {g.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <p className="mt-6 text-[12px] text-muted">선택하면 바로 반영돼요 · 근처 체험 {resultCount}개</p>
-          </div>
-        </div>
+        <FilterSheet
+          cards={cards}
+          appliedCats={cats}
+          appliedChannels={channels}
+          appliedArea={area}
+          homeArea={initialArea}
+          catGroups={CAT_GROUPS}
+          onClose={() => setFilterOpen(false)}
+          onApply={applyFilters}
+        />
       )}
     </>
   );
@@ -520,8 +522,11 @@ export default function ExploreView({
  *   좌 96px 정사각 썸네일 · SNS 배지 · 가게명 · 카테고리·거리 · 최대 ₩N 지원
  *   우상단 🎫 N 남음(발급 소진 시 '발급 마감'). [P1] 등급 게이트 없음.
  * ─────────────────────────────────────────────────────────────*/
-function ExperienceRow({ card }: { card: ExploreStoreCard }) {
-  const distanceM = mockDistanceM(card.storeId);
+function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?: number }) {
+  const dist = distanceM ?? mockDistanceM(card.storeId);
+  // 마감 임박 D-3 이하만 소형 표기 (§7-2)
+  const daysLeft = Math.ceil((card.endAt - Date.now()) / 86400000);
+  const closingSoon = daysLeft >= 0 && daysLeft <= 3;
   return (
     <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action flex gap-3">
       <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
@@ -529,7 +534,15 @@ function ExperienceRow({ card }: { card: ExploreStoreCard }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <ChannelIcons channels={card.requiredChannels} size={12} />
+          <div className="flex items-center gap-1.5 min-w-0">
+            <ChannelIcons channels={card.requiredChannels} size={12} />
+            {/* [§6] 이미 신청한 캠페인 — 제외 대신 "참여 중" 표시 */}
+            {card.participating && (
+              <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold">
+                참여 중
+              </span>
+            )}
+          </div>
           {card.soldOut ? (
             <div className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</div>
           ) : (
@@ -541,7 +554,10 @@ function ExperienceRow({ card }: { card: ExploreStoreCard }) {
         </div>
         <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{card.name}</div>
         <div className="mt-0.5 text-[13px] text-muted">
-          {card.category} · {sbNum(SBUI.distance, formatDistance(distanceM))}
+          {card.category} · {sbNum(SBUI.distance, formatDistance(dist))}
+          {closingSoon && (
+            <span className="ml-1.5 text-error font-semibold tabular-nums">{sbNum("마감 임박 D-0", `마감 임박 D-${daysLeft}`)}</span>
+          )}
         </div>
         <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
       </div>

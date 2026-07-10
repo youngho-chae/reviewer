@@ -14,9 +14,14 @@ import Icon from "@/components/Icon";
 export default function LocationSheet({
   current,
   onClose,
+  onPick,
+  title = "현위치 설정",
 }: {
   current?: string;
   onClose: () => void;
+  // 지정 시 라우팅 대신 콜백으로 선택값 전달 — 탐색 필터 시트 등에서 재사용 (홈 기본 동작 무영향)
+  onPick?: (area: string | null) => void;
+  title?: string;
 }) {
   const router = useRouter();
   const [sido, setSido] = useState<string>(() => findSido(current) ?? REGIONS[0].sido);
@@ -30,6 +35,10 @@ export default function LocationSheet({
   function pick(area: string | null) {
     if (area) setRecent(pushRecent(RECENT_REGIONS_KEY, area, 5));
     onClose();
+    if (onPick) {
+      onPick(area);
+      return;
+    }
     router.push(area ? `/r/home?area=${encodeURIComponent(area)}` : "/r/home");
   }
 
@@ -42,7 +51,7 @@ export default function LocationSheet({
       >
         {/* 헤더 — 타이틀 + 닫기 */}
         <div className="shrink-0 px-5 pt-5 pb-3 flex items-center justify-between">
-          <h2 className="text-[18px] font-bold text-ink tracking-title">현위치 설정</h2>
+          <h2 className="text-[18px] font-bold text-ink tracking-title">{title}</h2>
           <button
             type="button"
             onClick={onClose}

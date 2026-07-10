@@ -39,14 +39,17 @@ function project(pins: MapStorePin[]) {
 export default function MockMapView({
   pins,
   onSelectionChange,
+  initialSearchCenter = null,
 }: {
   pins: MapStorePin[];
   onSelectionChange?: (hasSelection: boolean) => void;
+  // [§5 지역 연동] 선택 지역의 행정 기준점 — 반경 3km 필터로 시작 (실지도와 동일 UX 최소 구현)
+  initialSearchCenter?: LatLng | null;
 }) {
   // '이 지역 재검색' (확정 정책 2-3) — 데모 지도는 자유 드래그가 없으므로
   // 핀 선택/카드 스와이프로 중심이 기준점에서 500m 이상 벗어나면 버튼을 노출하고,
   // 클릭 시 선택 핀 실좌표 기준 반경 3km로 데이터를 다시 계산한다 (실지도와 동일 UX).
-  const [searchCenter, setSearchCenter] = useState<LatLng | null>(null);
+  const [searchCenter, setSearchCenter] = useState<LatLng | null>(initialSearchCenter);
   const [showResearch, setShowResearch] = useState(false);
 
   const visiblePins = useMemo(
@@ -71,6 +74,14 @@ export default function MockMapView({
 
   useEffect(() => { onSelectionChange?.(!!selected); }, [selected, onSelectionChange]);
   useEffect(() => { setSelIdx(null); }, [pins]);
+
+  // [§5] 지역 기준점 prop 변경(필터 적용 등) — 반경 3km 필터 갱신
+  useEffect(() => {
+    setSearchCenter(initialSearchCenter);
+    setShowResearch(false);
+    setSelIdx(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSearchCenter?.lat, initialSearchCenter?.lng]);
 
   // 선택으로 지도 중심이 이동하면 재검색 버튼 노출 (기준점에서 500m 초과 시)
   useEffect(() => {

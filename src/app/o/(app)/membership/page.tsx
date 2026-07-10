@@ -65,6 +65,8 @@ export default async function MembershipPage() {
               </div>
               <div className="mt-3 text-[12px] text-ink2">정책: <span className="font-medium text-ink">{planSummary(p.key)}</span></div>
               <div className="mt-1 text-[11px] text-muted">모집 등급 S·A·B·C 전등급</div>
+              {/* [2026-07-10 §4] 추천순 노출 우대 — 상위 플랜일수록 체험자 탐색 추천순 상단 (리뷰어 등급 무관) */}
+              <div className="mt-1 text-[11px] text-muted">체험자 탐색 '추천순' 노출 우대 — 상위 플랜 우선</div>
               {isCurrent && <div className="mt-2 text-[12px] text-brand font-semibold">✓ 현재 사용 중</div>}
             </div>
           );

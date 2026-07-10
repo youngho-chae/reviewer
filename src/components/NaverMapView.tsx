@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
-import { haversineM, type LatLng } from "@/lib/geo";
+import { haversineM, nearestSido, SIDO_CENTERS, type LatLng } from "@/lib/geo";
 import Icon from "./Icon";
 
 export interface MapStorePin {
@@ -62,16 +62,22 @@ function lngLatToPixel(
   return { x: width / 2 + dx, y: height / 2 + dy };
 }
 
+// 시도 클러스터 발동 줌 임계 — 이보다 축소되면 개별 핀 대신 지역별 건수 마커 (2026-07-10 §6-4)
+const CLUSTER_ZOOM_BELOW = 10;
+
 export default function NaverMapView({
   pins,
   clientId,
   fullscreen = false,
   onSelectionChange,
+  initialSearchCenter = null,
 }: {
   pins: MapStorePin[];
   clientId: string;
   fullscreen?: boolean;
   onSelectionChange?: (hasSelection: boolean) => void;
+  // [§5 지역 연동] 선택 지역의 행정 기준점 — 초기 포커스 + 반경 3km 필터로 시작
+  initialSearchCenter?: LatLng | null;
 }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -86,9 +92,12 @@ export default function NaverMapView({
   // ── '이 지역 재검색' (확정 정책 2-3) ──
   // 지도 이동마다 실시간 재호출하는 대신, 사용자가 지도를 옮긴 뒤 버튼을 눌러
   // 그 시점 지도 중심 반경 3km 데이터만 다시 계산한다 (핀·카드는 실좌표 하버사인 기준).
-  const [searchCenter, setSearchCenter] = useState<LatLng | null>(null); // null = 전체 보기
+  const [searchCenter, setSearchCenter] = useState<LatLng | null>(initialSearchCenter); // null = 전체 보기
   const [showResearch, setShowResearch] = useState(false);
-  const searchCenterRef = useRef<LatLng | null>(null); // 이동 감지 기준점 (초기 중심 → 재검색 중심)
+  const searchCenterRef = useRef<LatLng | null>(initialSearchCenter); // 이동 감지 기준점 (초기 중심 → 재검색 중심)
+  // 현재 줌 — CLUSTER_ZOOM_BELOW 미만이면 시도 클러스터 모드 (재검색 UI 억제)
+  const [zoomLevel, setZoomLevel] = useState(initialSearchCenter ? 13 : 12);
+  const clusterMode = zoomLevel < CLUSTER_ZOOM_BELOW;
 
   const visiblePins = useMemo(
     () => (searchCenter ? pins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : pins),
@@ -170,6 +179,20 @@ export default function NaverMapView({
     setSelIdx(null);
   }
 
+  // [§5·§8] 지역 기준점 prop 변경(필터 적용 등) — 지도 포커스·반경 3km 필터 갱신
+  useEffect(() => {
+    searchCenterRef.current = initialSearchCenter;
+    setSearchCenter(initialSearchCenter);
+    setShowResearch(false);
+    setSelIdx(null);
+    if (!mapRef.current || !window.naver?.maps || !initialSearchCenter) return;
+    try {
+      mapRef.current.setCenter(new window.naver.maps.LatLng(initialSearchCenter.lat, initialSearchCenter.lng));
+      mapRef.current.setZoom(13);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSearchCenter?.lat, initialSearchCenter?.lng]);
+
   // 카드 스와이프/핀 탭으로 선택이 바뀌면 지도 포커스를 해당 핀으로 이동 (2026-07-08)
   useEffect(() => {
     if (!selected || !mapRef.current || !window.naver?.maps) return;
@@ -250,13 +273,16 @@ export default function NaverMapView({
         (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
         { lat: 0, lng: 0 }
       );
-      const center = pins.length
-        ? new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
-        : new naver.maps.LatLng(37.5665, 126.978);
+      // [§5] 선택 지역 기준점이 있으면 그 좌표로 시작 (줌 13 = 반경 3km 가시권)
+      const center = initialSearchCenter
+        ? new naver.maps.LatLng(initialSearchCenter.lat, initialSearchCenter.lng)
+        : pins.length
+          ? new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
+          : new naver.maps.LatLng(37.5665, 126.978);
 
       mapRef.current = new naver.maps.Map(mapEl.current, {
         center,
-        zoom: 12,
+        zoom: initialSearchCenter ? 13 : 12,
         mapTypeControl: false,
         logoControl: true,
         scaleControl: false,
@@ -279,6 +305,14 @@ export default function NaverMapView({
       };
       naver.maps.Event.addListener(mapRef.current, "dragend", onMapMoved);
       naver.maps.Event.addListener(mapRef.current, "zoom_changed", onMapMoved);
+      // 줌 추적 — 클러스터 모드 판정 (§6-4). 클러스터 중에는 재검색 버튼을 숨긴다.
+      naver.maps.Event.addListener(mapRef.current, "zoom_changed", () => {
+        try {
+          const z = mapRef.current.getZoom();
+          setZoomLevel(z);
+          if (z < CLUSTER_ZOOM_BELOW) setShowResearch(false);
+        } catch {}
+      });
     } catch {
       setSdkFailed(true);
     }
@@ -297,6 +331,42 @@ export default function NaverMapView({
       try { m.setMap(null); } catch {}
     }
     markersRef.current = [];
+
+    // ── 시도 클러스터 모드 (§6-4) — 전국 축소 시 개별 핀 대신 지역 대분류별 건수 마커 ──
+    // 집계 = 현재 노출 캠페인 전체(pins, open+issued_out). area 문자열이 동네 라벨이라 좌표 기반 매핑.
+    if (clusterMode) {
+      const counts = new Map<string, number>();
+      for (const p of pins) {
+        const sido = nearestSido(p);
+        counts.set(sido, (counts.get(sido) ?? 0) + 1);
+      }
+      for (const [sido, count] of counts) {
+        const pos = SIDO_CENTERS[sido];
+        if (!pos) continue;
+        const label = STORYBOARD ? "00건" : `${count}건`;
+        const html = `
+          <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;gap:2px;">
+            <div style="min-width:52px;padding:8px 10px;border-radius:9999px;background:#9333EA;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.2);text-align:center;line-height:1.2;">
+              <div style="font-size:12px;font-weight:700;">${escapeHtml(sido)}</div>
+              <div style="font-size:12px;font-weight:600;">${label}</div>
+            </div>
+          </div>`;
+        const marker = new naver.maps.Marker({
+          position: new naver.maps.LatLng(pos.lat, pos.lng),
+          map: mapRef.current,
+          icon: { content: html, anchor: new naver.maps.Point(30, 24) },
+        });
+        // 클러스터 탭 → 해당 시도로 줌인 (개별 핀 모드 복귀)
+        naver.maps.Event.addListener(marker, "click", () => {
+          try {
+            mapRef.current.setCenter(new naver.maps.LatLng(pos.lat, pos.lng));
+            mapRef.current.setZoom(12);
+          } catch {}
+        });
+        markersRef.current.push(marker);
+      }
+      return;
+    }
 
     for (const p of visiblePins) {
       const isSel = selected?.storeId === p.storeId;
@@ -323,7 +393,7 @@ export default function NaverMapView({
 
     // selectPin은 sortedPins에서 파생되며 visiblePins 변경 시 함께 갱신됨
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePins, selected, sdkReady, sdkFailed]);
+  }, [visiblePins, pins, clusterMode, selected, sdkReady, sdkFailed]);
 
   // 핀 집합이 바뀌면 중심 재계산 (선택 변경으로는 이동하지 않음).
   // 재검색 모드에서는 사용자가 잡은 중심을 유지한다 — 필터 변경으로 지도가 튀지 않게.
@@ -382,8 +452,8 @@ export default function NaverMapView({
           </div>
         )}
 
-        {/* '이 지역 재검색' — 기준점에서 벗어나게 지도를 옮기면 노출 (확정 정책 2-3) */}
-        {sdkReady && !sdkFailed && showResearch && (
+        {/* '이 지역 재검색' — 기준점에서 벗어나게 지도를 옮기면 노출 (확정 정책 2-3 · 클러스터 모드 중 억제) */}
+        {sdkReady && !sdkFailed && showResearch && !clusterMode && (
           <button
             type="button"
             onClick={researchHere}
@@ -392,8 +462,8 @@ export default function NaverMapView({
             <span aria-hidden>↻</span> 이 지역 재검색
           </button>
         )}
-        {/* 반경 모드 표시 칩 — 재검색 결과 기준 안내 + 전체 복귀 */}
-        {sdkReady && !sdkFailed && searchCenter && !showResearch && (
+        {/* 반경 모드 표시 칩 — 재검색 결과 기준 안내 + 전체 복귀 (클러스터 모드 중 억제) */}
+        {sdkReady && !sdkFailed && searchCenter && !showResearch && !clusterMode && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2">
             <span>이 지역 반경 3km · {visiblePins.length}곳</span>
             <button type="button" onClick={resetResearch} className="cp-action font-semibold text-brand">
@@ -401,8 +471,8 @@ export default function NaverMapView({
             </button>
           </div>
         )}
-        {/* 재검색 결과 0건 — 안내 + 전체 복귀 */}
-        {sdkReady && !sdkFailed && searchCenter && visiblePins.length === 0 && (
+        {/* 재검색 결과 0건 — 안내 + 전체 복귀 (클러스터 모드 중 억제) */}
+        {sdkReady && !sdkFailed && searchCenter && visiblePins.length === 0 && !clusterMode && (
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2 pointer-events-none">
             <div className="px-4 py-2 rounded-md bg-white/95 shadow-card text-[13px] text-muted">
               이 지역엔 지금 모집 중인 체험이 없어요
