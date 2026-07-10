@@ -41,9 +41,9 @@ const BADGE: Record<string, { label: string; cls: string }> = {
   active: { label: "사용가능", cls: "bg-successSoft text-successStrong" },
   cancelled: { label: "취소", cls: "bg-sunken text-mutedSoft" },
   expired: { label: "만료", cls: "bg-sunken text-mutedSoft" },
-  used: { label: "작성 대기", cls: "bg-warningSoft text-warning" },
-  review_submitted: { label: "검수 중", cls: "bg-sunken text-muted" },
-  completed: { label: "완료", cls: "bg-successSoft text-successStrong" },
+  used: { label: "작성 대기 중", cls: "bg-brandSoft text-brand" },
+  review_submitted: { label: "검수중", cls: "bg-sunken text-muted" },
+  completed: { label: "검수 완료", cls: "bg-sunken text-muted" },
   rejected: { label: "반려", cls: "bg-errorSoft text-error" },
 };
 
@@ -55,9 +55,9 @@ const ISSUED_CHIPS: { key: string; label: string }[] = [
 ];
 const REVIEW_CHIPS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
-  { key: "used", label: "작성 대기" },
-  { key: "review_submitted", label: "검수 중" },
-  { key: "completed", label: "완료" },
+  { key: "used", label: "작성 대기중" },
+  { key: "review_submitted", label: "검수중" },
+  { key: "completed", label: "검수완료" },
   { key: "rejected", label: "반려" },
 ];
 
@@ -199,11 +199,13 @@ export default function PassesView({
 function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
   const badge = BADGE[it.status] ?? { label: it.status, cls: "bg-sunken text-muted" };
   const isActive = it.status === "active";
+  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기)
+  const emphasized = isActive || it.status === "used" || it.highlight;
 
   return (
     <div
       className={`rounded-lg bg-canvas p-4 ${
-        isActive || it.highlight ? "border-[1.5px] border-brand" : "border border-hairline"
+        emphasized ? "border-[1.5px] border-brand" : "border border-hairline"
       }`}
     >
       {/* 헤더 행 — 썸네일 + 가게명·채널/등급·지원금 + 상태 뱃지 */}
@@ -271,48 +273,66 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
         </div>
       )}
 
-      {/* 리뷰작성 탭 상태들 */}
+      {/* 리뷰작성 탭 상태들 (2026-07-08 시안) */}
       {it.status === "used" && (
         <>
           {it.reviewDeadline && (
             <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
-              <span className="text-muted">리뷰 마감</span>
-              <span className="font-semibold text-brand tabular-nums">
+              <span className="text-muted">리뷰마감</span>
+              <span className="font-semibold text-ink tabular-nums">
                 {sbNum(SBUI.dateTime, fmtKoDateTime(it.reviewDeadline))}까지
               </span>
             </div>
           )}
-          <Link
-            href={`/r/passes/${it.id}`}
-            className="cp-action mt-3 flex h-11 items-center justify-center rounded-md bg-brand text-white text-[14px] font-bold"
-          >
-            리뷰 작성하기
-          </Link>
+          <div className="mt-3 flex gap-2">
+            <StoreInfoButton it={it} />
+            <Link
+              href={`/r/passes/${it.id}`}
+              className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
+            >
+              리뷰 제출
+            </Link>
+          </div>
         </>
       )}
 
       {it.status === "review_submitted" && (
-        <div className="mt-3.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted text-center">
-          운영팀 검수 중 · 최대 72시간
-        </div>
+        <>
+          <div className="mt-3.5 flex">
+            <StoreInfoButton it={it} />
+          </div>
+          <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted text-center">
+            영업일 기준 최대 3일 이내로 검수 완료되어요
+          </div>
+        </>
       )}
 
       {it.status === "rejected" && (
         <>
-          {it.rejectReason && (
-            <p className="mt-3 text-[12px] text-error leading-[1.5] truncate">사유: {it.rejectReason}</p>
+          {it.reviewDeadline && (
+            <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
+              <span className="text-muted">리뷰마감</span>
+              <span className="font-semibold text-ink tabular-nums">
+                {sbNum(SBUI.dateTime, fmtKoDateTime(it.reviewDeadline))}까지
+              </span>
+            </div>
           )}
-          <Link
-            href={`/r/passes/${it.id}`}
-            className="cp-action mt-2.5 flex h-11 items-center justify-center rounded-md border border-error/40 text-error text-[14px] font-semibold"
-          >
-            수정 재제출 →
-          </Link>
+          <div className="mt-3 flex gap-2">
+            <StoreInfoButton it={it} />
+            <Link
+              href={`/r/passes/${it.id}`}
+              className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
+            >
+              리뷰 제출
+            </Link>
+          </div>
         </>
       )}
 
       {it.status === "completed" && (
-        <div className="mt-3.5 text-[13px] text-successStrong font-semibold">✓ 검수 통과 — 등급 점수에 반영됐어요</div>
+        <div className="mt-3.5 flex">
+          <StoreInfoButton it={it} />
+        </div>
       )}
     </div>
   );

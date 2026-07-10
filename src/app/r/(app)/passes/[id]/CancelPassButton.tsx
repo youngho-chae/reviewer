@@ -53,29 +53,51 @@ export default function CancelPassButton({
     );
   }
 
+  // 확인 단계 — 중앙 모달 (2026-07-08 시안)
   return (
-    <div className={`rounded-md border border-hairline bg-canvas p-4 text-left w-full ${variant === "row" ? "" : "mt-4"}`}>
-      <div className="text-[14px] font-semibold text-ink">참여를 취소할까요?</div>
-      <p className="mt-1.5 text-[12px] text-muted leading-[1.5]">
-        취소하면 이 체험권은 사용할 수 없고, 모집 자리는 다른 체험자에게 돌아갑니다.
-      </p>
-      {err && <div className="mt-2 text-[12px] text-error">{err}</div>}
-      <div className="mt-3 flex gap-2">
-        <button
-          disabled={loading}
-          onClick={submit}
-          className="cp-action h-10 px-4 rounded-md bg-error text-white text-[13px] font-semibold disabled:opacity-50"
-        >
-          {loading ? "취소 중..." : "참여 취소"}
+    <>
+      {/* 트리거 자리 유지 (row는 버튼 행 레이아웃 보존) */}
+      {variant === "row" ? (
+        <button disabled className="flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-mutedSoft">
+          참여 취소
         </button>
-        <button
-          disabled={loading}
-          onClick={() => setConfirming(false)}
-          className="cp-action h-10 px-4 rounded-md border border-hairline text-ink text-[13px] font-semibold bg-canvas"
+      ) : (
+        <span className="mt-4 inline-block text-[13px] text-mutedSoft underline">방문이 어려워요 — 참여 취소</span>
+      )}
+      <div
+        className="fixed inset-0 bg-ink/45 z-50 flex items-center justify-center px-6"
+        onClick={() => !loading && setConfirming(false)}
+      >
+        <div
+          className="w-full max-w-[400px] bg-canvas rounded-xl px-6 pt-8 pb-6 text-center"
+          onClick={(e) => e.stopPropagation()}
+          role="alertdialog"
+          aria-label="참여 취소 확인"
         >
-          계속 사용할게요
-        </button>
+          <p className="text-[15px] text-ink leading-[1.6]">
+            같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.
+            <br />
+            신중하게 선택해주세요.
+          </p>
+          {err && <div className="mt-3 text-[12px] text-error">{err}</div>}
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <button
+              disabled={loading}
+              onClick={submit}
+              className="cp-action h-12 rounded-md bg-sunken text-ink text-[15px] font-semibold disabled:opacity-50"
+            >
+              {loading ? "취소 중..." : "취소할게요"}
+            </button>
+            <button
+              disabled={loading}
+              onClick={() => setConfirming(false)}
+              className="cp-action h-12 rounded-md bg-brand text-white text-[15px] font-bold disabled:opacity-60"
+            >
+              계속 사용할게요
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

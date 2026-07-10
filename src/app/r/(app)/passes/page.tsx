@@ -114,7 +114,13 @@ export default async function MyPasses({
       support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
       expiresAt: p.expiresAt,
       usedAt: p.usedAt ?? null,
-      reviewDeadline: p.usedAt ? p.usedAt + REVIEW_DEADLINE_MS : null,
+      // 리뷰 마감 — used는 이용 후 7일, rejected는 반려 후 7일(재제출 기한)
+      reviewDeadline:
+        p.status === "rejected" && p.rejectedAt
+          ? p.rejectedAt + REVIEW_DEADLINE_MS
+          : p.usedAt
+            ? p.usedAt + REVIEW_DEADLINE_MS
+            : null,
       rejectReason: p.rejectReason ?? null,
       highlight: p.id === justIssued,
     };
