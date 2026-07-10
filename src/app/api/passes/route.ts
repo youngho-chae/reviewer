@@ -150,7 +150,8 @@ export async function POST(req: NextRequest) {
     userId: pass.ownerId,
     role: "owner",
     title: isPress ? "기자단 신청" : "체험권 발급",
-    body: `${me.nickname}님(${selectedChannel ? `${CHANNEL_LABEL[selectedChannel]} ` : ""}${channelGrade}등급)이 캠페인에 참여했습니다.`,
+    // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 비노출 — 익명·채널만 전달
+    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.`,
     createdAt: now,
     read: false,
     link: "/o/home",

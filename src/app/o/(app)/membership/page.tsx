@@ -16,14 +16,13 @@ const PLANS: PlanRow[] = [
   { key: "Free", price: "0", desc: "멤버십 미가입 — 최소 운영" },
   { key: "Basic", price: "13,900", desc: "초기 진입 — 진성 리뷰어 확보" },
   { key: "Standard", price: "25,900", desc: "안정적 캠페인 운영" },
-  { key: "Premium", price: "38,900", desc: "무제한 모집 — 상위 등급 우선 노출" },
+  { key: "Premium", price: "38,900", desc: "무제한 모집 — 대규모 캠페인 운영" },
 ];
 
+// [확정 정책 4·8-3] 플랜 차이는 월 모집 팀 수뿐 — 등급 우선(부스팅) 표기는 도입하지 않는다
 function planSummary(plan: PlanKey): string {
   const p = PLAN_POLICY[plan];
-  const grade = p.priorityGrade ? `${p.priorityGrade}등급 우선` : "등급 랜덤";
-  const limit = p.monthlyTeamLimit === null ? "월 무제한" : `월 ${p.monthlyTeamLimit}팀`;
-  return `${grade} · ${limit}`;
+  return p.monthlyTeamLimit === null ? "월 무제한 모집" : `월 ${p.monthlyTeamLimit}팀 모집`;
 }
 
 export default async function MembershipPage() {

@@ -45,6 +45,13 @@ export default function OwnerLogin() {
         <span className="text-muted">처음이신가요? </span>
         <Link href="/o/signup" className="cp-action text-brand font-semibold">가입하기 →</Link>
       </div>
+
+      {/* [확정 정책 3] 사장님 진입점은 캐치랭크 본체와 연동 예정 — 멤버십 변경도 연동 후 핸들링 */}
+      <p className="mt-8 text-center text-[12px] text-muted leading-[1.6]">
+        캐치랭크(CatchRank) 계정 연동 로그인은 준비 중이에요.
+        <br />
+        연동 후에는 캐치랭크에서 바로 사장님 화면으로 진입할 수 있습니다.
+      </p>
     </main>
   );
 }

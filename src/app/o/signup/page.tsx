@@ -20,6 +20,7 @@ function OwnerSignup() {
   const [storeName, setStoreName] = useState("");
   const [category, setCategory] = useState("한식");
   const [area, setArea] = useState("");
+  const [bizNumber, setBizNumber] = useState(""); // 사업자등록번호 10자리 (확정 정책 9 — 수기 인증)
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -29,11 +30,12 @@ function OwnerSignup() {
     e.preventDefault();
     setLoading(true); setErr(null);
     if (!email || !password || !storeName || !area) { setErr("모든 항목을 입력해주세요"); setLoading(false); return; }
+    if (bizNumber.length !== 10) { setErr("사업자등록번호 10자리를 입력해주세요"); setLoading(false); return; }
     if (!agreeTerms || !agreePrivacy) { setErr("이용약관과 개인정보 수집·이용에 동의해주세요"); setLoading(false); return; }
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ role: "owner", email, password, storeName, category, area, agreeTerms: agreeTerms && agreePrivacy }),
+      body: JSON.stringify({ role: "owner", email, password, storeName, category, area, bizNumber, agreeTerms: agreeTerms && agreePrivacy }),
     });
     if (!res.ok) {
       const { error } = await res.json();
@@ -63,6 +65,18 @@ function OwnerSignup() {
           <option>한식</option><option>일식</option><option>양식</option><option>중식</option><option>카페</option><option>주점</option>
         </select>
         <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="동네 (예: 북촌)" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]" />
+        {/* 사업자 인증 (확정 정책 9) — 남의 매장 캠페인 방지. 초기엔 수기 인증(영업일 2~3일) */}
+        <input
+          value={bizNumber}
+          onChange={(e) => setBizNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+          inputMode="numeric"
+          placeholder="사업자등록번호 (숫자 10자리)"
+          className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px] tabular-nums"
+        />
+        <p className="text-[12px] text-muted leading-[1.5] px-1">
+          가입 후 운영팀이 사업자 정보를 확인해요 — 영업일 기준 <span className="text-ink font-medium">2~3일 이내 인증 완료</span>를
+          안내드리며, 인증 완료 후 사장님 화면을 이용할 수 있습니다.
+        </p>
 
         {/* 필수 동의 — 약관/개인정보 (개인정보보호법상 명시적 동의) */}
         <div className="pt-1 space-y-2.5">

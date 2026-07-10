@@ -78,6 +78,20 @@ export default async function AdminReviews() {
               </a>
             )}
 
+            {/* 검수 기준 보조 (확정 정책 11) — 사장님이 입력한 강조 키워드 포함 여부를 수기 확인 */}
+            {campaign?.highlightKeywords && campaign.highlightKeywords.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[11px] text-muted mb-1">강조 키워드 포함 확인</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {campaign.highlightKeywords.map((kw, i) => (
+                    <span key={`${kw}-${i}`} className="text-[11px] font-medium px-2 py-0.5 rounded-pill bg-brandSoft text-brand">
+                      #{kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 자가 점검 표시 — 채널별 조건 */}
             {p.reviewSelfCheck && p.reviewChannel && (
               <div className="mt-2 flex flex-wrap gap-1.5">

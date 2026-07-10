@@ -12,7 +12,7 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string }>;
 }) {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
@@ -52,6 +52,9 @@ export default async function ReviewerExplore({
         reviewCount: store.reviewCount,
         endAt: c.endAt,
         createdAt: c.createdAt,
+        // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상
+        address: store.address,
+        keywords: c.highlightKeywords,
       };
     });
 
@@ -106,6 +109,7 @@ export default async function ReviewerExplore({
       initialMode={sp.mode === "list" ? "list" : "map"}
       initialCategory={sp.cat || "전체"}
       initialSort={(sp.sort as "recommended" | "distance" | "new" | "topSupport" | "closing") || "recommended"}
+      initialSearch={sp.q || ""}
       pressEnabled={PRESS_ENABLED}
     />
   );

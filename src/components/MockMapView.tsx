@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
-import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
+import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
+import { haversineM, type LatLng } from "@/lib/geo";
 import type { MapStorePin } from "./NaverMapView";
 
 /**
@@ -42,9 +43,24 @@ export default function MockMapView({
   pins: MapStorePin[];
   onSelectionChange?: (hasSelection: boolean) => void;
 }) {
+  // '이 지역 재검색' (확정 정책 2-3) — 데모 지도는 자유 드래그가 없으므로
+  // 핀 선택/카드 스와이프로 중심이 기준점에서 500m 이상 벗어나면 버튼을 노출하고,
+  // 클릭 시 선택 핀 실좌표 기준 반경 3km로 데이터를 다시 계산한다 (실지도와 동일 UX).
+  const [searchCenter, setSearchCenter] = useState<LatLng | null>(null);
+  const [showResearch, setShowResearch] = useState(false);
+
+  const visiblePins = useMemo(
+    () => (searchCenter ? pins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : pins),
+    [pins, searchCenter],
+  );
   const sortedPins = useMemo(
-    () => [...pins].sort((a, b) => mockDistanceM(a.storeId) - mockDistanceM(b.storeId)),
-    [pins],
+    () =>
+      [...visiblePins].sort((a, b) =>
+        searchCenter
+          ? haversineM(searchCenter, a) - haversineM(searchCenter, b)
+          : mockDistanceM(a.storeId) - mockDistanceM(b.storeId),
+      ),
+    [visiblePins, searchCenter],
   );
   const pos = useMemo(() => project(sortedPins), [sortedPins]);
 
@@ -55,6 +71,26 @@ export default function MockMapView({
 
   useEffect(() => { onSelectionChange?.(!!selected); }, [selected, onSelectionChange]);
   useEffect(() => { setSelIdx(null); }, [pins]);
+
+  // 선택으로 지도 중심이 이동하면 재검색 버튼 노출 (기준점에서 500m 초과 시)
+  useEffect(() => {
+    if (!selected) return;
+    setShowResearch(!searchCenter || haversineM(searchCenter, selected) > 500);
+  }, [selected, searchCenter]);
+
+  function researchHere() {
+    if (!selected) return;
+    setSearchCenter({ lat: selected.lat, lng: selected.lng });
+    setShowResearch(false);
+    setSelIdx(0); // 중심 핀이 거리 0으로 첫 카드가 된다
+    requestAnimationFrame(() => carouselRef.current?.scrollTo({ left: 0, behavior: "auto" }));
+  }
+
+  function resetResearch() {
+    setSearchCenter(null);
+    setShowResearch(false);
+    setSelIdx(null);
+  }
 
   // 선택 핀을 화면 중앙으로 옮기는 팬 오프셋 (translate %는 요소 자기 크기 기준 = 컨테이너 크기)
   const pan =
@@ -99,6 +135,39 @@ export default function MockMapView({
       <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-pill bg-white/90 shadow-sm text-[11px] text-muted">
         🗺️ 데모 지도 · 지도 키 연동 시 실지도 전환
       </div>
+
+      {/* '이 지역 재검색' — 선택 이동으로 기준점을 벗어나면 노출 (확정 정책 2-3) */}
+      {showResearch && selected && (
+        <button
+          type="button"
+          onClick={researchHere}
+          className="cp-action absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1.5 h-9 px-4 rounded-pill bg-white shadow-card text-[13px] font-semibold text-brand"
+        >
+          <span aria-hidden>↻</span> 이 지역 재검색
+        </button>
+      )}
+      {searchCenter && !showResearch && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2">
+          <span>이 지역 반경 3km · {visiblePins.length}곳</span>
+          <button type="button" onClick={resetResearch} className="cp-action font-semibold text-brand">
+            전체 보기
+          </button>
+        </div>
+      )}
+      {searchCenter && visiblePins.length === 0 && (
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2">
+          <div className="px-4 py-2 rounded-md bg-white/95 shadow-card text-[13px] text-muted">
+            이 지역엔 지금 모집 중인 체험이 없어요
+          </div>
+          <button
+            type="button"
+            onClick={resetResearch}
+            className="cp-action h-9 px-4 rounded-pill bg-ink text-white text-[13px] font-semibold"
+          >
+            전체 보기로 돌아가기
+          </button>
+        </div>
+      )}
 
       {/* 좌표 투영 월드 레이어 — 선택 시 팬 이동 */}
       <div
@@ -147,10 +216,10 @@ export default function MockMapView({
         })}
       </div>
 
-      {/* GPS 리센터 — 전체 보기(선택 해제)로 복귀 */}
+      {/* GPS 리센터 — 전체 보기(선택·반경 해제)로 복귀 */}
       <button
         type="button"
-        onClick={() => setSelIdx(null)}
+        onClick={resetResearch}
         className="cp-action absolute right-3 z-20 w-10 h-10 rounded-full bg-white shadow-card flex items-center justify-center text-ink"
         style={{ bottom: selected ? 172 : 24 }}
         aria-label="현 위치로 지도 이동"
@@ -183,7 +252,11 @@ export default function MockMapView({
                     <div className="flex-1 min-w-0">
                       <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
                       <div className="mt-1 text-[13px] text-muted truncate">
-                        {p.category} · {sbNum(SBUI.distance, formatDistance(mockDistanceM(p.storeId)))}
+                        {p.category} ·{" "}
+                        {sbNum(
+                          SBUI.distance,
+                          formatDistance(searchCenter ? haversineM(searchCenter, p) : mockDistanceM(p.storeId)),
+                        )}
                       </div>
                       <div className="mt-1.5 text-[16px] font-bold text-ink tabular-nums">
                         최대 {sbNum(SBUI.support, `${p.supportAmount.toLocaleString()}원`)} 지원

@@ -46,16 +46,11 @@ export default async function OwnerReport() {
   const issuedCount = db.passes.filter((p) => p.ownerId === me.id).length;
   const completionRate = issuedCount ? Math.round((submittedCount / issuedCount) * 100) : 0;
 
-  // 채널별 / 등급별 분포
+  // 채널별 분포 — [확정 정책 8·10] 등급별 집계는 사장님에게 비노출(어드민 내부 전용)이라 만들지 않는다
   const byChannel: Record<string, number> = {};
-  const byGrade: Record<string, { count: number; support: number }> = {};
   for (const p of completed) {
     const ch = p.reviewChannel || "naver_blog";
     byChannel[ch] = (byChannel[ch] || 0) + 1;
-    const g = p.reviewerGrade;
-    byGrade[g] = byGrade[g] || { count: 0, support: 0 };
-    byGrade[g].count += 1;
-    byGrade[g].support += p.supportApplied || 0;
   }
   const ch_label: any = { naver_blog: "네이버 블로그", instagram: "인스타", tiktok: "틱톡" };
 
@@ -127,26 +122,7 @@ export default async function OwnerReport() {
         )}
       </div>
 
-      {/* 등급별 ROI */}
-      <h2 className="px-5 mt-7 text-[18px] font-bold text-ink tracking-title">등급별 ROI</h2>
-      <div className="px-5 mt-3 space-y-2">
-        {(["S", "A", "B", "C"] as const).map((g) => {
-          const v = byGrade[g];
-          if (!v) return null;
-          return (
-            <div key={g} className="flex items-center justify-between rounded-md border border-hairline bg-canvas px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-ink w-6 text-center">{g}</span>
-                <span className="text-[13px] text-muted tabular-nums">{v.count}건</span>
-              </div>
-              <div className="text-[13px] font-bold text-ink tabular-nums">{v.support.toLocaleString()}원</div>
-            </div>
-          );
-        })}
-        {Object.keys(byGrade).length === 0 && (
-          <div className="text-[13px] text-muted text-center py-4">데이터가 없습니다</div>
-        )}
-      </div>
+      {/* [확정 정책 8·10] 등급별 ROI 섹션 제거 — 체험자 등급 데이터는 사장님 비노출(어드민 내부 전용) */}
 
       <p className="px-5 mt-6 text-[11px] text-muted leading-relaxed">
         * 노출 추정은 리뷰어의 SNS 영향력 × 30% 도달율로 단순화한 값으로, 실제 노출과 차이가 있을 수 있습니다.

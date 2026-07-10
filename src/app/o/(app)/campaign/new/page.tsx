@@ -28,6 +28,13 @@ export default function NewCampaign() {
   const [stores, setStores] = useState<OwnerStore[]>([]);
   const [plan, setPlan] = useState<PlanKey>("Free");
   const [storeId, setStoreId] = useState("");
+  const [title, setTitle] = useState(""); // 캠페인명 — 사장님 내부 관리용 (미입력 시 매장명 자동, 확정 정책 7)
+  // 플레이스 URL로 매장 추가 (확정 정책 5-1 — Free 등급 등 등록 매장이 없어도 캠페인 생성 가능)
+  const [showAddStore, setShowAddStore] = useState(false);
+  const [placeUrl, setPlaceUrl] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
@@ -77,8 +84,32 @@ export default function NewCampaign() {
   function removeMenuAt(i: number) {
     setMenus((arr) => (arr.length === 1 ? [{ name: "", price: "" }] : arr.filter((_, idx) => idx !== i)));
   }
+  // 필수 주문 메뉴는 최대 5개 (확정 정책 6)
   function addMenu() {
-    setMenus((arr) => [...arr, { name: "", price: "" }]);
+    setMenus((arr) => (arr.length >= 5 ? arr : [...arr, { name: "", price: "" }]));
+  }
+
+  // 플레이스 URL로 매장 추가 — 조회 실패 시 매장명 수동 입력 폴백
+  async function addStoreByUrl() {
+    setAddBusy(true);
+    setAddErr(null);
+    const res = await fetch("/api/owner/stores", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ placeUrl, name: manualName.trim() || undefined }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setAddErr(data.error || "매장 추가 실패");
+      setAddBusy(false);
+      return;
+    }
+    setStores((arr) => [...arr, data.store]);
+    setStoreId(data.store.id);
+    setShowAddStore(false);
+    setPlaceUrl("");
+    setManualName("");
+    setAddBusy(false);
   }
 
   async function submit(e: React.FormEvent) {
@@ -102,6 +133,7 @@ export default function NewCampaign() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         storeId,
+        title: title.trim() || undefined,
         days: Number(days),
         supportAmount: Number(supportAmount),
         totalQuota: totalQuotaNum,
@@ -134,7 +166,7 @@ export default function NewCampaign() {
       </div>
 
       <form onSubmit={submit} className="px-5 pt-4 space-y-8">
-        {/* 매장 선택 — 캠페인 제목은 매장명으로 자동 */}
+        {/* 매장 선택 — 등록 매장 선택 또는 플레이스 URL로 추가 (확정 정책 5-1) */}
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">매장</div>
           <select
@@ -147,12 +179,61 @@ export default function NewCampaign() {
                 {s.name}
               </option>
             ))}
+            {stores.length === 0 && <option value="">등록된 매장이 없어요</option>}
           </select>
-          {selectedStore && (
-            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-              캠페인 제목은 매장명 <span className="text-ink font-medium">「{selectedStore.name}」</span>으로 자동 표기됩니다.
-            </p>
+          <button
+            type="button"
+            onClick={() => setShowAddStore((v) => !v)}
+            className="cp-action mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand"
+          >
+            + 플레이스 URL로 매장 추가
+          </button>
+          {showAddStore && (
+            <div className="mt-2 rounded-md border border-hairline p-3.5 space-y-2">
+              <input
+                value={placeUrl}
+                onChange={(e) => setPlaceUrl(e.target.value)}
+                placeholder="네이버 플레이스 URL 또는 place ID"
+                className="w-full h-11 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px]"
+              />
+              <input
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                placeholder="매장명 (정보를 못 불러올 때 사용)"
+                className="w-full h-11 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px]"
+              />
+              {addErr && <p className="text-[12px] text-error">{addErr}</p>}
+              <button
+                type="button"
+                onClick={addStoreByUrl}
+                disabled={addBusy || !placeUrl.trim()}
+                className="cp-action w-full h-11 rounded-md bg-ink text-white text-[14px] font-semibold disabled:bg-sunken disabled:text-mutedSoft"
+              >
+                {addBusy ? "불러오는 중..." : "매장 불러오기"}
+              </button>
+              <p className="text-[11px] text-muted leading-[1.5]">
+                프리 플랜도 URL로 매장을 등록해 월 한도 내 캠페인을 만들 수 있어요. 플레이스 정보 조회가 어려우면
+                매장명을 함께 입력해주세요.
+              </p>
+            </div>
           )}
+        </section>
+
+        {/* 캠페인명 — 사장님 내부 관리용 (확정 정책 7). 체험자에게는 매장명으로 노출 */}
+        <section>
+          <div className="text-[14px] font-semibold text-ink mb-2">
+            캠페인명 <span className="text-[12px] text-muted font-normal">(내 관리용 · 선택)</span>
+          </div>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value.slice(0, 40))}
+            placeholder="예: 신메뉴 출시 기념 체험단 모집"
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+          />
+          <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+            사장님 화면에서 캠페인을 구분하는 제목이에요. 미입력 시 매장명
+            {selectedStore ? ` 「${selectedStore.name}」` : ""}으로 자동 설정되며, <span className="text-ink font-medium">체험자에게는 항상 매장명 중심으로 노출</span>됩니다.
+          </p>
         </section>
 
         {/* 진행 일수 + 지원금 */}
@@ -216,10 +297,8 @@ export default function NewCampaign() {
             <p className="mt-2 text-[13px] text-ink leading-[1.55]">
               {policy.description}. 사장님은 총 모집 인원만 설정하시면, 멤버십 등급에 맞춰 시스템이 자동으로 등급을 배분합니다.
             </p>
-            <p className="mt-1.5 text-[11px] text-muted">
-              모집 가능 등급: {policy.grades.join(" · ")}
-              {policy.priorityGrade ? ` (${policy.priorityGrade}등급 우선)` : " (랜덤 노출)"}
-            </p>
+            {/* [확정 정책 8-3] 등급 우선 모집(부스팅) 표기는 도입하지 않는다 — 전 플랜 균등 배분 */}
+            <p className="mt-1.5 text-[11px] text-muted">모집 가능 등급: 전 등급 (배분 자동)</p>
             <div className="mt-3 pt-3 border-t border-hairline flex items-center justify-between text-[12px]">
               <span className="text-muted">이번 달 모집 현황</span>
               <span className={overLimit ? "text-error font-semibold" : "text-ink font-medium"}>
@@ -265,9 +344,12 @@ export default function NewCampaign() {
 
         {/* 필수 주문 메뉴 — 동적 입력 (메뉴명 + 가격) */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">필수 주문 메뉴</div>
+          <div className="text-[14px] font-semibold text-ink mb-2">
+            필수 주문 메뉴 <span className="text-[12px] text-muted font-normal">(선택 입력 · 최대 5개)</span>
+          </div>
           <p className="text-[12px] text-muted mb-3 leading-[1.5]">
-            체험자가 방문 시 주문해야 하는 메뉴 (택 1). 메뉴명과 함께 가격을 입력하면 체험자에게 함께 노출됩니다.
+            체험자가 방문 시 주문해야 하는 메뉴 (택 1). 지정 없이 지원 금액만 설정해도 돼요. 메뉴명과 함께 가격을
+            입력하면 체험자에게 함께 노출됩니다.
           </p>
           <div className="space-y-2">
             {menus.map((m, i) => (
@@ -304,10 +386,11 @@ export default function NewCampaign() {
           <button
             type="button"
             onClick={addMenu}
-            className="cp-action mt-3 inline-flex items-center gap-1.5 h-10 px-4 rounded-pill border border-dashed border-hairline text-[13px] font-semibold text-brand"
+            disabled={menus.length >= 5}
+            className="cp-action mt-3 inline-flex items-center gap-1.5 h-10 px-4 rounded-pill border border-dashed border-hairline text-[13px] font-semibold text-brand disabled:text-mutedSoft"
           >
             <Icon name="plus" variant="bold" size={14} />
-            <span>메뉴 추가</span>
+            <span>{menus.length >= 5 ? "최대 5개까지 등록할 수 있어요" : "메뉴 추가"}</span>
           </button>
         </section>
 

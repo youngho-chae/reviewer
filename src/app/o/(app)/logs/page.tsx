@@ -79,7 +79,8 @@ export default async function OwnerLogs() {
                           <div className="text-[14px] font-semibold text-ink truncate">{store?.name}</div>
                         </div>
                         <div className="text-[12px] text-muted mt-1 truncate">
-                          {c?.title} · 익명 #{reviewer?.id.slice(-4)} · {p.reviewerGrade}등급
+                          {/* [확정 정책 8·10] 체험자 등급은 사장님에게 비노출 — 익명 표기만 */}
+                          {c?.title} · 익명 #{reviewer?.id.slice(-4)}
                         </div>
                       </div>
                       <div className="text-right whitespace-nowrap">

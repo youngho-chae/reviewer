@@ -63,6 +63,12 @@ export interface Owner {
   createdAt: number;
   termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
   inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
+  // ── 사업자 인증 (확정 정책 9 — 수기 인증) ──
+  // undefined = 인증 제도 도입 전 가입한 구버전 계정 → verified로 간주(폴백).
+  // pending 상태에서는 사장님 화면 접근이 인증 대기 화면으로 대체된다 ("인증된 사장님" 권한).
+  bizNumber?: string; // 사업자등록번호 10자리 (형식 검증만 — 진위 확인은 운영팀 수기)
+  bizStatus?: "pending" | "verified";
+  bizVerifiedAt?: number;
 }
 
 // 운영팀(검수) 계정 — 리뷰 통과/반려 백오피스 전용.
@@ -122,8 +128,8 @@ export interface Campaign {
   // 사장님이 후기에 강조해주길 원하는 키워드 — 체험 매장 상세에 노출 (v2.16)
   highlightKeywords?: string[];
   createdAt: number;
-  // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드.
-  // 유저 체험권 화면에 노출되며, 사장님이 QR 스캔 대신 이 4자리를 입력하면 사용 처리됨.
+  // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드 (체험권 인증용 비밀번호).
+  // 체험자 화면에는 노출되지 않는다 — 사장님이 체험자의 체험권 화면 입력란에 직접 입력해 사용 처리.
   useCode: string; // "0000" ~ "9999"
   // 기자단 전용
   pressKeywords?: string[];

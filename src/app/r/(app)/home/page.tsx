@@ -8,6 +8,7 @@ import type { SnsKind } from "@/lib/types";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, walkMinutes, NEARBY_RADIUS_M } from "@/lib/distance-mock";
+import { haversineM, regionCenter } from "@/lib/geo";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
@@ -28,6 +29,8 @@ interface HomeCard {
   soldOut: boolean; // 발급 소진(살아있는 체험권만 남음) — 노출 유지 + 발급 마감 표시
   walkMin: number;
   distanceM: number;
+  lat?: number;
+  lng?: number;
   createdAt: number;
 }
 
@@ -68,6 +71,8 @@ export default async function ReviewerHome({
       soldOut: campaignExposure(c, db.passes, now) === "issued_out",
       walkMin: walkMinutes(store.id),
       distanceM: mockDistanceM(store.id),
+      lat: store.lat,
+      lng: store.lng,
       createdAt: c.createdAt,
     };
   });
@@ -86,11 +91,21 @@ export default async function ReviewerHome({
   // 2026-07-08: 지역 선택은 /r/location(시도→시군구) 페이지에서 — 임의 지역 라벨을 그대로 수용.
   const selectedArea = areaParam || undefined;
 
-  // 걸어서 갈 수 있어요 — 반경 3km 이내, 가까운 순 최대 10개 · 1단 캐러셀 (지역 선택 시 해당 지역 기준)
-  const nearby = cards
-    .filter((p) => (selectedArea ? p.area === selectedArea : p.distanceM <= NEARBY_RADIUS_M))
-    .sort((a, b) => a.distanceM - b.distanceM)
-    .slice(0, 10);
+  // 걸어서 갈 수 있어요 — 기준 지점 반경 3km 이내, 가까운 순 최대 10개 · 1단 캐러셀.
+  // 지역 선택 시: 그 지역의 기준 좌표(regionCenter)에서 반경 3km 실좌표(하버사인) 필터 (확정 정책 1-3).
+  // (기존 area 문자열 정확 일치 방식은 지역 선택 페이지 라벨과 시드 area가 달라 항상 빈 결과였음 — 좌표 기준으로 정정)
+  const areaCenter = selectedArea ? regionCenter(selectedArea) : null;
+  const nearby = (
+    areaCenter
+      ? cards
+          .filter((p) => p.lat != null && p.lng != null && haversineM(areaCenter, { lat: p.lat!, lng: p.lng! }) <= NEARBY_RADIUS_M)
+          .sort(
+            (a, b) =>
+              haversineM(areaCenter, { lat: a.lat!, lng: a.lng! }) -
+              haversineM(areaCenter, { lat: b.lat!, lng: b.lng! }),
+          )
+      : cards.filter((p) => p.distanceM <= NEARBY_RADIUS_M).sort((a, b) => a.distanceM - b.distanceM)
+  ).slice(0, 10);
   // 전국 체험단 전체 리스트 — 최신 등록순 (마감 임박순 아님, 2026-07-07 회의)
   const all = [...cards].sort((a, b) => b.createdAt - a.createdAt);
 
@@ -130,7 +145,7 @@ export default async function ReviewerHome({
         </div>
       </section>
 
-      {/* stat-strip — 이번 달 아낀 금액 / 밀린 리뷰 / 참여 예정 */}
+      {/* stat-strip — 이번 달 아낀 금액 / 작성해야 하는 리뷰 / 발급받은 체험권 (확정 정책 1-1) */}
       <section className="px-5 mt-3">
         <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
           <div className="py-4 px-3 text-center">
@@ -138,11 +153,11 @@ export default async function ReviewerHome({
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.saved, `${savedThisMonth.toLocaleString()}원`)}</div>
           </div>
           <div className="py-4 px-3 text-center border-l border-r border-hairlineSoft">
-            <div className="text-[12px] text-muted">밀린 리뷰</div>
+            <div className="text-[12px] text-muted">작성할 리뷰</div>
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.count, `${pendingReviews}건`)}</div>
           </div>
           <Link href="/r/passes" className="cp-action py-4 px-3 text-center block">
-            <div className="text-[12px] text-brand font-semibold">🎫 참여 예정</div>
+            <div className="text-[12px] text-brand font-semibold">🎫 발급받은 체험권</div>
             <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{sbNum(SBUI.count, `${upcoming}건`)}</div>
           </Link>
         </div>

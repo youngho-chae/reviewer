@@ -20,6 +20,9 @@ export interface ExploreStoreCard extends MapStorePin {
   createdAt: number;
   requiredChannels: SnsKind[];
   soldOut: boolean; // 발급 소진(살아있는 체험권만 남음) — 노출 유지 + 발급 마감 표시
+  // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상에 포함
+  address?: string;
+  keywords?: string[];
 }
 
 export interface ExplorePressCard {
@@ -48,6 +51,7 @@ interface Props {
   initialMode: "list" | "map";
   initialCategory: string;
   initialSort: SortKey;
+  initialSearch?: string;
   // [MVP] 기자단 제외 — false면 세그먼트·리스트를 렌더하지 않는다 (src/lib/flags.ts)
   pressEnabled?: boolean;
 }
@@ -83,6 +87,7 @@ export default function ExploreView({
   initialMode,
   initialCategory,
   initialSort,
+  initialSearch = "",
   pressEnabled = false,
 }: Props) {
   const [mode, setMode] = useState<"list" | "map">(initialMode);
@@ -94,8 +99,8 @@ export default function ExploreView({
   const [channels, setChannels] = useState<Set<SnsKind>>(() => new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>(initialSort);
-  const [search, setSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState(initialSearch);
+  const [searchOpen, setSearchOpen] = useState(!!initialSearch);
   const [mapSelected, setMapSelected] = useState(false);
 
   // 지도 바텀시트(피크) 드래그 — 위로 40px 이상 쓸어올리면 목록 보기로 자동 전환 (2026-07-08).
@@ -136,8 +141,11 @@ export default function ExploreView({
       if (!matchCat(p.category)) return false;
       // 채널 필터 — 선택한 채널 중 하나라도 참여 가능하면 노출
       if (channels.size > 0 && !p.requiredChannels.some((ch) => channels.has(ch))) return false;
-      // 검색 — 지역·매장·키워드(카테고리) 모두 대응
-      return matchesSearch(`${p.name} ${p.area} ${p.category}`, search);
+      // 검색 — 지역(동네·주소)·매장·키워드(카테고리·강조 키워드) 전체 대응 (확정 정책 2-1)
+      return matchesSearch(
+        `${p.name} ${p.area} ${p.address ?? ""} ${p.category} ${(p.keywords ?? []).join(" ")}`,
+        search,
+      );
     });
     list = [...list].sort((a, b) => {
       switch (sort) {

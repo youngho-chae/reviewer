@@ -26,5 +26,6 @@ CATCHPASS: 등급 기반 리뷰 체험권 플랫폼 (Next.js 15 App Router, 모�
 - 발급: `src/app/api/passes/route.ts` — 자기 등급 버킷 우선, 소진 시 잔여 버킷(N→C부터). `consumedSlot`으로 만료/취소 시 복구.
 - **2026-07-07 회의 확정 수치**: 체험권 유효 **발급 후 72h**(연장·복구 불가) · 리뷰 **이용 후 7일** · active 동시 보유 **5장** · 취소 후 동일 캠페인 **12h 재신청 제한** · '걸어서 갈 수 있어요' 반경 **3km**. MVP는 방문형만(`src/lib/flags.ts PRESS_ENABLED=false`). 캠페인 노출은 발급 소진 ≠ 종료(`src/lib/campaign-visibility.ts`). 관심 목록은 캠페인 단위(`db.interests`, `/r/interests`). 스키마 라벨은 형식 마스크(`000,000원`/`00건` — `SBUI`), 금액은 원 접미(₩ 접두 금지).
 - 스토리보드 모드: `src/lib/storyboard.ts`의 `STORYBOARD` 플래그 (true = 스키마 라벨 렌더, 시드 버전 1000+ 계열).
+- **최종 확정 정책 (2026-07-08, `dev` 브랜치)**: 사장님 화면에 체험자 **등급·실명 절대 비노출**(익명 #last4만 — 홈 버킷/로그/후기/스캔/알림/리포트, 내부 데이터는 어드민 전용) · 부스팅(우선 등급) 폐기 — `distributeQuota` 균등 · **사업자 인증**(Owner.bizStatus, pending이면 /o/* 대기 화면, 인증은 /admin/owners) · 캠페인명 = 사장님 관리용(체험자는 매장명 노출) · 필수 메뉴 선택 입력·최대 5개 · 지역 3km·지도 '이 지역 재검색'은 `src/lib/geo.ts`(하버사인·regionCenter) 기준 · **N등급 현행 유지**(5단계). 미확정 항목 제안: 운영정책서 §13.
 - 시크릿: env 전용 (AUTH_SECRET은 production fail-closed, Naver 키 폴백 금지).
 - 빌드 검증: `npx next build` (unused import/var는 빌드 실패).

@@ -423,6 +423,10 @@ export function runSeed(db: DBShape) {
     area: STORYBOARD ? SB.area : "서울",
     plan: "Standard",
     createdAt: now - 1000 * 60 * 60 * 24 * 7,
+    // 사업자 인증 (확정 정책 9) — 데모 계정은 인증 완료 상태로 시드 (기존 데모 무중단)
+    bizNumber: "1234567890",
+    bizStatus: "verified",
+    bizVerifiedAt: now - 1000 * 60 * 60 * 24 * 6,
   };
   db.owners.push(owner);
 

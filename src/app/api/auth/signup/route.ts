@@ -23,6 +23,7 @@ interface OwnerSignup {
   storeName: string;
   category: string;
   area: string;
+  bizNumber?: string; // 사업자등록번호 10자리 (확정 정책 9 — 필수, 수기 인증 대상)
   agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
 }
 
@@ -72,6 +73,12 @@ export async function POST(req: NextRequest) {
     if (db.owners.some((o) => o.email === email)) {
       return NextResponse.json({ error: "이미 가입된 이메일입니다" }, { status: 409 });
     }
+    // 사업자 인증 (확정 정책 9) — 가입 시 사업자등록번호 필수(형식 검증),
+    // pending으로 시작해 운영팀 수기 확인(영업일 2~3일) 후 verified.
+    const bizNumber = String(body.bizNumber || "").replace(/\D/g, "");
+    if (bizNumber.length !== 10) {
+      return NextResponse.json({ error: "사업자등록번호 10자리를 입력해주세요" }, { status: 400 });
+    }
     const owner: Owner = {
       id: rid("ow"),
       email,
@@ -82,6 +89,8 @@ export async function POST(req: NextRequest) {
       plan: "Free",
       createdAt: Date.now(),
       termsAgreedAt: Date.now(),
+      bizNumber,
+      bizStatus: "pending",
     };
     db.owners.push(owner);
     const store: Store = {

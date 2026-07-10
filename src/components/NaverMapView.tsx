@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
-import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
+import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
+import { haversineM, type LatLng } from "@/lib/geo";
 import Icon from "./Icon";
 
 export interface MapStorePin {
@@ -82,12 +83,29 @@ export default function NaverMapView({
   });
   const [sdkFailed, setSdkFailed] = useState(false);
 
+  // ── '이 지역 재검색' (확정 정책 2-3) ──
+  // 지도 이동마다 실시간 재호출하는 대신, 사용자가 지도를 옮긴 뒤 버튼을 눌러
+  // 그 시점 지도 중심 반경 3km 데이터만 다시 계산한다 (핀·카드는 실좌표 하버사인 기준).
+  const [searchCenter, setSearchCenter] = useState<LatLng | null>(null); // null = 전체 보기
+  const [showResearch, setShowResearch] = useState(false);
+  const searchCenterRef = useRef<LatLng | null>(null); // 이동 감지 기준점 (초기 중심 → 재검색 중심)
+
+  const visiblePins = useMemo(
+    () => (searchCenter ? pins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : pins),
+    [pins, searchCenter],
+  );
+
   // ── 선택 카드 캐러셀 (2026-07-07 회의) ──
   // 지도에서 매장을 선택하면 카드가 뜨고, 좌우 스와이프로 다른 매장을 볼 수 있다.
-  // 카드 순서 = 사용자 현재 위치 기준 거리순 (프로토타입은 mock 거리).
+  // 카드 순서 = 기준점(재검색 중심, 없으면 mock 현 위치) 거리순.
   const sortedPins = useMemo(
-    () => [...pins].sort((a, b) => mockDistanceM(a.storeId) - mockDistanceM(b.storeId)),
-    [pins],
+    () =>
+      [...visiblePins].sort((a, b) =>
+        searchCenter
+          ? haversineM(searchCenter, a) - haversineM(searchCenter, b)
+          : mockDistanceM(a.storeId) - mockDistanceM(b.storeId),
+      ),
+    [visiblePins, searchCenter],
   );
   const [selIdx, setSelIdx] = useState<number | null>(null);
   const carouselRef = useRef<HTMLDivElement | null>(null);
@@ -124,7 +142,33 @@ export default function NaverMapView({
   // 핀 집합이 바뀌면 선택 해제 (없어진 핀 참조 방지)
   useEffect(() => {
     setSelIdx(null);
-  }, [pins]);
+  }, [visiblePins]);
+
+  // 재검색 실행 — 현재 지도 중심 기준 반경 3km로 데이터 갱신
+  function researchHere() {
+    if (!mapRef.current) return;
+    try {
+      const c = mapRef.current.getCenter();
+      const center = { lat: c.lat(), lng: c.lng() };
+      searchCenterRef.current = center;
+      setSearchCenter(center);
+      setShowResearch(false);
+      setSelIdx(null);
+    } catch {}
+  }
+
+  // 반경 모드 해제 — 전체 핀으로 복귀 (버튼 즉시 재등장 방지 위해 기준점은 현 중심으로)
+  function resetResearch() {
+    try {
+      const c = mapRef.current?.getCenter();
+      searchCenterRef.current = c ? { lat: c.lat(), lng: c.lng() } : null;
+    } catch {
+      searchCenterRef.current = null;
+    }
+    setSearchCenter(null);
+    setShowResearch(false);
+    setSelIdx(null);
+  }
 
   // 카드 스와이프/핀 탭으로 선택이 바뀌면 지도 포커스를 해당 핀으로 이동 (2026-07-08)
   useEffect(() => {
@@ -222,6 +266,19 @@ export default function NaverMapView({
           style: naver.maps.ZoomControlStyle.SMALL,
         },
       });
+
+      // '이 지역 재검색' — 기준점에서 500m 이상 지도를 옮기면 버튼 노출 (확정 정책 2-3)
+      searchCenterRef.current = { lat: center.lat(), lng: center.lng() };
+      const onMapMoved = () => {
+        try {
+          const c = mapRef.current.getCenter();
+          const cur = { lat: c.lat(), lng: c.lng() };
+          const base = searchCenterRef.current;
+          if (!base || haversineM(base, cur) > 500) setShowResearch(true);
+        } catch {}
+      };
+      naver.maps.Event.addListener(mapRef.current, "dragend", onMapMoved);
+      naver.maps.Event.addListener(mapRef.current, "zoom_changed", onMapMoved);
     } catch {
       setSdkFailed(true);
     }
@@ -241,7 +298,7 @@ export default function NaverMapView({
     }
     markersRef.current = [];
 
-    for (const p of pins) {
+    for (const p of visiblePins) {
       const isSel = selected?.storeId === p.storeId;
       const border = isSel ? PIN_SELECTED : PIN_BORDER;
       const bg = isSel ? PIN_SELECTED_BG : "#ffffff";
@@ -264,14 +321,15 @@ export default function NaverMapView({
       markersRef.current.push(marker);
     }
 
-    // selectPin은 sortedPins에서 파생되며 pins 변경 시 함께 갱신됨
+    // selectPin은 sortedPins에서 파생되며 visiblePins 변경 시 함께 갱신됨
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, selected, sdkReady, sdkFailed]);
+  }, [visiblePins, selected, sdkReady, sdkFailed]);
 
-  // 핀 집합이 바뀌면 중심 재계산 (선택 변경으로는 이동하지 않음)
+  // 핀 집합이 바뀌면 중심 재계산 (선택 변경으로는 이동하지 않음).
+  // 재검색 모드에서는 사용자가 잡은 중심을 유지한다 — 필터 변경으로 지도가 튀지 않게.
   useEffect(() => {
     if (!sdkReady || sdkFailed || !mapRef.current || !window.naver?.maps) return;
-    if (pins.length === 0) return;
+    if (pins.length === 0 || searchCenter) return;
     const naver = window.naver;
     const avg = pins.reduce(
       (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
@@ -280,7 +338,7 @@ export default function NaverMapView({
     try {
       mapRef.current.setCenter(new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length));
     } catch {}
-  }, [pins, sdkReady, sdkFailed]);
+  }, [pins, sdkReady, sdkFailed, searchCenter]);
 
   // unmount 시 마커/맵 정리
   useEffect(() => {
@@ -321,6 +379,41 @@ export default function NaverMapView({
         {!sdkReady && !sdkFailed && (
           <div className="absolute inset-0 grid place-items-center bg-parchment text-muted text-[13px] pointer-events-none">
             지도를 불러오는 중...
+          </div>
+        )}
+
+        {/* '이 지역 재검색' — 기준점에서 벗어나게 지도를 옮기면 노출 (확정 정책 2-3) */}
+        {sdkReady && !sdkFailed && showResearch && (
+          <button
+            type="button"
+            onClick={researchHere}
+            className="cp-action absolute top-3 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1.5 h-9 px-4 rounded-pill bg-white shadow-card text-[13px] font-semibold text-brand"
+          >
+            <span aria-hidden>↻</span> 이 지역 재검색
+          </button>
+        )}
+        {/* 반경 모드 표시 칩 — 재검색 결과 기준 안내 + 전체 복귀 */}
+        {sdkReady && !sdkFailed && searchCenter && !showResearch && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2">
+            <span>이 지역 반경 3km · {visiblePins.length}곳</span>
+            <button type="button" onClick={resetResearch} className="cp-action font-semibold text-brand">
+              전체 보기
+            </button>
+          </div>
+        )}
+        {/* 재검색 결과 0건 — 안내 + 전체 복귀 */}
+        {sdkReady && !sdkFailed && searchCenter && visiblePins.length === 0 && (
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2 pointer-events-none">
+            <div className="px-4 py-2 rounded-md bg-white/95 shadow-card text-[13px] text-muted">
+              이 지역엔 지금 모집 중인 체험이 없어요
+            </div>
+            <button
+              type="button"
+              onClick={resetResearch}
+              className="cp-action pointer-events-auto h-9 px-4 rounded-pill bg-ink text-white text-[13px] font-semibold"
+            >
+              전체 보기로 돌아가기
+            </button>
           </div>
         )}
 
@@ -366,7 +459,11 @@ export default function NaverMapView({
                       <div className="flex-1 min-w-0">
                         <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
                         <div className="mt-1 text-[13px] text-muted truncate">
-                          {p.category} · {sbNum(SBUI.distance, formatDistance(mockDistanceM(p.storeId)))}
+                          {p.category} ·{" "}
+                          {sbNum(
+                            SBUI.distance,
+                            formatDistance(searchCenter ? haversineM(searchCenter, p) : mockDistanceM(p.storeId)),
+                          )}
                         </div>
                         <div className="mt-1.5 text-[16px] font-bold text-ink tabular-nums">
                           최대 {sbNum(SBUI.support, `${p.supportAmount.toLocaleString()}원`)} 지원

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
 import ReviewActions from "./ReviewActions";
 
@@ -96,10 +95,8 @@ export default async function OwnerReviews() {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <GradeBadge grade={p.reviewerGrade} size="sm" />
-                  <span className="text-[12px] text-muted">
-                    익명 #{reviewer?.id.slice(-4)} · {p.reviewerGrade}등급
-                  </span>
+                  {/* [확정 정책 8·10] 체험자 등급은 사장님에게 비노출 — 익명 표기만 */}
+                  <span className="text-[12px] text-muted">익명 #{reviewer?.id.slice(-4)}</span>
                 </div>
                 <span
                   className={`text-[11px] px-2 py-0.5 rounded-pill font-semibold ${toneCls(meta?.tone || "mute")}`}

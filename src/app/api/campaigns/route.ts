@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
           return { name: "" };
         })
         .filter((m: RequiredMenu) => m.name.length > 0)
+        .slice(0, 5) // 필수 주문 메뉴는 선택 입력·최대 5개 (확정 정책 6)
     : [];
 
   // 필수 채널 — 허용 채널(블/인/틱)만 통과, 중복 제거
@@ -101,12 +102,14 @@ export async function POST(req: NextRequest) {
     : [];
 
   const now = Date.now();
-  // 캠페인 제목은 매장명으로 자동 설정 — 사장님이 별도 입력하지 않음
+  // 캠페인명 — 사장님 내부 관리용 제목 (확정 정책 7). 미입력 시 매장명 자동.
+  // 체험자 화면은 항상 매장명(store.name) 중심으로 노출한다.
+  const ownerTitle = String(body.title || "").trim().slice(0, 40);
   const c: Campaign = {
     id: rid("cp"),
     storeId: store.id,
     kind: "visit",
-    title: store.name,
+    title: ownerTitle || store.name,
     startAt: now,
     endAt: now + (Number(body.days) || 30) * 86400000,
     supportAmount: Number(body.supportAmount) || 0,

@@ -153,7 +153,8 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           <GradeBadge grade={pass.reviewerGrade} size="lg" />
         </div>
         <h1 className="text-[20px] font-bold text-ink tracking-title leading-[1.3]">{store?.name}</h1>
-        <p className="mt-1.5 text-[14px] text-ink2">{campaign?.title}</p>
+        {/* [확정 정책 7] 캠페인명은 사장님 내부 관리용 — 체험자에게는 매장명 중심 노출 */}
+        <p className="mt-1.5 text-[14px] text-ink2">{store?.area} · {store?.category}</p>
         <p className="mt-1 text-[13px] text-muted">
           지원금 <span className="font-bold text-ink tabular-nums">{SBUI.support}</span>
           {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
