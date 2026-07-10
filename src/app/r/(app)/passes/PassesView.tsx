@@ -7,6 +7,7 @@ import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { fmtKoDateTime } from "@/lib/dates";
 import { CHANNEL_LABEL } from "@/lib/channels";
+import { DISPLAY_BADGE, type PassDisplayStatus } from "@/lib/pass-display";
 import type { SnsKind } from "@/lib/types";
 import CancelPassButton from "./[id]/CancelPassButton";
 
@@ -23,12 +24,16 @@ export interface VisitPassItem {
   storeName: string;
   category: string;
   status: string;
+  // 파생 표시 상태 (src/lib/pass-display.ts) — used+기한초과=overdue, rejected+기한/횟수 소진=resubmit_expired.
+  // 탭 분류는 실상태(status), 뱃지·칩 필터·카드 액션은 displayStatus 기준.
+  displayStatus: PassDisplayStatus;
   channel: SnsKind | null;
   grade: string;
   support: number; // 이 체험권으로 받는 지원금 (등급 적용액)
   expiresAt: number;
   usedAt: number | null;
-  reviewDeadline: number | null; // usedAt + 7일
+  reviewDeadline: number | null; // used=이용 후 7일 / rejected=반려 후 7일(재제출 기한)
+  deadlineKind: "review" | "resubmit" | null; // 날짜 라벨 — "리뷰마감" vs "재제출 기한"
   rejectReason: string | null;
   highlight: boolean;
 }
@@ -36,16 +41,6 @@ export interface VisitPassItem {
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
 const ISSUED_STATUSES = ["active", "cancelled", "expired"] as const;
 const REVIEW_STATUSES = ["used", "review_submitted", "completed", "rejected"] as const;
-
-const BADGE: Record<string, { label: string; cls: string }> = {
-  active: { label: "사용가능", cls: "bg-successSoft text-successStrong" },
-  cancelled: { label: "취소", cls: "bg-sunken text-mutedSoft" },
-  expired: { label: "만료", cls: "bg-sunken text-mutedSoft" },
-  used: { label: "작성 대기 중", cls: "bg-brandSoft text-brand" },
-  review_submitted: { label: "검수중", cls: "bg-sunken text-muted" },
-  completed: { label: "검수 완료", cls: "bg-sunken text-muted" },
-  rejected: { label: "반려", cls: "bg-errorSoft text-error" },
-};
 
 const ISSUED_CHIPS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
@@ -59,6 +54,7 @@ const REVIEW_CHIPS: { key: string; label: string }[] = [
   { key: "review_submitted", label: "검수중" },
   { key: "completed", label: "검수완료" },
   { key: "rejected", label: "반려" },
+  { key: "overdue_any", label: "기한 초과" }, // overdue + resubmit_expired
 ];
 
 export default function PassesView({
@@ -82,7 +78,15 @@ export default function PassesView({
     const statuses = tab === "issued" ? ISSUED_STATUSES : REVIEW_STATUSES;
     return items.filter((it) => (statuses as readonly string[]).includes(it.status));
   }, [items, tab]);
-  const filtered = chip === "all" ? tabItems : tabItems.filter((it) => it.status === chip);
+  // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다
+  const filtered =
+    chip === "all"
+      ? tabItems
+      : tabItems.filter((it) =>
+          chip === "overdue_any"
+            ? it.displayStatus === "overdue" || it.displayStatus === "resubmit_expired"
+            : it.displayStatus === chip,
+        );
   const chips = tab === "issued" ? ISSUED_CHIPS : REVIEW_CHIPS;
 
   return (
@@ -197,10 +201,10 @@ export default function PassesView({
 }
 
 function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
-  const badge = BADGE[it.status] ?? { label: it.status, cls: "bg-sunken text-muted" };
-  const isActive = it.status === "active";
-  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기)
-  const emphasized = isActive || it.status === "used" || it.highlight;
+  const badge = DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
+  const isActive = it.displayStatus === "active";
+  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기 — 기한 초과 제외)
+  const emphasized = isActive || it.displayStatus === "used" || it.highlight;
 
   return (
     <div
@@ -273,8 +277,8 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
         </div>
       )}
 
-      {/* 리뷰작성 탭 상태들 (2026-07-08 시안) */}
-      {it.status === "used" && (
+      {/* 리뷰작성 탭 상태들 (2026-07-08 시안 · 2026-07-10 파생 상태) */}
+      {it.displayStatus === "used" && (
         <>
           {it.reviewDeadline && (
             <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
@@ -296,7 +300,19 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
         </>
       )}
 
-      {it.status === "review_submitted" && (
+      {/* 제출 기한 초과 — CTA 없음 (서버도 기한 경과 제출을 차단) */}
+      {it.displayStatus === "overdue" && (
+        <>
+          <div className="mt-3.5 flex">
+            <StoreInfoButton it={it} />
+          </div>
+          <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
+            리뷰 제출 기한(이용 후 7일)이 지났어요. 반복되면 월간 등급 재평가에 감점으로 반영돼요.
+          </div>
+        </>
+      )}
+
+      {it.displayStatus === "review_submitted" && (
         <>
           <div className="mt-3.5 flex">
             <StoreInfoButton it={it} />
@@ -307,11 +323,12 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
         </>
       )}
 
-      {it.status === "rejected" && (
+      {it.displayStatus === "rejected" && (
         <>
           {it.reviewDeadline && (
             <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
-              <span className="text-muted">리뷰마감</span>
+              {/* 반려 후 7일 재제출 기한 — '유효기간/리뷰마감'과 구분되는 명칭 (2026-07-10) */}
+              <span className="text-muted">재제출 기한</span>
               <span className="font-semibold text-ink tabular-nums">
                 {sbNum(SBUI.dateTime, fmtKoDateTime(it.reviewDeadline))}까지
               </span>
@@ -323,13 +340,25 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               href={`/r/passes/${it.id}`}
               className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
             >
-              리뷰 제출
+              리뷰 다시 제출
             </Link>
           </div>
         </>
       )}
 
-      {it.status === "completed" && (
+      {/* 재제출 기한 초과 (또는 재제출 1회 소진) — CTA 없음 */}
+      {it.displayStatus === "resubmit_expired" && (
+        <>
+          <div className="mt-3.5 flex">
+            <StoreInfoButton it={it} />
+          </div>
+          <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
+            재제출 기한(반려 후 7일)이 지났거나 재제출 횟수(1회)를 사용했어요. 이의가 있으면 고객센터로 문의해주세요.
+          </div>
+        </>
+      )}
+
+      {it.displayStatus === "completed" && (
         <div className="mt-3.5 flex">
           <StoreInfoButton it={it} />
         </div>

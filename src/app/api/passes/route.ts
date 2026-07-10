@@ -4,14 +4,13 @@ import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
 import { Pass, Grade, SnsKind } from "@/lib/types";
 import { CHANNEL_LABEL } from "@/lib/channels";
-import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
+import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 
 // 동시 보유 가능한 체험권(사용 전 active) 최대 수 — 2026-07-07 회의 확정
 const MAX_ACTIVE_PASSES = 5;
-// 취소 후 동일 캠페인 재신청 제한 시간 — 장기 점유 후 취소·재발급 악용 방지
-const CANCEL_REAPPLY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+// 취소 후 동일 캠페인 재신청 제한(12h)은 매장 상세 CTA와 공유 — src/lib/pass-lifecycle.ts
 
 export const runtime = "nodejs";
 

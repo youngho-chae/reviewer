@@ -6,6 +6,7 @@ import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED } from "@/lib/flags";
 import { supportForGrade } from "@/lib/grade";
+import { passDisplayStatus, DISPLAY_BADGE } from "@/lib/pass-display";
 import GradeBadge from "@/components/GradeBadge";
 import PassesView, { type VisitPassItem } from "./PassesView";
 import PassPendingBanner from "./PassPendingBanner";
@@ -14,26 +15,8 @@ import type { Pass, Campaign, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const statusLabel = (s: string) => ({
-  active: "사용 가능",
-  used: "리뷰 작성 대기",
-  review_submitted: "검수 대기",
-  completed: "완료",
-  expired: "만료",
-  cancelled: "취소함",
-  rejected: "반려",
-} as any)[s] || s;
-
-// 상태 칩 — *Soft 토큰 배경 + 강한 텍스트 (v2 상태 칩 문법) — 기자단 뷰에서 사용
-const statusChip = (s: string) => ({
-  active: "bg-brandSoft text-brand",
-  used: "bg-warningSoft text-warning",
-  review_submitted: "bg-sunken text-muted",
-  completed: "bg-successSoft text-successStrong",
-  expired: "bg-sunken text-mutedSoft",
-  cancelled: "bg-sunken text-mutedSoft",
-  rejected: "bg-errorSoft text-error",
-} as any)[s] || "bg-sunken text-muted";
+// 상태 라벨·칩은 src/lib/pass-display.ts의 단일 정의(DISPLAY_BADGE)를 공유 (2026-07-10 — 3중 정의 단일화).
+const pressBadge = (p: Pass) => DISPLAY_BADGE[passDisplayStatus(p)] ?? { label: p.status, cls: "bg-sunken text-muted" };
 
 export default async function MyPasses({
   searchParams,
@@ -109,6 +92,7 @@ export default async function MyPasses({
       storeName: store?.name ?? "매장",
       category: store?.category ?? "",
       status: p.status,
+      displayStatus: passDisplayStatus(p, now),
       channel: p.reviewChannel ?? null,
       grade: p.reviewerGrade,
       support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
@@ -121,6 +105,7 @@ export default async function MyPasses({
           : p.usedAt
             ? p.usedAt + REVIEW_DEADLINE_MS
             : null,
+      deadlineKind: p.status === "rejected" ? ("resubmit" as const) : p.usedAt ? ("review" as const) : null,
       rejectReason: p.rejectReason ?? null,
       highlight: p.id === justIssued,
     };
@@ -172,8 +157,8 @@ export default async function MyPasses({
                         <GradeBadge grade={p.reviewerGrade} size="sm" />
                         <span className="inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-1 text-[12px] font-semibold">기자단</span>
                       </div>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${statusChip(p.status)}`}>
-                        {p.status === "active" ? "자료 수령" : statusLabel(p.status)}
+                      <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${pressBadge(p).cls}`}>
+                        {p.status === "active" ? "자료 수령" : pressBadge(p).label}
                       </span>
                     </div>
                     <h3 className="text-[16px] font-bold text-ink tracking-title leading-[1.35]">{store?.name}</h3>
@@ -196,7 +181,7 @@ export default async function MyPasses({
                       </Link>
                     ) : p.status === "review_submitted" ? (
                       <div className="mt-4 p-3 bg-sunken rounded-md text-[13px] text-muted text-center">
-                        운영팀 검수 중 · 최대 72시간
+                        운영팀 검수 중 · 영업일 기준 최대 3일
                       </div>
                     ) : p.status === "rejected" ? (
                       <Link

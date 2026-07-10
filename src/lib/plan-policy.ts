@@ -8,6 +8,10 @@
 // 기존 priorityGrade(A/S 우선 배분)는 제거됨. 부스팅은 추후 비즈니스 모델로 별도 검토.
 //
 // 플랜별 한도: Premium 무제한 · Standard 50팀 · Basic 15팀 · Free 5팀(기본).
+//
+// [2026-07-10] 멤버십 혜택에 "탐색 추천순 노출 우대" 추가 — 추천순 정렬은
+// 사장님 플랜 랭크(PLAN_RANK) → 캠페인 최신순. 이는 **사장님 멤버십** 기준의
+// 마케팅 노출 우대이지 리뷰어 등급이 아니므로 P1(등급=혜택 크기만)과 무관하다.
 
 import { CampaignGradeQuota, Owner } from "./types";
 
@@ -45,6 +49,14 @@ export const PLAN_POLICY: Record<PlanKey, PlanGradePolicy> = {
     monthlyTeamLimit: 5,
     description: "월 5팀까지 모집 (멤버십 미가입)",
   },
+};
+
+// 추천순 정렬용 플랜 랭크 — 높을수록 상위 노출. '현재 플랜' 기준(조회 시점 조인).
+export const PLAN_RANK: Record<PlanKey, number> = {
+  Premium: 3,
+  Standard: 2,
+  Basic: 1,
+  Free: 0,
 };
 
 // 총 모집 인원을 등급별 quota로 균등 분배 (남는 인원은 첫 등급부터 채움).

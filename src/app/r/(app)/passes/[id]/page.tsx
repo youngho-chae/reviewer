@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { supportForGrade } from "@/lib/grade";
+import { passDisplayStatus } from "@/lib/pass-display";
 import { CHANNEL_LABEL, defaultChannel } from "@/lib/channels";
 import { findSupportBoost, boostedLimit } from "@/lib/referral";
 import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
@@ -158,11 +159,21 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <span className="text-brand text-[18px] shrink-0">›</span>
             </Link>
 
-            <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
-            <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-              실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
-            </p>
-            <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+            {passDisplayStatus(pass) === "overdue" ? (
+              /* 제출 기한 초과 — 서버(/api/passes/review)도 기한 경과 제출을 차단하므로 폼 대신 안내만 */
+              <div className="mt-9 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
+                리뷰 제출 기한(이용 후 7일)이 지나 더 이상 제출할 수 없어요. 기한 초과는 월간 등급 재평가에
+                감점으로 반영됩니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+              </div>
+            ) : (
+              <>
+                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
+                <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
+                  실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
+                </p>
+                <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+              </>
+            )}
           </div>
         )}
 

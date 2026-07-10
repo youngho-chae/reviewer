@@ -31,9 +31,11 @@ export function centroidOf(points: LatLng[]): LatLng | null {
   return { lat, lng };
 }
 
-// 지역 기준 좌표 사전 — 시도 17 + 서울 시군구(구청 인근 대표점).
+// 지역 기준 좌표 사전 — 각 지역의 **대표 행정기관**(도청/시청/구청/군청) 인근 대표점 기준.
+// 예: 서울=시청, 강남구=구청. 특정 지역 선택 시 이 기준점 반경 3km를 적용한다 (확정: 2026-07-10).
 // 프로토타입 범위: 시드 매장이 전부 서울권이라 서울 구 단위만 상세 등재.
 // 그 외 시군구는 소속 시도 대표점으로 폴백(regionCenter 참조).
+// 좌표 정밀 검증(청사 이전·복수 청사 대표 좌표 관리)은 운영정책서 §13 미확정 항목.
 const REGION_CENTERS: Record<string, LatLng> = {
   // 시도
   서울: { lat: 37.5665, lng: 126.978 },
@@ -80,6 +82,31 @@ const REGION_CENTERS: Record<string, LatLng> = {
   송파구: { lat: 37.5145, lng: 127.1059 },
   강동구: { lat: 37.5301, lng: 127.1238 },
 };
+
+// 시도 17개 대분류 — 전국 지도 클러스터(지역별 캠페인 건수) 집계·마커 좌표용.
+const SIDO_LABELS = [
+  "서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "세종",
+  "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+] as const;
+
+export const SIDO_CENTERS: Record<string, LatLng> = Object.fromEntries(
+  SIDO_LABELS.map((k) => [k, REGION_CENTERS[k]]),
+);
+
+// 좌표 → 최근접 시도 라벨. 매장 area 문자열은 동네 라벨("성수동" 등)이라
+// 시도 매칭이 불가능하므로 클러스터 집계는 좌표 기반으로 한다.
+export function nearestSido(p: LatLng): string {
+  let best = SIDO_LABELS[0] as string;
+  let bestD = Infinity;
+  for (const k of SIDO_LABELS) {
+    const d = haversineM(p, REGION_CENTERS[k]);
+    if (d < bestD) {
+      bestD = d;
+      best = k;
+    }
+  }
+  return best;
+}
 
 // 지역 라벨 → 기준 좌표. ① 정확/포함 일치 ② 소속 시도 폴백 ③ null.
 export function regionCenter(label: string): LatLng | null {

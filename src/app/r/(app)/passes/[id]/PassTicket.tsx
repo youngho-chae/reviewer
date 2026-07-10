@@ -36,6 +36,7 @@ export default function PassTicket({
   const [paid, setPaid] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [netErr, setNetErr] = useState(false); // 네트워크 오류 — [다시 시도] 노출 조건
   const [done, setDone] = useState(false);
   const hiddenInput = useRef<HTMLInputElement | null>(null);
 
@@ -47,6 +48,7 @@ export default function PassTicket({
     if (digits.length !== 4) return;
     setBusy(true);
     setErr(null);
+    setNetErr(false);
     try {
       const res = await fetch("/api/passes/use-by-code", {
         method: "POST",
@@ -62,7 +64,9 @@ export default function PassTicket({
       setDone(true);
       setTimeout(() => router.refresh(), 900);
     } catch {
-      setErr("네트워크 오류가 발생했습니다");
+      // 인증 성공 전에는 체험권 상태가 바뀌지 않으므로 같은 입력으로 재시도해도 안전하다.
+      setErr("네트워크 오류가 발생했습니다. 연결을 확인해주세요.");
+      setNetErr(true);
       setBusy(false);
     }
   }
@@ -167,6 +171,7 @@ export default function PassTicket({
             onChange={(e) => {
               setDigits(e.target.value.replace(/\D/g, "").slice(0, 4));
               setErr(null);
+              setNetErr(false);
             }}
             inputMode="numeric"
             autoFocus
@@ -214,7 +219,21 @@ export default function PassTicket({
             </div>
           )}
 
-          {err && <div className="mt-3 text-[13px] text-error text-center">{err}</div>}
+          {err && (
+            <div className="mt-3 text-center">
+              <div className="text-[13px] text-error">{err}</div>
+              {netErr && (
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={busy}
+                  className="cp-action mt-2 h-10 px-5 rounded-md border border-hairline bg-canvas text-[13px] font-semibold text-ink"
+                >
+                  다시 시도
+                </button>
+              )}
+            </div>
+          )}
 
           <button
             onClick={submit}
@@ -223,6 +242,12 @@ export default function PassTicket({
           >
             {busy ? "처리 중..." : "사용처리"}
           </button>
+
+          <p className="mt-4 text-[12px] text-mutedSoft text-center leading-[1.5]">
+            인증이 반복해서 실패하면 매장 직원에게 확인을 요청하거나
+            <br />
+            고객센터(help@catchrank.co.kr)로 문의해주세요.
+          </p>
         </div>
       )}
     </div>

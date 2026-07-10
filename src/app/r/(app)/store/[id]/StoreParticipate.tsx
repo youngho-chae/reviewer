@@ -22,6 +22,10 @@ interface Props {
   myActivePassId: string | null;
   remain: number;
   ended?: boolean; // 캠페인 기간 종료 — 상세는 열람 가능하되 신청 차단 (관심 목록 경유)
+  // 노출 상태 (campaign-visibility) — issued_out = 일시 소진 (미사용 만료 시 복구 가능 · 종료 아님)
+  exposure?: "open" | "issued_out" | "closed";
+  // 취소 후 12h 재신청 쿨다운 잔여 시간 — 서버(/api/passes)와 동일 판정을 CTA에 사전 반영
+  cooldownLeftH?: number | null;
   children?: ReactNode; // 라디오 섹션과 리뷰 조건 사이의 정적 섹션들 (서버 렌더)
 }
 
@@ -39,6 +43,8 @@ export default function StoreParticipate({
   myActivePassId,
   remain,
   ended = false,
+  exposure = "open",
+  cooldownLeftH = null,
   children,
 }: Props) {
   const router = useRouter();
@@ -219,9 +225,10 @@ export default function StoreParticipate({
               {connected ? sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) : "—"}
             </div>
           </div>
-          {ended ? (
+          {/* CTA 우선순위 (2026-07-10 §1): 종료 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
+          {ended || (remain <= 0 && exposure === "closed") ? (
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
-              마감된 체험이에요
+              종료된 체험입니다
             </button>
           ) : myActivePassId ? (
             <Link
@@ -230,9 +237,13 @@ export default function StoreParticipate({
             >
               내 체험권 보기
             </Link>
+          ) : cooldownLeftH != null ? (
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
+              12시간 후 재신청 가능 ({sbNum("약 00시간", `약 ${cooldownLeftH}시간`)} 남음)
+            </button>
           ) : remain <= 0 ? (
-            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
-              마감되었습니다
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
+              현재 신청 가능한 체험권이 없습니다
             </button>
           ) : !anyConnected ? (
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
@@ -287,10 +298,11 @@ export default function StoreParticipate({
             <div className="mt-5 rounded-md bg-sunken px-4 py-3.5">
               <div className="text-[13px] font-bold text-ink">ⓘ 꼭 확인해주세요</div>
               <ul className="mt-2 space-y-1 text-[12px] text-muted leading-[1.55] list-disc pl-4">
-                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요.</li>
+                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요. (취소는 불이익이 없어요)</li>
                 <li>같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.</li>
                 <li>기한이 지난 체험권은 연장·복구되지 않아요.</li>
                 <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
+                <li>미사용 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
               </ul>
             </div>
 

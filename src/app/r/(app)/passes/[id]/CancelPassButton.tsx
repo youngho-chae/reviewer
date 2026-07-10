@@ -69,15 +69,19 @@ export default function CancelPassButton({
         onClick={() => !loading && setConfirming(false)}
       >
         <div
-          className="w-full max-w-[400px] bg-canvas rounded-xl px-6 pt-8 pb-6 text-center"
+          className="w-full max-w-[400px] bg-canvas rounded-xl px-6 pt-7 pb-6 text-center"
           onClick={(e) => e.stopPropagation()}
           role="alertdialog"
-          aria-label="참여 취소 확인"
+          aria-label="방문 취소 확인"
         >
-          <p className="text-[15px] text-ink leading-[1.6]">
-            같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.
+          {/* 2026-07-10 §9-2 — 취소 결과를 실제 정책 그대로 안내 (회수·12h 재신청·무패널티) */}
+          <h2 className="text-[17px] font-bold text-ink tracking-title">방문을 취소하시겠어요?</h2>
+          <p className="mt-3 text-[14px] text-ink2 leading-[1.65]">
+            취소하면 체험권은 즉시 회수되고, 모집 자리는 다른 체험자에게 돌아가요.
             <br />
-            신중하게 선택해주세요.
+            같은 캠페인 재신청은 12시간 뒤부터 가능해요.
+            <br />
+            취소 자체에 등급 불이익은 없어요 — 방문이 어렵다면 만료 방치보다 취소가 좋아요.
           </p>
           {err && <div className="mt-3 text-[12px] text-error">{err}</div>}
           <div className="mt-6 grid grid-cols-2 gap-2">
@@ -86,14 +90,14 @@ export default function CancelPassButton({
               onClick={submit}
               className="cp-action h-12 rounded-md bg-sunken text-ink text-[15px] font-semibold disabled:opacity-50"
             >
-              {loading ? "취소 중..." : "취소할게요"}
+              {loading ? "취소 중..." : "방문 취소하기"}
             </button>
             <button
               disabled={loading}
               onClick={() => setConfirming(false)}
               className="cp-action h-12 rounded-md bg-brand text-white text-[15px] font-bold disabled:opacity-60"
             >
-              계속 사용할게요
+              계속 이용하기
             </button>
           </div>
         </div>
