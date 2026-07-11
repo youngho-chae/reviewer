@@ -11,8 +11,9 @@ import type { ExploreStoreCard } from "./ExploreView";
  *  - draft 상태: 열릴 때 적용값 스냅샷 → 칩 조작은 draft만 변경, [적용하기]로 커밋
  *    (기존 "선택 즉시 반영"에서 변경 — 상단 카테고리 칩의 즉시 반영과는 분리)
  *  - SNS 채널·카테고리에 '전체' 칩 (선택 시 개별 선택 초기화 = 빈 Set)
- *  - 지역 항목 신설: 현재 지역 표시 + [현위치](해제) + 시도→시군구 선택(LocationSheet 재사용)
- *  - [초기화] = 카테고리·채널 전체 해제 + 지역은 홈 설정 지역으로 복귀
+ *  - 지역 항목은 **3상태** (2026-07-10 확정): 미선택(기본 — 두 칩 모두 비활성·전국 기준) /
+ *    현위치(칩 토글 — 재클릭 시 해제) / 지역(시도→시군구, LocationSheet 재사용). 상호 배타.
+ *  - [초기화] = 카테고리·채널 전체 해제 + 지역 미선택 (미선택이 정식 기본값)
  */
 interface CatGroup {
   key: string;
@@ -26,7 +27,7 @@ export default function FilterSheet({
   appliedCats,
   appliedChannels,
   appliedArea,
-  homeArea,
+  appliedCurrent,
   catGroups,
   onClose,
   onApply,
@@ -35,15 +36,16 @@ export default function FilterSheet({
   appliedCats: Set<string>;
   appliedChannels: Set<SnsKind>;
   appliedArea: string | null;
-  homeArea: string | null; // 홈에서 설정한 기본 지역 — [초기화] 시 복귀 기준
+  appliedCurrent: boolean; // 현위치 필터 선택 여부 (area와 상호 배타)
   catGroups: CatGroup[];
   onClose: () => void;
-  onApply: (next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null }) => void;
+  onApply: (next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null; useCurrent: boolean }) => void;
 }) {
   // 오픈 시점 스냅샷 — 시트가 열려 있는 동안 상단 칩 조작이 draft를 덮지 않는다
   const [draftCats, setDraftCats] = useState<Set<string>>(() => new Set(appliedCats));
   const [draftChannels, setDraftChannels] = useState<Set<SnsKind>>(() => new Set(appliedChannels));
   const [draftArea, setDraftArea] = useState<string | null>(appliedArea);
+  const [draftCurrent, setDraftCurrent] = useState<boolean>(appliedCurrent);
   const [regionOpen, setRegionOpen] = useState(false);
 
   function toggleDraftCat(key: string) {
@@ -102,17 +104,23 @@ export default function FilterSheet({
           </button>
         </div>
 
-        {/* 지역 — 현재 설정 지역 기본, 현위치(해제)/지역 선택 (§8-3) */}
+        {/* 지역 — 3상태: 미선택(기본·두 칩 비활성) / 현위치(토글 — 재클릭 해제) / 지역 선택 (§8-3, 2026-07-10) */}
         <div className="mt-4">
           <div className="text-[14px] font-semibold text-ink">지역</div>
           <div className="mt-2.5 flex gap-2 flex-wrap">
             <button
               type="button"
-              onClick={() => setDraftArea(null)}
-              aria-pressed={draftArea === null}
-              className={chipCls(draftArea === null)}
+              onClick={() =>
+                setDraftCurrent((prev) => {
+                  const next = !prev;
+                  if (next) setDraftArea(null); // 현위치 켜면 지역 해제 (상호 배타)
+                  return next;
+                })
+              }
+              aria-pressed={draftCurrent}
+              className={chipCls(draftCurrent)}
             >
-              <Icon name="crosshair" variant="border" size={14} />
+              <Icon name="crosshair" variant={draftCurrent ? "bold" : "border"} size={14} />
               현위치
             </button>
             <button
@@ -126,7 +134,9 @@ export default function FilterSheet({
               <Icon name="chevron-down" variant="border" size={12} className="text-muted" />
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-muted">지역을 선택하면 그 지역 기준으로 지도와 거리가 바뀌어요 (탐색에서만 적용)</p>
+          <p className="mt-1.5 text-[11px] text-muted">
+            선택하지 않으면 전국 기준이에요 · 지역을 선택하면 그 지역 기준으로 지도와 거리가 바뀌어요 (탐색에서만 적용)
+          </p>
         </div>
 
         <div className="mt-5">
@@ -181,14 +191,15 @@ export default function FilterSheet({
           </div>
         </div>
 
-        {/* 하단 — 초기화(홈 기본 지역 복귀) + 적용하기 */}
+        {/* 하단 — 초기화(전체 해제 · 지역 미선택이 기본값) + 적용하기 */}
         <div className="mt-6 flex gap-2">
           <button
             type="button"
             onClick={() => {
               setDraftCats(new Set());
               setDraftChannels(new Set());
-              setDraftArea(homeArea);
+              setDraftArea(null);
+              setDraftCurrent(false);
             }}
             className="cp-action h-[52px] px-5 rounded-md bg-sunken text-[15px] font-semibold text-ink inline-flex items-center gap-1.5"
           >
@@ -196,7 +207,7 @@ export default function FilterSheet({
           </button>
           <button
             type="button"
-            onClick={() => onApply({ cats: draftCats, channels: draftChannels, area: draftArea })}
+            onClick={() => onApply({ cats: draftCats, channels: draftChannels, area: draftArea, useCurrent: draftCurrent })}
             className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold"
           >
             적용하기 · 체험 {previewCount}개
@@ -204,14 +215,18 @@ export default function FilterSheet({
         </div>
       </div>
 
-      {/* 지역 선택 — 홈 LocationSheet 재사용 (onPick 콜백 모드 · 탐색 한정) */}
+      {/* 지역 선택 — 홈 LocationSheet 재사용 (onPick 콜백 모드 · 탐색 한정).
+          [현위치로 설정](null 픽)은 현위치 필터 선택으로 매핑 — 지역과 상호 배타. */}
       {regionOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <LocationSheet
             current={draftArea ?? undefined}
             title="지역 선택"
             onClose={() => setRegionOpen(false)}
-            onPick={(a) => setDraftArea(a)}
+            onPick={(a) => {
+              setDraftArea(a);
+              setDraftCurrent(a === null);
+            }}
           />
         </div>
       )}

@@ -61,6 +61,8 @@ interface Props {
   // [§5 지역 연동] 홈에서 선택한 지역 — 지도 초기 포커스(3km)·리스트 거리 기준점.
   // 탐색 내 지역 변경(필터 시트)은 탐색 한정 — 홈의 선택 지역에는 영향을 주지 않는다.
   initialArea?: string | null;
+  // [지역 필터 3상태] ?loc=me — 현위치 필터 선택 상태 복원 (미선택·지역 선택 시 미기재)
+  initialLoc?: string | null;
   // [§6-4] 전국 진입(scope=all — 홈 '전체 리스트' 더 둘러보기): 지도를 대한민국 전체 축소로 시작
   initialNationwide?: boolean;
   // [MVP] 기자단 제외 — false면 세그먼트·리스트를 렌더하지 않는다 (src/lib/flags.ts)
@@ -101,6 +103,7 @@ export default function ExploreView({
   initialSearch = "",
   initialChannels = [],
   initialArea = null,
+  initialLoc = null,
   initialNationwide = false,
   pressEnabled = false,
 }: Props) {
@@ -117,8 +120,12 @@ export default function ExploreView({
       ),
   );
   const [channels, setChannels] = useState<Set<SnsKind>>(() => new Set(initialChannels));
-  // [§8 지역 필터] 탐색 한정 지역 상태 — 필터 시트에서 변경, 홈 area와 독립
+  // [§8 지역 필터 — 3상태 (2026-07-10)] 미선택(기본) / 현위치(useCurrent) / 지역(area).
+  // 탐색 한정 상태 — 필터 시트에서 변경, 홈 area와 독립. area와 useCurrent는 상호 배타.
   const [area, setArea] = useState<string | null>(initialArea);
+  // 현위치 필터 — 프로토타입에서는 mock 현위치 거리 기준(미선택과 표기 동일)이며,
+  // 실서비스에서 GPS 좌표가 거리·지도 기준점으로 들어갈 자리. 미선택과 달리 필터 뱃지에 계상.
+  const [useCurrent, setUseCurrent] = useState<boolean>(initialArea ? false : initialLoc === "me");
   const [filterOpen, setFilterOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>(initialSort);
   const [search, setSearch] = useState(initialSearch);
@@ -136,7 +143,8 @@ export default function ExploreView({
   );
 
   // 필터 적용값을 URL에 반영 — 새로고침·뒤로가기에도 유지 (§8-4). 홈 area와는 독립.
-  function syncUrl(next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null }) {
+  // scope=all은 진입 시점 파라미터라 보존하지 않는다(필터 적용 후에는 현재 상태가 진실원천).
+  function syncUrl(next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null; useCurrent: boolean }) {
     const params = new URLSearchParams();
     if (mode === "list") params.set("mode", "list");
     if (sort !== "recommended") params.set("sort", sort);
@@ -144,6 +152,7 @@ export default function ExploreView({
     if (next.cats.size > 0) params.set("cat", [...next.cats].join(","));
     if (next.channels.size > 0) params.set("ch", [...next.channels].join(","));
     if (next.area) params.set("area", next.area);
+    else if (next.useCurrent) params.set("loc", "me");
     const qs = params.toString();
     router.replace(`/r/explore${qs ? `?${qs}` : ""}`, { scroll: false });
   }
@@ -173,8 +182,8 @@ export default function ExploreView({
     sheetDragCleanup.current = cleanup;
   }
 
-  // 적용 중 필터 개수 — 필터 아이콘 뱃지에 표기 (§8-4)
-  const filterCount = cats.size + channels.size + (area ? 1 : 0);
+  // 적용 중 필터 개수 — 필터 아이콘 뱃지에 표기 (§8-4). 지역 미선택(기본)은 미계상.
+  const filterCount = cats.size + channels.size + (area ? 1 : 0) + (useCurrent ? 1 : 0);
   const filterActive = filterCount > 0;
 
   const matchCat = useMemo(() => {
@@ -228,15 +237,16 @@ export default function ExploreView({
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      syncUrl({ cats: next, channels, area });
+      syncUrl({ cats: next, channels, area, useCurrent });
       return next;
     });
   }
   // 필터 시트 [적용하기] 커밋 — draft 상태를 한 번에 반영 + URL 유지
-  function applyFilters(next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null }) {
+  function applyFilters(next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null; useCurrent: boolean }) {
     setCats(next.cats);
     setChannels(next.channels);
     setArea(next.area);
+    setUseCurrent(next.area ? false : next.useCurrent);
     setFilterOpen(false);
     syncUrl(next);
   }
@@ -314,7 +324,7 @@ export default function ExploreView({
             onClick={() => {
               const next = new Set<string>();
               setCats(next);
-              syncUrl({ cats: next, channels, area });
+              syncUrl({ cats: next, channels, area, useCurrent });
             }}
             className={`inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill text-[14px] font-medium whitespace-nowrap bg-canvas ${
               cats.size === 0 ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink2"
@@ -518,7 +528,7 @@ export default function ExploreView({
           appliedCats={cats}
           appliedChannels={channels}
           appliedArea={area}
-          homeArea={initialArea}
+          appliedCurrent={useCurrent}
           catGroups={CAT_GROUPS}
           onClose={() => setFilterOpen(false)}
           onApply={applyFilters}

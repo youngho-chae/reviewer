@@ -14,7 +14,7 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string }>;
 }) {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
@@ -78,6 +78,8 @@ export default async function ReviewerExplore({
   // [§5 지역 연동] 홈에서 선택한 지역(?area=) — ExploreView가 regionCenter로 기준점을 해석해
   // 지도 초기 포커스(반경 3km)·리스트 거리 기준점으로 쓴다. ?ch=는 필터 재진입 복원.
   const initialArea = nationwide ? null : sp.area || null;
+  // 지역 필터 3상태(2026-07-10) — ?loc=me = 현위치 필터 재진입 복원 (미선택이 기본값, 전국 진입은 무시)
+  const initialLoc = nationwide ? null : sp.loc || null;
   const validChannels: SnsKind[] = ["naver_blog", "instagram", "tiktok"];
   const initialChannels = (sp.ch ? sp.ch.split(",") : []).filter((c): c is SnsKind =>
     (validChannels as string[]).includes(c),
@@ -137,6 +139,7 @@ export default async function ReviewerExplore({
       initialSearch={sp.q || ""}
       initialChannels={initialChannels}
       initialArea={initialArea}
+      initialLoc={initialLoc}
       initialNationwide={nationwide}
       pressEnabled={PRESS_ENABLED}
     />
