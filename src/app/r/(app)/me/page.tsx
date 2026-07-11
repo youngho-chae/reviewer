@@ -77,16 +77,35 @@ export default async function Me() {
         </div>
       </section>
 
-      {/* Light tile — connected channels */}
+      {/* Light tile — connected channels (관리·본인 인증은 /r/me/channels — 2026-07-10) */}
       <section className="bg-canvas px-6 py-12">
-        <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-4">연동된 채널</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase">연동된 채널</h2>
+          <Link href="/r/me/channels" className="cp-action text-[13px] font-semibold text-brand">
+            채널 관리 →
+          </Link>
+        </div>
         <div className="rounded-lg border border-hairline overflow-hidden">
           {ALL_CH.map((k, i) => {
             const linked = me.sns.find((s) => s.kind === k);
             return (
-              <div key={k} className={`px-5 py-4 flex items-center justify-between ${i < ALL_CH.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
+              <Link
+                href="/r/me/channels"
+                key={k}
+                className={`cp-action px-5 py-4 flex items-center justify-between ${i < ALL_CH.length - 1 ? "border-b border-hairlineSoft" : ""}`}
+              >
                 <div>
-                  <div className="text-[15px] text-ink">{ch_label[k]}</div>
+                  <div className="text-[15px] text-ink flex items-center gap-2">
+                    {ch_label[k]}
+                    {linked &&
+                      (linked.verified ? (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-pill text-[10px] font-semibold ${linked.verifiedVia === "oauth" ? "bg-successSoft text-successStrong" : "bg-brandSoft text-brand"}`}>
+                          ✓ {linked.verifiedVia === "oauth" ? "본인 인증" : "데모 인증"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-sunken text-muted text-[10px] font-semibold">미인증</span>
+                      ))}
+                  </div>
                   <div className="text-[13px] text-muted mt-0.5">
                     {linked ? `${ch_metric[k]} ${linked.influence.toLocaleString()}명` : "연동 안 됨"}
                   </div>
@@ -94,9 +113,9 @@ export default async function Me() {
                 {linked ? (
                   <span className="text-[13px] text-brand">연동됨</span>
                 ) : (
-                  <span className="text-[13px] text-muted">미연동</span>
+                  <span className="text-[13px] text-brand font-semibold">연동하기 →</span>
                 )}
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -153,7 +172,7 @@ export default async function Me() {
           </a>
         </div>
         <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-          SNS 채널 추가·변경은 고객센터(help@catchrank.co.kr)로 문의해주세요.
+          SNS 채널 연동·해제는 <Link href="/r/me/channels" className="text-brand font-semibold">채널 관리</Link>에서 직접 할 수 있어요.
         </p>
 
         {/* 법적 고지 — 가입 전에도 접근 가능한 /legal 문서로 연결 */}

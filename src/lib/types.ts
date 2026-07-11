@@ -7,6 +7,15 @@ export interface SnsAccount {
   kind: SnsKind;
   url: string;
   influence: number; // 일방문자/팔로워/구독자 자연수
+  // ── 본인 소유 검증 (2026-07-10 신설) ──
+  // 가입 자기신고분은 미검증(undefined). OAuth(네이버/페이스북/틱톡 로그인) 또는
+  // 데모 검증(키 미설정 환경 시연용)으로 검증되면 아래 필드가 채워진다.
+  // OAuth 액세스 토큰은 저장하지 않는다 — 검증 직후 폐기 (개인정보 최소 수집).
+  verified?: boolean;
+  verifiedAt?: number;
+  verifiedVia?: "oauth" | "demo";
+  providerAccountId?: string; // 프로바이더 계정 고유 ID (네이버 id / FB user id / 틱톡 open_id)
+  accountName?: string; // 프로바이더 표시명 또는 username
 }
 
 // ── 등급 월간 재평가 (2026-07-08 설계) ──

@@ -263,13 +263,15 @@ export default async function ReviewerGrade() {
                 <div className="flex-1 min-w-0">
                   <div className="text-[14px] text-ink font-medium">{CHANNEL_LABEL[ch]}</div>
                   <div className="text-[11px] text-muted mt-0.5">
-                    {connected ? `지원금 ${Math.round(SUPPORT_MULTIPLIER[g as Grade] * 100)}% 적용` : "미연동 · 고객센터로 추가 문의"}
+                    {connected ? `지원금 ${Math.round(SUPPORT_MULTIPLIER[g as Grade] * 100)}% 적용` : "미연동"}
                   </div>
                 </div>
                 {connected ? (
                   <GradeBadge grade={g as Grade} size="sm" />
                 ) : (
-                  <span className="text-[12px] text-muted">미연동</span>
+                  <Link href="/r/me/channels" className="cp-action text-[12px] font-semibold text-brand shrink-0">
+                    채널 관리에서 연동 →
+                  </Link>
                 )}
               </div>
             );

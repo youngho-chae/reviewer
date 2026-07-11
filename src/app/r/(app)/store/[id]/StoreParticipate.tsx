@@ -128,7 +128,10 @@ export default function StoreParticipate({
                     <span className="text-[15px] font-semibold text-mutedSoft truncate">{CHANNEL_LABEL[ch]}</span>
                     <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill border border-hairline text-[11px] text-muted">연동 필요</span>
                   </span>
-                  <span className="text-[14px] font-semibold text-mutedSoft shrink-0">확인불가</span>
+                  {/* 미연동 채널은 선택 불가 유지 — 채널 관리에서 본인 인증 연동 후 참여 (2026-07-10) */}
+                  <Link href="/r/me/channels" className="cp-action text-[12px] font-semibold text-brand shrink-0">
+                    연동하기 →
+                  </Link>
                 </div>
               );
             }
