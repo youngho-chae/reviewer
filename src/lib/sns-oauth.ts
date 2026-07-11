@@ -59,14 +59,50 @@ export function redirectUri(kind: SnsKind, origin: string): string {
   return `${origin}/api/sns/${kind}/callback`;
 }
 
+// [통합 테스트 전용] SNS_OAUTH_TEST_BASE 설정 시 프로바이더 엔드포인트를 스텁 서버
+// (scripts/sns-oauth-stub.mjs)로 대체 — 요청/응답 형태는 실 프로바이더와 동일하므로
+// state·토큰 교환·프로필 파싱 등 "실 코드 경로"가 그대로 검증된다.
+// production에서는 무시(실 엔드포인트 고정) — 우회 불가.
+function testBase(): string | null {
+  if (process.env.NODE_ENV === "production") return null;
+  return process.env.SNS_OAUTH_TEST_BASE || null;
+}
+
+// 프로바이더별 엔드포인트 — 실 스펙 고정, 테스트 베이스가 있으면 같은 형태의 스텁 경로로 대체
+function endpoints(kind: SnsKind): { authorize: string; token: string; profile: string; accounts?: string } {
+  const tb = testBase();
+  switch (kind) {
+    case "naver_blog":
+      return {
+        authorize: tb ? `${tb}/naver_blog/authorize` : "https://nid.naver.com/oauth2.0/authorize",
+        token: tb ? `${tb}/naver_blog/token` : "https://nid.naver.com/oauth2.0/token",
+        profile: tb ? `${tb}/naver_blog/profile` : "https://openapi.naver.com/v1/nid/me",
+      };
+    case "instagram":
+      return {
+        authorize: tb ? `${tb}/instagram/authorize` : "https://www.facebook.com/v19.0/dialog/oauth",
+        token: tb ? `${tb}/instagram/token` : "https://graph.facebook.com/v19.0/oauth/access_token",
+        profile: tb ? `${tb}/instagram/profile` : "https://graph.facebook.com/v19.0/me",
+        accounts: tb ? `${tb}/instagram/accounts` : "https://graph.facebook.com/v19.0/me/accounts",
+      };
+    case "tiktok":
+      return {
+        authorize: tb ? `${tb}/tiktok/authorize` : "https://www.tiktok.com/v2/auth/authorize/",
+        token: tb ? `${tb}/tiktok/token` : "https://open.tiktokapis.com/v2/oauth/token/",
+        profile: tb ? `${tb}/tiktok/profile` : "https://open.tiktokapis.com/v2/user/info/",
+      };
+  }
+}
+
 // 프로바이더 인가 URL — state는 호출측이 httpOnly 쿠키로 함께 보관(CSRF 방지)
 export function buildAuthorizeUrl(kind: SnsKind, origin: string, state: string): string {
   const { id } = creds(kind);
   const cb = redirectUri(kind, origin);
+  const ep = endpoints(kind);
   switch (kind) {
     case "naver_blog": {
       const p = new URLSearchParams({ response_type: "code", client_id: id, redirect_uri: cb, state });
-      return `https://nid.naver.com/oauth2.0/authorize?${p}`;
+      return `${ep.authorize}?${p}`;
     }
     case "instagram": {
       const p = new URLSearchParams({
@@ -76,7 +112,7 @@ export function buildAuthorizeUrl(kind: SnsKind, origin: string, state: string):
         response_type: "code",
         scope: "public_profile,pages_show_list,instagram_basic",
       });
-      return `https://www.facebook.com/v19.0/dialog/oauth?${p}`;
+      return `${ep.authorize}?${p}`;
     }
     case "tiktok": {
       const p = new URLSearchParams({
@@ -86,7 +122,7 @@ export function buildAuthorizeUrl(kind: SnsKind, origin: string, state: string):
         redirect_uri: cb,
         state,
       });
-      return `https://www.tiktok.com/v2/auth/authorize/?${p}`;
+      return `${ep.authorize}?${p}`;
     }
   }
 }
@@ -95,6 +131,7 @@ export function buildAuthorizeUrl(kind: SnsKind, origin: string, state: string):
 export async function exchangeToken(kind: SnsKind, code: string, origin: string, state: string): Promise<string> {
   const { id, secret } = creds(kind);
   const cb = redirectUri(kind, origin);
+  const ep = endpoints(kind);
   switch (kind) {
     case "naver_blog": {
       const p = new URLSearchParams({
@@ -104,20 +141,20 @@ export async function exchangeToken(kind: SnsKind, code: string, origin: string,
         code,
         state,
       });
-      const res = await fetch(`https://nid.naver.com/oauth2.0/token?${p}`);
+      const res = await fetch(`${ep.token}?${p}`);
       const j = await res.json();
       if (!j.access_token) throw new Error(`naver token: ${j.error_description || j.error || res.status}`);
       return j.access_token as string;
     }
     case "instagram": {
       const p = new URLSearchParams({ client_id: id, client_secret: secret, redirect_uri: cb, code });
-      const res = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?${p}`);
+      const res = await fetch(`${ep.token}?${p}`);
       const j = await res.json();
       if (!j.access_token) throw new Error(`meta token: ${j.error?.message || res.status}`);
       return j.access_token as string;
     }
     case "tiktok": {
-      const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+      const res = await fetch(ep.token, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -137,9 +174,10 @@ export async function exchangeToken(kind: SnsKind, code: string, origin: string,
 
 // 토큰 → 본인 신원 조회
 export async function fetchIdentity(kind: SnsKind, token: string): Promise<SnsIdentity> {
+  const ep = endpoints(kind);
   switch (kind) {
     case "naver_blog": {
-      const res = await fetch("https://openapi.naver.com/v1/nid/me", {
+      const res = await fetch(ep.profile, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const j = await res.json();
@@ -148,7 +186,7 @@ export async function fetchIdentity(kind: SnsKind, token: string): Promise<SnsId
       return { accountId: String(r.id), accountName: r.nickname || r.name || "네이버 사용자" };
     }
     case "instagram": {
-      const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
+      const meRes = await fetch(`${ep.profile}?fields=id,name&access_token=${encodeURIComponent(token)}`);
       const me = await meRes.json();
       if (!me?.id) throw new Error(`meta profile: ${me.error?.message || meRes.status}`);
       // best-effort: 연결된 페이지의 인스타 비즈니스 계정에서 username·팔로워 조회 (권한 미승인 시 무시)
@@ -156,7 +194,7 @@ export async function fetchIdentity(kind: SnsKind, token: string): Promise<SnsId
       let followers: number | undefined;
       try {
         const pagesRes = await fetch(
-          `https://graph.facebook.com/v19.0/me/accounts?fields=instagram_business_account{username,followers_count}&access_token=${encodeURIComponent(token)}`,
+          `${ep.accounts}?fields=instagram_business_account{username,followers_count}&access_token=${encodeURIComponent(token)}`,
         );
         const pages = await pagesRes.json();
         const ig = (pages.data ?? []).map((p: any) => p.instagram_business_account).find(Boolean);
@@ -166,10 +204,9 @@ export async function fetchIdentity(kind: SnsKind, token: string): Promise<SnsId
       return { accountId: String(me.id), accountName: username || me.name || "인스타그램 사용자", username, followers };
     }
     case "tiktok": {
-      const res = await fetch(
-        "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,username,follower_count",
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await fetch(`${ep.profile}?fields=open_id,display_name,username,follower_count`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const j = await res.json();
       const u = j.data?.user;
       if (!u?.open_id) throw new Error(`tiktok profile: ${j.error?.message || res.status}`);
