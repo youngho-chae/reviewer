@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
-import { haversineM, type LatLng } from "@/lib/geo";
+import { haversineM, nearestSido, SIDO_CENTERS, type LatLng } from "@/lib/geo";
 import type { MapStorePin } from "./NaverMapView";
 
 /**
@@ -20,19 +20,19 @@ function markerAmount(p: MapStorePin): string {
   return STORYBOARD ? "최대 지원금액" : `최대 ${p.supportAmount.toLocaleString()}원`;
 }
 
-// 핀 좌표를 [pad, 100-pad] % 범위로 정규화 (동일 좌표/단일 핀은 중앙 근처로)
-function project(pins: MapStorePin[]) {
+// 좌표 집합을 [pad, 100-pad] % 범위로 정규화 (동일 좌표/단일 지점은 중앙 근처로)
+function project(pts: Array<{ lat: number; lng: number }>) {
   const pad = 14;
   const span = 100 - pad * 2;
-  const lats = pins.map((p) => p.lat);
-  const lngs = pins.map((p) => p.lng);
+  const lats = pts.map((p) => p.lat);
+  const lngs = pts.map((p) => p.lng);
   const minLat = Math.min(...lats), maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
   const dLat = maxLat - minLat || 1;
   const dLng = maxLng - minLng || 1;
-  return pins.map((p) => ({
-    x: pins.length <= 1 ? 50 : pad + ((p.lng - minLng) / dLng) * span,
-    y: pins.length <= 1 ? 50 : pad + ((maxLat - p.lat) / dLat) * span, // 위도 반전
+  return pts.map((p) => ({
+    x: pts.length <= 1 ? 50 : pad + ((p.lng - minLng) / dLng) * span,
+    y: pts.length <= 1 ? 50 : pad + ((maxLat - p.lat) / dLat) * span, // 위도 반전
   }));
 }
 
@@ -46,20 +46,41 @@ export default function MockMapView({
   onSelectionChange?: (hasSelection: boolean) => void;
   // [§5 지역 연동] 선택 지역의 행정 기준점 — 반경 3km 필터로 시작 (실지도와 동일 UX 최소 구현)
   initialSearchCenter?: LatLng | null;
-  // [§6-4] 전국 진입 — 데모 지도는 전 핀 정규화 투영이 이미 전국을 보여주므로 별도 처리 없음.
-  // 시도 클러스터 시작 화면은 실지도(NaverMapView) 전용 (최소 구현 원칙).
+  // [§6-4] 전국 진입(scope=all) — 데모 지도도 시도별 건수 클러스터로 시작 (2026-07-10 누락 정정).
+  // 데모 지도는 줌이 없으므로: 클러스터 마커 탭 = 해당 시도 핀으로 "확대", [전국 보기] = 클러스터 복귀.
   nationwide?: boolean;
 }) {
-  void nationwide; // 데모 지도는 항상 전국 투영 — prop은 실지도와의 시그니처 호환용
   // '이 지역 재검색' (확정 정책 2-3) — 데모 지도는 자유 드래그가 없으므로
   // 핀 선택/카드 스와이프로 중심이 기준점에서 500m 이상 벗어나면 버튼을 노출하고,
   // 클릭 시 선택 핀 실좌표 기준 반경 3km로 데이터를 다시 계산한다 (실지도와 동일 UX).
   const [searchCenter, setSearchCenter] = useState<LatLng | null>(initialSearchCenter);
   const [showResearch, setShowResearch] = useState(false);
+  // [§6-4] 전국 클러스터 — 탭한 시도(= 데모 지도의 "확대" 상태). null + nationwide = 클러스터 시작 화면.
+  const [sidoFocus, setSidoFocus] = useState<string | null>(null);
+  const clusterView = nationwide && sidoFocus === null && !searchCenter;
+
+  // 시도별 노출 캠페인 건수 — 좌표 최근접 시도 기준 (실지도 클러스터와 동일 집계)
+  const sidoClusters = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of pins) {
+      const s = nearestSido(p);
+      counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .filter(([sido]) => SIDO_CENTERS[sido])
+      .map(([sido, count]) => ({ sido, count, lat: SIDO_CENTERS[sido].lat, lng: SIDO_CENTERS[sido].lng }));
+  }, [pins]);
+  const clusterPos = useMemo(() => project(sidoClusters), [sidoClusters]);
+
+  // "확대" 상태면 해당 시도 핀만 투영 (실지도의 줌인에 대응)
+  const basePins = useMemo(
+    () => (nationwide && sidoFocus ? pins.filter((p) => nearestSido(p) === sidoFocus) : pins),
+    [pins, nationwide, sidoFocus],
+  );
 
   const visiblePins = useMemo(
-    () => (searchCenter ? pins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : pins),
-    [pins, searchCenter],
+    () => (searchCenter ? basePins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : basePins),
+    [basePins, searchCenter],
   );
   const sortedPins = useMemo(
     () =>
@@ -106,6 +127,8 @@ export default function MockMapView({
     setSearchCenter(null);
     setShowResearch(false);
     setSelIdx(null);
+    // 전국 진입이면 GPS 리센터/전체 보기가 클러스터 시작 화면으로 복귀
+    if (nationwide) setSidoFocus(null);
   }
 
   // 선택 핀을 화면 중앙으로 옮기는 팬 오프셋 (translate %는 요소 자기 크기 기준 = 컨테이너 크기)
@@ -152,6 +175,29 @@ export default function MockMapView({
         🗺️ 데모 지도 · 지도 키 연동 시 실지도 전환
       </div>
 
+      {/* [§6-4] 전국 클러스터 안내/복귀 칩 */}
+      {clusterView && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2 inline-flex items-center whitespace-nowrap">
+          지역을 탭하면 해당 지역 체험이 보여요
+        </div>
+      )}
+      {nationwide && sidoFocus && !searchCenter && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2 whitespace-nowrap">
+          <span className="font-semibold text-ink">{sidoFocus}</span>
+          <span>· {visiblePins.length}곳</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSidoFocus(null);
+              setSelIdx(null);
+            }}
+            className="cp-action font-semibold text-brand"
+          >
+            전국 보기
+          </button>
+        </div>
+      )}
+
       {/* '이 지역 재검색' — 선택 이동으로 기준점을 벗어나면 노출 (확정 정책 2-3) */}
       {showResearch && selected && (
         <button
@@ -195,7 +241,31 @@ export default function MockMapView({
           <span className="block w-4 h-4 rounded-full bg-info border-[3px] border-white" style={{ boxShadow: "0 0 0 6px rgba(59,130,246,.25)" }} />
         </div>
 
-        {sortedPins.map((p, i) => {
+        {/* [§6-4] 전국 클러스터 시작 화면 — 시도별 건수 마커 (탭 = 해당 시도로 "확대") */}
+        {clusterView &&
+          sidoClusters.map((c, i) => (
+            <button
+              key={c.sido}
+              type="button"
+              onClick={() => {
+                setSidoFocus(c.sido);
+                setSelIdx(null);
+              }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
+              style={{ left: `${clusterPos[i].x}%`, top: `${clusterPos[i].y}%` }}
+              aria-label={`${c.sido} 체험 보기`}
+            >
+              <div
+                className="min-w-[52px] px-2.5 py-1.5 rounded-pill bg-brand text-white text-center leading-tight"
+                style={{ boxShadow: "0 3px 10px rgba(0,0,0,.2)" }}
+              >
+                <div className="text-[12px] font-bold">{c.sido}</div>
+                <div className="text-[11px] font-semibold tabular-nums">{STORYBOARD ? "00건" : `${c.count}건`}</div>
+              </div>
+            </button>
+          ))}
+
+        {!clusterView && sortedPins.map((p, i) => {
           const isSel = selIdx === i;
           return (
             <button
