@@ -24,7 +24,7 @@ export interface SnsAccount {
 // 리뷰 품질은 주관 평가 배제 원칙으로 점수 요소에서 제외 — 반려 종착만 패널티로 반영.
 export interface GradeHistoryEntry {
   month: string; // 평가 대상 월 "YYYY-MM" (KST)
-  channel?: SnsKind; // 채널별 항목 (undefined = 종합 등급 변동 요약)
+  channel?: SnsKind; // 채널별 항목 (undefined = 표기 등급(연동 채널 중 최고) 변동 요약)
   from: Grade;
   to: Grade;
   breakdown: { I: number; F: number; W: number; P: number; GS: number };
@@ -41,7 +41,10 @@ export interface Reviewer {
   passwordHash: string;
   nickname: string;
   sns: SnsAccount[];
-  grade: Grade; // 종합 등급(연동 채널 중 최상위) — 단일 등급 UI/뱃지에 사용
+  // 표기용 대표 등급 — '종합 등급'이라는 별도 평가 기준은 존재하지 않는다 (2026-07-10 정정).
+  // 등급은 채널별로 각각 평가되며(channelGrades), 이 값은 마이페이지 등 단일 등급 UI/뱃지에
+  // 연동 채널 중 가장 높은 등급을 표기하기 위한 파생 값이다 (bestGrade).
+  grade: Grade;
   // 채널별 등급 — 연동된 각 채널을 독립적으로 평가 (v2.16).
   // 예: { naver_blog: "A", instagram: "C" }
   channelGrades?: Partial<Record<SnsKind, Grade>>;

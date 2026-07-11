@@ -571,7 +571,7 @@ export function runSeed(db: DBShape) {
   }
 
   // ── 데모 체험자 ──
-  // 채널별 등급 데모: 블로그 A(영향력 큼) / 인스타 C(작음) → 종합 A
+  // 채널별 등급 데모: 블로그 A(영향력 큼) / 인스타 C(작음) → 표기 등급 A(최고 채널)
   const demoSns = [
     { kind: "naver_blog" as SnsKind, url: "https://blog.naver.com/demo", influence: 60000 },
     { kind: "instagram" as SnsKind, url: "https://instagram.com/demo", influence: 5800 },

@@ -188,8 +188,9 @@ export default function ChannelManager({
       })}
 
       <p className="pt-1 text-[12px] text-muted leading-[1.55]">
-        현재 종합 등급 <span className="font-semibold text-ink">{overallGrade}</span> — 연동·해제 시 채널별 등급과 종합
-        등급(연동 채널 중 최상위)이 다시 계산돼요.
+        등급은 <span className="font-semibold text-ink2">채널별로 각각 평가</span>돼요. 마이페이지에는 연동 채널 중
+        가장 높은 등급(현재 <span className="font-semibold text-ink">{overallGrade}</span>)이 표기되며, 연동·해제 시
+        다시 계산돼요.
       </p>
 
       {/* 해제 확인 — 중앙 모달 */}
@@ -207,7 +208,9 @@ export default function ChannelManager({
             <p className="mt-3 text-[14px] text-ink2 leading-[1.65]">
               해제하면 이 채널 캠페인에 새로 참여할 수 없고,
               <br />
-              종합 등급이 다시 계산돼요.
+              마이페이지 표기 등급이 남은 채널 중 가장 높은
+              <br />
+              등급으로 바뀔 수 있어요.
               <br />
               진행 중인 체험권과 이력은 그대로 유지돼요.
             </p>

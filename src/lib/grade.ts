@@ -59,7 +59,8 @@ export function channelGradesFromSns(sns: SnsAccount[]): Partial<Record<SnsKind,
   return out;
 }
 
-// 여러 등급 중 가장 높은(종합) 등급. 비어 있으면 N.
+// 여러 채널 등급 중 가장 높은 등급 — 마이페이지 등 단일 표기용 대표 값.
+// '종합 등급'이라는 별도 평가 기준은 없다(채널별 독립 평가, 2026-07-10 정정). 비어 있으면 N.
 export function bestGrade(grades: Array<Grade | undefined>): Grade {
   let best: Grade = "N";
   for (const g of grades) {

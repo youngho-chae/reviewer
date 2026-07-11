@@ -57,7 +57,7 @@ export default async function ReviewerGrade() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
 
-  // 최신 월간 재평가 결과 (channel 미지정 = 종합 요약 행)
+  // 최신 월간 재평가 결과 (channel 미지정 = 표기 등급 요약 행)
   const summaries = (me.gradeHistory ?? []).filter((h) => !h.channel);
   const latest = summaries.length > 0 ? summaries[summaries.length - 1] : null;
   const latestScored = latest && !latest.skipped ? latest : null;

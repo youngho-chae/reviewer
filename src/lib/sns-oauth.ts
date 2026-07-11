@@ -190,7 +190,7 @@ export function deriveChannelUrl(kind: SnsKind, identity: SnsIdentity, pendingUr
   return pendingUrl;
 }
 
-// 연동 커밋 — sns upsert + 채널/종합 등급 재계산 (signup·demo-verify·OAuth 콜백 공용).
+// 연동 커밋 — sns upsert + 채널별 등급·표기 등급(연동 채널 중 최고) 재계산 (signup·demo-verify·OAuth 콜백 공용).
 // 등급 재계산은 가입 시 관례(channelGradesFromSns + bestGrade)와 동일. [P1] 참여 게이트는
 // "연동 여부"뿐 — verified는 신뢰 표식이며 참여·지원금 산정에 영향을 주지 않는다.
 export function applySnsConnect(

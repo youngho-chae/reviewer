@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   // 참여 채널 / 자격 등급 결정.
   //  - 방문형(visit): 참여 시점에 채널 확정. 선택 채널의 내 등급으로 자격·지원금 결정.
-  //  - 기자단(press): 작성 시점에 채널 선택. 종합 등급으로 자격 판정.
+  //  - 기자단(press): 작성 시점에 채널 선택. 표기 등급(연동 채널 중 최고)으로 자격 판정. (MVP 제외)
   const isPress = c.kind === "press";
   // [MVP] 기자단은 1차 출시 범위에서 제외 — 발급 차단 (src/lib/flags.ts)
   if (isPress && !PRESS_ENABLED) {
