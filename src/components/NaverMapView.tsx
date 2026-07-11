@@ -64,6 +64,9 @@ function lngLatToPixel(
 
 // 시도 클러스터 발동 줌 임계 — 이보다 축소되면 개별 핀 대신 지역별 건수 마커 (2026-07-10 §6-4)
 const CLUSTER_ZOOM_BELOW = 10;
+// 전국 시작 뷰 — 대한민국 전체 가시권 (남한 중앙 근사 · zoom 7 → 클러스터 모드 즉시 발동)
+const NATIONWIDE_CENTER: LatLng = { lat: 36.2, lng: 127.9 };
+const NATIONWIDE_ZOOM = 7;
 
 export default function NaverMapView({
   pins,
@@ -71,6 +74,7 @@ export default function NaverMapView({
   fullscreen = false,
   onSelectionChange,
   initialSearchCenter = null,
+  nationwide = false,
 }: {
   pins: MapStorePin[];
   clientId: string;
@@ -78,6 +82,9 @@ export default function NaverMapView({
   onSelectionChange?: (hasSelection: boolean) => void;
   // [§5 지역 연동] 선택 지역의 행정 기준점 — 초기 포커스 + 반경 3km 필터로 시작
   initialSearchCenter?: LatLng | null;
+  // [§6-4] 전국 진입(홈 '전체 리스트' 더 둘러보기) — 대한민국 전체 축소로 시작해
+  // 시도별 건수 클러스터를 즉시 노출. initialSearchCenter가 있으면 지역 포커스가 우선.
+  nationwide?: boolean;
 }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -96,7 +103,8 @@ export default function NaverMapView({
   const [showResearch, setShowResearch] = useState(false);
   const searchCenterRef = useRef<LatLng | null>(initialSearchCenter); // 이동 감지 기준점 (초기 중심 → 재검색 중심)
   // 현재 줌 — CLUSTER_ZOOM_BELOW 미만이면 시도 클러스터 모드 (재검색 UI 억제)
-  const [zoomLevel, setZoomLevel] = useState(initialSearchCenter ? 13 : 12);
+  const startNationwide = nationwide && !initialSearchCenter;
+  const [zoomLevel, setZoomLevel] = useState(initialSearchCenter ? 13 : startNationwide ? NATIONWIDE_ZOOM : 12);
   const clusterMode = zoomLevel < CLUSTER_ZOOM_BELOW;
 
   const visiblePins = useMemo(
@@ -273,16 +281,19 @@ export default function NaverMapView({
         (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
         { lat: 0, lng: 0 }
       );
-      // [§5] 선택 지역 기준점이 있으면 그 좌표로 시작 (줌 13 = 반경 3km 가시권)
+      // [§5] 선택 지역 기준점이 있으면 그 좌표로 시작 (줌 13 = 반경 3km 가시권).
+      // [§6-4] 전국 진입은 남한 전체 가시권(줌 7 → 클러스터 즉시)으로 시작.
       const center = initialSearchCenter
         ? new naver.maps.LatLng(initialSearchCenter.lat, initialSearchCenter.lng)
-        : pins.length
-          ? new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
-          : new naver.maps.LatLng(37.5665, 126.978);
+        : startNationwide
+          ? new naver.maps.LatLng(NATIONWIDE_CENTER.lat, NATIONWIDE_CENTER.lng)
+          : pins.length
+            ? new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length)
+            : new naver.maps.LatLng(37.5665, 126.978);
 
       mapRef.current = new naver.maps.Map(mapEl.current, {
         center,
-        zoom: initialSearchCenter ? 13 : 12,
+        zoom: initialSearchCenter ? 13 : startNationwide ? NATIONWIDE_ZOOM : 12,
         mapTypeControl: false,
         logoControl: true,
         scaleControl: false,
@@ -397,9 +408,10 @@ export default function NaverMapView({
 
   // 핀 집합이 바뀌면 중심 재계산 (선택 변경으로는 이동하지 않음).
   // 재검색 모드에서는 사용자가 잡은 중심을 유지한다 — 필터 변경으로 지도가 튀지 않게.
+  // 클러스터(전국) 모드에서도 유지 — 전국 축소 시작 뷰가 centroid로 튀지 않게 (§6-4).
   useEffect(() => {
     if (!sdkReady || sdkFailed || !mapRef.current || !window.naver?.maps) return;
-    if (pins.length === 0 || searchCenter) return;
+    if (pins.length === 0 || searchCenter || clusterMode) return;
     const naver = window.naver;
     const avg = pins.reduce(
       (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
@@ -408,7 +420,7 @@ export default function NaverMapView({
     try {
       mapRef.current.setCenter(new naver.maps.LatLng(avg.lat / pins.length, avg.lng / pins.length));
     } catch {}
-  }, [pins, sdkReady, sdkFailed, searchCenter]);
+  }, [pins, sdkReady, sdkFailed, searchCenter, clusterMode]);
 
   // unmount 시 마커/맵 정리
   useEffect(() => {

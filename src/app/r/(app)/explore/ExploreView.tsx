@@ -61,6 +61,8 @@ interface Props {
   // [§5 지역 연동] 홈에서 선택한 지역 — 지도 초기 포커스(3km)·리스트 거리 기준점.
   // 탐색 내 지역 변경(필터 시트)은 탐색 한정 — 홈의 선택 지역에는 영향을 주지 않는다.
   initialArea?: string | null;
+  // [§6-4] 전국 진입(scope=all — 홈 '전체 리스트' 더 둘러보기): 지도를 대한민국 전체 축소로 시작
+  initialNationwide?: boolean;
   // [MVP] 기자단 제외 — false면 세그먼트·리스트를 렌더하지 않는다 (src/lib/flags.ts)
   pressEnabled?: boolean;
 }
@@ -99,6 +101,7 @@ export default function ExploreView({
   initialSearch = "",
   initialChannels = [],
   initialArea = null,
+  initialNationwide = false,
   pressEnabled = false,
 }: Props) {
   const router = useRouter();
@@ -441,10 +444,18 @@ export default function ExploreView({
               onSelectionChange={setMapSelected}
               // [§5] 홈 선택 지역(또는 필터 지역)의 행정 기준점 — 초기 포커스 + 반경 3km 필터
               initialSearchCenter={areaCenter}
+              // [§6-4] 전국 진입 — 대한민국 전체 축소 시작(시도 클러스터). 반경 3km 필터는
+              // 지도 전용 탐색 도구이며 리스트는 항상 필터 시트(지역·채널·카테고리) 기준 (확정).
+              nationwide={initialNationwide}
             />
           ) : (
             // 지도 키 미주입 시 임시(데모) 지도 — 지도뷰 UI·인터랙션을 키 없이 완결 제공 (2026-07-08)
-            <MockMapView pins={filtered} onSelectionChange={setMapSelected} initialSearchCenter={areaCenter} />
+            <MockMapView
+              pins={filtered}
+              onSelectionChange={setMapSelected}
+              initialSearchCenter={areaCenter}
+              nationwide={initialNationwide}
+            />
           )}
 
           {/* bottom-sheet(피크) — 핀 미선택 시. 디폴트는 카테고리 탭+필터 아이콘 영역까지만 노출,

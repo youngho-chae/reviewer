@@ -40,12 +40,17 @@ export default function MockMapView({
   pins,
   onSelectionChange,
   initialSearchCenter = null,
+  nationwide = false,
 }: {
   pins: MapStorePin[];
   onSelectionChange?: (hasSelection: boolean) => void;
   // [§5 지역 연동] 선택 지역의 행정 기준점 — 반경 3km 필터로 시작 (실지도와 동일 UX 최소 구현)
   initialSearchCenter?: LatLng | null;
+  // [§6-4] 전국 진입 — 데모 지도는 전 핀 정규화 투영이 이미 전국을 보여주므로 별도 처리 없음.
+  // 시도 클러스터 시작 화면은 실지도(NaverMapView) 전용 (최소 구현 원칙).
+  nationwide?: boolean;
 }) {
+  void nationwide; // 데모 지도는 항상 전국 투영 — prop은 실지도와의 시그니처 호환용
   // '이 지역 재검색' (확정 정책 2-3) — 데모 지도는 자유 드래그가 없으므로
   // 핀 선택/카드 스와이프로 중심이 기준점에서 500m 이상 벗어나면 버튼을 노출하고,
   // 클릭 시 선택 핀 실좌표 기준 반경 3km로 데이터를 다시 계산한다 (실지도와 동일 UX).

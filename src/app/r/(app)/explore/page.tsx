@@ -14,7 +14,7 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string }>;
 }) {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
@@ -72,9 +72,12 @@ export default async function ReviewerExplore({
       };
     });
 
+  // [§6-4] scope=all — 홈 '전체 리스트' 더 둘러보기 진입: 전국 축소(시도 클러스터) 시작.
+  // 전국 우선이므로 지역 파라미터는 무시한다.
+  const nationwide = sp.scope === "all";
   // [§5 지역 연동] 홈에서 선택한 지역(?area=) — ExploreView가 regionCenter로 기준점을 해석해
   // 지도 초기 포커스(반경 3km)·리스트 거리 기준점으로 쓴다. ?ch=는 필터 재진입 복원.
-  const initialArea = sp.area || null;
+  const initialArea = nationwide ? null : sp.area || null;
   const validChannels: SnsKind[] = ["naver_blog", "instagram", "tiktok"];
   const initialChannels = (sp.ch ? sp.ch.split(",") : []).filter((c): c is SnsKind =>
     (validChannels as string[]).includes(c),
@@ -134,6 +137,7 @@ export default async function ReviewerExplore({
       initialSearch={sp.q || ""}
       initialChannels={initialChannels}
       initialArea={initialArea}
+      initialNationwide={nationwide}
       pressEnabled={PRESS_ENABLED}
     />
   );

@@ -222,9 +222,10 @@ export default async function ReviewerHome({
         <h2 className="text-[18px] font-bold text-ink tracking-title">
           내가 체험할 수 있는 전체 리스트<span aria-hidden>👀</span>
         </h2>
-        {/* 더 둘러보기 → 탐색 (지도 기본 · 추천순 기본), 선택 지역 전달 (§6-4) */}
+        {/* 더 둘러보기 → 탐색 전국 뷰 (§6-4 확정: 대한민국 전체 축소·시도 클러스터 시작 — 홈 선택 지역 미전달).
+            지역 스코프 진입은 '걸어서 갈 수 있어요' 더 둘러보기가 담당 — 두 진입점을 차별화한다. */}
         <Link
-          href={`/r/explore${selectedArea ? `?area=${encodeURIComponent(selectedArea)}` : ""}`}
+          href="/r/explore?scope=all"
           className="cp-action inline-flex items-center text-[13px] text-muted font-medium shrink-0"
         >
           더 둘러보기
