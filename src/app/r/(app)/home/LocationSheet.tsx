@@ -160,12 +160,15 @@ export default function LocationSheet({
               전체
             </button>
             {region.gugun.map((g) => {
-              const active = current === g;
+              // 시군구명은 시도 간 중복(부산/대구 "중구" 등)이 있어 복합 라벨 "{시도} {시군구}"로 전달 —
+              // regionCenter가 복합 키로 기준 좌표를 해석한다 (2026-07-10 전 지역 시드).
+              const label = `${region.sido} ${g}`;
+              const active = current === label || current === g;
               return (
                 <button
                   key={g}
                   type="button"
-                  onClick={() => pick(g)}
+                  onClick={() => pick(label)}
                   className={`w-full h-[52px] px-5 text-left text-[15px] ${
                     active ? "text-brand font-bold" : "text-ink font-medium"
                   }`}

@@ -4,6 +4,8 @@ import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsK
 import { channelGradesFromSns, bestGrade } from "./grade";
 import { kstMonthKey, kstMonthStart, prevMonthKey } from "./grade-regrade";
 import { selfCheckConditions, defaultChannel } from "./channels";
+import { REGIONS } from "./regions";
+import { regionCenter } from "./geo";
 import { STORYBOARD } from "./storyboard";
 
 // ─────────────────────────────────────────────────────────────
@@ -48,6 +50,11 @@ function detPassCode(seed: string): string {
 // 동일 코드가 사장님의 여러 캠페인에 걸리므로, 4자리 lookup은 '가장 최근 발급분(active 우선)'
 // 규칙으로 동작한다 (/api/passes/lookup — 단일 데모 사장님 구조에서 안전).
 const DEMO_USE_CODE = "1234";
+
+// 결정적 정수 (0 ≤ n < mod) — 전 지역 시드의 업종/지터/기간 분산용
+function detNum(seed: string, mod: number): number {
+  return crypto.createHash("sha256").update(seed).digest().readUInt32BE(0) % mod;
+}
 
 // ─────────────────────────────────────────────────────────────
 // 매장 시드 — 다양한 업종을 포함하여 QA/데모 폭을 확보.
@@ -1078,6 +1085,95 @@ export function runSeed(db: DBShape) {
           status: "active",
         });
       }
+    }
+  }
+
+  // ── 전 지역 시드 (2026-07-10) — 1차(시도)·2차(시군구) 카테고리 전 지역 커버 ──
+  // REGIONS(시도 17 × 시군구 전체)마다 매장 1곳 + 방문형 캠페인 1건을 시군구 기준 좌표
+  // (geo.ts GUGUN_CENTERS — regionCenter 복합 키 "{시도} {시군구}"와 동일 지점) 인근에 배치한다.
+  // → 어떤 지역을 선택해도 '반경 3km' 결과·전국 시도 클러스터 건수가 좌표 정합으로 보장된다.
+  // 전국 매장은 별도 사장님(demo4, Basic) 소유 — 기존 demo@store.com 사장님 화면 데모를 훼손하지 않는다.
+  const regionOwner: Owner = {
+    id: detId("ow", "demo4@store.com"),
+    email: "demo4@store.com",
+    passwordHash: hash("demo1234"),
+    storeName: STORYBOARD ? SB.ownerStore : "캐치패스 전국 데모 매장군",
+    category: STORYBOARD ? SB.category : "카페",
+    area: STORYBOARD ? SB.area : "전국",
+    plan: "Basic",
+    createdAt: now - 30 * day,
+    bizNumber: "4567890123",
+    bizStatus: "verified",
+    bizVerifiedAt: now - 29 * day,
+  };
+  db.owners.push(regionOwner);
+
+  // 업종 로테이션 — 카테고리 필터 그룹(카페/식당/뷰티/헬스)이 전국 어느 지역에서도 동작하도록 분산
+  const REGION_SHOP_KINDS: Array<{
+    category: string;
+    name: (g: string) => string;
+    emoji: string;
+    menus: string[];
+    support: number;
+    channels: SnsKind[];
+  }> = [
+    { category: "카페", name: (g) => `${g} 로스터리`, emoji: "☕", menus: ["시그니처 라떼", "크루아상 세트"], support: 40000, channels: ["naver_blog", "instagram"] },
+    { category: "한식", name: (g) => `${g} 밥상`, emoji: "🍚", menus: ["제철 정식", "모둠 전"], support: 80000, channels: ["naver_blog"] },
+    { category: "양식", name: (g) => `${g} 키친`, emoji: "🍝", menus: ["시그니처 파스타", "화덕 피자"], support: 90000, channels: ["naver_blog", "instagram"] },
+    { category: "디저트", name: (g) => `${g} 베이크`, emoji: "🍰", menus: ["시즌 케이크", "휘낭시에"], support: 40000, channels: ["instagram", "tiktok"] },
+    { category: "일식", name: (g) => `${g} 스시야`, emoji: "🍣", menus: ["초밥 12P", "사케동"], support: 100000, channels: ["naver_blog", "instagram"] },
+    { category: "미용실", name: (g) => `${g} 헤어 라운지`, emoji: "💇", menus: ["컷+두피 클리닉", "전체 염색"], support: 70000, channels: ["instagram"] },
+    { category: "필라테스", name: (g) => `${g} 필라테스 랩`, emoji: "🧘", menus: ["1:1 체험 클래스", "그룹 클래스 4회"], support: 55000, channels: ["naver_blog", "instagram", "tiktok"] },
+    { category: "마사지", name: (g) => `${g} 테라피 스파`, emoji: "💆", menus: ["아로마 전신 60분", "등·어깨 집중 관리"], support: 70000, channels: ["naver_blog", "instagram"] },
+  ];
+
+  for (const region of REGIONS) {
+    for (const g of region.gugun) {
+      const key = `region-${region.sido}-${g}`;
+      const center = regionCenter(`${region.sido} ${g}`);
+      if (!center) continue;
+      const shop = REGION_SHOP_KINDS[detNum(`${key}:kind`, REGION_SHOP_KINDS.length)];
+      // 기준점 인근 결정적 지터(±약 0.7km) — 반경 3km 내 보장 + 지도 핀 겹침 방지
+      const jitter = (salt: string) => (detNum(`${key}:${salt}`, 1300) - 650) / 100000;
+      const stId = detId("st", key);
+      db.stores.push({
+        id: stId,
+        ownerId: regionOwner.id,
+        name: STORYBOARD ? SB.storeName : shop.name(g),
+        category: STORYBOARD ? SB.category : shop.category,
+        area: STORYBOARD ? SB.area : g,
+        coverEmoji: shop.emoji,
+        rating: Math.round((4.2 + detNum(`${key}:rating`, 7) / 10) * 10) / 10,
+        reviewCount: 40 + detNum(`${key}:rc`, 260),
+        hours: STORYBOARD ? SB.hours : "11:00 - 21:00",
+        lat: center.lat + jitter("lat"),
+        lng: center.lng + jitter("lng"),
+        address: STORYBOARD ? SB.address : `${region.sido} ${g} 중앙로 ${1 + detNum(`${key}:addr`, 120)}`,
+        naverPlaceId: key,
+      });
+      const regionCreatedAt = now - (12 + detNum(`${key}:created`, 22)) * day;
+      db.campaigns.push({
+        id: detId("cp", `${key}-default`),
+        storeId: stId,
+        kind: "visit",
+        title: STORYBOARD ? SB.visitTitle : `${shop.name(g)} 체험단`,
+        startAt: regionCreatedAt,
+        endAt: now + (7 + detNum(`${key}:end`, 21)) * day,
+        supportAmount: shop.support,
+        quota: { S: 0, A: 1, B: 1, C: 1 },
+        used: { S: 0, A: 0, B: 0, C: 0 },
+        requiredChannels: shop.channels,
+        requiredMenus: shop.menus.map((m) => ({
+          name: STORYBOARD ? SB.menu : m,
+          price: priceForCategory(shop.category, `${key}:${m}`),
+        })),
+        description: STORYBOARD
+          ? SB.visitDesc
+          : `${region.sido} ${g}의 ${shop.name(g)}에서 ${shop.menus[0]}를 체험하고 후기를 남겨주세요.`,
+        highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
+        createdAt: regionCreatedAt,
+        useCode: DEMO_USE_CODE,
+      });
     }
   }
 
