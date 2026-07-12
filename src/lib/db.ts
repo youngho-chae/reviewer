@@ -47,8 +47,8 @@ function persist(db: DBShape) {
 // 시드 스키마/내용이 변경될 때마다 bump → 기존 DB를 무시하고 재시드.
 // 운영 환경에서 KV/디스크에 남아있던 옛 시드를 자동 정리.
 // 스토리보드 브랜치(design/storyboard-schema)는 시드 내용이 다르므로 별도 버전(1000+).
-// 현재 v18(2026-07-10: 전 지역 시드 — 시도 17×시군구 전체 매장·캠페인, 시군구 기준 좌표 정합)을 반영하여 1018로 bump.
-const SEED_VERSION = 1018;
+// 현재 v19(2026-07-12: 레뷰 벤치마크 — 배송형 캠페인·포인트 원장·출금 시드)를 반영하여 1019로 bump.
+const SEED_VERSION = 1019;
 
 function ensureSeeded(db: DBShape) {
   if (!db.seeded || (db.seedVersion ?? 0) < SEED_VERSION) {

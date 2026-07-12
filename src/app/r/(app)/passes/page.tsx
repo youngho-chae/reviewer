@@ -85,7 +85,11 @@ export default async function MyPasses({
   const items: VisitPassItem[] = visit.map((p) => {
     const store = findStore(p.storeId);
     const c = findCampaign(p.campaignId);
+    const isDelivery = c?.kind === "delivery";
     return {
+      isDelivery,
+      // 내 적립 예정 포인트 = 기준 포인트 × 등급 배율 (points.ts와 동일 반올림 — supportForGrade 공유)
+      pointReward: isDelivery && c?.pointReward ? supportForGrade(c.pointReward, p.reviewerGrade) : 0,
       id: p.id,
       storeId: p.storeId,
       campaignId: p.campaignId,

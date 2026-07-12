@@ -30,6 +30,27 @@ export interface ExploreStoreCard extends MapStorePin {
   keywords?: string[];
 }
 
+// 배송형 카드 (2026-07-12 레뷰 벤치마크) — 지역 무관 전국 참여라 지도·거리 개념이 없다.
+// 리스트 전용 세그먼트로 노출 (지도 모드는 방문형 전용 유지).
+export interface ExploreDeliveryCard {
+  campaignId: string;
+  storeId: string;
+  storeName: string;
+  area: string;
+  category: string;
+  coverEmoji: string;
+  productValue: number; // 제공 상품 정가 (supportAmount)
+  pointReward: number; // 기준 포인트 (0 = 제품만)
+  requiredChannels: SnsKind[];
+  remain: number;
+  soldOut: boolean;
+  endAt: number;
+  createdAt: number;
+  planRank: number;
+  participating?: boolean;
+  keywords?: string[];
+}
+
 export interface ExplorePressCard {
   campaignId: string;
   storeId: string;
@@ -51,6 +72,7 @@ type SortKey = "recommended" | "distance" | "new" | "topSupport" | "closing";
 interface Props {
   cards: ExploreStoreCard[];
   pressCards: ExplorePressCard[];
+  deliveryCards?: ExploreDeliveryCard[];
   mapClientId: string;
   unread: number;
   initialMode: "list" | "map";
@@ -67,6 +89,10 @@ interface Props {
   initialNationwide?: boolean;
   // [MVP] 기자단 제외 — false면 세그먼트·리스트를 렌더하지 않는다 (src/lib/flags.ts)
   pressEnabled?: boolean;
+  // 배송형 (2026-07-12 레뷰 벤치마크) — 리스트 전용 세그먼트 (flags.ts DELIVERY_ENABLED)
+  deliveryEnabled?: boolean;
+  // ?tab= 진입 세그먼트 복원 (예: 포인트 화면 → 배송 체험 둘러보기)
+  initialTab?: "visit" | "press" | "delivery";
 }
 
 function matchesSearch(text: string, q: string) {
@@ -95,6 +121,7 @@ const SORT_LABEL: Record<SortKey, string> = {
 export default function ExploreView({
   cards,
   pressCards,
+  deliveryCards = [],
   mapClientId,
   unread,
   initialMode,
@@ -106,10 +133,15 @@ export default function ExploreView({
   initialLoc = null,
   initialNationwide = false,
   pressEnabled = false,
+  deliveryEnabled = false,
+  initialTab = "visit",
 }: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<"list" | "map">(initialMode);
-  const [tab, setTab] = useState<"visit" | "press">("visit");
+  // 배송 세그먼트는 리스트 전용 — 배송 탭 진입 시 목록 보기로 시작 (지도는 방문형 전용)
+  const [mode, setMode] = useState<"list" | "map">(initialTab === "delivery" ? "list" : initialMode);
+  const [tab, setTab] = useState<"visit" | "press" | "delivery">(
+    (initialTab === "press" && pressEnabled) || (initialTab === "delivery" && deliveryEnabled) ? initialTab : "visit",
+  );
   // [통합 필터] 카테고리·SNS 채널 모두 다중 선택. 빈 Set = 전체. (?cat= 콤마 다중 복원)
   const [cats, setCats] = useState<Set<string>>(
     () =>
@@ -229,7 +261,18 @@ export default function ExploreView({
     });
   }, [pressCards, matchCat, search]);
 
-  const resultCount = tab === "visit" ? filtered.length : filteredPress.length;
+  // 배송형 — 지역 무관(전국)이라 지역·현위치 필터는 적용하지 않는다. 채널·카테고리·검색만.
+  const filteredDelivery = useMemo(() => {
+    return deliveryCards
+      .filter((p) => {
+        if (!matchCat(p.category)) return false;
+        if (channels.size > 0 && !p.requiredChannels.some((ch) => channels.has(ch))) return false;
+        return matchesSearch(`${p.storeName} ${p.area} ${p.category} ${(p.keywords ?? []).join(" ")}`, search);
+      })
+      .sort(compareRecommended);
+  }, [deliveryCards, matchCat, channels, search]);
+
+  const resultCount = tab === "visit" ? filtered.length : tab === "delivery" ? filteredDelivery.length : filteredPress.length;
 
   // 상단 카테고리 칩은 즉시 반영 유지 — 필터 시트는 draft 후 [적용하기] (2026-07-10 §8)
   function toggleCat(key: string) {
@@ -264,6 +307,15 @@ export default function ExploreView({
           >
             방문형
           </button>
+          {/* 배송형 (2026-07-12 레뷰 벤치마크) — 리스트 전용 세그먼트 */}
+          {deliveryEnabled && (
+            <button
+              onClick={() => setTab("delivery")}
+              className={`text-[20px] font-bold tracking-title ${tab === "delivery" ? "text-ink" : "text-mutedSoft"}`}
+            >
+              배송형
+            </button>
+          )}
           {pressEnabled && (
             <button
               onClick={() => setTab("press")}
@@ -370,7 +422,9 @@ export default function ExploreView({
 
   const countSortRow = (
     <div className="px-5 mt-3 flex items-center justify-between">
-      <div className="text-[16px] font-bold text-ink">근처 체험 {resultCount}개 발견!</div>
+      <div className="text-[16px] font-bold text-ink">
+        {tab === "delivery" ? `집으로 받는 체험 ${resultCount}개!` : `근처 체험 ${resultCount}개 발견!`}
+      </div>
       <label className="inline-flex items-center text-[13px] text-ink2">
         <select
           value={sort}
@@ -434,6 +488,19 @@ export default function ExploreView({
     </div>
   );
 
+  const deliveryList = (
+    <div className="px-5 mt-4 space-y-4 pb-32">
+      {filteredDelivery.map((p) => (
+        <DeliveryRow key={p.campaignId} card={p} />
+      ))}
+      {filteredDelivery.length === 0 && (
+        <div className="py-16 text-center text-muted text-[14px]">
+          {search ? `"${search}"에 일치하는 배송 체험이 없어요` : "모집 중인 배송 체험이 없어요"}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       {mode === "list" ? (
@@ -441,7 +508,7 @@ export default function ExploreView({
           {header}
           <div className="mt-1">{chipRow}</div>
           {countSortRow}
-          {tab === "visit" ? visitList : pressList}
+          {tab === "visit" ? visitList : tab === "delivery" ? deliveryList : pressList}
         </div>
       ) : (
         // ── 지도 모드 (기본, 2026-07-07 회의) — 풀맵 + 바텀시트(리스트) / 핀 선택 시 스와이프 카드 캐러셀 ──
@@ -490,7 +557,8 @@ export default function ExploreView({
         </div>
       )}
 
-      {/* map-fab — 검정 pill 토글 */}
+      {/* map-fab — 검정 pill 토글 (배송 세그먼트는 리스트 전용이라 숨김) */}
+      {tab !== "delivery" && (
       <button
         type="button"
         onClick={() => {
@@ -520,6 +588,7 @@ export default function ExploreView({
           </>
         )}
       </button>
+      )}
 
       {/* 통합 필터 바텀시트 — draft 후 [적용하기] 커밋 (2026-07-10 §8, FilterSheet.tsx) */}
       {filterOpen && (
@@ -581,6 +650,53 @@ function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?
           )}
         </div>
         <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+      </div>
+    </Link>
+  );
+}
+
+/* 배송형 행 (2026-07-12 레뷰 벤치마크) — 동일 문법. 거리 대신 지역, 금액 = 제공 상품가 + 적립 포인트.
+   포인트 표기는 기준 포인트(등급 배율 전) — 실제 적립액은 상세에서 채널 등급 기준으로 확인. */
+function DeliveryRow({ card }: { card: ExploreDeliveryCard }) {
+  const daysLeft = Math.ceil((card.endAt - Date.now()) / 86400000);
+  const closingSoon = daysLeft >= 0 && daysLeft <= 3;
+  return (
+    <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action flex gap-3">
+      <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
+        <Image src={photoForStore(card.storeId, card.category)} alt={card.storeName} fill sizes="96px" className="object-cover" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0 inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-0.5 text-[11px] font-semibold">
+              📦 배송
+            </span>
+            <ChannelIcons channels={card.requiredChannels} size={12} />
+            {card.participating && (
+              <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold">
+                참여 중
+              </span>
+            )}
+          </div>
+          {card.soldOut ? (
+            <div className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</div>
+          ) : (
+            <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
+              <span aria-hidden>🎫</span>
+              <span className="tabular-nums">{sbNum(SBUI.remain, `${card.remain}개`)}</span> 남음
+            </div>
+          )}
+        </div>
+        <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{card.storeName}</div>
+        <div className="mt-0.5 text-[13px] text-muted">
+          {card.category} · 전국 택배
+          {closingSoon && (
+            <span className="ml-1.5 text-error font-semibold tabular-nums">{sbNum("마감 임박 D-0", `마감 임박 D-${daysLeft}`)}</span>
+          )}
+        </div>
+        <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">
+          제품 제공{card.pointReward > 0 && <> + {sbNum(SBUI.point, `${card.pointReward.toLocaleString()}P`)} 적립</>}
+        </div>
       </div>
     </Link>
   );

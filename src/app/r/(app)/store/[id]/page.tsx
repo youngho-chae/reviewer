@@ -7,6 +7,7 @@ import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
 import { CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import Icon from "@/components/Icon";
 import InterestToggle from "./InterestToggle";
@@ -27,10 +28,14 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   if (!store) return notFound();
   const now = Date.now();
   // 종료된 캠페인도 상세는 렌더한다 (관심 목록에서 진입 가능) — 단 신청은 차단 (2026-07-07 회의)
-  const allCampaigns = db.campaigns.filter((c) => c.storeId === store.id && c.kind === "visit");
+  // 배송형(2026-07-12 레뷰 벤치마크)은 방문형과 같은 상세를 공유하되 기한·이용 방법 카피가 분기된다
+  const allCampaigns = db.campaigns.filter(
+    (c) => c.storeId === store.id && (c.kind === "visit" || (c.kind === "delivery" && DELIVERY_ENABLED)),
+  );
   const openCampaigns = allCampaigns.filter((c) => c.endAt > now);
   const c = allCampaigns.find((x) => x.id === campaignId) || openCampaigns[0];
   if (!c) return notFound();
+  const isDelivery = c.kind === "delivery";
 
   const ended = c.endAt <= now;
   const remain = campaignRemain(c);
@@ -101,7 +106,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
           <div className="py-3.5 px-2 text-center border-l border-r border-hairlineSoft">
             <div className="text-[12px] text-muted">리뷰 마감 기한</div>
-            <div className="mt-1 text-[14px] font-semibold text-ink">이용 후 7일 이내</div>
+            <div className="mt-1 text-[14px] font-semibold text-ink">{isDelivery ? "발송 후 7일 이내" : "이용 후 7일 이내"}</div>
           </div>
           <div className="py-3.5 px-2 text-center">
             <div className="text-[12px] text-brand font-semibold">🎫 잔여</div>
@@ -137,17 +142,33 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {/* notice-banner — 사용 기한 고지 (정책: 발급 후 72시간, 연장·복구 불가) */}
+        {/* 방문 전 예약 필수 — 예약형 라이트 (2026-07-12 레뷰 벤치마크 §2.1-4) */}
+        {!isDelivery && c.reservationRequired && (
+          <div className="mt-3 rounded-md bg-infoSoft px-3.5 py-3 flex items-center gap-2">
+            <span aria-hidden>📅</span>
+            <span className="text-[13px] font-semibold text-info">
+              방문 전 예약이 필요한 체험이에요 · 매장에 전화로 예약을 확정한 뒤 방문해주세요.
+            </span>
+          </div>
+        )}
+
+        {/* notice-banner — 사용 기한 고지 (방문형: 발급 후 72시간 / 배송형: 발송 후 리뷰 7일) */}
         <div className="mt-3 rounded-md bg-brandSoft px-3.5 py-3 flex items-center gap-2">
-          <span aria-hidden>💬</span>
-          <span className="text-[13px] font-semibold text-brand">체험권 발급 후 72시간 내로 사용하지 않으면 사라져요.</span>
+          <span aria-hidden>{isDelivery ? "📦" : "💬"}</span>
+          <span className="text-[13px] font-semibold text-brand">
+            {isDelivery
+              ? "신청하면 사장님이 상품을 발송해요 · 발송 후 7일 이내 리뷰를 등록해주세요."
+              : "체험권 발급 후 72시간 내로 사용하지 않으면 사라져요."}
+          </span>
         </div>
       </section>
 
       {/* 채널 선택(라디오) + 정적 섹션 + 리뷰 조건 + CTA — StoreParticipate가 순서 관리 */}
       <StoreParticipate
         campaignId={c.id}
+        kind={isDelivery ? "delivery" : "visit"}
         base={c.supportAmount}
+        pointReward={c.pointReward ?? 0}
         requiredChannels={c.requiredChannels}
         myChannelGrades={eff.channelGrades}
         myActivePassId={myActivePass?.id ?? null}
@@ -211,15 +232,22 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           {store.address && <AddressCopy address={STORYBOARD ? store.address : store.address} />}
         </section>
 
-        {/* 이용 방법 — step-timeline */}
+        {/* 이용 방법 — step-timeline (배송형은 신청→발송→수령·리뷰 흐름으로 분기) */}
         <section className="px-5 mt-9">
           <h3 className="text-[18px] font-bold text-ink tracking-title">체험권 이용방법이 궁금해요</h3>
           <div className="mt-4 space-y-0">
-            {[
-              { t: "체험권 발급받기", d: "내 체험권에 QR이 발급됩니다." },
-              { t: "QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
-              { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
-            ].map((s, i, arr) => (
+            {(isDelivery
+              ? [
+                  { t: "배송지 입력하고 신청하기", d: "수령인·연락처·주소를 입력하면 신청 완료!" },
+                  { t: "상품 수령", d: "사장님이 발송하면 알림으로 운송장을 알려드려요." },
+                  { t: "리뷰 작성", d: "발송 후 7일 이내 후기를 남기고 URL을 제출하면 완료! 검수 승인 시 포인트가 적립돼요." },
+                ]
+              : [
+                  { t: "체험권 발급받기", d: "내 체험권에 QR이 발급됩니다." },
+                  { t: "QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
+                  { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
+                ]
+            ).map((s, i, arr) => (
               <div key={s.t} className="flex gap-3.5">
                 <div className="flex flex-col items-center">
                   <span className="w-6 h-6 rounded-full bg-brand text-white text-[12px] font-bold grid place-items-center shrink-0">{i + 1}</span>

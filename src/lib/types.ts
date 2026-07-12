@@ -108,7 +108,9 @@ export interface Store {
   naverPlaceId?: string; // m.place.naver.com/place/<id> 의 id
 }
 
-export type CampaignKind = "visit" | "press";
+// delivery(배송형)는 레뷰 벤치마크 반영(2026-07-12, docs/벤치마크-레뷰.md) —
+// 상품을 택배로 수령해 체험 후 리뷰. 지역 무관 전국 참여, 발송 처리 후 리뷰 7일.
+export type CampaignKind = "visit" | "press" | "delivery";
 
 export interface CampaignGradeQuota {
   S: number;
@@ -147,6 +149,21 @@ export interface Campaign {
   pressKeywords?: string[];
   pressMaterials?: string[]; // 자료팩 — 파일명/요약 텍스트
   pressMinChars?: number; // 최소 본문자 수
+  // ── 배송형(delivery) 전용 (2026-07-12 레뷰 벤치마크) ──
+  // 리뷰 검수 승인 시 지급하는 체험 포인트(1P=1원). 실제 지급액은 참여 채널 등급 배율 적용
+  // (P1: 등급은 혜택 크기) — src/lib/points.ts pointsForGrade. 0/미설정 = 제품만 제공.
+  pointReward?: number;
+  // ── 방문형 예약 옵션 (예약형 라이트 — flags.ts '추후 확장'의 1단계) ──
+  // true면 상세·체험권에 "방문 전 예약 필수" 배지 + 안내. 선정 절차는 두지 않는다(즉시 발급 유지).
+  reservationRequired?: boolean;
+}
+
+// 배송형 신청 시 체험자가 입력하는 배송지 — 발송 목적 한정으로 사장님에게 노출된다
+// (확정 정책 8 익명 원칙의 명시적 예외 — 등급은 계속 비노출. 데이터정책서 §1.0b).
+export interface ShippingInfo {
+  recipient: string; // 수령인 이름
+  phone: string;
+  address: string;
 }
 
 export type PassStatus =
@@ -202,7 +219,54 @@ export interface Pass {
   useCodeLockUntil?: number; // 잠금 해제 시각 (epoch ms)
   // 게시 유지(90일) 동의 — 리뷰 제출 시 서버가 필수로 검증·보존 (자가점검과 분리된 별도 동의)
   keepAgreed?: boolean;
+  // ── 배송형 전용 (2026-07-12) ──
+  shipping?: ShippingInfo; // 신청 시 입력한 배송지 (발송 목적 한정 노출)
+  shippedAt?: number; // 사장님 발송 처리 시각 (= usedAt과 함께 세팅 — 리뷰 7일 기산점)
+  trackingNo?: string; // 운송장 번호 (선택)
   status: PassStatus;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 포인트 (2026-07-12 레뷰 벤치마크 — docs/벤치마크-레뷰.md §3.1, 정책 정본: 운영정책서 §14)
+// 원장은 append-only — 잔액은 합산 파생 (조작 방지·감사 추적). 정책 상수: src/lib/points.ts
+// ─────────────────────────────────────────────────────────────
+
+export type PointTxnType =
+  | "earn" // 리뷰 검수 승인 적립 (+) — 실제 발생 이벤트만 (P4)
+  | "withdraw" // 출금 신청 차감 (−) — 신청 즉시 차감
+  | "withdraw_refund"; // 출금 반려 복구 (+)
+
+export interface PointTxn {
+  id: string;
+  reviewerId: string;
+  type: PointTxnType;
+  amount: number; // 부호 포함 (earn/refund 양수, withdraw 음수)
+  refPassId?: string; // earn — 적립 근거 체험권
+  refWithdrawalId?: string; // withdraw / withdraw_refund
+  memo: string; // 내역 화면 표기용 (예: "○○ 체험 리뷰 승인")
+  createdAt: number;
+}
+
+export type WithdrawalStatus = "requested" | "paid" | "rejected";
+
+// 출금 신청 — 신청 시점에 세액·수수료·실지급액을 확정 계산해 보존한다 (세율 변경 소급 방지).
+// 실서비스는 원천징수 신고를 위해 실명·주민등록번호 수집이 필요하다 — 프로토타입은 미수집
+// (데이터정책서 §1.0b).
+export interface WithdrawalRequest {
+  id: string;
+  reviewerId: string;
+  amountPoints: number; // 신청 포인트 (= 과세 대상 지급액, 1P=1원)
+  incomeType: "business"; // 사업소득 3.3% 고정 (계속·반복 활동 기준 — 운영정책서 §14)
+  taxWithheld: number; // 원천징수세액 (소액부징수 반영)
+  fee: number; // 이체 수수료
+  payout: number; // 실지급액 = amountPoints − taxWithheld − fee
+  bank: string;
+  account: string;
+  holder: string; // 예금주
+  status: WithdrawalStatus;
+  requestedAt: number;
+  processedAt?: number; // 운영팀 지급/반려 처리 시각
+  rejectReason?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -301,6 +365,9 @@ export interface DBShape {
   viralCounter?: ViralCounter;
   // ── 관심 목록 (캠페인 단위) ──
   interests?: Interest[];
+  // ── 포인트 (2026-07-12 레뷰 벤치마크) ──
+  pointTxns?: PointTxn[];
+  withdrawals?: WithdrawalRequest[];
   // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거

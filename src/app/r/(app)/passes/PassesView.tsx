@@ -36,6 +36,9 @@ export interface VisitPassItem {
   deadlineKind: "review" | "resubmit" | null; // 날짜 라벨 — "리뷰마감" vs "재제출 기한"
   rejectReason: string | null;
   highlight: boolean;
+  // 배송형 (2026-07-12 레뷰 벤치마크) — active="발송 대기", 혜택 표기 = 제품(+포인트)
+  isDelivery?: boolean;
+  pointReward?: number; // 등급 배율 적용된 내 적립 예정 포인트
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -201,7 +204,11 @@ export default function PassesView({
 }
 
 function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
-  const badge = DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
+  // 배송형 active = 발송 대기 (QR 사용 개념이 없음 — 파생 라벨만 교체, 실상태는 동일)
+  const badge =
+    it.isDelivery && it.displayStatus === "active"
+      ? { label: "발송 대기", cls: "bg-brandSoft text-brand" }
+      : DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
   const isActive = it.displayStatus === "active";
   // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기 — 기한 초과 제외)
   const emphasized = isActive || it.displayStatus === "used" || it.highlight;
@@ -228,8 +235,19 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             {it.channel ? CHANNEL_LABEL[it.channel] : "채널 미정"} · {it.grade}등급 적용
           </p>
           <p className="mt-1.5 text-[16px] tabular-nums">
-            <span className="font-bold text-ink">{sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
-            <span className="text-[13px] text-muted">지원</span>
+            {it.isDelivery ? (
+              <>
+                <span className="font-bold text-ink">📦 제품 제공</span>
+                {(it.pointReward ?? 0) > 0 && (
+                  <span className="text-[13px] text-muted"> + {sbNum(SBUI.point, `${(it.pointReward ?? 0).toLocaleString()}P`)} 적립</span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="font-bold text-ink">{sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
+                <span className="text-[13px] text-muted">지원</span>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -242,7 +260,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       {isActive && (
         <>
           <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
-            <span className="text-muted">유효기간</span>
+            <span className="text-muted">{it.isDelivery ? "신청 유효" : "유효기간"}</span>
             <span className="font-semibold text-ink tabular-nums">
               {sbNum(SBUI.dateTime, fmtKoDateTime(it.expiresAt))}까지
             </span>

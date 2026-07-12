@@ -2,12 +2,12 @@ import { after } from "next/server";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
-import { PRESS_ENABLED } from "@/lib/flags";
+import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import { PLAN_RANK } from "@/lib/plan-policy";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import type { SnsKind } from "@/lib/types";
-import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
+import ExploreView, { ExploreStoreCard, ExplorePressCard, ExploreDeliveryCard } from "./ExploreView";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -15,7 +15,7 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string; tab?: string }>;
 }) {
   const me = await getCurrentReviewer();
   // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
@@ -112,6 +112,33 @@ export default async function ReviewerExplore({
       };
     });
 
+  // 배송형 (2026-07-12 레뷰 벤치마크) — 지역 무관 전국 참여, 리스트 전용 세그먼트
+  const deliveryCards: ExploreDeliveryCard[] = db.campaigns
+    .filter((c) => DELIVERY_ENABLED && c.kind === "delivery" && isCampaignVisible(c, db.passes, now))
+    .map((c) => {
+      const store = db.stores.find((s) => s.id === c.storeId)!;
+      const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
+      return {
+        campaignId: c.id,
+        storeId: store.id,
+        storeName: store.name,
+        area: store.area,
+        category: store.category,
+        coverEmoji: store.coverEmoji,
+        productValue: c.supportAmount,
+        pointReward: c.pointReward ?? 0,
+        requiredChannels: c.requiredChannels,
+        remain: campaignRemain(c),
+        soldOut: campaignExposure(c, db.passes, now) === "issued_out",
+        endAt: c.endAt,
+        createdAt: c.createdAt,
+        planRank: ownerPlanRank.get(store.ownerId) ?? 0,
+        participating: myCampaignIds.has(c.id),
+        keywords: c.highlightKeywords,
+        totalQuota: totalQ,
+      } as ExploreDeliveryCard;
+    });
+
   // 지도 클라이언트 ID는 env로만 주입 (미설정 시 SDK 로드 실패 → 리스트 폴백 카드).
   // NEXT_PUBLIC_ 전용 변수가 없으면 서버 지도 키(NAVER_MAP_CLIENT_ID)로 폴백한다 —
   // page.tsx는 force-dynamic 서버 컴포넌트라 런타임에 서버 env를 읽어 prop으로 넘길 수 있고,
@@ -145,6 +172,9 @@ export default async function ReviewerExplore({
       initialLoc={initialLoc}
       initialNationwide={nationwide}
       pressEnabled={PRESS_ENABLED}
+      deliveryCards={deliveryCards}
+      deliveryEnabled={DELIVERY_ENABLED}
+      initialTab={sp.tab === "delivery" || sp.tab === "press" ? sp.tab : "visit"}
     />
   );
 }

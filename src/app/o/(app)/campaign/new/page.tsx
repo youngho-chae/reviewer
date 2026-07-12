@@ -35,6 +35,10 @@ export default function NewCampaign() {
   const [manualName, setManualName] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+  // 캠페인 유형 (2026-07-12 레뷰 벤치마크) — 방문형 | 배송형(전국 택배 · 체험 포인트 지급 가능)
+  const [kind, setKind] = useState<"visit" | "delivery">("visit");
+  const [pointReward, setPointReward] = useState(""); // 배송형 기준 포인트 (선택 · 100P 단위)
+  const [reservationRequired, setReservationRequired] = useState(false); // 방문형 예약 필수 옵션
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
@@ -112,9 +116,11 @@ export default function NewCampaign() {
     setAddBusy(false);
   }
 
+  const isDelivery = kind === "delivery";
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (useCode.length !== 4) {
+    if (!isDelivery && useCode.length !== 4) {
       setErr("사용처리 코드는 숫자 4자리로 입력해주세요");
       return;
     }
@@ -133,12 +139,15 @@ export default function NewCampaign() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         storeId,
+        kind,
         title: title.trim() || undefined,
         days: Number(days),
         supportAmount: Number(supportAmount),
         totalQuota: totalQuotaNum,
-        useCode,
-        requiredMenus: cleanMenus,
+        useCode: isDelivery ? undefined : useCode,
+        pointReward: isDelivery && pointReward ? Number(pointReward) : undefined,
+        reservationRequired: !isDelivery && reservationRequired ? true : undefined,
+        requiredMenus: isDelivery ? [] : cleanMenus,
         requiredChannels: channels,
         highlightKeywords,
         description,
@@ -219,6 +228,38 @@ export default function NewCampaign() {
           )}
         </section>
 
+        {/* 캠페인 유형 — 방문형 | 배송형 (2026-07-12 레뷰 벤치마크) */}
+        <section>
+          <div className="text-[14px] font-semibold text-ink mb-2">캠페인 유형</div>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { key: "visit", label: "🏠 방문형", desc: "매장 방문 · 결제 시 직접 할인" },
+                { key: "delivery", label: "📦 배송형", desc: "택배 발송 · 전국 모집" },
+              ] as const
+            ).map((k) => (
+              <button
+                key={k.key}
+                type="button"
+                onClick={() => setKind(k.key)}
+                aria-pressed={kind === k.key}
+                className={`rounded-md px-4 py-3.5 text-left bg-canvas ${
+                  kind === k.key ? "border-[1.5px] border-brand" : "border border-hairline"
+                }`}
+              >
+                <div className={`text-[15px] font-bold ${kind === k.key ? "text-brand" : "text-ink"}`}>{k.label}</div>
+                <div className="mt-0.5 text-[11px] text-muted leading-[1.4]">{k.desc}</div>
+              </button>
+            ))}
+          </div>
+          {isDelivery && (
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              배송형은 체험자가 배송지를 입력해 신청하고, 사장님이 <span className="text-ink font-medium">발송 처리</span>하면
+              체험자에게 리뷰 기한(발송 후 7일)이 시작돼요.
+            </p>
+          )}
+        </section>
+
         {/* 캠페인명 — 사장님 내부 관리용 (확정 정책 7). 체험자에게는 매장명으로 노출 */}
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">
@@ -248,7 +289,7 @@ export default function NewCampaign() {
             />
           </div>
           <div>
-            <div className="text-[14px] font-semibold text-ink mb-2">지원금 (원)</div>
+            <div className="text-[14px] font-semibold text-ink mb-2">{isDelivery ? "제공 상품 정가 (원)" : "지원금 (원)"}</div>
             <input
               value={supportAmount}
               onChange={(e) => setSupportAmount(e.target.value.replace(/\D/g, ""))}
@@ -258,11 +299,56 @@ export default function NewCampaign() {
           </div>
         </section>
         <p className="text-[12px] text-muted leading-[1.5] -mt-2">
-          지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다
-          (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.
+          {isDelivery ? (
+            <>발송하는 체험 상품의 정가입니다. 체험자 화면에 <span className="text-ink font-medium">제공 상품 가치</span>로 노출돼요.</>
+          ) : (
+            <>지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다
+            (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.</>
+          )}
         </p>
 
-        {/* 사용처리 4자리 코드 — 필수 */}
+        {/* 배송형 — 체험 포인트 (선택) */}
+        {isDelivery && (
+          <section>
+            <div className="text-[14px] font-semibold text-ink mb-2">
+              체험 포인트 <span className="text-[12px] text-muted font-normal">(선택 · 100P 단위)</span>
+            </div>
+            <input
+              value={pointReward}
+              onChange={(e) => setPointReward(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              placeholder="예: 10000"
+              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+            />
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              리뷰가 검수를 통과하면 체험자에게 적립되는 포인트예요 (1P = 1원). 입력 금액은 S등급 100% 기준이며
+              채널 등급에 따라 차등 지급됩니다. 포인트 비용 정산 방식은 운영팀 안내를 따릅니다.
+            </p>
+          </section>
+        )}
+
+        {/* 방문형 — 예약 필수 옵션 (예약형 라이트) */}
+        {!isDelivery && (
+          <section>
+            <label className="flex items-start gap-3 rounded-md border border-hairline px-4 py-3.5">
+              <input
+                type="checkbox"
+                checked={reservationRequired}
+                onChange={(e) => setReservationRequired(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#9333EA]"
+              />
+              <span>
+                <span className="text-[14px] font-semibold text-ink block">방문 전 예약 필수</span>
+                <span className="text-[12px] text-muted leading-[1.5] block mt-0.5">
+                  숙박·미용 등 예약이 필요한 업종이라면 체크하세요. 체험자 상세 화면에 &quot;방문 전 예약 필수&quot; 안내가 표시돼요.
+                </span>
+              </span>
+            </label>
+          </section>
+        )}
+
+        {/* 사용처리 4자리 코드 — 방문형 필수 (배송형은 사용 처리 개념이 없어 자동 생성) */}
+        {!isDelivery && (
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">사용처리 코드 (숫자 4자리)</div>
           <input
@@ -277,6 +363,7 @@ export default function NewCampaign() {
             체험자 화면에는 노출되지 않아요. 체험자가 제시한 체험권 화면에 사장님이 이 4자리를 직접 입력하거나, QR을 스캔하면 사용 처리됩니다.
           </p>
         </section>
+        )}
 
         {/* 총 모집 인원 — 등급별이 아닌 통합 입력 + 월간 한도 안내 */}
         <section>
@@ -342,7 +429,8 @@ export default function NewCampaign() {
           </div>
         </section>
 
-        {/* 필수 주문 메뉴 — 동적 입력 (메뉴명 + 가격) */}
+        {/* 필수 주문 메뉴 — 방문형 전용 (배송형은 방문·주문 개념이 없음) */}
+        {!isDelivery && (
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">
             필수 주문 메뉴 <span className="text-[12px] text-muted font-normal">(선택 입력 · 최대 5개)</span>
@@ -393,6 +481,7 @@ export default function NewCampaign() {
             <span>{menus.length >= 5 ? "최대 5개까지 등록할 수 있어요" : "메뉴 추가"}</span>
           </button>
         </section>
+        )}
 
         {/* 강조 키워드 */}
         <section>
@@ -438,11 +527,17 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit || useCode.length !== 4}
+          disabled={busy || !storeId || overLimit || (!isDelivery && useCode.length !== 4)}
           type="submit"
           className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >
-          {busy ? "생성 중..." : overLimit ? "월 한도 초과" : useCode.length !== 4 ? "사용처리 코드 4자리 입력" : "캠페인 생성"}
+          {busy
+            ? "생성 중..."
+            : overLimit
+              ? "월 한도 초과"
+              : !isDelivery && useCode.length !== 4
+                ? "사용처리 코드 4자리 입력"
+                : "캠페인 생성"}
         </button>
       </form>
     </div>

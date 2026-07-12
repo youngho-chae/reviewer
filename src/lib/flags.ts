@@ -8,3 +8,9 @@
 
 /** 기자단(press) 노출·참여 허용 여부 — MVP에서는 false */
 export const PRESS_ENABLED = false;
+
+/**
+ * 배송형(delivery) 노출·참여 허용 여부 — 2026-07-12 레뷰 벤치마크 반영으로 활성.
+ * "MVP는 방문형만"(2026-07-07 회의)의 범위 변경 — 근거·판정: docs/벤치마크-레뷰.md §2.1.
+ */
+export const DELIVERY_ENABLED = true;

@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin/members", label: "회원" },
   { href: "/admin/campaigns", label: "캠페인" },
   { href: "/admin/owners", label: "사장님" },
+  { href: "/admin/points", label: "출금" },
 ];
 
 export default function AdminTabs() {

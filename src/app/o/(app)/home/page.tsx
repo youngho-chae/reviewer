@@ -4,6 +4,7 @@ import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
 import type { Campaign } from "@/lib/types";
 import CampaignTabs from "./CampaignTabs";
+import ShipQueue, { type ShipQueueItem } from "./ShipQueue";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,22 @@ export default async function OwnerHome() {
   const thisMonth = myPasses.filter((p) => p.issuedAt >= monthAgo);
   const pendingReviews = myPasses.filter((p) => p.status === "review_submitted").length;
   const activeNow = myPasses.filter((p) => p.status === "active").length;
+
+  // 배송형 발송 대기 큐 (2026-07-12 레뷰 벤치마크) — 수령인 정보는 발송 목적 한정 노출,
+  // 등급·실명(계정)은 계속 비노출 (익명 #last4 — 확정 정책 8의 명시적 예외, 데이터정책서 §1.0b)
+  const deliveryCampaignIds = new Set(myCampaigns.filter((c) => c.kind === "delivery").map((c) => c.id));
+  const shipQueue: ShipQueueItem[] = myPasses
+    .filter((p) => p.status === "active" && deliveryCampaignIds.has(p.campaignId) && p.shipping)
+    .sort((a, b) => a.issuedAt - b.issuedAt)
+    .map((p) => ({
+      passId: p.id,
+      masked: `#${p.reviewerId.slice(-4)}`,
+      campaignTitle: myCampaigns.find((c) => c.id === p.campaignId)?.title ?? "캠페인",
+      recipient: p.shipping!.recipient,
+      phone: p.shipping!.phone,
+      address: p.shipping!.address,
+      issuedAt: p.issuedAt,
+    }));
 
   return (
     <div className="pb-24 bg-canvas">
@@ -34,6 +51,9 @@ export default async function OwnerHome() {
         </div>
         <div className="text-[13px] font-semibold text-brand mt-1">후기 모니터링 →</div>
       </Link>
+
+      {/* 배송형 발송 대기 큐 — 운송장 입력 후 발송 처리 (2026-07-12) */}
+      <ShipQueue items={shipQueue} />
 
       {/* 멤버십 스트립 */}
       <div className="mx-5 mt-3 rounded-md border border-hairline bg-canvas p-4">
@@ -83,13 +103,21 @@ export default async function OwnerHome() {
             ["used", "review_submitted", "completed"].includes(p.status),
           ).length;
           const isPress = c.kind === "press";
-          const pendingLabel = isPress ? "작성 중" : "방문 예정";
-          const completedLabel = isPress ? "작성 완료" : "방문 완료";
+          const isDelivery = c.kind === "delivery";
+          const pendingLabel = isPress ? "작성 중" : isDelivery ? "발송 대기" : "방문 예정";
+          const completedLabel = isPress ? "작성 완료" : isDelivery ? "발송 완료" : "방문 완료";
           return (
             <div key={c.id} className="rounded-lg border border-hairline bg-canvas p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[15px] font-semibold text-ink">{c.title}</div>
+                  <div className="text-[15px] font-semibold text-ink flex items-center gap-1.5">
+                    {isDelivery && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold shrink-0">
+                        📦 배송
+                      </span>
+                    )}
+                    <span className="truncate">{c.title}</span>
+                  </div>
                   <div className="text-[12px] text-muted mt-0.5">{store?.name}</div>
                 </div>
                 <div className="text-[12px] text-muted tabular-nums">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
@@ -114,7 +142,8 @@ export default async function OwnerHome() {
           );
         };
 
-        const visitCampaigns = myCampaigns.filter((c) => c.kind === "visit");
+        // 배송형은 방문형 탭에 함께 노출 (카드 라벨만 발송 대기/완료로 분기 — 별도 탭 없이 관리)
+        const visitCampaigns = myCampaigns.filter((c) => c.kind !== "press");
         const pressCampaigns = myCampaigns.filter((c) => c.kind === "press");
 
         const visitView = (
