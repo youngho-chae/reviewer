@@ -1,9 +1,28 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
 const Html5QrScanner = dynamic(() => import("./Html5QrScanner"), { ssr: false });
+
+// 비-active 상태 안내 — raw status 대신 사장님 응대용 한글 문구 (2026-07-10).
+const STATUS_LABEL: Record<string, string> = {
+  active: "사용 가능",
+  used: "사용 완료",
+  review_submitted: "사용 완료 (리뷰 검수 중)",
+  completed: "사용 완료 (체험 종료)",
+  expired: "만료",
+  cancelled: "취소",
+  rejected: "사용 완료 (리뷰 반려)",
+};
+const STATUS_NOTE: Record<string, string> = {
+  used: "이미 사용 처리된 체험권이에요. 중복으로 처리할 수 없어요.",
+  review_submitted: "이미 사용 처리된 체험권이에요. 체험자가 리뷰 검수를 기다리고 있어요.",
+  completed: "이미 사용 처리된 체험권이에요. 체험이 완료된 건이에요.",
+  expired: "사용 기한(발급 후 72시간)이 지나 만료된 체험권이에요.",
+  cancelled: "체험자가 직접 취소한 체험권이에요.",
+  rejected: "이미 사용 처리된 체험권이에요. (리뷰 반려 상태)",
+};
 
 export default function ScanPage() {
   const router = useRouter();
@@ -13,40 +32,61 @@ export default function ScanPage() {
   const [result, setResult] = useState<any>(null);
   const [paidAmount, setPaidAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  // 네트워크 오류 시 마지막 요청을 재실행하기 위한 참조 — [다시 시도] 버튼이 호출
+  const retryRef = useRef<(() => void) | null>(null);
+  const [retryable, setRetryable] = useState(false);
 
   async function lookup(c: string) {
-    setErr(null); setResult(null);
-    const res = await fetch("/api/passes/lookup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: c.trim() }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      setErr(error || "조회 실패");
-      return;
+    setErr(null);
+    setResult(null);
+    setRetryable(false);
+    try {
+      const res = await fetch("/api/passes/lookup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: c.trim() }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        setErr(error || "조회 실패");
+        return;
+      }
+      const data = await res.json();
+      setResult(data);
+    } catch {
+      retryRef.current = () => lookup(c);
+      setRetryable(true);
+      setErr("네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해주세요.");
     }
-    const data = await res.json();
-    setResult(data);
   }
 
   async function useNow() {
     if (!result?.pass?.code) return;
-    setBusy(true); setErr(null);
-    const res = await fetch("/api/passes/use", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: result.pass.code, paidAmount: Number(paidAmount) || 0 }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      setErr(error || "처리 실패");
+    setBusy(true);
+    setErr(null);
+    setRetryable(false);
+    try {
+      const res = await fetch("/api/passes/use", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: result.pass.code, paidAmount: Number(paidAmount) || 0 }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        setErr(error || "처리 실패");
+        setBusy(false);
+        return;
+      }
       setBusy(false);
-      return;
+      router.push("/o/home");
+      router.refresh();
+    } catch {
+      // 인증이 성공하기 전에는 체험권 상태가 바뀌지 않으므로 재시도해도 안전하다.
+      setBusy(false);
+      retryRef.current = () => useNow();
+      setRetryable(true);
+      setErr("네트워크 오류가 발생했어요. 연결을 확인하고 다시 시도해주세요.");
     }
-    setBusy(false);
-    router.push("/o/home");
-    router.refresh();
   }
 
   return (
@@ -57,7 +97,7 @@ export default function ScanPage() {
           <h1 className="text-[18px] font-bold text-ink tracking-title">사용 처리</h1>
         </div>
       </div>
-      <p className="px-5 pt-1 pb-4 text-[13px] text-muted leading-[1.5]">체험자의 QR을 스캔하거나, 체험권 화면에 표시된 숫자 4자리를 직접 입력하세요.</p>
+      <p className="px-5 pt-1 pb-4 text-[13px] text-muted leading-[1.5]">체험자의 QR을 스캔하거나, 캠페인의 매장 확인 번호 4자리를 직접 입력하세요.</p>
 
       <div className="px-5">
         {!scanning ? (
@@ -75,7 +115,7 @@ export default function ScanPage() {
         )}
 
         <div className="mt-4">
-          <div className="text-[13px] text-muted mb-2">또는 체험권 화면의 숫자 4자리 직접 입력</div>
+          <div className="text-[13px] text-muted mb-2">또는 매장 확인 번호 4자리 직접 입력</div>
           <div className="flex gap-2">
             <input
               value={code}
@@ -89,13 +129,26 @@ export default function ScanPage() {
           </div>
         </div>
 
-        {err && <div className="mt-4 text-error text-[14px]">{err}</div>}
+        {err && (
+          <div className="mt-4">
+            <div className="text-error text-[14px]">{err}</div>
+            {retryable && (
+              <button
+                onClick={() => retryRef.current?.()}
+                className="mt-2 h-11 px-5 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
+              >
+                다시 시도
+              </button>
+            )}
+          </div>
+        )}
 
         {result && (
           <div className="mt-6 rounded-lg border border-hairline bg-canvas p-4">
             <div className="text-[12px] text-muted">{result.campaign?.title}</div>
-            <div className="mt-1 text-[18px] font-bold text-ink tracking-title">{result.reviewer?.nickname} <span className="text-[14px] text-muted font-medium">({result.reviewer?.grade}등급)</span></div>
-            <div className="mt-2 text-[13px] text-muted">상태: {result.pass.status}</div>
+            {/* [확정 정책 8·10] 체험자 실명·등급 비노출 — 익명 표기만 (응대 차별·선입견 방지) */}
+            <div className="mt-1 text-[18px] font-bold text-ink tracking-title">체험자 익명 #{result.reviewer?.anonymousId}</div>
+            <div className="mt-2 text-[13px] text-muted">상태: {STATUS_LABEL[result.pass.status] ?? result.pass.status}</div>
             <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{result.campaign?.supportAmount.toLocaleString()}원</span></div>
 
             {result.pass.status === "active" ? (
@@ -112,10 +165,16 @@ export default function ScanPage() {
                 </button>
               </>
             ) : (
-              <div className="mt-4 text-[13px] text-muted">사용 처리할 수 없는 상태입니다.</div>
+              <div className="mt-4 rounded-md bg-sunken px-3.5 py-3 text-[13px] text-muted leading-[1.5]">
+                {STATUS_NOTE[result.pass.status] ?? "사용 처리할 수 없는 상태예요."}
+              </div>
             )}
           </div>
         )}
+
+        <p className="mt-8 text-[12px] text-mutedSoft leading-[1.5]">
+          인증이 반복해서 실패하면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+        </p>
       </div>
     </div>
   );

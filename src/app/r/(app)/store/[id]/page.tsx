@@ -5,7 +5,9 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
-import { campaignRemain } from "@/lib/campaign-visibility";
+import { campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
+import { CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 import Icon from "@/components/Icon";
 import InterestToggle from "./InterestToggle";
 import ChannelIcons from "@/components/ChannelIcons";
@@ -16,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 export default async function StoreDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ campaign?: string }> }) {
   const me = await getCurrentReviewer();
+  // 인스턴스 불일치 스톱갭 — 연동 직후 라디오/CTA가 최신 연동 상태로 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const { id } = await params;
   const { campaign: campaignId } = await searchParams;
   const db = await getDBAsync();
@@ -30,8 +34,23 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
 
   const ended = c.endAt <= now;
   const remain = campaignRemain(c);
+  // 노출 상태 재사용 (재구현 금지) — issued_out = 잔여 0이지만 살아있는 체험권이 남아
+  // 만료·취소 시 슬롯이 복구될 수 있는 상태 (완전 종료 아님, 2026-07-10 §1-2)
+  const exposure = campaignExposure(c, db.passes, now);
   const interested = (db.interests ?? []).some((i) => i.reviewerId === me.id && i.campaignId === c.id);
   const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
+  // 취소 후 12h 재신청 쿨다운 — 발급 API와 동일 판정을 서버에서 미리 계산해 CTA에 반영 (§1-1)
+  const recentCancel = db.passes.find(
+    (p) =>
+      p.reviewerId === me.id &&
+      p.campaignId === c.id &&
+      p.status === "cancelled" &&
+      typeof p.cancelledAt === "number" &&
+      now - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
+  );
+  const cooldownLeftH = recentCancel
+    ? Math.max(1, Math.ceil((CANCEL_REAPPLY_COOLDOWN_MS - (now - (recentCancel.cancelledAt as number))) / 3600000))
+    : null;
 
   const endDate = new Date(c.endAt);
   // 체험 마감일 표기 형식: "00월 00일 까지" (SBUI.endDate 마스크와 동일)
@@ -94,7 +113,27 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         {ended && (
           <div className="mt-3 rounded-md bg-sunken px-3.5 py-3 flex items-center gap-2">
             <span aria-hidden>⏰</span>
-            <span className="text-[13px] font-semibold text-muted">마감된 체험입니다 · 새 캠페인이 열리면 다시 참여할 수 있어요.</span>
+            <span className="text-[13px] font-semibold text-muted">종료된 체험입니다 · 새 캠페인이 열리면 다시 참여할 수 있어요.</span>
+          </div>
+        )}
+
+        {/* 신청 완료 — 이미 참여 중인 체험 재접근 시 상태 안내 (§1-1) */}
+        {!ended && myActivePass && (
+          <div className="mt-3 rounded-md bg-successSoft px-3.5 py-3 flex items-center gap-2">
+            <span aria-hidden>✅</span>
+            <span className="text-[13px] font-semibold text-successStrong">
+              이미 신청한 체험이에요 · 진행 상황은 내 체험권에서 확인할 수 있어요.
+            </span>
+          </div>
+        )}
+
+        {/* 체험권 일시 소진 — 완전 종료가 아님을 구분 안내 (§1-2: 72h 미사용 만료 시 복구 가능) */}
+        {!ended && !myActivePass && exposure === "issued_out" && (
+          <div className="mt-3 rounded-md bg-sunken px-3.5 py-3 flex items-center gap-2">
+            <span aria-hidden>🎫</span>
+            <span className="text-[13px] font-semibold text-muted">
+              현재 신청 가능한 체험권이 없습니다 · 미사용 체험권이 발생하면 다시 신청할 수 있어요.
+            </span>
           </div>
         )}
 
@@ -110,10 +149,12 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         campaignId={c.id}
         base={c.supportAmount}
         requiredChannels={c.requiredChannels}
-        myChannelGrades={me.channelGrades ?? {}}
+        myChannelGrades={eff.channelGrades}
         myActivePassId={myActivePass?.id ?? null}
         remain={remain}
         ended={ended}
+        exposure={exposure}
+        cooldownLeftH={cooldownLeftH}
       >
         {/* 필수 주문 메뉴 */}
         {c.requiredMenus.length > 0 && (

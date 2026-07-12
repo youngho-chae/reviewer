@@ -94,34 +94,22 @@ export default async function OwnerHome() {
                 </div>
                 <div className="text-[12px] text-muted tabular-nums">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
               </div>
-              <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-                {(["S","A","B","C"] as const).map((g) => (
-                  <div key={g} className="rounded-sm py-2 bg-sunken">
-                    <div className="text-[11px] text-muted">{g}</div>
-                    <div className="text-[13px] font-semibold text-ink tabular-nums mt-0.5">{c.used[g]}</div>
-                  </div>
-                ))}
+              {/* [확정 정책 8] 캠페인 진행 현황은 방문 예정/방문 완료/총 모집 3종만 —
+                  체험자 등급(등급별 버킷)은 사장님에게 노출하지 않는다 (응대 차별 방지, 내부 데이터는 어드민 전용) */}
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-sm py-2.5 bg-sunken">
+                  <div className="text-[11px] text-muted">{pendingLabel}</div>
+                  <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{pendingCnt}명</div>
+                </div>
+                <div className="rounded-sm py-2.5 bg-sunken">
+                  <div className="text-[11px] text-muted">{completedLabel}</div>
+                  <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{visitedCnt}명</div>
+                </div>
+                <div className="rounded-sm py-2.5 bg-sunken">
+                  <div className="text-[11px] text-muted">🎫 총 모집</div>
+                  <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{totalQuota}명</div>
+                </div>
               </div>
-              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-canvas border border-hairline text-[12px] text-muted">
-                <span>{pendingLabel} <span className="font-semibold text-ink tabular-nums">{pendingCnt}명</span></span>
-                <span className="text-mutedSoft">/</span>
-                <span>{completedLabel} <span className="font-semibold text-ink tabular-nums">{visitedCnt}명</span></span>
-                <span className="text-mutedSoft">/</span>
-                <span><span aria-hidden>🎫</span> 총 모집 인원 <span className="font-semibold text-ink tabular-nums">{totalQuota}명</span></span>
-              </div>
-              {(() => {
-                const policy = PLAN_POLICY[me.plan];
-                if (policy.priorityGrade) {
-                  return (
-                    <div className="mt-2 text-[11px] text-muted">
-                      {me.plan} 플랜: {policy.priorityGrade}등급 우선 모집.
-                    </div>
-                  );
-                }
-                return (
-                  <div className="mt-2 text-[11px] text-muted">{me.plan} 플랜: 등급 랜덤 노출.</div>
-                );
-              })()}
             </div>
           );
         };

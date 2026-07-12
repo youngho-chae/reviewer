@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { supportForGrade } from "@/lib/grade";
+import { passDisplayStatus } from "@/lib/pass-display";
 import { CHANNEL_LABEL, defaultChannel } from "@/lib/channels";
 import { findSupportBoost, boostedLimit } from "@/lib/referral";
 import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
@@ -10,10 +11,9 @@ import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
 import { SBUI } from "@/lib/storyboard";
-import QRView from "./QRView";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
-import OwnerUseForm from "./OwnerUseForm";
+import PassTicket from "./PassTicket";
 import CancelPassButton from "./CancelPassButton";
 
 export const dynamic = "force-dynamic";
@@ -55,80 +55,39 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
     ? boostedLimit(campaign?.supportAmount ?? 0, entitledSupport, boost.value)
     : entitledSupport;
 
-  // Active state — 화이트 캔버스 위 티켓 카드 (v2: shadow-card + 퍼플 액센트 + 점선 절취선)
+  // Active state — QR 스캔 / 코드 입력 세그먼트 (2026-07-08 시안 개편)
   if (pass.status === "active") {
     return (
       <div className="fixed inset-0 z-30 mx-auto max-w-[480px] bg-canvas overflow-y-auto">
-        {/* top-app-bar — 화이트 52px */}
-        <div className="sticky top-0 z-10 bg-canvas border-b border-hairlineSoft">
-          <div className="h-[52px] px-5 flex items-center justify-between">
-            <Link href="/r/passes" className="cp-action inline-flex items-center gap-1 text-[15px] font-semibold text-brand">
-              <Icon name="chevron-left" variant="border" size={18} />
-              <span>닫기</span>
+        {/* top-app-bar — ← + 중앙 타이틀 */}
+        <div className="sticky top-0 z-10 bg-canvas">
+          <div className="h-[52px] px-3 grid grid-cols-[40px_1fr_40px] items-center">
+            <Link
+              href="/r/passes"
+              className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink"
+              aria-label="내 체험권으로"
+            >
+              <Icon name="chevron-left" variant="border" size={22} />
             </Link>
-            <div className="text-[12px] text-muted">화면 밝기를 최대로</div>
+            <h1 className="text-[16px] font-bold text-ink tracking-title text-center">체험권</h1>
+            <span />
           </div>
         </div>
 
-        {/* Ticket card — 화이트 카드 + 떠 있는 표면 그림자 */}
-        <div className="px-5 py-8">
-          <div className="bg-canvas rounded-lg relative shadow-card overflow-visible">
-            {/* perforation cutouts — 캔버스색 노치 */}
-            <div className="absolute -left-3 top-[208px] w-6 h-6 rounded-full bg-canvas" />
-            <div className="absolute -right-3 top-[208px] w-6 h-6 rounded-full bg-canvas" />
+        <PassTicket
+          passId={pass.id}
+          code={pass.code}
+          storeName={store?.name ?? "매장"}
+          channelLabel={pass.reviewChannel ? CHANNEL_LABEL[pass.reviewChannel] : "채널 미정"}
+          grade={pass.reviewerGrade}
+          support={displaySupport}
+          expiresAt={pass.expiresAt}
+          boosted={!!boost && displaySupport > entitledSupport}
+        />
 
-            {/* Top half — store info */}
-            <div className="px-7 pt-7 pb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <GradeBadge grade={pass.reviewerGrade} size="sm" />
-                <span className="text-[12px] font-medium text-muted">CATCHPASS · {pass.reviewerGrade}등급</span>
-              </div>
-              <h2 className="text-[20px] font-bold text-ink tracking-title leading-[1.3]">{store?.name}</h2>
-              <div className="text-[13px] text-muted mt-1">{store?.area} · {store?.category}</div>
-
-              <div className="mt-5 flex items-start justify-between">
-                <div>
-                  <div className="text-[12px] text-muted">할인 금액</div>
-                  <div className="text-[20px] font-bold text-ink tabular-nums leading-[1.3] mt-1">
-                    {SBUI.support}
-                  </div>
-                  {boost && displaySupport > entitledSupport && (
-                    <div className="mt-1 text-[11px] text-brand font-semibold">
-                      🎁 초대 보상 부스트 포함
-                    </div>
-                  )}
-                  <div className="mt-1 text-[11px] text-muted">매장에서 결제 시 즉시 할인해 드려요</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[12px] text-brand font-semibold">남은 시간</div>
-                  <div className="mt-1">
-                    <Countdown expiresAt={pass.expiresAt} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Perforation line */}
-            <div className="border-t border-dashed border-hairline mx-7" />
-
-            {/* QR section — QR은 항상 화이트 위 */}
-            <div className="px-7 pt-6 pb-8 flex flex-col items-center">
-              <div className="p-4 bg-canvas border border-hairline rounded-md">
-                <QRView code={pass.code} />
-              </div>
-
-              <p className="mt-5 text-center text-[15px] text-ink leading-[1.5]">
-                결제 시 사장님께 보여주세요<br />
-                <span className="text-muted">&ldquo;캐치랭크 멤버십 쿠폰 사용할게요&rdquo;</span>
-              </p>
-
-              {/* 사장님 사용 처리 — 코드를 노출하지 않고 직접 입력받음 */}
-              <OwnerUseForm passId={pass.id} supportAmount={displaySupport} />
-
-              {/* 방문이 어려운 경우 취소 유도 — 슬롯을 다른 체험자에게 돌려줌 */}
-              <CancelPassButton passId={pass.id} />
-            </div>
-          </div>
+        {/* 방문이 어려운 경우 취소 유도 — 슬롯을 다른 체험자에게 돌려줌 */}
+        <div className="pb-12 text-center">
+          <CancelPassButton passId={pass.id} />
         </div>
       </div>
     );
@@ -153,7 +112,8 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           <GradeBadge grade={pass.reviewerGrade} size="lg" />
         </div>
         <h1 className="text-[20px] font-bold text-ink tracking-title leading-[1.3]">{store?.name}</h1>
-        <p className="mt-1.5 text-[14px] text-ink2">{campaign?.title}</p>
+        {/* [확정 정책 7] 캠페인명은 사장님 내부 관리용 — 체험자에게는 매장명 중심 노출 */}
+        <p className="mt-1.5 text-[14px] text-ink2">{store?.area} · {store?.category}</p>
         <p className="mt-1 text-[13px] text-muted">
           지원금 <span className="font-bold text-ink tabular-nums">{SBUI.support}</span>
           {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
@@ -199,17 +159,27 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               <span className="text-brand text-[18px] shrink-0">›</span>
             </Link>
 
-            <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
-            <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-              실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
-            </p>
-            <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+            {passDisplayStatus(pass) === "overdue" ? (
+              /* 제출 기한 초과 — 서버(/api/passes/review)도 기한 경과 제출을 차단하므로 폼 대신 안내만 */
+              <div className="mt-9 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
+                리뷰 제출 기한(이용 후 7일)이 지나 더 이상 제출할 수 없어요. 기한 초과는 월간 등급 재평가에
+                감점으로 반영됩니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+              </div>
+            ) : (
+              <>
+                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
+                <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
+                  실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
+                </p>
+                <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
+              </>
+            )}
           </div>
         )}
 
         {pass.status === "review_submitted" && (
           <div className="mt-6 rounded-md border border-hairline bg-canvas p-5 text-[15px] text-ink">
-            ✓ 리뷰가 등록되었습니다. 운영팀이 광고 표시·작성 조건을 검수합니다 (최대 72시간).
+            ✓ 리뷰가 등록되었습니다. 운영팀이 광고 표시·작성 조건을 검수합니다 (영업일 기준 최대 3일).
           </div>
         )}
         {pass.status === "completed" && (

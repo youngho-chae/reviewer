@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
-import { CHANNEL_REVIEW_CONDITIONS } from "@/lib/channels";
+import { selfCheckConditions } from "@/lib/channels";
 import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
 import { SnsKind } from "@/lib/types";
 
@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { passId, reviewUrl, reviewChannel, selfCheck, pressSelfCheck, adNotice } = await req.json();
+  const { passId, reviewUrl, reviewChannel, selfCheck, pressSelfCheck, adNotice, keepAgreed } = await req.json();
   const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === passId);
   if (!pass || pass.reviewerId !== s.userId) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -72,12 +72,18 @@ export async function POST(req: NextRequest) {
     if (!channel) {
       return NextResponse.json({ error: "작성 채널을 선택해주세요" }, { status: 400 });
     }
-    const conditions = CHANNEL_REVIEW_CONDITIONS[channel] ?? [];
+    // 자가점검 = 제출 시점에 완료된 사실만 (게시 유지 keep 항목은 별도 동의로 분리)
+    const conditions = selfCheckConditions(channel);
     const sc = (selfCheck ?? {}) as Record<string, boolean>;
     if (!conditions.every((c) => sc[c.key])) {
       return NextResponse.json({ error: "자가점검 항목을 모두 체크해주세요" }, { status: 400 });
     }
+    // 게시 유지(90일) 동의 — 클라이언트 체크만으로는 우회 가능하므로 서버가 강제·보존
+    if (!keepAgreed) {
+      return NextResponse.json({ error: "게시 유지(90일) 동의가 필요합니다" }, { status: 400 });
+    }
     pass.reviewSelfCheck = Object.fromEntries(conditions.map((c) => [c.key, !!sc[c.key]]));
+    pass.keepAgreed = true;
     pass.reviewChannel = channel;
     pass.adNoticeConfirmed = true;
   }

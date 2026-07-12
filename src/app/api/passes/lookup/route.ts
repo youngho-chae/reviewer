@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
   const campaign = db.campaigns.find((c) => c.id === pass!.campaignId);
   return NextResponse.json({
     pass,
-    reviewer: reviewer ? { nickname: reviewer.nickname, grade: reviewer.grade } : null,
+    // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 전송하지 않는다 — 익명 식별자만
+    reviewer: reviewer ? { anonymousId: reviewer.id.slice(-4) } : null,
     campaign: campaign ? { title: campaign.title, supportAmount: campaign.supportAmount, useCode: campaign.useCode } : null,
   });
 }

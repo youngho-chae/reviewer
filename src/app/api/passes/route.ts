@@ -4,14 +4,14 @@ import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
 import { Pass, Grade, SnsKind } from "@/lib/types";
 import { CHANNEL_LABEL } from "@/lib/channels";
-import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
+import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 
 // 동시 보유 가능한 체험권(사용 전 active) 최대 수 — 2026-07-07 회의 확정
 const MAX_ACTIVE_PASSES = 5;
-// 취소 후 동일 캠페인 재신청 제한 시간 — 장기 점유 후 취소·재발급 악용 방지
-const CANCEL_REAPPLY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+// 취소 후 동일 캠페인 재신청 제한(12h)은 매장 상세 CTA와 공유 — src/lib/pass-lifecycle.ts
 
 export const runtime = "nodejs";
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   // 참여 채널 / 자격 등급 결정.
   //  - 방문형(visit): 참여 시점에 채널 확정. 선택 채널의 내 등급으로 자격·지원금 결정.
-  //  - 기자단(press): 작성 시점에 채널 선택. 종합 등급으로 자격 판정.
+  //  - 기자단(press): 작성 시점에 채널 선택. 표기 등급(연동 채널 중 최고)으로 자격 판정. (MVP 제외)
   const isPress = c.kind === "press";
   // [MVP] 기자단은 1차 출시 범위에서 제외 — 발급 차단 (src/lib/flags.ts)
   if (isPress && !PRESS_ENABLED) {
@@ -35,14 +35,16 @@ export async function POST(req: NextRequest) {
   const selectedChannel: SnsKind | undefined = isPress
     ? undefined
     : (channel as SnsKind | undefined);
+  // 인스턴스 불일치 스톱갭 — 연동 직후 다른 인스턴스에서도 최신 연동 상태로 참여 판정 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   let channelGrade: Grade;
   if (isPress) {
-    channelGrade = me.grade;
+    channelGrade = eff.grade;
   } else {
     if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
       return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
     }
-    const cg = me.channelGrades?.[selectedChannel];
+    const cg = eff.channelGrades[selectedChannel];
     if (!cg) {
       return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
     }
@@ -150,7 +152,8 @@ export async function POST(req: NextRequest) {
     userId: pass.ownerId,
     role: "owner",
     title: isPress ? "기자단 신청" : "체험권 발급",
-    body: `${me.nickname}님(${selectedChannel ? `${CHANNEL_LABEL[selectedChannel]} ` : ""}${channelGrade}등급)이 캠페인에 참여했습니다.`,
+    // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 비노출 — 익명·채널만 전달
+    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.`,
     createdAt: now,
     read: false,
     link: "/o/home",

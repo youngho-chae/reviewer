@@ -71,9 +71,9 @@
     · 결제·지원 적용액 + usedAt+7일 카운트다운(보유 화면은 실제 마감 일시·카운트다운 명시)
     · ReviewForm: ① 채널 고정 표기 ② 광고 표시 문구 박스[복사]+포함 확인 체크 ③ URL 입력 ④ 채널별 자가점검
     → POST /api/passes/review { passId, reviewUrl, selfCheck, adNotice:true }
-        · 서버 검증: 이용 후 7일 기한 / adNotice 필수 / 자가점검 전 항목 → review_submitted (adNoticeConfirmed=true)
+        · 서버 검증: 이용 후 7일 기한 / adNotice 필수 / 자가점검 전 항목 / 게시 유지(90일) 동의(keepAgreed) → review_submitted (adNoticeConfirmed=true)
 
-[/r/passes/[id]] review_submitted → 운영팀 검수(최대 72시간) → completed(등급 반영) 또는 rejected
+[/r/passes/[id]] review_submitted → 운영팀 검수(영업일 기준 최대 3일) → completed(등급 반영) 또는 rejected
 [/r/passes/[id]] rejected — 사유(rejectReason) 원문 노출 + 반려 후 7일 내 1회 재제출(resubmitCount<1) → 재검수
 [/r/passes/[id]] cancelled — "직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요."
 ```

@@ -5,34 +5,18 @@ import { getDBAsync } from "@/lib/db";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED } from "@/lib/flags";
+import { supportForGrade } from "@/lib/grade";
+import { passDisplayStatus, DISPLAY_BADGE } from "@/lib/pass-display";
 import GradeBadge from "@/components/GradeBadge";
-import PassesTabs from "./PassesTabs";
+import PassesView, { type VisitPassItem } from "./PassesView";
 import PassPendingBanner from "./PassPendingBanner";
 import { SBUI } from "@/lib/storyboard";
 import type { Pass, Campaign, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const statusLabel = (s: string) => ({
-  active: "사용 가능",
-  used: "리뷰 작성 대기",
-  review_submitted: "검수 대기",
-  completed: "완료",
-  expired: "만료",
-  cancelled: "취소함",
-  rejected: "반려",
-} as any)[s] || s;
-
-// 상태 칩 — *Soft 토큰 배경 + 강한 텍스트 (v2 상태 칩 문법)
-const statusChip = (s: string) => ({
-  active: "bg-brandSoft text-brand",
-  used: "bg-warningSoft text-warning",
-  review_submitted: "bg-sunken text-muted",
-  completed: "bg-successSoft text-successStrong",
-  expired: "bg-sunken text-mutedSoft",
-  cancelled: "bg-sunken text-mutedSoft",
-  rejected: "bg-errorSoft text-error",
-} as any)[s] || "bg-sunken text-muted";
+// 상태 라벨·칩은 src/lib/pass-display.ts의 단일 정의(DISPLAY_BADGE)를 공유 (2026-07-10 — 3중 정의 단일화).
+const pressBadge = (p: Pass) => DISPLAY_BADGE[passDisplayStatus(p)] ?? { label: p.status, cls: "bg-sunken text-muted" };
 
 export default async function MyPasses({
   searchParams,
@@ -89,35 +73,42 @@ export default async function MyPasses({
     if (p.status === "active" && now > p.expiresAt) p.status = "expired";
   }
 
-  // just_issued — 이제 쿠키 머지 후에도 보이지 않으면 진짜로 발급 실패한 경우.
-  // 정상 케이스에서는 cookie 또는 db 둘 중 하나에 반드시 존재.
+  // just_issued — 쿠키 머지 후에도 보이지 않으면 진짜로 발급 실패한 경우.
   const justIssuedVisible = justIssued ? allPasses.some((p) => p.id === justIssued) : true;
   const showJustIssuedBanner = !!justIssued && !justIssuedVisible;
-  // 참조 노출용 — recentByPassId는 detail 페이지에서도 활용
   void recentByPassId;
 
   const visit = allPasses.filter((p) => findCampaign(p.campaignId)?.kind !== "press");
   const press = allPasses.filter((p) => findCampaign(p.campaignId)?.kind === "press");
 
-  const visitItems = visit.map((p) => {
+  // 목록 카드 데이터 — 클라이언트 PassesView(탭·칩·액션)로 직렬화 전달
+  const items: VisitPassItem[] = visit.map((p) => {
     const store = findStore(p.storeId);
     const c = findCampaign(p.campaignId);
-    const remainMs = p.expiresAt - now;
-    const days = Math.max(0, Math.floor(remainMs / 86400000));
-    const hours = Math.max(0, Math.floor((remainMs / 3600000) % 24));
-    let reviewLeft: { d: number; h: number; expired: boolean } | null = null;
-    if (p.status === "used" && p.usedAt) {
-      const r = p.usedAt + REVIEW_DEADLINE_MS - now;
-      if (r <= 0) reviewLeft = { d: 0, h: 0, expired: true };
-      else {
-        reviewLeft = {
-          d: Math.floor(r / 86400000),
-          h: Math.floor((r % 86400000) / 3600000),
-          expired: false,
-        };
-      }
-    }
-    return { p, store, c, days, hours, reviewLeft, highlight: p.id === justIssued };
+    return {
+      id: p.id,
+      storeId: p.storeId,
+      campaignId: p.campaignId,
+      storeName: store?.name ?? "매장",
+      category: store?.category ?? "",
+      status: p.status,
+      displayStatus: passDisplayStatus(p, now),
+      channel: p.reviewChannel ?? null,
+      grade: p.reviewerGrade,
+      support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
+      expiresAt: p.expiresAt,
+      usedAt: p.usedAt ?? null,
+      // 리뷰 마감 — used는 이용 후 7일, rejected는 반려 후 7일(재제출 기한)
+      reviewDeadline:
+        p.status === "rejected" && p.rejectedAt
+          ? p.rejectedAt + REVIEW_DEADLINE_MS
+          : p.usedAt
+            ? p.usedAt + REVIEW_DEADLINE_MS
+            : null,
+      deadlineKind: p.status === "rejected" ? ("resubmit" as const) : p.usedAt ? ("review" as const) : null,
+      rejectReason: p.rejectReason ?? null,
+      highlight: p.id === justIssued,
+    };
   });
 
   const pressItems = press.map((p) => {
@@ -126,81 +117,18 @@ export default async function MyPasses({
     return { p, store, c };
   });
 
+  const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
+
   return (
     <div className="pb-24 bg-canvas">
-      {/* top-app-bar — 화이트 52px */}
-      <div className="sticky top-0 z-10 bg-canvas">
-        <div className="h-[52px] px-5 flex items-center">
-          <h1 className="text-[18px] font-bold text-ink tracking-title">내 체험권</h1>
-        </div>
-      </div>
-
       {pending && <PassPendingBanner pendingId={pending} />}
-      {showJustIssuedBanner && justIssued && (
-        <PassPendingBanner pendingId={justIssued} />
-      )}
+      {showJustIssuedBanner && justIssued && <PassPendingBanner pendingId={justIssued} />}
 
-      <PassesTabs
-        visitCount={visit.length}
-        pressCount={press.length}
+      <PassesView
+        items={items}
         showPress={PRESS_ENABLED || press.length > 0}
-        visitView={
-          <div className="px-5 mt-5 space-y-3 pb-8">
-            {visitItems.map(({ p, store, c, days, hours, reviewLeft, highlight }) => {
-              // 우측 하단 메타 — 상태별 표시: active=유효기간, used=리뷰 마감, 그 외=상태 라벨
-              let rightLabel = "유효기간";
-              let rightValue: string = statusLabel(p.status);
-              if (p.status === "active") {
-                rightValue = `${days}일 ${hours}시간`;
-              } else if (p.status === "used" && reviewLeft) {
-                rightLabel = "리뷰 마감";
-                rightValue = reviewLeft.expired ? "마감 지남" : `${reviewLeft.d}일 ${reviewLeft.h}시간`;
-              }
-              return (
-                <Link
-                  key={p.id}
-                  href={`/r/passes/${p.id}`}
-                  className={`cp-action block bg-canvas rounded-lg p-5 ${highlight ? "border-[1.5px] border-brand" : "border border-hairline"}`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <GradeBadge grade={p.reviewerGrade} size="sm" />
-                      <span className="text-[12px] text-muted">{p.reviewerGrade}등급</span>
-                    </div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${statusChip(p.status)}`}>{statusLabel(p.status)}</span>
-                  </div>
-                  <h3 className="text-[16px] font-bold text-ink tracking-title leading-[1.35]">{store?.name}</h3>
-                  <p className="text-[13px] text-muted mt-0.5">{store?.area} · {store?.category}</p>
-                  <div className="flex items-end justify-between mt-4 pt-4 border-t border-dashed border-hairline">
-                    <div>
-                      <div className="text-[12px] text-muted">할인 금액</div>
-                      <div className="text-[16px] font-bold text-ink tabular-nums leading-none mt-1">
-                        {SBUI.support}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[12px] text-muted">{rightLabel}</div>
-                      <div className={`text-[13px] font-semibold mt-1 tabular-nums ${p.status === "used" && reviewLeft && !reviewLeft.expired ? "text-brand" : "text-ink"}`}>
-                        {rightValue}
-                      </div>
-                    </div>
-                  </div>
-                  {highlight && (
-                    <div className="mt-4 pt-3 border-t border-hairlineSoft text-[12px] text-brand font-semibold">
-                      ✓ 방금 발급된 체험권이에요
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-            {visit.length === 0 && (
-              <div className="py-16 text-center">
-                <p className="text-[15px] text-muted">아직 발급된 방문형 체험권이 없어요.</p>
-                <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">홈에서 체험권 받기 →</Link>
-              </div>
-            )}
-          </div>
-        }
+        pressCount={press.length}
+        unread={unread}
         pressView={
           <div>
             {/* stat-strip — 화이트 + 헤어라인 3열 */}
@@ -229,8 +157,8 @@ export default async function MyPasses({
                         <GradeBadge grade={p.reviewerGrade} size="sm" />
                         <span className="inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-1 text-[12px] font-semibold">기자단</span>
                       </div>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${statusChip(p.status)}`}>
-                        {p.status === "active" ? "자료 수령" : statusLabel(p.status)}
+                      <span className={`inline-flex items-center px-2 py-1 rounded-pill text-[12px] font-semibold ${pressBadge(p).cls}`}>
+                        {p.status === "active" ? "자료 수령" : pressBadge(p).label}
                       </span>
                     </div>
                     <h3 className="text-[16px] font-bold text-ink tracking-title leading-[1.35]">{store?.name}</h3>
@@ -253,7 +181,7 @@ export default async function MyPasses({
                       </Link>
                     ) : p.status === "review_submitted" ? (
                       <div className="mt-4 p-3 bg-sunken rounded-md text-[13px] text-muted text-center">
-                        운영팀 검수 중 · 최대 72시간
+                        운영팀 검수 중 · 영업일 기준 최대 3일
                       </div>
                     ) : p.status === "rejected" ? (
                       <Link

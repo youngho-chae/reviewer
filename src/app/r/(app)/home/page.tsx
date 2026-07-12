@@ -8,6 +8,10 @@ import type { SnsKind } from "@/lib/types";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, walkMinutes, NEARBY_RADIUS_M } from "@/lib/distance-mock";
+import { haversineM, regionCenter } from "@/lib/geo";
+import { compareRecommended } from "@/lib/recommend";
+import { effectiveChannelState } from "@/lib/sns-cookie";
+import { PLAN_RANK } from "@/lib/plan-policy";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
@@ -28,7 +32,11 @@ interface HomeCard {
   soldOut: boolean; // 발급 소진(살아있는 체험권만 남음) — 노출 유지 + 발급 마감 표시
   walkMin: number;
   distanceM: number;
+  lat?: number;
+  lng?: number;
   createdAt: number;
+  planRank: number; // 사장님 멤버십 랭크 — 추천순 (§4)
+  participating: boolean; // 내가 진행 중인 패스를 보유한 캠페인 — "참여 중" 표시 (§6)
 }
 
 export default async function ReviewerHome({
@@ -37,6 +45,8 @@ export default async function ReviewerHome({
   searchParams: Promise<{ area?: string }>;
 }) {
   const me = await getCurrentReviewer();
+  // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const { area: areaParam } = await searchParams;
   const db = await getDBAsync();
   if (!db.naverDataFetched) {
@@ -51,10 +61,19 @@ export default async function ReviewerHome({
     (c) => c.kind === "visit" && isCampaignVisible(c, db.passes, now),
   );
 
+  // [추천순 §4] 사장님 멤버십 플랜 랭크 — 조회 시점 조인 (리뷰어 등급 아님 · P1 무관)
+  const ownerPlanRank = new Map(db.owners.map((o) => [o.id, PLAN_RANK[o.plan] ?? 0]));
+  // [§6] 이미 참여 중인 캠페인 — 제외하지 않고 "참여 중" 뱃지
+  const myCampaignIds = new Set(
+    db.passes
+      .filter((p) => p.reviewerId === me.id && ["active", "used", "review_submitted"].includes(p.status))
+      .map((p) => p.campaignId),
+  );
+
   // [P1] 등급은 참여 자격이 아님 — 금액만 내 채널 등급 기준 개인화.
   const cards: HomeCard[] = visitCampaigns.map((c) => {
     const store = db.stores.find((s) => s.id === c.storeId)!;
-    const offers = channelOffers(c.requiredChannels, me.channelGrades, c.supportAmount);
+    const offers = channelOffers(c.requiredChannels, eff.channelGrades, c.supportAmount);
     const myBest = bestEligibleSupport(offers);
     return {
       storeId: store.id,
@@ -68,7 +87,11 @@ export default async function ReviewerHome({
       soldOut: campaignExposure(c, db.passes, now) === "issued_out",
       walkMin: walkMinutes(store.id),
       distanceM: mockDistanceM(store.id),
+      lat: store.lat,
+      lng: store.lng,
       createdAt: c.createdAt,
+      planRank: ownerPlanRank.get(store.ownerId) ?? 0,
+      participating: myCampaignIds.has(c.id),
     };
   });
 
@@ -86,13 +109,27 @@ export default async function ReviewerHome({
   // 2026-07-08: 지역 선택은 /r/location(시도→시군구) 페이지에서 — 임의 지역 라벨을 그대로 수용.
   const selectedArea = areaParam || undefined;
 
-  // 걸어서 갈 수 있어요 — 반경 3km 이내, 가까운 순 최대 10개 · 1단 캐러셀 (지역 선택 시 해당 지역 기준)
-  const nearby = cards
-    .filter((p) => (selectedArea ? p.area === selectedArea : p.distanceM <= NEARBY_RADIUS_M))
-    .sort((a, b) => a.distanceM - b.distanceM)
-    .slice(0, 10);
-  // 전국 체험단 전체 리스트 — 최신 등록순 (마감 임박순 아님, 2026-07-07 회의)
-  const all = [...cards].sort((a, b) => b.createdAt - a.createdAt);
+  // 걸어서 갈 수 있어요 — 기준 지점 반경 3km 이내, 가까운 순 최대 10개 · 1단 캐러셀.
+  // 지역 선택 시: 그 지역의 기준 좌표(regionCenter)에서 반경 3km 실좌표(하버사인) 필터 (확정 정책 1-3).
+  // (기존 area 문자열 정확 일치 방식은 지역 선택 페이지 라벨과 시드 area가 달라 항상 빈 결과였음 — 좌표 기준으로 정정)
+  const areaCenter = selectedArea ? regionCenter(selectedArea) : null;
+  const nearby = (
+    areaCenter
+      ? cards
+          .filter((p) => p.lat != null && p.lng != null && haversineM(areaCenter, { lat: p.lat!, lng: p.lng! }) <= NEARBY_RADIUS_M)
+          .sort(
+            (a, b) =>
+              haversineM(areaCenter, { lat: a.lat!, lng: a.lng! }) -
+              haversineM(areaCenter, { lat: b.lat!, lng: b.lng! }),
+          )
+      : cards.filter((p) => p.distanceM <= NEARBY_RADIUS_M).sort((a, b) => a.distanceM - b.distanceM)
+  ).slice(0, 10);
+  // 전국 체험단 전체 리스트 — 추천순(사장님 멤버십 랭크 → 최신순) · 최대 30개 (2026-07-10 §6-3)
+  const all = [...cards].sort(compareRecommended).slice(0, 30);
+
+  // 동적 섹션 타이틀 (§6-1) — 특정 지역 선택 시 2차 행정구역명으로: "마포구에서 갈 수 있어요"
+  // (라벨 마지막 토큰 = 시군구. STORYBOARD에서는 area 라벨 자체가 "지역"이라 자연 마스킹)
+  const walkTitleArea = selectedArea ? selectedArea.trim().split(/\s+/).pop() : null;
 
   const repArea = cards[0] ? cards[0].area : "내 동네";
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
@@ -104,7 +141,7 @@ export default async function ReviewerHome({
         <div className="h-[52px] px-5 flex items-center justify-between">
           <HomeLocationChip fallbackArea={repArea} selectedArea={selectedArea} />
           <div className="flex items-center gap-1">
-            <Link href="/r/explore" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
+            <Link href="/r/search" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
               <Icon name="search" variant="border" size={22} />
             </Link>
             <Link href="/r/notifications" className="cp-action relative w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="알림">
@@ -130,7 +167,7 @@ export default async function ReviewerHome({
         </div>
       </section>
 
-      {/* stat-strip — 이번 달 아낀 금액 / 밀린 리뷰 / 참여 예정 */}
+      {/* stat-strip — 이번 달 아낀 금액 / 작성해야 하는 리뷰 / 발급받은 체험권 (확정 정책 1-1) */}
       <section className="px-5 mt-3">
         <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
           <div className="py-4 px-3 text-center">
@@ -138,22 +175,30 @@ export default async function ReviewerHome({
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.saved, `${savedThisMonth.toLocaleString()}원`)}</div>
           </div>
           <div className="py-4 px-3 text-center border-l border-r border-hairlineSoft">
-            <div className="text-[12px] text-muted">밀린 리뷰</div>
+            <div className="text-[12px] text-muted">작성할 리뷰</div>
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.count, `${pendingReviews}건`)}</div>
           </div>
           <Link href="/r/passes" className="cp-action py-4 px-3 text-center block">
-            <div className="text-[12px] text-brand font-semibold">🎫 참여 예정</div>
+            <div className="text-[12px] text-brand font-semibold">🎫 발급받은 체험권</div>
             <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{sbNum(SBUI.count, `${upcoming}건`)}</div>
           </Link>
         </div>
       </section>
 
-      {/* 걸어서 갈 수 있어요 👀 */}
-      <section className="px-5 mt-8 mb-3 flex items-end justify-between">
-        <h2 className="text-[18px] font-bold text-ink tracking-title">
-          걸어서 갈 수 있어요<span aria-hidden>👀</span>
-        </h2>
-        <Link href="/r/explore?mode=list" className="cp-action inline-flex items-center text-[13px] text-muted font-medium">
+      {/* 걸어서 갈 수 있어요 👀 — 지역 선택 시 "{시군구}에서 갈 수 있어요" (§6-1) */}
+      <section className="px-5 mt-8 mb-3 flex items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-[18px] font-bold text-ink tracking-title truncate">
+            {walkTitleArea ? `${walkTitleArea}에서 갈 수 있어요` : "걸어서 갈 수 있어요"}
+            <span aria-hidden>👀</span>
+          </h2>
+          {/* [§11] 반경은 도보 거리가 아닌 직선 거리 기준임을 고지 */}
+          <p className="mt-0.5 text-[11px] text-mutedSoft">반경 3km · 직선 거리 기준</p>
+        </div>
+        <Link
+          href={`/r/explore?mode=list&sort=distance${selectedArea ? `&area=${encodeURIComponent(selectedArea)}` : ""}`}
+          className="cp-action inline-flex items-center text-[13px] text-muted font-medium shrink-0"
+        >
           더 둘러보기
           <Icon name="chevron-right" variant="border" size={14} />
         </Link>
@@ -180,7 +225,12 @@ export default async function ReviewerHome({
         <h2 className="text-[18px] font-bold text-ink tracking-title">
           내가 체험할 수 있는 전체 리스트<span aria-hidden>👀</span>
         </h2>
-        <Link href="/r/explore?mode=list&sort=new" className="cp-action inline-flex items-center text-[13px] text-muted font-medium shrink-0">
+        {/* 더 둘러보기 → 탐색 전국 뷰 (§6-4 확정: 대한민국 전체 축소·시도 클러스터 시작 — 홈 선택 지역 미전달).
+            지역 스코프 진입은 '걸어서 갈 수 있어요' 더 둘러보기가 담당 — 두 진입점을 차별화한다. */}
+        <Link
+          href="/r/explore?scope=all"
+          className="cp-action inline-flex items-center text-[13px] text-muted font-medium shrink-0"
+        >
           더 둘러보기
           <Icon name="chevron-right" variant="border" size={14} />
         </Link>
@@ -211,7 +261,15 @@ function ExperienceCard({ card }: { card: HomeCard }) {
         />
       </div>
       <div className="mt-2">
-        <ChannelIcons channels={card.requiredChannels} size={12} />
+        <div className="flex items-center gap-1.5">
+          <ChannelIcons channels={card.requiredChannels} size={12} />
+          {/* [§6] 이미 신청한 캠페인 — 제외 대신 "참여 중" 표시 */}
+          {card.participating && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold">
+              참여 중
+            </span>
+          )}
+        </div>
         {card.soldOut ? (
           <div className="mt-1.5 text-[13px] font-semibold text-mutedSoft">발급 마감 · 체험 진행 중</div>
         ) : (

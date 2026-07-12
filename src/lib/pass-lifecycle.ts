@@ -3,6 +3,7 @@
 //   1) 만료 확정: active + 기한 경과 → expired 전이 + 모집 슬롯 복구 + 양측 알림 (노쇼 카운트)
 //   2) 리뷰 기한(이용 후 7일) 초과: used 상태 방치 → 노쇼 카운트 + 양측 알림 (1회)
 //   3) 만료 임박 알림: 사용 기한 6시간 전 체험자에게 리마인드 (1회)
+//   4) 리뷰 마감 임박 알림: 제출 기한 24시간 전 체험자에게 리마인드 (1회)
 // 모든 처리는 멱등(플래그/상태 가드)이며, 변경 여부를 반환해 호출자가 영속화를 결정한다.
 
 import { DBShape, Pass } from "./types";
@@ -12,7 +13,10 @@ import { rid } from "./ids";
 export const PASS_VALIDITY_MS = 72 * 60 * 60 * 1000;
 // 리뷰 제출 기한 — 이용(사용 처리) 후 7일
 export const REVIEW_DEADLINE_MS = 7 * 24 * 60 * 60 * 1000;
+// 취소 후 동일 캠페인 재신청 제한 — 발급 API(/api/passes)와 매장 상세 CTA가 공유
+export const CANCEL_REAPPLY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 const EXPIRY_REMINDER_MS = 6 * 60 * 60 * 1000;
+const REVIEW_DUE_REMINDER_MS = 24 * 60 * 60 * 1000;
 
 // 발급 시 차감했던 등급 슬롯을 복구한다 (만료/취소 공용).
 // consumedSlot이 없는 구버전 패스는 체험자 등급 슬롯으로 폴백 (N등급은 C 슬롯).
@@ -111,6 +115,27 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
         link: `/r/passes/${p.id}`,
       });
       changed = true;
+      continue;
+    }
+
+    // 4) 리뷰 마감 임박(24시간 전) 리마인드 — used + 미제출
+    if (p.status === "used" && p.usedAt && !p.reviewDueSoonNotified && !p.overdueHandled) {
+      const left = p.usedAt + REVIEW_DEADLINE_MS - now;
+      if (left > 0 && left <= REVIEW_DUE_REMINDER_MS) {
+        p.reviewDueSoonNotified = true;
+        const store = db.stores.find((s) => s.id === p.storeId);
+        db.notifications.push({
+          id: rid("nt"),
+          userId: p.reviewerId,
+          role: "reviewer",
+          title: "리뷰 마감 24시간 전 ⏰",
+          body: `${store?.name ?? "매장"} 리뷰 제출 기한이 24시간 이내로 다가왔어요. 기한이 지나면 제출할 수 없고 등급 재평가에 감점으로 반영됩니다.`,
+          createdAt: now,
+          read: false,
+          link: `/r/passes/${p.id}`,
+        });
+        changed = true;
+      }
     }
   }
 

@@ -3,7 +3,9 @@ import crypto from "node:crypto";
 import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
 import { channelGradesFromSns, bestGrade } from "./grade";
 import { kstMonthKey, kstMonthStart, prevMonthKey } from "./grade-regrade";
-import { CHANNEL_REVIEW_CONDITIONS, defaultChannel } from "./channels";
+import { selfCheckConditions, defaultChannel } from "./channels";
+import { REGIONS } from "./regions";
+import { regionCenter } from "./geo";
 import { STORYBOARD } from "./storyboard";
 
 // ─────────────────────────────────────────────────────────────
@@ -44,11 +46,14 @@ function detPassCode(seed: string): string {
   return s;
 }
 
-// 결정론적 캠페인 4자리 사용처리 코드 (시드/데모용).
-function detUseCode(seed: string): string {
-  const h = crypto.createHash("sha256").update(`usecode:${seed}`).digest();
-  const n = (h.readUInt16BE(0) % 10000);
-  return n.toString().padStart(4, "0");
+// 시드/데모 캠페인 4자리 사용처리 코드 — 테스트 기준으로 전 캠페인 "1234" 통일 (2026-07-10).
+// 동일 코드가 사장님의 여러 캠페인에 걸리므로, 4자리 lookup은 '가장 최근 발급분(active 우선)'
+// 규칙으로 동작한다 (/api/passes/lookup — 단일 데모 사장님 구조에서 안전).
+const DEMO_USE_CODE = "1234";
+
+// 결정적 정수 (0 ≤ n < mod) — 전 지역 시드의 업종/지터/기간 분산용
+function detNum(seed: string, mod: number): number {
+  return crypto.createHash("sha256").update(seed).digest().readUInt32BE(0) % mod;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -423,6 +428,10 @@ export function runSeed(db: DBShape) {
     area: STORYBOARD ? SB.area : "서울",
     plan: "Standard",
     createdAt: now - 1000 * 60 * 60 * 24 * 7,
+    // 사업자 인증 (확정 정책 9) — 데모 계정은 인증 완료 상태로 시드 (기존 데모 무중단)
+    bizNumber: "1234567890",
+    bizStatus: "verified",
+    bizVerifiedAt: now - 1000 * 60 * 60 * 24 * 6,
   };
   db.owners.push(owner);
 
@@ -491,7 +500,7 @@ export function runSeed(db: DBShape) {
         ? [SB.keyword, SB.keyword]
         : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
-      useCode: detUseCode(`${s.naverPlaceId}-default`),
+      useCode: DEMO_USE_CODE,
     };
     db.campaigns.push(campaign);
   }
@@ -526,7 +535,7 @@ export function runSeed(db: DBShape) {
             "로고/심볼 가이드 (PDF)",
           ],
       pressMinChars: 1500,
-      useCode: detUseCode(`${pressStore.id}-press`),
+      useCode: DEMO_USE_CODE,
     });
   }
   // 2) 두 번째 매장 기자단 — 스토리보드에서는 카테고리가 모두 "카테고리"이므로 인덱스로 선택
@@ -557,12 +566,12 @@ export function runSeed(db: DBShape) {
             "인플루언서 게시 가이드 (1.2k자)",
           ],
       pressMinChars: 1200,
-      useCode: detUseCode(`${nailStore.id}-press`),
+      useCode: DEMO_USE_CODE,
     });
   }
 
   // ── 데모 체험자 ──
-  // 채널별 등급 데모: 블로그 A(영향력 큼) / 인스타 C(작음) → 종합 A
+  // 채널별 등급 데모: 블로그 A(영향력 큼) / 인스타 C(작음) → 표기 등급 A(최고 채널)
   const demoSns = [
     { kind: "naver_blog" as SnsKind, url: "https://blog.naver.com/demo", influence: 60000 },
     { kind: "instagram" as SnsKind, url: "https://instagram.com/demo", influence: 5800 },
@@ -644,6 +653,8 @@ export function runSeed(db: DBShape) {
     reviewChannel?: SnsKind;
     grade?: Pass["reviewerGrade"];
     reviewerId?: string;
+    rejectedOffset?: number; // 반려 시각 (기본 6일 전) — 재제출 기한(반려+7일) 케이스 분기용
+    overdueHandled?: boolean; // 리뷰 기한 초과 기처리 — 스윕 재처리(알림·noShowCount 중복) 방지
   };
 
   const seedPasses: SeedPass[] = [
@@ -719,6 +730,45 @@ export function runSeed(db: DBShape) {
       reviewChannel: "naver_blog",
       grade: "B",
     },
+    // 7) USED + 리뷰 기한 초과 — 파생 표시 상태 "제출 기한 초과" (이용 후 7일 경과·미제출)
+    {
+      key: "demo-overdue-1",
+      placeId: "1067489343",
+      status: "used",
+      issuedOffset: 9 * day,
+      usedOffset: 8 * day + 12 * hour, // 마감(이용 후 7일)이 1.5일 전에 지남
+      paid: 76000,
+      support: 60000,
+      grade: "B",
+      overdueHandled: true,
+    },
+    // 8) REJECTED + 재제출 기한 초과 — 파생 표시 상태 "재제출 기한 초과" (반려 후 7일 경과)
+    {
+      key: "demo-rej-2",
+      placeId: "demo-beauty-001",
+      status: "rejected",
+      issuedOffset: 20 * day,
+      usedOffset: 19 * day + 12 * hour,
+      reviewSubmittedOffset: 17 * day + 12 * hour,
+      rejectedOffset: 16 * day, // 재제출 기한(반려 후 7일)이 9일 전에 지남
+      paid: 55000,
+      support: 55000,
+      reviewUrl: "https://instagram.com/p/demo-beauty-rejected",
+      reviewBody: "청담 헤어 살롱 방문 후기. (피드 사진 수 미달)",
+      reviewChannel: "instagram",
+      grade: "B",
+    },
+    // 9) USED, 리뷰 마감 24h 이내 — 첫 스윕에서 '리뷰 마감 24시간 전 ⏰' 알림이 발화하는 데모
+    {
+      key: "demo-due-soon-1",
+      placeId: "demo-fit-001",
+      status: "used",
+      issuedOffset: 7 * day,
+      usedOffset: 6 * day + 6 * hour, // 리뷰 마감까지 약 18시간
+      paid: 70000,
+      support: 60000,
+      grade: "B",
+    },
 
     // ── 사장님 화면(로그/리뷰 조회 등)용: 다른 체험자가 만든 패스도 추가 ──
     // 다른 리뷰어 (성수러버, A등급) — 성수 베이커리 완료 건
@@ -791,6 +841,7 @@ export function runSeed(db: DBShape) {
       pass.paidAmount = sp.paid;
       pass.supportApplied = sp.support;
     }
+    if (sp.overdueHandled) pass.overdueHandled = true;
     if (sp.reviewSubmittedOffset !== undefined) {
       pass.reviewSubmittedAt = now - sp.reviewSubmittedOffset;
       pass.reviewUrl = sp.reviewUrl;
@@ -798,14 +849,18 @@ export function runSeed(db: DBShape) {
       pass.reviewStatus = sp.status === "completed" ? "approved" : sp.status === "rejected" ? "rejected" : "pending";
       pass.adNoticeConfirmed = true; // 제출 시 서버가 강제하는 광고 표기 확인
       if (sp.status !== "rejected") {
-        // 채널별 자가점검 항목 전부 충족으로 시드
+        // 채널별 자가점검 항목(유지 의무 keep 제외) 전부 충족 + 유지 동의로 시드
         pass.reviewSelfCheck = Object.fromEntries(
-          (CHANNEL_REVIEW_CONDITIONS[passChannel] ?? []).map((c) => [c.key, true]),
+          selfCheckConditions(passChannel).map((c) => [c.key, true]),
         );
+        pass.keepAgreed = true;
       } else {
         // 반려 사유 구조화 보존 — 상세 화면 노출 + 재제출 판단 근거
-        pass.rejectReason = "광고 표시 문구 누락 — 본문에 경제적 대가 문구가 확인되지 않습니다";
-        pass.rejectedAt = now - 6 * day;
+        pass.rejectReason =
+          sp.key === "demo-rej-2"
+            ? "피드 사진 수 미달 — 작성 조건(피드 사진/영상 3장 이상)이 확인되지 않습니다"
+            : "광고 표시 문구 누락 — 본문에 경제적 대가 문구가 확인되지 않습니다";
+        pass.rejectedAt = now - (sp.rejectedOffset ?? 6 * day);
       }
     }
     // quota 카운터 증가 (실 시나리오와 일관성) — 만료/취소만 슬롯 복구 대상이므로 그 외 상태는 소진 유지
@@ -916,6 +971,212 @@ export function runSeed(db: DBShape) {
     }
   }
 
+  // ── 멤버십 플랜 다양화 시드 (2026-07-10 추천순) ──
+  // 추천순 = 사장님 플랜 랭크(Premium>Standard>Basic>Free) → 캠페인 최신순 검증용.
+  // Free 캠페인이 가장 최신이어도 Premium 캠페인이 상단에, 체험권 일시 소진(issued_out)
+  // 캠페인은 최후순위로 밀리는지 확인한다. 기존 demo@store.com(Standard) 매장은 이관하지 않는다.
+  const planSeedOwners: Array<{
+    email: string;
+    plan: Owner["plan"];
+    bizNumber: string;
+    stores: Array<{
+      placeId: string; name: string; category: string; area: string; coverEmoji: string;
+      address: string; lat: number; lng: number; menus: string[];
+      campaignCreatedAgo: number; support: number; issuedOut?: boolean;
+    }>;
+  }> = [
+    {
+      email: "demo2@store.com",
+      plan: "Premium",
+      bizNumber: "2345678901",
+      stores: [
+        {
+          placeId: "demo-plan-p1", name: "연남 파스타 바", category: "양식", area: "연남동",
+          coverEmoji: "🍝", address: "서울 마포구 동교로 246", lat: 37.5606, lng: 126.9256,
+          menus: ["봉골레 파스타", "부라타 샐러드"], campaignCreatedAgo: 1 * day, support: 90000,
+        },
+        {
+          placeId: "demo-plan-p2", name: "연남 브런치 룸", category: "카페", area: "연남동",
+          coverEmoji: "🥞", address: "서울 마포구 성미산로 190", lat: 37.5626, lng: 126.9238,
+          menus: ["리코타 팬케이크", "브런치 플레이트"], campaignCreatedAgo: 2 * day, support: 70000,
+          issuedOut: true, // 잔여 0 + 살아있는 체험권 → issued_out (노출 유지·발급 불가·추천순 최후)
+        },
+      ],
+    },
+    {
+      email: "demo3@store.com",
+      plan: "Free",
+      bizNumber: "3456789012",
+      stores: [
+        {
+          placeId: "demo-plan-f1", name: "왕십리 곱창집", category: "한식", area: "왕십리",
+          coverEmoji: "🥘", address: "서울 성동구 왕십리로 315", lat: 37.5614, lng: 127.0374,
+          menus: ["모둠 곱창", "곱창 볶음밥"], campaignCreatedAgo: 6 * hour, support: 60000, // 가장 최신 생성
+        },
+      ],
+    },
+  ];
+  for (const po of planSeedOwners) {
+    const planOwner: Owner = {
+      id: detId("ow", po.email),
+      email: po.email,
+      passwordHash: hash("demo1234"),
+      storeName: STORYBOARD ? SB.ownerStore : po.stores[0].name,
+      category: STORYBOARD ? SB.category : po.stores[0].category,
+      area: STORYBOARD ? SB.area : "서울",
+      plan: po.plan,
+      createdAt: now - 20 * day,
+      bizNumber: po.bizNumber,
+      bizStatus: "verified",
+      bizVerifiedAt: now - 19 * day,
+    };
+    db.owners.push(planOwner);
+    for (const st of po.stores) {
+      const stId = detId("st", st.placeId);
+      db.stores.push({
+        id: stId,
+        ownerId: planOwner.id,
+        name: STORYBOARD ? SB.storeName : st.name,
+        category: STORYBOARD ? SB.category : st.category,
+        area: STORYBOARD ? SB.area : st.area,
+        coverEmoji: st.coverEmoji,
+        rating: 4.6,
+        reviewCount: 128,
+        hours: STORYBOARD ? SB.hours : "11:30 - 21:30",
+        lat: st.lat,
+        lng: st.lng,
+        address: STORYBOARD ? SB.address : st.address,
+        naverPlaceId: st.placeId,
+      });
+      const planCamp: Campaign = {
+        id: detId("cp", `${st.placeId}-default`),
+        storeId: stId,
+        kind: "visit",
+        title: STORYBOARD ? SB.visitTitle : `${st.name} 체험단`,
+        startAt: now - st.campaignCreatedAgo,
+        endAt: now + 21 * day,
+        supportAmount: st.support,
+        quota: st.issuedOut ? { S: 0, A: 0, B: 1, C: 0 } : { S: 1, A: 1, B: 2, C: 2 },
+        used: st.issuedOut ? { S: 0, A: 0, B: 1, C: 0 } : { S: 0, A: 0, B: 0, C: 0 },
+        requiredChannels: ["naver_blog", "instagram"],
+        requiredMenus: st.menus.map((m) => ({ name: STORYBOARD ? SB.menu : m, price: 25000 })),
+        description: STORYBOARD
+          ? SB.visitDesc
+          : `${st.area}의 ${st.name}에서 시그니처 메뉴(${st.menus.join(", ")})를 체험하고 후기를 남겨주세요.`,
+        highlightKeywords: STORYBOARD ? [SB.keyword] : [`${st.area} ${st.category}`],
+        createdAt: now - st.campaignCreatedAgo,
+        useCode: DEMO_USE_CODE,
+      };
+      db.campaigns.push(planCamp);
+      if (st.issuedOut) {
+        // 잔여 0이지만 살아있는(active·미만료) 체험권 존재 → campaignExposure = "issued_out"
+        const liveIssuedAt = now - 8 * hour;
+        db.passes.push({
+          id: detId("ps", `${st.placeId}-live`),
+          code: detPassCode(`${st.placeId}-live`),
+          reviewerId: reviewerA.id,
+          campaignId: planCamp.id,
+          storeId: stId,
+          ownerId: planOwner.id,
+          reviewerGrade: "A",
+          consumedSlot: "B",
+          issuedAt: liveIssuedAt,
+          expiresAt: liveIssuedAt + 72 * hour,
+          status: "active",
+        });
+      }
+    }
+  }
+
+  // ── 전 지역 시드 (2026-07-10) — 1차(시도)·2차(시군구) 카테고리 전 지역 커버 ──
+  // REGIONS(시도 17 × 시군구 전체)마다 매장 1곳 + 방문형 캠페인 1건을 시군구 기준 좌표
+  // (geo.ts GUGUN_CENTERS — regionCenter 복합 키 "{시도} {시군구}"와 동일 지점) 인근에 배치한다.
+  // → 어떤 지역을 선택해도 '반경 3km' 결과·전국 시도 클러스터 건수가 좌표 정합으로 보장된다.
+  // 전국 매장은 별도 사장님(demo4, Basic) 소유 — 기존 demo@store.com 사장님 화면 데모를 훼손하지 않는다.
+  const regionOwner: Owner = {
+    id: detId("ow", "demo4@store.com"),
+    email: "demo4@store.com",
+    passwordHash: hash("demo1234"),
+    storeName: STORYBOARD ? SB.ownerStore : "캐치패스 전국 데모 매장군",
+    category: STORYBOARD ? SB.category : "카페",
+    area: STORYBOARD ? SB.area : "전국",
+    plan: "Basic",
+    createdAt: now - 30 * day,
+    bizNumber: "4567890123",
+    bizStatus: "verified",
+    bizVerifiedAt: now - 29 * day,
+  };
+  db.owners.push(regionOwner);
+
+  // 업종 로테이션 — 카테고리 필터 그룹(카페/식당/뷰티/헬스)이 전국 어느 지역에서도 동작하도록 분산
+  const REGION_SHOP_KINDS: Array<{
+    category: string;
+    name: (g: string) => string;
+    emoji: string;
+    menus: string[];
+    support: number;
+    channels: SnsKind[];
+  }> = [
+    { category: "카페", name: (g) => `${g} 로스터리`, emoji: "☕", menus: ["시그니처 라떼", "크루아상 세트"], support: 40000, channels: ["naver_blog", "instagram"] },
+    { category: "한식", name: (g) => `${g} 밥상`, emoji: "🍚", menus: ["제철 정식", "모둠 전"], support: 80000, channels: ["naver_blog"] },
+    { category: "양식", name: (g) => `${g} 키친`, emoji: "🍝", menus: ["시그니처 파스타", "화덕 피자"], support: 90000, channels: ["naver_blog", "instagram"] },
+    { category: "디저트", name: (g) => `${g} 베이크`, emoji: "🍰", menus: ["시즌 케이크", "휘낭시에"], support: 40000, channels: ["instagram", "tiktok"] },
+    { category: "일식", name: (g) => `${g} 스시야`, emoji: "🍣", menus: ["초밥 12P", "사케동"], support: 100000, channels: ["naver_blog", "instagram"] },
+    { category: "미용실", name: (g) => `${g} 헤어 라운지`, emoji: "💇", menus: ["컷+두피 클리닉", "전체 염색"], support: 70000, channels: ["instagram"] },
+    { category: "필라테스", name: (g) => `${g} 필라테스 랩`, emoji: "🧘", menus: ["1:1 체험 클래스", "그룹 클래스 4회"], support: 55000, channels: ["naver_blog", "instagram", "tiktok"] },
+    { category: "마사지", name: (g) => `${g} 테라피 스파`, emoji: "💆", menus: ["아로마 전신 60분", "등·어깨 집중 관리"], support: 70000, channels: ["naver_blog", "instagram"] },
+  ];
+
+  for (const region of REGIONS) {
+    for (const g of region.gugun) {
+      const key = `region-${region.sido}-${g}`;
+      const center = regionCenter(`${region.sido} ${g}`);
+      if (!center) continue;
+      const shop = REGION_SHOP_KINDS[detNum(`${key}:kind`, REGION_SHOP_KINDS.length)];
+      // 기준점 인근 결정적 지터(±약 0.7km) — 반경 3km 내 보장 + 지도 핀 겹침 방지
+      const jitter = (salt: string) => (detNum(`${key}:${salt}`, 1300) - 650) / 100000;
+      const stId = detId("st", key);
+      db.stores.push({
+        id: stId,
+        ownerId: regionOwner.id,
+        name: STORYBOARD ? SB.storeName : shop.name(g),
+        category: STORYBOARD ? SB.category : shop.category,
+        area: STORYBOARD ? SB.area : g,
+        coverEmoji: shop.emoji,
+        rating: Math.round((4.2 + detNum(`${key}:rating`, 7) / 10) * 10) / 10,
+        reviewCount: 40 + detNum(`${key}:rc`, 260),
+        hours: STORYBOARD ? SB.hours : "11:00 - 21:00",
+        lat: center.lat + jitter("lat"),
+        lng: center.lng + jitter("lng"),
+        address: STORYBOARD ? SB.address : `${region.sido} ${g} 중앙로 ${1 + detNum(`${key}:addr`, 120)}`,
+        naverPlaceId: key,
+      });
+      const regionCreatedAt = now - (12 + detNum(`${key}:created`, 22)) * day;
+      db.campaigns.push({
+        id: detId("cp", `${key}-default`),
+        storeId: stId,
+        kind: "visit",
+        title: STORYBOARD ? SB.visitTitle : `${shop.name(g)} 체험단`,
+        startAt: regionCreatedAt,
+        endAt: now + (7 + detNum(`${key}:end`, 21)) * day,
+        supportAmount: shop.support,
+        quota: { S: 0, A: 1, B: 1, C: 1 },
+        used: { S: 0, A: 0, B: 0, C: 0 },
+        requiredChannels: shop.channels,
+        requiredMenus: shop.menus.map((m) => ({
+          name: STORYBOARD ? SB.menu : m,
+          price: priceForCategory(shop.category, `${key}:${m}`),
+        })),
+        description: STORYBOARD
+          ? SB.visitDesc
+          : `${region.sido} ${g}의 ${shop.name(g)}에서 ${shop.menus[0]}를 체험하고 후기를 남겨주세요.`,
+        highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
+        createdAt: regionCreatedAt,
+        useCode: DEMO_USE_CODE,
+      });
+    }
+  }
+
   // 데모 사장님 알림 몇 건
   db.notifications.push({
     id: detId("nt", "seed-1"),
@@ -965,7 +1226,7 @@ export function runSeed(db: DBShape) {
       description: STORYBOARD ? SB.visitDesc : `${endedStore.name}의 지난 시즌 체험 캠페인입니다.`,
       highlightKeywords: STORYBOARD ? [SB.keyword] : [endedStore.area],
       createdAt: now - 40 * day,
-      useCode: detUseCode(`${es.placeId}-${es.key}`),
+      useCode: DEMO_USE_CODE,
     };
     db.campaigns.push(endedCampaign);
     endedCampaignIds.push(endedCampaign.id);

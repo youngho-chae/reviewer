@@ -11,6 +11,8 @@ import {
 } from "@/lib/channels";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
+import { fmtKoDateTime } from "@/lib/dates";
+import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
 
 interface Props {
   campaignId: string;
@@ -20,6 +22,10 @@ interface Props {
   myActivePassId: string | null;
   remain: number;
   ended?: boolean; // 캠페인 기간 종료 — 상세는 열람 가능하되 신청 차단 (관심 목록 경유)
+  // 노출 상태 (campaign-visibility) — issued_out = 일시 소진 (미사용 만료 시 복구 가능 · 종료 아님)
+  exposure?: "open" | "issued_out" | "closed";
+  // 취소 후 12h 재신청 쿨다운 잔여 시간 — 서버(/api/passes)와 동일 판정을 CTA에 사전 반영
+  cooldownLeftH?: number | null;
   children?: ReactNode; // 라디오 섹션과 리뷰 조건 사이의 정적 섹션들 (서버 렌더)
 }
 
@@ -37,6 +43,8 @@ export default function StoreParticipate({
   myActivePassId,
   remain,
   ended = false,
+  exposure = "open",
+  cooldownLeftH = null,
   children,
 }: Props) {
   const router = useRouter();
@@ -120,7 +128,10 @@ export default function StoreParticipate({
                     <span className="text-[15px] font-semibold text-mutedSoft truncate">{CHANNEL_LABEL[ch]}</span>
                     <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill border border-hairline text-[11px] text-muted">연동 필요</span>
                   </span>
-                  <span className="text-[14px] font-semibold text-mutedSoft shrink-0">확인불가</span>
+                  {/* 미연동 채널은 선택 불가 유지 — 채널 관리에서 본인 인증 연동 후 참여 (2026-07-10) */}
+                  <Link href="/r/me/channels" className="cp-action text-[12px] font-semibold text-brand shrink-0">
+                    연동하기 →
+                  </Link>
                 </div>
               );
             }
@@ -217,9 +228,10 @@ export default function StoreParticipate({
               {connected ? sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) : "—"}
             </div>
           </div>
-          {ended ? (
+          {/* CTA 우선순위 (2026-07-10 §1): 종료 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
+          {ended || (remain <= 0 && exposure === "closed") ? (
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
-              마감된 체험이에요
+              종료된 체험입니다
             </button>
           ) : myActivePassId ? (
             <Link
@@ -228,9 +240,13 @@ export default function StoreParticipate({
             >
               내 체험권 보기
             </Link>
+          ) : cooldownLeftH != null ? (
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
+              12시간 후 재신청 가능 ({sbNum("약 00시간", `약 ${cooldownLeftH}시간`)} 남음)
+            </button>
           ) : remain <= 0 ? (
-            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
-              마감되었습니다
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
+              현재 신청 가능한 체험권이 없습니다
             </button>
           ) : !anyConnected ? (
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
@@ -248,7 +264,7 @@ export default function StoreParticipate({
         </div>
       </div>
 
-      {/* 참여 확인 모달 — 하단 시트 */}
+      {/* 참여 확인 모달 — 하단 시트 (2026-07-08 레퍼런스: 결제 기한 강조 + 꼭 확인해주세요) */}
       {open && selected && (
         <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setOpen(false)}>
           <div className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl p-6 pb-8" onClick={(e) => e.stopPropagation()}>
@@ -256,32 +272,48 @@ export default function StoreParticipate({
               <span className="w-9 h-1 rounded-pill bg-borderStrong" />
             </div>
             <h2 className="text-[20px] font-bold text-ink tracking-title text-center">체험권을 발급받을까요?</h2>
-            <p className="mt-2 text-[14px] text-muted text-center leading-[1.5]">
-              발급 후 72시간 이내 매장 방문 시<br />결제 전 QR을 제시해주세요.
-            </p>
-            <div className="mt-6 space-y-3 text-[15px]">
-              <div className="flex justify-between border-b border-hairlineSoft pb-3">
+
+            {/* 결제 기한 카드 — 발급 시점 + 72h */}
+            <div className="mt-5 rounded-md bg-brandSoft px-4 py-4 text-center">
+              <div className="text-[13px] text-ink2">지금 발급하면</div>
+              <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
+                {sbNum(SBUI.dateTime, fmtKoDateTime(Date.now() + PASS_VALIDITY_MS))}까지 결제
+              </div>
+              <div className="mt-1.5 text-[12px] text-muted">발급 후 72시간 · 결제 전 QR을 제시해주세요</div>
+            </div>
+
+            <div className="mt-5 space-y-3 text-[15px]">
+              <div className="flex justify-between">
                 <span className="text-muted">참여 채널</span>
                 <span className="text-ink font-semibold">{CHANNEL_LABEL[selected]}</span>
               </div>
-              <div className="flex justify-between border-b border-hairlineSoft pb-3">
-                <span className="text-muted">내 {CHANNEL_LABEL[selected]} 등급</span>
+              <div className="flex justify-between">
+                <span className="text-muted">채널 등급</span>
                 <span className="text-ink font-semibold">{myGrade}등급</span>
               </div>
-              <div className="flex justify-between pb-1">
-                <span className="text-muted">받을 지원금</span>
+              <div className="flex justify-between">
+                <span className="text-muted">지원 금액</span>
                 <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}</span>
               </div>
             </div>
-            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-              방문이 어려워지면 사용 전 언제든 취소할 수 있어요(같은 캠페인 재신청은 12시간 뒤부터).
-              기한이 지난 체험권은 연장·복구되지 않아요. 리뷰는 이용 후 7일 이내 제출해야 해요.
-            </p>
+
+            {/* 꼭 확인해주세요 — 정책 고지 4종 */}
+            <div className="mt-5 rounded-md bg-sunken px-4 py-3.5">
+              <div className="text-[13px] font-bold text-ink">ⓘ 꼭 확인해주세요</div>
+              <ul className="mt-2 space-y-1 text-[12px] text-muted leading-[1.55] list-disc pl-4">
+                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요. (취소는 불이익이 없어요)</li>
+                <li>같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.</li>
+                <li>기한이 지난 체험권은 연장·복구되지 않아요.</li>
+                <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
+                <li>미사용 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
+              </ul>
+            </div>
+
             {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
             <div className="mt-5 flex gap-2">
               <button
                 onClick={() => setOpen(false)}
-                className="cp-action h-[52px] px-5 rounded-md border border-hairline text-[15px] font-semibold text-ink"
+                className="cp-action h-[52px] px-6 rounded-md bg-sunken text-[15px] font-semibold text-ink"
               >
                 취소
               </button>

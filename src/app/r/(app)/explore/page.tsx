@@ -4,6 +4,9 @@ import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import { PRESS_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
+import { PLAN_RANK } from "@/lib/plan-policy";
+import { effectiveChannelState } from "@/lib/sns-cookie";
+import type { SnsKind } from "@/lib/types";
 import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +15,11 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string }>;
 }) {
   const me = await getCurrentReviewer();
+  // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const db = await getDBAsync();
   if (!db.naverDataFetched) {
     after(async () => {
@@ -24,6 +29,16 @@ export default async function ReviewerExplore({
   const sp = await searchParams;
   const now = Date.now();
 
+  // [추천순] 사장님 멤버십 플랜 랭크 조인 — storeId → Store.ownerId → Owner.plan (현재 플랜 적용).
+  // [P1] 리뷰어 등급과 무관한 사장님 멤버십 기준 노출 우대 — 참여 자격에는 영향 없음.
+  const ownerPlanRank = new Map(db.owners.map((o) => [o.id, PLAN_RANK[o.plan] ?? 0]));
+  // [§6] 이미 참여 중(진행 중 패스 보유)인 캠페인 — 리스트에서 제외하지 않고 "참여 중" 뱃지로 표시
+  const myCampaignIds = new Set(
+    db.passes
+      .filter((p) => p.reviewerId === me.id && ["active", "used", "review_submitted"].includes(p.status))
+      .map((p) => p.campaignId),
+  );
+
   // [노출 정책] 발급 소진 ≠ 종료 — 살아있는 체험권이 남은 캠페인은 계속 노출 (2026-07-07 회의)
   const cards: ExploreStoreCard[] = db.campaigns
     .filter((c) => c.kind === "visit" && isCampaignVisible(c, db.passes, now))
@@ -32,7 +47,7 @@ export default async function ReviewerExplore({
       const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
       // [P1] 등급은 참여 자격이 아님 — 연동 채널의 내 등급으로 받을 수 있는 가장 큰 혜택을
       // 노출하고, 연동 채널이 없으면 기준 지원금(S 100% 최대치)을 노출한다.
-      const offers = channelOffers(c.requiredChannels, me.channelGrades, c.supportAmount);
+      const offers = channelOffers(c.requiredChannels, eff.channelGrades, c.supportAmount);
       const myBest = bestEligibleSupport(offers);
       return {
         storeId: store.id,
@@ -52,8 +67,26 @@ export default async function ReviewerExplore({
         reviewCount: store.reviewCount,
         endAt: c.endAt,
         createdAt: c.createdAt,
+        planRank: ownerPlanRank.get(store.ownerId) ?? 0,
+        participating: myCampaignIds.has(c.id),
+        // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상
+        address: store.address,
+        keywords: c.highlightKeywords,
       };
     });
+
+  // [§6-4] scope=all — 홈 '전체 리스트' 더 둘러보기 진입: 전국 축소(시도 클러스터) 시작.
+  // 전국 우선이므로 지역 파라미터는 무시한다.
+  const nationwide = sp.scope === "all";
+  // [§5 지역 연동] 홈에서 선택한 지역(?area=) — ExploreView가 regionCenter로 기준점을 해석해
+  // 지도 초기 포커스(반경 3km)·리스트 거리 기준점으로 쓴다. ?ch=는 필터 재진입 복원.
+  const initialArea = nationwide ? null : sp.area || null;
+  // 지역 필터 3상태(2026-07-10) — ?loc=me = 현위치 필터 재진입 복원 (미선택이 기본값, 전국 진입은 무시)
+  const initialLoc = nationwide ? null : sp.loc || null;
+  const validChannels: SnsKind[] = ["naver_blog", "instagram", "tiktok"];
+  const initialChannels = (sp.ch ? sp.ch.split(",") : []).filter((c): c is SnsKind =>
+    (validChannels as string[]).includes(c),
+  );
 
   // [MVP] 기자단 제외 — 플래그가 꺼져 있으면 기자단 카드를 만들지 않는다
   const pressCards: ExplorePressCard[] = db.campaigns
@@ -106,6 +139,11 @@ export default async function ReviewerExplore({
       initialMode={sp.mode === "list" ? "list" : "map"}
       initialCategory={sp.cat || "전체"}
       initialSort={(sp.sort as "recommended" | "distance" | "new" | "topSupport" | "closing") || "recommended"}
+      initialSearch={sp.q || ""}
+      initialChannels={initialChannels}
+      initialArea={initialArea}
+      initialLoc={initialLoc}
+      initialNationwide={nationwide}
       pressEnabled={PRESS_ENABLED}
     />
   );

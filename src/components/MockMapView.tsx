@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
-import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
+import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
+import { haversineM, nearestSido, SIDO_CENTERS, type LatLng } from "@/lib/geo";
 import type { MapStorePin } from "./NaverMapView";
 
 /**
@@ -19,32 +20,76 @@ function markerAmount(p: MapStorePin): string {
   return STORYBOARD ? "최대 지원금액" : `최대 ${p.supportAmount.toLocaleString()}원`;
 }
 
-// 핀 좌표를 [pad, 100-pad] % 범위로 정규화 (동일 좌표/단일 핀은 중앙 근처로)
-function project(pins: MapStorePin[]) {
+// 좌표 집합을 [pad, 100-pad] % 범위로 정규화 (동일 좌표/단일 지점은 중앙 근처로)
+function project(pts: Array<{ lat: number; lng: number }>) {
   const pad = 14;
   const span = 100 - pad * 2;
-  const lats = pins.map((p) => p.lat);
-  const lngs = pins.map((p) => p.lng);
+  const lats = pts.map((p) => p.lat);
+  const lngs = pts.map((p) => p.lng);
   const minLat = Math.min(...lats), maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
   const dLat = maxLat - minLat || 1;
   const dLng = maxLng - minLng || 1;
-  return pins.map((p) => ({
-    x: pins.length <= 1 ? 50 : pad + ((p.lng - minLng) / dLng) * span,
-    y: pins.length <= 1 ? 50 : pad + ((maxLat - p.lat) / dLat) * span, // 위도 반전
+  return pts.map((p) => ({
+    x: pts.length <= 1 ? 50 : pad + ((p.lng - minLng) / dLng) * span,
+    y: pts.length <= 1 ? 50 : pad + ((maxLat - p.lat) / dLat) * span, // 위도 반전
   }));
 }
 
 export default function MockMapView({
   pins,
   onSelectionChange,
+  initialSearchCenter = null,
+  nationwide = false,
 }: {
   pins: MapStorePin[];
   onSelectionChange?: (hasSelection: boolean) => void;
+  // [§5 지역 연동] 선택 지역의 행정 기준점 — 반경 3km 필터로 시작 (실지도와 동일 UX 최소 구현)
+  initialSearchCenter?: LatLng | null;
+  // [§6-4] 전국 진입(scope=all) — 데모 지도도 시도별 건수 클러스터로 시작 (2026-07-10 누락 정정).
+  // 데모 지도는 줌이 없으므로: 클러스터 마커 탭 = 해당 시도 핀으로 "확대", [전국 보기] = 클러스터 복귀.
+  nationwide?: boolean;
 }) {
+  // '이 지역 재검색' (확정 정책 2-3) — 데모 지도는 자유 드래그가 없으므로
+  // 핀 선택/카드 스와이프로 중심이 기준점에서 500m 이상 벗어나면 버튼을 노출하고,
+  // 클릭 시 선택 핀 실좌표 기준 반경 3km로 데이터를 다시 계산한다 (실지도와 동일 UX).
+  const [searchCenter, setSearchCenter] = useState<LatLng | null>(initialSearchCenter);
+  const [showResearch, setShowResearch] = useState(false);
+  // [§6-4] 전국 클러스터 — 탭한 시도(= 데모 지도의 "확대" 상태). null + nationwide = 클러스터 시작 화면.
+  const [sidoFocus, setSidoFocus] = useState<string | null>(null);
+  const clusterView = nationwide && sidoFocus === null && !searchCenter;
+
+  // 시도별 노출 캠페인 건수 — 좌표 최근접 시도 기준 (실지도 클러스터와 동일 집계)
+  const sidoClusters = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of pins) {
+      const s = nearestSido(p);
+      counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .filter(([sido]) => SIDO_CENTERS[sido])
+      .map(([sido, count]) => ({ sido, count, lat: SIDO_CENTERS[sido].lat, lng: SIDO_CENTERS[sido].lng }));
+  }, [pins]);
+  const clusterPos = useMemo(() => project(sidoClusters), [sidoClusters]);
+
+  // "확대" 상태면 해당 시도 핀만 투영 (실지도의 줌인에 대응)
+  const basePins = useMemo(
+    () => (nationwide && sidoFocus ? pins.filter((p) => nearestSido(p) === sidoFocus) : pins),
+    [pins, nationwide, sidoFocus],
+  );
+
+  const visiblePins = useMemo(
+    () => (searchCenter ? basePins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : basePins),
+    [basePins, searchCenter],
+  );
   const sortedPins = useMemo(
-    () => [...pins].sort((a, b) => mockDistanceM(a.storeId) - mockDistanceM(b.storeId)),
-    [pins],
+    () =>
+      [...visiblePins].sort((a, b) =>
+        searchCenter
+          ? haversineM(searchCenter, a) - haversineM(searchCenter, b)
+          : mockDistanceM(a.storeId) - mockDistanceM(b.storeId),
+      ),
+    [visiblePins, searchCenter],
   );
   const pos = useMemo(() => project(sortedPins), [sortedPins]);
 
@@ -55,6 +100,36 @@ export default function MockMapView({
 
   useEffect(() => { onSelectionChange?.(!!selected); }, [selected, onSelectionChange]);
   useEffect(() => { setSelIdx(null); }, [pins]);
+
+  // [§5] 지역 기준점 prop 변경(필터 적용 등) — 반경 3km 필터 갱신
+  useEffect(() => {
+    setSearchCenter(initialSearchCenter);
+    setShowResearch(false);
+    setSelIdx(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSearchCenter?.lat, initialSearchCenter?.lng]);
+
+  // 선택으로 지도 중심이 이동하면 재검색 버튼 노출 (기준점에서 500m 초과 시)
+  useEffect(() => {
+    if (!selected) return;
+    setShowResearch(!searchCenter || haversineM(searchCenter, selected) > 500);
+  }, [selected, searchCenter]);
+
+  function researchHere() {
+    if (!selected) return;
+    setSearchCenter({ lat: selected.lat, lng: selected.lng });
+    setShowResearch(false);
+    setSelIdx(0); // 중심 핀이 거리 0으로 첫 카드가 된다
+    requestAnimationFrame(() => carouselRef.current?.scrollTo({ left: 0, behavior: "auto" }));
+  }
+
+  function resetResearch() {
+    setSearchCenter(null);
+    setShowResearch(false);
+    setSelIdx(null);
+    // 전국 진입이면 GPS 리센터/전체 보기가 클러스터 시작 화면으로 복귀
+    if (nationwide) setSidoFocus(null);
+  }
 
   // 선택 핀을 화면 중앙으로 옮기는 팬 오프셋 (translate %는 요소 자기 크기 기준 = 컨테이너 크기)
   const pan =
@@ -100,6 +175,62 @@ export default function MockMapView({
         🗺️ 데모 지도 · 지도 키 연동 시 실지도 전환
       </div>
 
+      {/* [§6-4] 전국 클러스터 안내/복귀 칩 */}
+      {clusterView && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2 inline-flex items-center whitespace-nowrap">
+          지역을 탭하면 해당 지역 체험이 보여요
+        </div>
+      )}
+      {nationwide && sidoFocus && !searchCenter && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2 whitespace-nowrap">
+          <span className="font-semibold text-ink">{sidoFocus}</span>
+          <span>· {visiblePins.length}곳</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSidoFocus(null);
+              setSelIdx(null);
+            }}
+            className="cp-action font-semibold text-brand"
+          >
+            전국 보기
+          </button>
+        </div>
+      )}
+
+      {/* '이 지역 재검색' — 선택 이동으로 기준점을 벗어나면 노출 (확정 정책 2-3) */}
+      {showResearch && selected && (
+        <button
+          type="button"
+          onClick={researchHere}
+          className="cp-action absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1.5 h-9 px-4 rounded-pill bg-white shadow-card text-[13px] font-semibold text-brand"
+        >
+          <span aria-hidden>↻</span> 이 지역 재검색
+        </button>
+      )}
+      {searchCenter && !showResearch && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2">
+          <span>이 지역 반경 3km · {visiblePins.length}곳</span>
+          <button type="button" onClick={resetResearch} className="cp-action font-semibold text-brand">
+            전체 보기
+          </button>
+        </div>
+      )}
+      {searchCenter && visiblePins.length === 0 && (
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2">
+          <div className="px-4 py-2 rounded-md bg-white/95 shadow-card text-[13px] text-muted">
+            이 지역엔 지금 모집 중인 체험이 없어요
+          </div>
+          <button
+            type="button"
+            onClick={resetResearch}
+            className="cp-action h-9 px-4 rounded-pill bg-ink text-white text-[13px] font-semibold"
+          >
+            전체 보기로 돌아가기
+          </button>
+        </div>
+      )}
+
       {/* 좌표 투영 월드 레이어 — 선택 시 팬 이동 */}
       <div
         className="absolute inset-0 transition-transform duration-300 ease-out"
@@ -110,7 +241,31 @@ export default function MockMapView({
           <span className="block w-4 h-4 rounded-full bg-info border-[3px] border-white" style={{ boxShadow: "0 0 0 6px rgba(59,130,246,.25)" }} />
         </div>
 
-        {sortedPins.map((p, i) => {
+        {/* [§6-4] 전국 클러스터 시작 화면 — 시도별 건수 마커 (탭 = 해당 시도로 "확대") */}
+        {clusterView &&
+          sidoClusters.map((c, i) => (
+            <button
+              key={c.sido}
+              type="button"
+              onClick={() => {
+                setSidoFocus(c.sido);
+                setSelIdx(null);
+              }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
+              style={{ left: `${clusterPos[i].x}%`, top: `${clusterPos[i].y}%` }}
+              aria-label={`${c.sido} 체험 보기`}
+            >
+              <div
+                className="min-w-[52px] px-2.5 py-1.5 rounded-pill bg-brand text-white text-center leading-tight"
+                style={{ boxShadow: "0 3px 10px rgba(0,0,0,.2)" }}
+              >
+                <div className="text-[12px] font-bold">{c.sido}</div>
+                <div className="text-[11px] font-semibold tabular-nums">{STORYBOARD ? "00건" : `${c.count}건`}</div>
+              </div>
+            </button>
+          ))}
+
+        {!clusterView && sortedPins.map((p, i) => {
           const isSel = selIdx === i;
           return (
             <button
@@ -147,10 +302,10 @@ export default function MockMapView({
         })}
       </div>
 
-      {/* GPS 리센터 — 전체 보기(선택 해제)로 복귀 */}
+      {/* GPS 리센터 — 전체 보기(선택·반경 해제)로 복귀 */}
       <button
         type="button"
-        onClick={() => setSelIdx(null)}
+        onClick={resetResearch}
         className="cp-action absolute right-3 z-20 w-10 h-10 rounded-full bg-white shadow-card flex items-center justify-center text-ink"
         style={{ bottom: selected ? 172 : 24 }}
         aria-label="현 위치로 지도 이동"
@@ -183,7 +338,11 @@ export default function MockMapView({
                     <div className="flex-1 min-w-0">
                       <div className="text-[15px] font-semibold text-ink truncate">{p.name}</div>
                       <div className="mt-1 text-[13px] text-muted truncate">
-                        {p.category} · {sbNum(SBUI.distance, formatDistance(mockDistanceM(p.storeId)))}
+                        {p.category} ·{" "}
+                        {sbNum(
+                          SBUI.distance,
+                          formatDistance(searchCenter ? haversineM(searchCenter, p) : mockDistanceM(p.storeId)),
+                        )}
                       </div>
                       <div className="mt-1.5 text-[16px] font-bold text-ink tabular-nums">
                         최대 {sbNum(SBUI.support, `${p.supportAmount.toLocaleString()}원`)} 지원

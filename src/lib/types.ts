@@ -7,6 +7,15 @@ export interface SnsAccount {
   kind: SnsKind;
   url: string;
   influence: number; // 일방문자/팔로워/구독자 자연수
+  // ── 본인 소유 검증 (2026-07-10 신설) ──
+  // 가입 자기신고분은 미검증(undefined). OAuth(네이버/페이스북/틱톡 로그인) 또는
+  // 데모 검증(키 미설정 환경 시연용)으로 검증되면 아래 필드가 채워진다.
+  // OAuth 액세스 토큰은 저장하지 않는다 — 검증 직후 폐기 (개인정보 최소 수집).
+  verified?: boolean;
+  verifiedAt?: number;
+  verifiedVia?: "oauth" | "demo";
+  providerAccountId?: string; // 프로바이더 계정 고유 ID (네이버 id / FB user id / 틱톡 open_id)
+  accountName?: string; // 프로바이더 표시명 또는 username
 }
 
 // ── 등급 월간 재평가 (2026-07-08 설계) ──
@@ -15,7 +24,7 @@ export interface SnsAccount {
 // 리뷰 품질은 주관 평가 배제 원칙으로 점수 요소에서 제외 — 반려 종착만 패널티로 반영.
 export interface GradeHistoryEntry {
   month: string; // 평가 대상 월 "YYYY-MM" (KST)
-  channel?: SnsKind; // 채널별 항목 (undefined = 종합 등급 변동 요약)
+  channel?: SnsKind; // 채널별 항목 (undefined = 표기 등급(연동 채널 중 최고) 변동 요약)
   from: Grade;
   to: Grade;
   breakdown: { I: number; F: number; W: number; P: number; GS: number };
@@ -32,7 +41,10 @@ export interface Reviewer {
   passwordHash: string;
   nickname: string;
   sns: SnsAccount[];
-  grade: Grade; // 종합 등급(연동 채널 중 최상위) — 단일 등급 UI/뱃지에 사용
+  // 표기용 대표 등급 — '종합 등급'이라는 별도 평가 기준은 존재하지 않는다 (2026-07-10 정정).
+  // 등급은 채널별로 각각 평가되며(channelGrades), 이 값은 마이페이지 등 단일 등급 UI/뱃지에
+  // 연동 채널 중 가장 높은 등급을 표기하기 위한 파생 값이다 (bestGrade).
+  grade: Grade;
   // 채널별 등급 — 연동된 각 채널을 독립적으로 평가 (v2.16).
   // 예: { naver_blog: "A", instagram: "C" }
   channelGrades?: Partial<Record<SnsKind, Grade>>;
@@ -63,6 +75,12 @@ export interface Owner {
   createdAt: number;
   termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
   inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
+  // ── 사업자 인증 (확정 정책 9 — 수기 인증) ──
+  // undefined = 인증 제도 도입 전 가입한 구버전 계정 → verified로 간주(폴백).
+  // pending 상태에서는 사장님 화면 접근이 인증 대기 화면으로 대체된다 ("인증된 사장님" 권한).
+  bizNumber?: string; // 사업자등록번호 10자리 (형식 검증만 — 진위 확인은 운영팀 수기)
+  bizStatus?: "pending" | "verified";
+  bizVerifiedAt?: number;
 }
 
 // 운영팀(검수) 계정 — 리뷰 통과/반려 백오피스 전용.
@@ -122,8 +140,8 @@ export interface Campaign {
   // 사장님이 후기에 강조해주길 원하는 키워드 — 체험 매장 상세에 노출 (v2.16)
   highlightKeywords?: string[];
   createdAt: number;
-  // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드.
-  // 유저 체험권 화면에 노출되며, 사장님이 QR 스캔 대신 이 4자리를 입력하면 사용 처리됨.
+  // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드 (체험권 인증용 비밀번호).
+  // 체험자 화면에는 노출되지 않는다 — 사장님이 체험자의 체험권 화면 입력란에 직접 입력해 사용 처리.
   useCode: string; // "0000" ~ "9999"
   // 기자단 전용
   pressKeywords?: string[];
@@ -178,6 +196,12 @@ export interface Pass {
   // 라이프사이클 스윕 중복 방지 플래그
   overdueHandled?: boolean; // 리뷰 기한(이용 후 7일) 초과 처리 완료
   expiringSoonNotified?: boolean; // 만료 6시간 전 알림 발송 완료
+  reviewDueSoonNotified?: boolean; // 리뷰 마감 24시간 전 알림 발송 완료
+  // 4자리 사용처리 코드 오입력 가드 — 연속 5회 실패 시 10분 잠금 (브루트포스 방지)
+  useCodeFailCount?: number; // 연속 실패 횟수 (성공 시 리셋)
+  useCodeLockUntil?: number; // 잠금 해제 시각 (epoch ms)
+  // 게시 유지(90일) 동의 — 리뷰 제출 시 서버가 필수로 검증·보존 (자가점검과 분리된 별도 동의)
+  keepAgreed?: boolean;
   status: PassStatus;
 }
 

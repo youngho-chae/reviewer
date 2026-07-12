@@ -227,7 +227,7 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
         sCandidate: sCandidate || undefined,
         at: now,
       });
-      // 종합 요약에는 최고 GS 채널의 분해를 사용
+      // 표기 등급 요약(연동 채널 중 최고)에는 최고 GS 채널의 분해를 사용
       if (!summary || bd.GS > summary.GS) summary = bd;
     }
 
@@ -239,7 +239,7 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
       !!summary && !summary.neutralized && summary.W >= WINWIN_BADGE.minW && act.completed >= WINWIN_BADGE.minCompleted;
     updateWinWinBadge(db, rv, target, winWinQualified, now);
 
-    // 종합 요약 이력 (channel 미지정 = /r/grade 변동 이력 UI가 읽는 행)
+    // 표기 등급 요약 이력 (channel 미지정 = /r/grade 변동 이력 UI가 읽는 행 — 연동 채널 중 최고 등급 기준)
     history.push({
       month: target,
       from: oldGrade,
