@@ -132,7 +132,17 @@ export default function ChannelManager({
               <>
                 {row.url && <div className="mt-2.5 text-[12px] text-info truncate">{row.url}</div>}
                 <div className="mt-3 flex gap-2">
-                  {!row.verified && (
+                  {row.verified ? (
+                    /* 재연동(재인증) — 계정 교체·정보 갱신용. OAuth(키 설정 시) 또는 데모 승인 화면 재실행,
+                       applySnsConnect가 kind 기준 upsert라 해제 없이 갱신된다 (2026-07-10) */
+                    <button
+                      type="button"
+                      onClick={() => startVerify(row.kind, row.url, row.influence)}
+                      className="cp-action flex-1 h-11 rounded-md border border-brand text-brand text-[14px] font-bold bg-canvas"
+                    >
+                      다시 인증 (재연동)
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => startVerify(row.kind, row.url, row.influence)}
@@ -144,7 +154,7 @@ export default function ChannelManager({
                   <button
                     type="button"
                     onClick={() => setConfirmKind(row.kind)}
-                    className={`cp-action h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink ${row.verified ? "flex-1" : "px-4"}`}
+                    className="cp-action flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
                   >
                     연동 해제
                   </button>
