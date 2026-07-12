@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 import { oauthConfigured } from "@/lib/sns-oauth";
 import { CHANNEL_ORDER } from "@/lib/channels";
 import Icon from "@/components/Icon";
@@ -17,9 +18,11 @@ export default async function ChannelsPage({
 }) {
   const me = await getCurrentReviewer();
   const { connected, error } = await searchParams;
+  // 인스턴스 불일치 스톱갭 — 연동/해제 직후 본인 시점 최신 상태로 렌더 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
 
   const rows: ChannelRow[] = CHANNEL_ORDER.map((kind: SnsKind) => {
-    const linked = me.sns.find((s) => s.kind === kind);
+    const linked = eff.sns.find((s) => s.kind === kind);
     return {
       kind,
       connected: !!linked,
@@ -28,7 +31,7 @@ export default async function ChannelsPage({
       verified: !!linked?.verified,
       verifiedVia: linked?.verifiedVia ?? null,
       accountName: linked?.accountName ?? null,
-      grade: me.channelGrades?.[kind] ?? null,
+      grade: eff.channelGrades[kind] ?? null,
       // 프로바이더 OAuth 키 설정 여부 — false면 start가 데모 검증 화면으로 폴백 (서버 env만 접근)
       oauthReady: oauthConfigured(kind),
     };
@@ -50,7 +53,7 @@ export default async function ChannelsPage({
         <span className="font-semibold text-ink2">본인 채널인지 검증</span>해요.
       </p>
 
-      <ChannelManager rows={rows} connected={connected ?? null} error={error ?? null} overallGrade={me.grade} />
+      <ChannelManager rows={rows} connected={connected ?? null} error={error ?? null} overallGrade={eff.grade} />
     </div>
   );
 }

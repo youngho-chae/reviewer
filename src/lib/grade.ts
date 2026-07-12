@@ -50,10 +50,13 @@ export function gradeForChannel(kind: SnsKind, influence: number): Grade {
 }
 
 // 연동된 SNS 배열 → 채널별 등급 맵.
+// sns[]에 있다 = 연동된 채널이다 — URL 유무로 걸러내지 않는다 (2026-07-10 정정:
+// OAuth/데모 검증 연동은 URL이 비어 있을 수 있는데, 기존 url 필터가 이런 채널을
+// 등급 산정에서 제외해 '연동됨으로 보이지만 참여 불가'가 되던 버그. 가입 폼의
+// 미기입 채널은 signup 라우트가 이미 url 있는 항목만 걸러 전달하므로 영향 없음.)
 export function channelGradesFromSns(sns: SnsAccount[]): Partial<Record<SnsKind, Grade>> {
   const out: Partial<Record<SnsKind, Grade>> = {};
   for (const s of sns) {
-    if (!s.url) continue;
     out[s.kind] = gradeForChannel(s.kind, s.influence);
   }
   return out;

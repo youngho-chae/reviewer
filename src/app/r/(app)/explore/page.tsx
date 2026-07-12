@@ -5,6 +5,7 @@ import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import { PRESS_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import { PLAN_RANK } from "@/lib/plan-policy";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 import type { SnsKind } from "@/lib/types";
 import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
 
@@ -17,6 +18,8 @@ export default async function ReviewerExplore({
   searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string }>;
 }) {
   const me = await getCurrentReviewer();
+  // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const db = await getDBAsync();
   if (!db.naverDataFetched) {
     after(async () => {
@@ -44,7 +47,7 @@ export default async function ReviewerExplore({
       const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
       // [P1] 등급은 참여 자격이 아님 — 연동 채널의 내 등급으로 받을 수 있는 가장 큰 혜택을
       // 노출하고, 연동 채널이 없으면 기준 지원금(S 100% 최대치)을 노출한다.
-      const offers = channelOffers(c.requiredChannels, me.channelGrades, c.supportAmount);
+      const offers = channelOffers(c.requiredChannels, eff.channelGrades, c.supportAmount);
       const myBest = bestEligibleSupport(offers);
       return {
         storeId: store.id,

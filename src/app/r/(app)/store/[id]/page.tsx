@@ -7,6 +7,7 @@ import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
 import { CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 import Icon from "@/components/Icon";
 import InterestToggle from "./InterestToggle";
 import ChannelIcons from "@/components/ChannelIcons";
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 export default async function StoreDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ campaign?: string }> }) {
   const me = await getCurrentReviewer();
+  // 인스턴스 불일치 스톱갭 — 연동 직후 라디오/CTA가 최신 연동 상태로 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const { id } = await params;
   const { campaign: campaignId } = await searchParams;
   const db = await getDBAsync();
@@ -146,7 +149,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         campaignId={c.id}
         base={c.supportAmount}
         requiredChannels={c.requiredChannels}
-        myChannelGrades={me.channelGrades ?? {}}
+        myChannelGrades={eff.channelGrades}
         myActivePassId={myActivePass?.id ?? null}
         remain={remain}
         ended={ended}

@@ -10,6 +10,7 @@ import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, walkMinutes, NEARBY_RADIUS_M } from "@/lib/distance-mock";
 import { haversineM, regionCenter } from "@/lib/geo";
 import { compareRecommended } from "@/lib/recommend";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 import { PLAN_RANK } from "@/lib/plan-policy";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import Icon from "@/components/Icon";
@@ -44,6 +45,8 @@ export default async function ReviewerHome({
   searchParams: Promise<{ area?: string }>;
 }) {
   const me = await getCurrentReviewer();
+  // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const { area: areaParam } = await searchParams;
   const db = await getDBAsync();
   if (!db.naverDataFetched) {
@@ -70,7 +73,7 @@ export default async function ReviewerHome({
   // [P1] 등급은 참여 자격이 아님 — 금액만 내 채널 등급 기준 개인화.
   const cards: HomeCard[] = visitCampaigns.map((c) => {
     const store = db.stores.find((s) => s.id === c.storeId)!;
-    const offers = channelOffers(c.requiredChannels, me.channelGrades, c.supportAmount);
+    const offers = channelOffers(c.requiredChannels, eff.channelGrades, c.supportAmount);
     const myBest = bestEligibleSupport(offers);
     return {
       storeId: store.id,

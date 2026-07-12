@@ -4,6 +4,7 @@ import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
 import DeleteAccountButton from "@/components/DeleteAccountButton";
 import { getDBAsync } from "@/lib/db";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ const ALL_CH = ["naver_blog", "instagram", "tiktok"];
 export default async function Me() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
+  // 인스턴스 불일치 스톱갭 — 연동/해제 직후 본인 시점 최신 상태 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   const completed = db.passes.filter((p) => p.reviewerId === me.id && p.status === "completed").length;
   const totalSupport = db.passes
     .filter((p) => p.reviewerId === me.id && p.supportApplied)
@@ -45,8 +48,8 @@ export default async function Me() {
         <h1 className="text-[20px] font-bold tracking-title leading-[1.3] text-ink">{me.nickname}</h1>
         <p className="mt-2 text-[15px] text-ink2">{me.email}</p>
         <Link href="/r/grade" className="cp-action mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-canvas rounded-pill border border-hairline">
-          <GradeBadge grade={me.grade} size="sm" />
-          <span className="text-[14px] text-ink">{me.grade}등급</span>
+          <GradeBadge grade={eff.grade} size="sm" />
+          <span className="text-[14px] text-ink">{eff.grade}등급</span>
           <span className="text-[13px] text-brand">자세히 →</span>
         </Link>
         {me.winWinBadge && (
@@ -87,7 +90,7 @@ export default async function Me() {
         </div>
         <div className="rounded-lg border border-hairline overflow-hidden">
           {ALL_CH.map((k, i) => {
-            const linked = me.sns.find((s) => s.kind === k);
+            const linked = eff.sns.find((s) => s.kind === k);
             return (
               <Link
                 href="/r/me/channels"
@@ -127,7 +130,7 @@ export default async function Me() {
         <div className="rounded-lg border border-hairline overflow-hidden bg-canvas mb-8">
           <Link href="/r/grade" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
             <span className="text-[15px] text-ink flex items-center gap-2">
-              <GradeBadge grade={me.grade} size="sm" />
+              <GradeBadge grade={eff.grade} size="sm" />
               내 등급 / 등급별 혜택
             </span>
             <span className="text-brand text-[15px]">→</span>

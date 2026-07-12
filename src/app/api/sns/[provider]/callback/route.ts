@@ -9,6 +9,7 @@ import {
   deriveChannelUrl,
   applySnsConnect,
 } from "@/lib/sns-oauth";
+import { encodeSnsState } from "@/lib/sns-cookie";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
     const res = back(`connected=${provider}`);
     res.cookies.delete("cp_oauth_state");
     res.cookies.delete("cp_sns_pending");
+    // 인스턴스 불일치 스톱갭 — 본인 시점 즉시 반영 (sns-cookie.ts)
+    const me = db.reviewers.find((r) => r.id === s.userId);
+    if (me) {
+      const c = encodeSnsState(me.id, me.sns);
+      res.cookies.set(c.name, c.value, { httpOnly: true, sameSite: "lax", path: "/", maxAge: c.maxAge });
+    }
     return res;
   } catch (e) {
     console.warn(`[sns-oauth] ${provider} callback failed`, e);

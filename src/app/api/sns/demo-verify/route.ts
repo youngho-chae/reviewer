@@ -3,6 +3,7 @@ import { readSession } from "@/lib/auth";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid } from "@/lib/ids";
 import { isSnsKind, oauthConfigured, applySnsConnect } from "@/lib/sns-oauth";
+import { writeSnsState } from "@/lib/sns-cookie";
 
 export const runtime = "nodejs";
 
@@ -34,5 +35,7 @@ export async function POST(req: NextRequest) {
   if (!applied.ok) return NextResponse.json({ error: applied.error }, { status: 400 });
   await saveDBAsync();
   const me = db.reviewers.find((r) => r.id === s.userId)!;
+  // 인스턴스 불일치 스톱갭 — 본인 시점 즉시 반영 (sns-cookie.ts)
+  await writeSnsState(me.id, me.sns);
   return NextResponse.json({ ok: true, grade: me.grade, channelGrades: me.channelGrades });
 }

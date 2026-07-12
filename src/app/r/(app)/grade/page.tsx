@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { GRADE_CUTS, WINWIN_BADGE, kstMonthKey, kstMonthEnd } from "@/lib/grade-regrade";
@@ -56,6 +57,8 @@ function fmtMonth(month: string): string {
 export default async function ReviewerGrade() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
+  // 인스턴스 불일치 스톱갭 — 연동/해제 직후 본인 시점 최신 채널·표기 등급 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
 
   // 최신 월간 재평가 결과 (channel 미지정 = 표기 등급 요약 행)
   const summaries = (me.gradeHistory ?? []).filter((h) => !h.channel);
@@ -68,7 +71,7 @@ export default async function ReviewerGrade() {
   // 다음 등급 컷까지 진행도 — 최신 GS 기준 (구조 표현이므로 실제 비율 유지)
   const cutOf = (g: Grade) => GRADE_CUTS.find((c) => c.grade === g)?.min ?? 0;
   const nextGradeOf: Partial<Record<Grade, Grade>> = { N: "C", C: "B", B: "A", A: "S" };
-  const nextGrade = nextGradeOf[me.grade];
+  const nextGrade = nextGradeOf[eff.grade];
   const progress =
     latestScored && nextGrade
       ? Math.min(
@@ -76,7 +79,7 @@ export default async function ReviewerGrade() {
           Math.max(
             0,
             Math.round(
-              ((latestScored.breakdown.GS - cutOf(me.grade)) / (cutOf(nextGrade) - cutOf(me.grade))) * 100,
+              ((latestScored.breakdown.GS - cutOf(eff.grade)) / (cutOf(nextGrade) - cutOf(eff.grade))) * 100,
             ),
           ),
         )
@@ -104,12 +107,12 @@ export default async function ReviewerGrade() {
       {/* 내 등급 히어로 — 등급 배지 + (보유 시) 상생 리뷰어 뱃지 + 다음 컷 진행도 */}
       <section className="px-5 pt-6 pb-8 text-center">
         <div className="flex justify-center mb-4">
-          <GradeBadge grade={me.grade} size="xl" />
+          <GradeBadge grade={eff.grade} size="xl" />
         </div>
         <h1 className="text-[22px] font-bold text-ink tracking-title leading-[1.3]">
-          {me.grade}등급
+          {eff.grade}등급
         </h1>
-        <p className="mt-1.5 text-[14px] text-ink2 leading-[1.4]">{TIER_COPY[me.grade].desc}</p>
+        <p className="mt-1.5 text-[14px] text-ink2 leading-[1.4]">{TIER_COPY[eff.grade].desc}</p>
         {me.winWinBadge && (
           <div className="mt-3 flex justify-center">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-brandSoft text-brand text-[13px] font-semibold">
@@ -250,7 +253,7 @@ export default async function ReviewerGrade() {
         </p>
         <div className="rounded-lg border border-hairline overflow-hidden">
           {CHANNEL_ORDER.map((ch: SnsKind, i) => {
-            const g = me.channelGrades?.[ch];
+            const g = eff.channelGrades[ch];
             const connected = !!g;
             return (
               <div

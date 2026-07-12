@@ -7,6 +7,7 @@ import { CHANNEL_LABEL } from "@/lib/channels";
 import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
+import { effectiveChannelState } from "@/lib/sns-cookie";
 
 // 동시 보유 가능한 체험권(사용 전 active) 최대 수 — 2026-07-07 회의 확정
 const MAX_ACTIVE_PASSES = 5;
@@ -34,14 +35,16 @@ export async function POST(req: NextRequest) {
   const selectedChannel: SnsKind | undefined = isPress
     ? undefined
     : (channel as SnsKind | undefined);
+  // 인스턴스 불일치 스톱갭 — 연동 직후 다른 인스턴스에서도 최신 연동 상태로 참여 판정 (sns-cookie.ts)
+  const eff = await effectiveChannelState(me);
   let channelGrade: Grade;
   if (isPress) {
-    channelGrade = me.grade;
+    channelGrade = eff.grade;
   } else {
     if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
       return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
     }
-    const cg = me.channelGrades?.[selectedChannel];
+    const cg = eff.channelGrades[selectedChannel];
     if (!cg) {
       return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
     }
