@@ -5,6 +5,7 @@ import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 import { CHANNEL_ORDER } from "@/lib/channels";
+import { isDeliveryCategory } from "@/lib/delivery-categories";
 import { availableQuotaBonus, consumeQuotaBonus } from "@/lib/referral";
 
 export const runtime = "nodejs";
@@ -122,6 +123,11 @@ export async function POST(req: NextRequest) {
   // 기준 포인트 — 100P 단위 절사, 최대 100만P (배송형 전용, 실지급은 등급 배율 적용)
   const pointReward =
     kind === "delivery" ? Math.min(1000000, Math.floor((Number(body.pointReward) || 0) / 100) * 100) : 0;
+  // 상품 카테고리 — 배송형 필수. 플레이스 카테고리가 아닌 상품군 분류 (delivery-categories.ts)
+  const productCategory = kind === "delivery" ? String(body.productCategory || "").trim() : "";
+  if (kind === "delivery" && !isDeliveryCategory(productCategory)) {
+    return NextResponse.json({ error: "상품 카테고리를 선택해주세요" }, { status: 400 });
+  }
   // 방문 전 예약 필수 (예약형 라이트) — 방문형 전용 옵션
   const reservationRequired = kind === "visit" && body.reservationRequired === true;
   const c: Campaign = {
@@ -141,6 +147,7 @@ export async function POST(req: NextRequest) {
     createdAt: now,
     useCode,
     ...(pointReward > 0 ? { pointReward } : {}),
+    ...(productCategory ? { productCategory } : {}),
     ...(reservationRequired ? { reservationRequired: true } : {}),
   };
   db.campaigns.push(c);

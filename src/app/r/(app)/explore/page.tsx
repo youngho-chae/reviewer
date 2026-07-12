@@ -15,7 +15,7 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string; tab?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string; tab?: string; v?: string; dcat?: string }>;
 }) {
   const me = await getCurrentReviewer();
   // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
@@ -72,6 +72,8 @@ export default async function ReviewerExplore({
         // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상
         address: store.address,
         keywords: c.highlightKeywords,
+        // 참여 방식 필터·예약 배지 (2026-07-12) — 방문 전 예약 필수 여부
+        reservationRequired: c.reservationRequired ?? false,
       };
     });
 
@@ -123,7 +125,9 @@ export default async function ReviewerExplore({
         storeId: store.id,
         storeName: store.name,
         area: store.area,
-        category: store.category,
+        // 상품 카테고리 (2026-07-12 정정) — 배송형은 플레이스 분류가 아닌 상품군 분류
+        // (delivery-categories.ts). 구버전 데이터는 스토어 분류로 폴백.
+        category: c.productCategory ?? store.category,
         coverEmoji: store.coverEmoji,
         productValue: c.supportAmount,
         pointReward: c.pointReward ?? 0,
@@ -175,6 +179,9 @@ export default async function ReviewerExplore({
       deliveryCards={deliveryCards}
       deliveryEnabled={DELIVERY_ENABLED}
       initialTab={sp.tab === "delivery" || sp.tab === "press" ? sp.tab : "visit"}
+      // 참여 방식(?v=) · 배송형 상품 카테고리(?dcat=) 복원 (2026-07-12)
+      initialVisitMode={sp.v === "walkin" || sp.v === "reserve" ? sp.v : "all"}
+      initialDvCats={sp.dcat ? sp.dcat.split(",") : []}
     />
   );
 }

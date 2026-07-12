@@ -501,6 +501,12 @@ export function runSeed(db: DBShape) {
         : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: DEMO_USE_CODE,
+      // 방문 전 예약 필수 (예약형 라이트, 2026-07-12) — 미용·의료·웰니스 등 예약 기반 업종
+      ...(["미용실", "네일아트", "피부과", "치과", "한의원", "PT", "필라테스", "마사지", "애견미용", "동물병원"].includes(
+        s.category,
+      )
+        ? { reservationRequired: true }
+        : {}),
     };
     db.campaigns.push(campaign);
   }
@@ -1116,15 +1122,16 @@ export function runSeed(db: DBShape) {
     menus: string[];
     support: number;
     channels: SnsKind[];
+    reserve?: boolean; // 방문 전 예약 필수 (예약형 라이트, 2026-07-12) — 미용·웰니스 업종
   }> = [
     { category: "카페", name: (g) => `${g} 로스터리`, emoji: "☕", menus: ["시그니처 라떼", "크루아상 세트"], support: 40000, channels: ["naver_blog", "instagram"] },
     { category: "한식", name: (g) => `${g} 밥상`, emoji: "🍚", menus: ["제철 정식", "모둠 전"], support: 80000, channels: ["naver_blog"] },
     { category: "양식", name: (g) => `${g} 키친`, emoji: "🍝", menus: ["시그니처 파스타", "화덕 피자"], support: 90000, channels: ["naver_blog", "instagram"] },
     { category: "디저트", name: (g) => `${g} 베이크`, emoji: "🍰", menus: ["시즌 케이크", "휘낭시에"], support: 40000, channels: ["instagram", "tiktok"] },
     { category: "일식", name: (g) => `${g} 스시야`, emoji: "🍣", menus: ["초밥 12P", "사케동"], support: 100000, channels: ["naver_blog", "instagram"] },
-    { category: "미용실", name: (g) => `${g} 헤어 라운지`, emoji: "💇", menus: ["컷+두피 클리닉", "전체 염색"], support: 70000, channels: ["instagram"] },
-    { category: "필라테스", name: (g) => `${g} 필라테스 랩`, emoji: "🧘", menus: ["1:1 체험 클래스", "그룹 클래스 4회"], support: 55000, channels: ["naver_blog", "instagram", "tiktok"] },
-    { category: "마사지", name: (g) => `${g} 테라피 스파`, emoji: "💆", menus: ["아로마 전신 60분", "등·어깨 집중 관리"], support: 70000, channels: ["naver_blog", "instagram"] },
+    { category: "미용실", name: (g) => `${g} 헤어 라운지`, emoji: "💇", menus: ["컷+두피 클리닉", "전체 염색"], support: 70000, channels: ["instagram"], reserve: true },
+    { category: "필라테스", name: (g) => `${g} 필라테스 랩`, emoji: "🧘", menus: ["1:1 체험 클래스", "그룹 클래스 4회"], support: 55000, channels: ["naver_blog", "instagram", "tiktok"], reserve: true },
+    { category: "마사지", name: (g) => `${g} 테라피 스파`, emoji: "💆", menus: ["아로마 전신 60분", "등·어깨 집중 관리"], support: 70000, channels: ["naver_blog", "instagram"], reserve: true },
   ];
 
   for (const region of REGIONS) {
@@ -1173,6 +1180,7 @@ export function runSeed(db: DBShape) {
         highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
         createdAt: regionCreatedAt,
         useCode: DEMO_USE_CODE,
+        ...(shop.reserve ? { reservationRequired: true } : {}),
       });
     }
   }
@@ -1181,6 +1189,8 @@ export function runSeed(db: DBShape) {
   // 배송형 캠페인 3건(demo@store.com 소유 — 사장님 홈 발송 대기 큐 데모)과
   // 데모 체험자의 배송 패스(발송 대기/발송 완료/검수 완료) + 포인트 원장/출금 내역.
   {
+    // category = **상품 카테고리** (2026-07-12 정정 — delivery-categories.ts 목록값).
+    // 배송형은 매장이 아닌 스토어의 상품이 대상이라 플레이스 분류(카페·디저트 등)를 쓰지 않는다.
     const dvBrands: Array<{
       key: string;
       name: string;
@@ -1191,9 +1201,12 @@ export function runSeed(db: DBShape) {
       pointReward: number; // 0 = 제품만
       channels: SnsKind[];
     }> = [
-      { key: "dv-bakes", name: "카라멜 베이크 하우스", category: "디저트", emoji: "🍪", product: "수제 쿠키 선물 세트", productValue: 32000, pointReward: 10000, channels: ["naver_blog", "instagram"] },
-      { key: "dv-beans", name: "미드나잇 로스터스", category: "카페", emoji: "☕", product: "스페셜티 원두 2종 세트", productValue: 28000, pointReward: 5000, channels: ["tiktok"] },
-      { key: "dv-meal", name: "한상 밀키트", category: "한식", emoji: "🍲", product: "갈비찜 밀키트 2인분", productValue: 39000, pointReward: 0, channels: ["instagram"] },
+      { key: "dv-bakes", name: "카라멜 베이크 하우스", category: "식품", emoji: "🍪", product: "수제 쿠키 선물 세트", productValue: 32000, pointReward: 10000, channels: ["naver_blog", "instagram"] },
+      { key: "dv-beans", name: "미드나잇 로스터스", category: "식품", emoji: "☕", product: "스페셜티 원두 2종 세트", productValue: 28000, pointReward: 5000, channels: ["tiktok"] },
+      { key: "dv-meal", name: "한상 밀키트", category: "식품", emoji: "🍲", product: "갈비찜 밀키트 2인분", productValue: 39000, pointReward: 0, channels: ["instagram"] },
+      { key: "dv-serum", name: "글로우랩 코스메틱", category: "뷰티", emoji: "🧴", product: "비타민 세럼 30ml", productValue: 42000, pointReward: 8000, channels: ["instagram", "tiktok"] },
+      { key: "dv-diffuser", name: "온음 리빙", category: "리빙", emoji: "🕯️", product: "우드 룸 디퓨저 세트", productValue: 35000, pointReward: 0, channels: ["naver_blog"] },
+      { key: "dv-airbuds", name: "사운드포켓", category: "디지털", emoji: "🎧", product: "무선 이어버드 라이트", productValue: 59000, pointReward: 15000, channels: ["naver_blog", "instagram"] },
     ];
     const dvStoreIds: Record<string, string> = {};
     for (const b of dvBrands) {
@@ -1233,6 +1246,7 @@ export function runSeed(db: DBShape) {
         createdAt: now - (5 + detNum(`${b.key}:start`, 5)) * day,
         useCode: DEMO_USE_CODE,
         ...(b.pointReward > 0 ? { pointReward: b.pointReward } : {}),
+        productCategory: b.category, // 상품 카테고리 — 탐색 배송 칩·필터 기준
       });
     }
     const dvCamp = (key: string) => db.campaigns.find((c) => c.id === detId("cp", `${key}-camp`))!;

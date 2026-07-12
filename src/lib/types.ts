@@ -153,6 +153,9 @@ export interface Campaign {
   // 리뷰 검수 승인 시 지급하는 체험 포인트(1P=1원). 실제 지급액은 참여 채널 등급 배율 적용
   // (P1: 등급은 혜택 크기) — src/lib/points.ts pointsForGrade. 0/미설정 = 제품만 제공.
   pointReward?: number;
+  // 상품 카테고리 — 배송형은 매장이 아닌 "특정 스토어의 상품"이 대상이라 플레이스
+  // 카테고리(카페·식당 등)와 맥락이 다르다. src/lib/delivery-categories.ts 목록의 값 (배송형 필수).
+  productCategory?: string;
   // ── 방문형 예약 옵션 (예약형 라이트 — flags.ts '추후 확장'의 1단계) ──
   // true면 상세·체험권에 "방문 전 예약 필수" 배지 + 안내. 선정 절차는 두지 않는다(즉시 발급 유지).
   reservationRequired?: boolean;

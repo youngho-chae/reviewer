@@ -138,7 +138,8 @@ export default async function ReviewerHome({
             storeId: store.id,
             campaignId: c.id,
             name: store.name,
-            category: store.category,
+            // 상품 카테고리 우선 (2026-07-12 정정 — 배송형은 플레이스 분류가 아님)
+            category: c.productCategory ?? store.category,
             requiredChannels: c.requiredChannels,
             remain: campaignRemain(c),
             soldOut: campaignExposure(c, db.passes, now) === "issued_out",

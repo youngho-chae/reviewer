@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
+import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 
 interface OwnerStore {
   id: string;
@@ -38,6 +39,8 @@ export default function NewCampaign() {
   // 캠페인 유형 (2026-07-12 레뷰 벤치마크) — 방문형 | 배송형(전국 택배 · 체험 포인트 지급 가능)
   const [kind, setKind] = useState<"visit" | "delivery">("visit");
   const [pointReward, setPointReward] = useState(""); // 배송형 기준 포인트 (선택 · 100P 단위)
+  // 배송형 상품 카테고리 (필수) — 플레이스 분류가 아닌 상품군 분류 (delivery-categories.ts)
+  const [productCategory, setProductCategory] = useState("");
   const [reservationRequired, setReservationRequired] = useState(false); // 방문형 예약 필수 옵션
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
@@ -146,6 +149,7 @@ export default function NewCampaign() {
         totalQuota: totalQuotaNum,
         useCode: isDelivery ? undefined : useCode,
         pointReward: isDelivery && pointReward ? Number(pointReward) : undefined,
+        productCategory: isDelivery ? productCategory : undefined,
         reservationRequired: !isDelivery && reservationRequired ? true : undefined,
         requiredMenus: isDelivery ? [] : cleanMenus,
         requiredChannels: channels,
@@ -306,6 +310,34 @@ export default function NewCampaign() {
             (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.</>
           )}
         </p>
+
+        {/* 배송형 — 상품 카테고리 (필수). 플레이스 분류(카페·식당)가 아닌 상품군 분류 */}
+        {isDelivery && (
+          <section>
+            <div className="text-[14px] font-semibold text-ink mb-2">상품 카테고리 (필수)</div>
+            <div className="flex flex-wrap gap-2">
+              {DELIVERY_CAT_GROUPS.map((g) => (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => setProductCategory(g.key)}
+                  aria-pressed={productCategory === g.key}
+                  className={`h-10 px-4 rounded-pill text-[14px] bg-canvas inline-flex items-center gap-1.5 ${
+                    productCategory === g.key
+                      ? "border-[1.5px] border-ink text-ink font-semibold"
+                      : "border border-hairline text-ink font-medium"
+                  }`}
+                >
+                  <span aria-hidden>{g.ic}</span>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              배송 체험은 매장이 아닌 <span className="text-ink font-medium">스토어의 상품</span>이 대상이에요 — 체험자 탐색의 상품 카테고리 필터에 사용됩니다.
+            </p>
+          </section>
+        )}
 
         {/* 배송형 — 체험 포인트 (선택) */}
         {isDelivery && (
@@ -527,7 +559,7 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit || (!isDelivery && useCode.length !== 4)}
+          disabled={busy || !storeId || overLimit || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory)}
           type="submit"
           className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >
@@ -537,7 +569,9 @@ export default function NewCampaign() {
               ? "월 한도 초과"
               : !isDelivery && useCode.length !== 4
                 ? "사용처리 코드 4자리 입력"
-                : "캠페인 생성"}
+                : isDelivery && !productCategory
+                  ? "상품 카테고리 선택"
+                  : "캠페인 생성"}
         </button>
       </form>
     </div>
