@@ -51,6 +51,13 @@ const ISSUED_CHIPS: { key: string; label: string }[] = [
   { key: "cancelled", label: "취소" },
   { key: "expired", label: "만료" },
 ];
+// 배송형 — active는 QR 사용 개념이 없어 "발송 대기" (2026-07-12 세그먼트 분리)
+const DELIVERY_ISSUED_CHIPS: { key: string; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "active", label: "발송 대기" },
+  { key: "cancelled", label: "취소" },
+  { key: "expired", label: "만료" },
+];
 const REVIEW_CHIPS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
   { key: "used", label: "작성 대기중" },
@@ -62,25 +69,34 @@ const REVIEW_CHIPS: { key: string; label: string }[] = [
 
 export default function PassesView({
   items,
+  showDelivery,
   showPress,
   pressCount,
   pressView,
   unread,
 }: {
   items: VisitPassItem[];
+  // 배송형 세그먼트 노출 여부 (2026-07-12 분리 — 배송 패스는 방문형 대카테고리에 섞지 않는다)
+  showDelivery: boolean;
   showPress: boolean;
   pressCount: number;
   pressView: ReactNode;
   unread: number;
 }) {
-  const [segment, setSegment] = useState<"visit" | "press">("visit");
+  const [segment, setSegment] = useState<"visit" | "delivery" | "press">("visit");
   const [tab, setTab] = useState<"issued" | "review">("issued");
   const [chip, setChip] = useState("all");
 
+  // 배송형은 방문형과 별개 세그먼트 (2026-07-12) — 카드·칩·빈 상태 카피가 각각의 방식 기준
+  const visitItems = useMemo(() => items.filter((it) => !it.isDelivery), [items]);
+  const deliveryItems = useMemo(() => items.filter((it) => !!it.isDelivery), [items]);
+  const deliveryCount = deliveryItems.length;
+
   const tabItems = useMemo(() => {
+    const base = segment === "delivery" ? deliveryItems : visitItems;
     const statuses = tab === "issued" ? ISSUED_STATUSES : REVIEW_STATUSES;
-    return items.filter((it) => (statuses as readonly string[]).includes(it.status));
-  }, [items, tab]);
+    return base.filter((it) => (statuses as readonly string[]).includes(it.status));
+  }, [visitItems, deliveryItems, segment, tab]);
   // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다
   const filtered =
     chip === "all"
@@ -90,7 +106,7 @@ export default function PassesView({
             ? it.displayStatus === "overdue" || it.displayStatus === "resubmit_expired"
             : it.displayStatus === chip,
         );
-  const chips = tab === "issued" ? ISSUED_CHIPS : REVIEW_CHIPS;
+  const chips = tab === "issued" ? (segment === "delivery" ? DELIVERY_ISSUED_CHIPS : ISSUED_CHIPS) : REVIEW_CHIPS;
 
   return (
     <div>
@@ -100,11 +116,27 @@ export default function PassesView({
           <div className="flex items-baseline gap-3">
             <button
               type="button"
-              onClick={() => setSegment("visit")}
+              onClick={() => {
+                setSegment("visit");
+                setChip("all");
+              }}
               className={`cp-action text-[20px] tracking-title ${segment === "visit" ? "font-bold text-ink" : "font-semibold text-mutedSoft"}`}
             >
               방문형
             </button>
+            {/* 배송형 — 방문형 대카테고리에서 분리 (2026-07-12). 탐색 세그먼트와 동일 문법 */}
+            {showDelivery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSegment("delivery");
+                  setChip("all");
+                }}
+                className={`cp-action text-[20px] tracking-title ${segment === "delivery" ? "font-bold text-ink" : "font-semibold text-mutedSoft"}`}
+              >
+                배송형{deliveryCount > 0 ? ` ${deliveryCount}` : ""}
+              </button>
+            )}
             {/* 기자단은 MVP 제외 — 과거 발급분이 있을 때만 전환 가능, 없으면 비활성 표기 */}
             <button
               type="button"
@@ -127,13 +159,13 @@ export default function PassesView({
           </div>
         </div>
 
-        {segment === "visit" && (
+        {segment !== "press" && (
           <>
-            {/* 서브 탭 — 체험권 / 리뷰작성 (퍼플 언더라인) */}
+            {/* 서브 탭 — 체험권(배송형은 신청 내역) / 리뷰작성 (퍼플 언더라인) */}
             <div className="grid grid-cols-2 border-b border-hairlineSoft">
               {(
                 [
-                  { key: "issued", label: "체험권" },
+                  { key: "issued", label: segment === "delivery" ? "신청 내역" : "체험권" },
                   { key: "review", label: "리뷰작성" },
                 ] as const
               ).map((t) => {
@@ -189,11 +221,26 @@ export default function PassesView({
             {filtered.length === 0 && (
               <div className="py-16 text-center">
                 <p className="text-[15px] text-muted">
-                  {tab === "issued" ? "해당하는 체험권이 없어요." : "리뷰 단계의 체험이 없어요."}
+                  {segment === "delivery"
+                    ? tab === "issued"
+                      ? "해당하는 배송 체험 신청이 없어요."
+                      : "리뷰 단계의 배송 체험이 없어요."
+                    : tab === "issued"
+                      ? "해당하는 체험권이 없어요."
+                      : "리뷰 단계의 체험이 없어요."}
                 </p>
-                <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
-                  홈에서 체험권 받기 →
-                </Link>
+                {segment === "delivery" ? (
+                  <Link
+                    href="/r/explore?mode=list&tab=delivery"
+                    className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand"
+                  >
+                    배송 체험 둘러보기 →
+                  </Link>
+                ) : (
+                  <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
+                    홈에서 체험권 받기 →
+                  </Link>
+                )}
               </div>
             )}
           </div>
