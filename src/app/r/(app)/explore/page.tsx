@@ -32,12 +32,7 @@ export default async function ReviewerExplore({
   // [추천순] 사장님 멤버십 플랜 랭크 조인 — storeId → Store.ownerId → Owner.plan (현재 플랜 적용).
   // [P1] 리뷰어 등급과 무관한 사장님 멤버십 기준 노출 우대 — 참여 자격에는 영향 없음.
   const ownerPlanRank = new Map(db.owners.map((o) => [o.id, PLAN_RANK[o.plan] ?? 0]));
-  // [§6] 이미 참여 중(진행 중 패스 보유)인 캠페인 — 리스트에서 제외하지 않고 "참여 중" 뱃지로 표시
-  const myCampaignIds = new Set(
-    db.passes
-      .filter((p) => p.reviewerId === me.id && ["active", "used", "review_submitted"].includes(p.status))
-      .map((p) => p.campaignId),
-  );
+  // [2026-07-12 회의 §1-3] 카드 '참여 중' 배지 삭제 — 신청 상태는 상세 CTA(내 체험권 보기)로 구분
 
   // [노출 정책] 발급 소진 ≠ 종료 — 살아있는 체험권이 남은 캠페인은 계속 노출 (2026-07-07 회의)
   const cards: ExploreStoreCard[] = db.campaigns
@@ -68,7 +63,6 @@ export default async function ReviewerExplore({
         endAt: c.endAt,
         createdAt: c.createdAt,
         planRank: ownerPlanRank.get(store.ownerId) ?? 0,
-        participating: myCampaignIds.has(c.id),
         // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상
         address: store.address,
         keywords: c.highlightKeywords,
@@ -137,7 +131,6 @@ export default async function ReviewerExplore({
         endAt: c.endAt,
         createdAt: c.createdAt,
         planRank: ownerPlanRank.get(store.ownerId) ?? 0,
-        participating: myCampaignIds.has(c.id),
         keywords: c.highlightKeywords,
         totalQuota: totalQ,
       } as ExploreDeliveryCard;

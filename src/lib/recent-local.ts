@@ -40,3 +40,30 @@ function save(key: string, arr: string[]) {
     window.localStorage.setItem(key, JSON.stringify(arr));
   } catch {}
 }
+
+// ── 홈에서 설정한 지역 (2026-07-12 회의 §2-3·§3) ──
+// 홈 지역 선택을 저장해 탐색 탭 진입 시 기본 지역값으로 적용한다 (기기 로컬 전용).
+//  - { t: "area", v: 라벨 } = 특정 지역 선택 / { t: "me" } = 현위치로 설정
+export const HOME_AREA_KEY = "cp_home_area_v1";
+export type HomeAreaPref = { t: "area"; v: string } | { t: "me" };
+
+export function setHomeArea(pref: HomeAreaPref) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(HOME_AREA_KEY, JSON.stringify(pref));
+  } catch {}
+}
+
+export function getHomeArea(): HomeAreaPref | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(HOME_AREA_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (v && v.t === "area" && typeof v.v === "string" && v.v) return v;
+    if (v && v.t === "me") return v;
+    return null;
+  } catch {
+    return null;
+  }
+}

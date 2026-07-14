@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
-import { haversineM, nearestSido, SIDO_CENTERS, type LatLng } from "@/lib/geo";
+import { haversineM, nearestSido, nearestRegionLabel, SIDO_CENTERS, type LatLng } from "@/lib/geo";
 import type { MapStorePin } from "./NaverMapView";
 
 /**
@@ -41,6 +41,7 @@ export default function MockMapView({
   onSelectionChange,
   initialSearchCenter = null,
   nationwide = false,
+  onRegionChange,
 }: {
   pins: MapStorePin[];
   onSelectionChange?: (hasSelection: boolean) => void;
@@ -49,6 +50,9 @@ export default function MockMapView({
   // [§6-4] 전국 진입(scope=all) — 데모 지도도 시도별 건수 클러스터로 시작 (2026-07-10 누락 정정).
   // 데모 지도는 줌이 없으므로: 클러스터 마커 탭 = 해당 시도 핀으로 "확대", [전국 보기] = 클러스터 복귀.
   nationwide?: boolean;
+  // [2026-07-12 회의 §1-1] 지도 재검색 ↔ 지역 필터 동기화 — '이 지역 재검색' = 최근접 시군구로
+  // 지역 필터 변경 후 [적용하기]와 동일 동작(SNS·카테고리 유지), 전국 복귀(전체 보기/GPS) = 지역 필터 해제.
+  onRegionChange?: (label: string | null) => void;
 }) {
   // '이 지역 재검색' (확정 정책 2-3) — 데모 지도는 자유 드래그가 없으므로
   // 핀 선택/카드 스와이프로 중심이 기준점에서 500m 이상 벗어나면 버튼을 노출하고,
@@ -117,6 +121,16 @@ export default function MockMapView({
 
   function researchHere() {
     if (!selected) return;
+    // [2026-07-12 §1-1] 재검색 = 지역 필터 자동 변경 + 적용하기와 동일 동작.
+    // 부모(ExploreView)가 지역 필터를 갱신하면 initialSearchCenter가 행정 기준점으로
+    // 되돌아와(effect) 지도 재센터·반경 3km 재조회가 함께 일어난다.
+    const label = onRegionChange ? nearestRegionLabel(selected) : null;
+    if (onRegionChange && label) {
+      onRegionChange(label);
+      setShowResearch(false);
+      setSelIdx(null);
+      return;
+    }
     setSearchCenter({ lat: selected.lat, lng: selected.lng });
     setShowResearch(false);
     setSelIdx(0); // 중심 핀이 거리 0으로 첫 카드가 된다
@@ -129,6 +143,8 @@ export default function MockMapView({
     setSelIdx(null);
     // 전국 진입이면 GPS 리센터/전체 보기가 클러스터 시작 화면으로 복귀
     if (nationwide) setSidoFocus(null);
+    // [2026-07-12 §1-1] 전국 범위 복귀 = 지역 필터 해제 (실지도의 전국 줌아웃에 대응)
+    onRegionChange?.(null);
   }
 
   // 선택 핀을 화면 중앙으로 옮기는 팬 오프셋 (translate %는 요소 자기 크기 기준 = 컨테이너 크기)
@@ -184,7 +200,7 @@ export default function MockMapView({
       {nationwide && sidoFocus && !searchCenter && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2 whitespace-nowrap">
           <span className="font-semibold text-ink">{sidoFocus}</span>
-          <span>· {visiblePins.length}곳</span>
+          <span>· {visiblePins.length}개</span>
           <button
             type="button"
             onClick={() => {
@@ -210,7 +226,7 @@ export default function MockMapView({
       )}
       {searchCenter && !showResearch && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2">
-          <span>이 지역 반경 3km · {visiblePins.length}곳</span>
+          <span>이 지역 반경 3km · {visiblePins.length}개</span>
           <button type="button" onClick={resetResearch} className="cp-action font-semibold text-brand">
             전체 보기
           </button>
@@ -260,7 +276,7 @@ export default function MockMapView({
                 style={{ boxShadow: "0 3px 10px rgba(0,0,0,.2)" }}
               >
                 <div className="text-[12px] font-bold">{c.sido}</div>
-                <div className="text-[11px] font-semibold tabular-nums">{STORYBOARD ? "00건" : `${c.count}건`}</div>
+                <div className="text-[11px] font-semibold tabular-nums">{STORYBOARD ? "00개" : `${c.count}개`}</div>
               </div>
             </button>
           ))}
@@ -302,12 +318,14 @@ export default function MockMapView({
         })}
       </div>
 
-      {/* GPS 리센터 — 전체 보기(선택·반경 해제)로 복귀 */}
+      {/* GPS 리센터 — 전체 보기(선택·반경·지역 필터 해제)로 복귀.
+          [2026-07-12] 미선택 시 피크 바텀시트(칩 행)가 하단 ~110px를 덮으므로 그 위로 배치 —
+          기존 bottom 24는 시트에 가려져 실제로 누를 수 없던 레이어링 버그. */}
       <button
         type="button"
         onClick={resetResearch}
-        className="cp-action absolute right-3 z-20 w-10 h-10 rounded-full bg-white shadow-card flex items-center justify-center text-ink"
-        style={{ bottom: selected ? 172 : 24 }}
+        className="cp-action absolute right-3 z-40 w-10 h-10 rounded-full bg-white shadow-card flex items-center justify-center text-ink"
+        style={{ bottom: selected ? 172 : 128 }}
         aria-label="현 위치로 지도 이동"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

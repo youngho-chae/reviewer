@@ -4,7 +4,7 @@
 // 매장 area/address 문자열 매칭은 스토리보드 모드(라벨 마스킹)에서 무력화되므로,
 // 기준점은 정적 좌표 사전(시도 17 + 서울 시군구)으로 해석한다.
 
-import { findSido } from "./regions";
+import { findSido, regionLabel } from "./regions";
 
 export interface LatLng {
   lat: number;
@@ -371,6 +371,24 @@ export function nearestSido(p: LatLng): string {
     }
   }
   return best;
+}
+
+// 좌표 → 최근접 시군구의 표기 라벨 (2026-07-12 회의 §1-1 — 지도 '이 지역 재검색'과
+// 지역 필터 동기화용). 표기 규칙(regions.ts regionLabel — 중복 지명만 시도 병기)을 따르므로
+// 반환 라벨은 그대로 지역 필터 값·regionCenter 해석에 쓸 수 있다.
+export function nearestRegionLabel(p: LatLng): string | null {
+  let best: { sido: string; gugun: string } | null = null;
+  let bestD = Infinity;
+  for (const [sido, guguns] of Object.entries(GUGUN_CENTERS)) {
+    for (const [gugun, c] of Object.entries(guguns)) {
+      const d = haversineM(p, c);
+      if (d < bestD) {
+        bestD = d;
+        best = { sido, gugun };
+      }
+    }
+  }
+  return best ? regionLabel(best.sido, best.gugun) : null;
 }
 
 // 지역 라벨 → 기준 좌표.

@@ -261,6 +261,31 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
             ))}
           </div>
         </section>
+
+        {/* 유의사항 (2026-07-12 회의 §10-2) — 상세 정보의 가장 마지막.
+            발급 바텀시트·리뷰 조건에 반복 노출되던 정책 안내를 여기로 통합 (90일 유지 포함). */}
+        <section className="px-5 mt-9">
+          <h3 className="text-[18px] font-bold text-ink tracking-title">유의사항</h3>
+          <ul className="mt-3 space-y-1.5 text-[13px] text-muted leading-[1.6] list-disc pl-4">
+            {isDelivery ? (
+              <>
+                <li>발송 처리 전에는 언제든 취소할 수 있지만, 발송된 후에는 취소할 수 없어요.</li>
+                <li>리뷰는 발송 후 7일 이내 제출해야 해요.</li>
+                <li>제출한 리뷰는 등록일로부터 90일 이상 게시를 유지해야 해요. (제출 시 별도 동의)</li>
+                <li>포인트는 리뷰가 검수를 통과하면 적립돼요 · 출금 시 세금(3.3%)과 수수료가 차감돼요.</li>
+                <li>리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
+              </>
+            ) : (
+              <>
+                <li>체험권은 발급 후 72시간 내 사용해야 하며, 기한이 지나면 연장·복구되지 않아요.</li>
+                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요 · 취소한 캠페인은 12시간 뒤부터 재신청할 수 있어요.</li>
+                <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
+                <li>제출한 리뷰는 등록일로부터 90일 이상 게시를 유지해야 해요. (제출 시 별도 동의)</li>
+                <li>미사용 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
+              </>
+            )}
+          </ul>
+        </section>
       </StoreParticipate>
     </div>
   );

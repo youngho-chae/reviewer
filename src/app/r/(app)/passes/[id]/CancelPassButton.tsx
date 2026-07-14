@@ -74,14 +74,12 @@ export default function CancelPassButton({
           role="alertdialog"
           aria-label="방문 취소 확인"
         >
-          {/* 2026-07-10 §9-2 — 취소 결과를 실제 정책 그대로 안내 (회수·12h 재신청·무패널티) */}
+          {/* [2026-07-12 회의 §8-2] 알럿 간소화 — 핵심 결과 + 12h 재신청 제한만 안내 */}
           <h2 className="text-[17px] font-bold text-ink tracking-title">방문을 취소하시겠어요?</h2>
           <p className="mt-3 text-[14px] text-ink2 leading-[1.65]">
-            취소하면 체험권은 즉시 회수되고, 모집 자리는 다른 체험자에게 돌아가요.
+            취소하면 체험권은 즉시 회수돼요.
             <br />
             같은 캠페인 재신청은 12시간 뒤부터 가능해요.
-            <br />
-            취소 자체에 등급 불이익은 없어요 — 방문이 어렵다면 만료 방치보다 취소가 좋아요.
           </p>
           {err && <div className="mt-3 text-[12px] text-error">{err}</div>}
           <div className="mt-6 grid grid-cols-2 gap-2">

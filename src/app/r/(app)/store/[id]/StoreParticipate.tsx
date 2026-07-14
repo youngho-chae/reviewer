@@ -80,7 +80,8 @@ export default function StoreParticipate({
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
   // 배송형 적립 포인트 — 기준 포인트 × 등급 배율 (points.ts pointsForGrade와 동일 반올림)
   const selectedPoints = connected && pointReward > 0 ? supportFor(pointReward, myGrade as Grade) : 0;
-  const conditions = selected ? CHANNEL_REVIEW_CONDITIONS[selected] ?? [] : [];
+  // [2026-07-12 회의 §10-3] 리뷰 조건에는 실제 작성 요건만 — 90일 유지(keep)는 유의사항으로 분리
+  const conditions = selected ? (CHANNEL_REVIEW_CONDITIONS[selected] ?? []).filter((c) => !c.keep) : [];
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
   const shippingValid = !isDelivery || (recipient.trim() && phone.trim() && address.trim());
 
@@ -206,7 +207,7 @@ export default function StoreParticipate({
         {selected ? (
           <>
             <p className="mt-1 text-[13px] text-muted">
-              리뷰를 작성하기 <span className="font-semibold text-ink2">전에</span> 아래 조건을 꼭 확인해주세요. 제출 화면에서는 자가 점검만 진행해요.
+              리뷰를 작성하기 <span className="font-semibold text-ink2">전에</span> 아래 조건을 미리 확인해주세요. 제출 화면에서는 자가 점검만 진행해요.
             </p>
             <div className="mt-3 rounded-md border border-hairline overflow-hidden">
               {conditions.map((cnd, i) => (
@@ -384,28 +385,8 @@ export default function StoreParticipate({
               </div>
             )}
 
-            {/* 꼭 확인해주세요 — 정책 고지 (유형별 분기) */}
-            <div className="mt-5 rounded-md bg-sunken px-4 py-3.5">
-              <div className="text-[13px] font-bold text-ink">ⓘ 꼭 확인해주세요</div>
-              <ul className="mt-2 space-y-1 text-[12px] text-muted leading-[1.55] list-disc pl-4">
-                {isDelivery ? (
-                  <>
-                    <li>발송 처리 전에는 언제든 취소할 수 있지만, 발송된 후에는 취소할 수 없어요.</li>
-                    <li>리뷰는 발송 후 7일 이내 제출해야 해요.</li>
-                    <li>포인트는 리뷰가 검수를 통과하면 적립돼요 · 출금 시 세금(3.3%)·수수료가 차감돼요.</li>
-                    <li>리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
-                  </>
-                ) : (
-                  <>
-                    <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요. (취소는 불이익이 없어요)</li>
-                    <li>같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.</li>
-                    <li>기한이 지난 체험권은 연장·복구되지 않아요.</li>
-                    <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
-                    <li>미사용 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
-                  </>
-                )}
-              </ul>
-            </div>
+            {/* [2026-07-12 회의 §10-1] '꼭 확인해주세요' 반복 고지 삭제 — 발급 바텀시트는
+                발급되는 체험권 핵심 정보만. 정책 안내는 상세 페이지 하단 유의사항으로 통합. */}
 
             {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
             <div className="mt-5 flex gap-2">

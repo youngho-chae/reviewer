@@ -9,6 +9,7 @@ import { photoForStore } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, walkMinutes, NEARBY_RADIUS_M } from "@/lib/distance-mock";
 import { haversineM, regionCenter } from "@/lib/geo";
+import { regionFromAddress } from "@/lib/regions";
 import { compareRecommended } from "@/lib/recommend";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import { PLAN_RANK } from "@/lib/plan-policy";
@@ -37,7 +38,8 @@ interface HomeCard {
   lng?: number;
   createdAt: number;
   planRank: number; // 사장님 멤버십 랭크 — 추천순 (§4)
-  participating: boolean; // 내가 진행 중인 패스를 보유한 캠페인 — "참여 중" 표시 (§6)
+  // [2026-07-12 회의 §4-3·§6-2] 전체 리스트 카드는 잔여 수 대신 지역(1차·2차) 정보 우선
+  region: string;
 }
 
 export default async function ReviewerHome({
@@ -64,12 +66,7 @@ export default async function ReviewerHome({
 
   // [추천순 §4] 사장님 멤버십 플랜 랭크 — 조회 시점 조인 (리뷰어 등급 아님 · P1 무관)
   const ownerPlanRank = new Map(db.owners.map((o) => [o.id, PLAN_RANK[o.plan] ?? 0]));
-  // [§6] 이미 참여 중인 캠페인 — 제외하지 않고 "참여 중" 뱃지
-  const myCampaignIds = new Set(
-    db.passes
-      .filter((p) => p.reviewerId === me.id && ["active", "used", "review_submitted"].includes(p.status))
-      .map((p) => p.campaignId),
-  );
+  // [2026-07-12 회의 §1-3] 카드 '참여 중' 배지 삭제 — 신청 상태는 상세 CTA로 구분
 
   // [P1] 등급은 참여 자격이 아님 — 금액만 내 채널 등급 기준 개인화.
   const cards: HomeCard[] = visitCampaigns.map((c) => {
@@ -92,7 +89,7 @@ export default async function ReviewerHome({
       lng: store.lng,
       createdAt: c.createdAt,
       planRank: ownerPlanRank.get(store.ownerId) ?? 0,
-      participating: myCampaignIds.has(c.id),
+      region: regionFromAddress(store.address, store.area),
     };
   });
 
@@ -146,7 +143,6 @@ export default async function ReviewerHome({
             pointReward: c.pointReward ?? 0,
             createdAt: c.createdAt,
             planRank: ownerPlanRank.get(store.ownerId) ?? 0,
-            participating: myCampaignIds.has(c.id),
           };
         })
         .sort(compareRecommended)
@@ -284,11 +280,6 @@ export default async function ReviewerHome({
                     <div className="mt-2">
                       <div className="flex items-center gap-1.5">
                         <ChannelIcons channels={p.requiredChannels} size={12} />
-                        {p.participating && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold">
-                            참여 중
-                          </span>
-                        )}
                       </div>
                       {p.soldOut ? (
                         <div className="mt-1.5 text-[13px] font-semibold text-mutedSoft">발급 마감 · 체험 진행 중</div>
@@ -328,7 +319,7 @@ export default async function ReviewerHome({
       </section>
       <section className="px-5 grid grid-cols-2 gap-x-3 gap-y-6">
         {all.map((p) => (
-          <ExperienceCard key={`all-${p.storeId}`} card={p} />
+          <ExperienceCard key={`all-${p.storeId}`} card={p} info="region" />
         ))}
         {all.length === 0 && (
           <div className="col-span-2 py-12 text-center text-muted text-[13px]">지금은 동네가 잠깐 쉬는 중</div>
@@ -339,7 +330,7 @@ export default async function ReviewerHome({
 }
 
 /* experience-card — 4:3 사진 + SNS 배지 + 🎫 남음 + 가게명 + 최대 ₩N 지원 (DESIGN.md v2) */
-function ExperienceCard({ card }: { card: HomeCard }) {
+function ExperienceCard({ card, info = "remain" }: { card: HomeCard; info?: "remain" | "region" }) {
   return (
     <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action block">
       <div className="aspect-[4/3] bg-sunken relative overflow-hidden rounded-md">
@@ -354,14 +345,16 @@ function ExperienceCard({ card }: { card: HomeCard }) {
       <div className="mt-2">
         <div className="flex items-center gap-1.5">
           <ChannelIcons channels={card.requiredChannels} size={12} />
-          {/* [§6] 이미 신청한 캠페인 — 제외 대신 "참여 중" 표시 */}
-          {card.participating && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold">
-              참여 중
-            </span>
-          )}
+          {/* [2026-07-12 회의 §1-3] '참여 중' 배지 삭제 — 신청 상태는 상세 CTA로 구분 */}
         </div>
-        {card.soldOut ? (
+        {/* [§4-3·§6-3] 전체 리스트(info="region")는 잔여 수 대신 지역(1차·2차) 정보 우선 —
+            '걸어서'(가까운 체험) 캐러셀은 잔여 체험권 수 유지 */}
+        {info === "region" && card.region ? (
+          <div className="mt-1.5 text-[13px] font-semibold text-ink2 flex items-center gap-1">
+            <span aria-hidden>📍</span>
+            <span className="truncate">{sbNum(SBUI.area, card.region)}</span>
+          </div>
+        ) : card.soldOut ? (
           <div className="mt-1.5 text-[13px] font-semibold text-mutedSoft">발급 마감 · 체험 진행 중</div>
         ) : (
           <div className="mt-1.5 text-[13px] font-semibold text-ink2 flex items-center gap-1">

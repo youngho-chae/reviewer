@@ -243,11 +243,7 @@ export default function PassTicket({
             {busy ? "처리 중..." : "사용처리"}
           </button>
 
-          <p className="mt-4 text-[12px] text-mutedSoft text-center leading-[1.5]">
-            인증이 반복해서 실패하면 매장 직원에게 확인을 요청하거나
-            <br />
-            고객센터(help@catchrank.co.kr)로 문의해주세요.
-          </p>
+          {/* [2026-07-12 회의 §9-3] 고객센터·매장 직원 문의 안내 삭제 — 인증 중심 화면 단순화 */}
         </div>
       )}
     </div>

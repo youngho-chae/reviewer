@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
     // 기자단도 방문형과 동일하게 본인 채널에 작성한 URL만 제출.
     // 본문은 본인 채널에 게시되므로 시스템에서 검증하지 않고 자가 점검만 받음.
     if (!reviewUrl) return NextResponse.json({ error: "URL을 입력해주세요" }, { status: 400 });
+    if (!/^https?:\/\/\S+\.\S+/.test(String(reviewUrl).trim())) {
+      return NextResponse.json({ error: "리뷰 URL 형식이 올바르지 않습니다 (http:// 또는 https:// 로 시작)" }, { status: 400 });
+    }
     if (!reviewChannel) return NextResponse.json({ error: "작성 채널을 선택해주세요" }, { status: 400 });
     const needsKeywordCheck = (campaign?.pressKeywords?.length || 0) > 0;
     if (!pressSelfCheck || !pressSelfCheck.ad || !pressSelfCheck.kit || (needsKeywordCheck && !pressSelfCheck.keywords)) {

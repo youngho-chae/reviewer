@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { REGIONS, findSido, regionLabel } from "@/lib/regions";
-import { RECENT_REGIONS_KEY, getRecent, pushRecent, removeRecent, clearRecent } from "@/lib/recent-local";
+import { RECENT_REGIONS_KEY, getRecent, pushRecent, removeRecent, clearRecent, setHomeArea } from "@/lib/recent-local";
 import Icon from "@/components/Icon";
 
 /**
@@ -39,6 +39,9 @@ export default function LocationSheet({
       onPick(area);
       return;
     }
+    // 홈 지역 설정 저장 (2026-07-12 회의 §2-3) — 탐색 탭 진입 시 기본 지역값으로 연동.
+    // 콜백 모드(탐색 필터 시트)는 탐색 한정 변경이므로 저장하지 않는다.
+    setHomeArea(area ? { t: "area", v: area } : { t: "me" });
     router.push(area ? `/r/home?area=${encodeURIComponent(area)}` : "/r/home");
   }
 

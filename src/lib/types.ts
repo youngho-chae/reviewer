@@ -217,7 +217,7 @@ export interface Pass {
   overdueHandled?: boolean; // 리뷰 기한(이용 후 7일) 초과 처리 완료
   expiringSoonNotified?: boolean; // 만료 6시간 전 알림 발송 완료
   reviewDueSoonNotified?: boolean; // 리뷰 마감 24시간 전 알림 발송 완료
-  // 4자리 사용처리 코드 오입력 가드 — 연속 5회 실패 시 10분 잠금 (브루트포스 방지)
+  // 4자리 사용처리 코드 오입력 가드 — 연속 5회 실패 시 3분 잠금 (브루트포스 방지, 2026-07-12 §9-2)
   useCodeFailCount?: number; // 연속 실패 횟수 (성공 시 리셋)
   useCodeLockUntil?: number; // 잠금 해제 시각 (epoch ms)
   // 게시 유지(90일) 동의 — 리뷰 제출 시 서버가 필수로 검증·보존 (자가점검과 분리된 별도 동의)

@@ -138,10 +138,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           boosted={!!boost && displaySupport > entitledSupport}
         />
 
-        {/* 방문이 어려운 경우 취소 유도 — 슬롯을 다른 체험자에게 돌려줌 */}
-        <div className="pb-12 text-center">
-          <CancelPassButton passId={pass.id} />
-        </div>
+        {/* [2026-07-12 회의 §8-1] QR 인증 화면에서 참여 취소 제거 — 매장 직원과 함께 쓰는
+            인증 중심 화면으로 단순화. 방문 취소는 내 체험권 리스트의 [참여 취소]에서. */}
+        <div className="pb-12" />
       </div>
     );
   }
@@ -204,41 +203,25 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   </div>
                 )}
               </div>
-              <div className="mt-2 text-[12px] text-muted">
-                {isDelivery
-                  ? campaign?.pointReward
-                    ? "리뷰가 검수를 통과하면 포인트가 적립돼요"
-                    : "수령 후 체험하고 리뷰를 등록해주세요"
-                  : <>초과분 {SBUI.price}은 직접 결제하셨습니다</>}
-              </div>
+              {isDelivery && (
+                <div className="mt-2 text-[12px] text-muted">
+                  {campaign?.pointReward ? "리뷰가 검수를 통과하면 포인트가 적립돼요" : "수령 후 체험하고 리뷰를 등록해주세요"}
+                </div>
+              )}
             </div>
 
-            {/* T1 트리거 — 패스 사용 직후 친구 초대 카드 (viral) */}
-            <Link
-              href={`/r/invite/new?store=${encodeURIComponent(pass.storeId)}&campaign=${encodeURIComponent(pass.campaignId)}`}
-              className="cp-action mt-4 flex items-center gap-3 p-4 rounded-md border border-hairline bg-canvas"
-            >
-              <span className="text-[28px]" aria-hidden>🎁</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-semibold text-ink">
-                  {SBUI.support} 절약 완료! 친구도 받게 해줄래요?
-                </div>
-                <div className="text-[11px] text-muted mt-0.5">친구 가입 즉시 내 행운 박스 오픈 + 친구는 첫 캠페인 +50% 지원금</div>
-              </div>
-              <span className="text-brand text-[18px] shrink-0">›</span>
-            </Link>
+            {/* [2026-07-12 회의 §11-1] 리뷰 작성 화면의 친구 초대(코드) 카드 삭제 — 초대는 /r/rewards 전용 */}
 
             {passDisplayStatus(pass) === "overdue" ? (
               /* 제출 기한 초과 — 서버(/api/passes/review)도 기한 경과 제출을 차단하므로 폼 대신 안내만 */
               <div className="mt-9 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
-                리뷰 제출 기한(이용 후 7일)이 지나 더 이상 제출할 수 없어요. 기한 초과는 월간 등급 재평가에
-                감점으로 반영됩니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+                리뷰 제출 기한(이용 후 7일)이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요.
               </div>
             ) : (
               <>
-                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
+                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">제출 전 마지막 확인</h2>
                 <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-                  실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
+                  게시한 리뷰 URL을 제출하고, 작성 조건을 확인했는지 가볍게 점검해주세요.
                 </p>
                 <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
               </>
@@ -256,18 +239,6 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             <div className="mt-6 rounded-md bg-successSoft p-5 text-[15px] text-ink">
               <span className="text-successStrong font-semibold">✓ 리뷰 검수 통과.</span> 등급 점수가 반영되었습니다.
             </div>
-            {/* T2 트리거 — 검수 통과 후 친구 초대 */}
-            <Link
-              href={`/r/invite/new?store=${encodeURIComponent(pass.storeId)}&campaign=${encodeURIComponent(pass.campaignId)}`}
-              className="cp-action mt-3 flex items-center gap-3 p-4 rounded-md border border-hairline bg-canvas"
-            >
-              <span className="text-[28px]" aria-hidden>🎁</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-semibold text-ink">검수 통과! 행운 박스 더 키우러 갈까요?</div>
-                <div className="text-[11px] text-muted mt-0.5">친구 3명 더 모으면 실버 박스 · 5명이면 골드 박스</div>
-              </div>
-              <span className="text-brand text-[18px] shrink-0">›</span>
-            </Link>
           </>
         )}
         {pass.status === "expired" && (
@@ -302,7 +273,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   </div>
                 ) : (
                   <div className="mt-2 text-[13px] text-muted">
-                    재제출 기한이 지났거나 이미 재제출했습니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+                    재제출 기한(반려 후 7일)이 지나 다시 제출할 수 없어요.
                   </div>
                 )}
               </div>

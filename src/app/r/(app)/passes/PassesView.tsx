@@ -359,7 +359,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               href={`/r/passes/${it.id}`}
               className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
             >
-              리뷰 제출
+              리뷰 작성하기
             </Link>
           </div>
         </>
@@ -405,7 +405,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               href={`/r/passes/${it.id}`}
               className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
             >
-              리뷰 다시 제출
+              리뷰 다시 제출하기
             </Link>
           </div>
         </>
@@ -417,8 +417,9 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
           <div className="mt-3.5 flex">
             <StoreInfoButton it={it} />
           </div>
+          {/* [2026-07-12 회의 §12-4] "재제출 횟수 사용" 같은 불명확한 표현 대신 기한 사실 중심 */}
           <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
-            재제출 기한(반려 후 7일)이 지났거나 재제출 횟수(1회)를 사용했어요. 이의가 있으면 고객센터로 문의해주세요.
+            재제출 기한(반려 후 7일) 안에 다시 제출하지 않아 마감된 체험이에요.
           </div>
         </>
       )}
