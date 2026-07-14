@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { REGIONS, findSido } from "@/lib/regions";
+import { REGIONS, findSido, regionLabel } from "@/lib/regions";
 import { RECENT_REGIONS_KEY, getRecent, pushRecent, removeRecent, clearRecent } from "@/lib/recent-local";
 import Icon from "@/components/Icon";
 
@@ -160,10 +160,11 @@ export default function LocationSheet({
               전체
             </button>
             {region.gugun.map((g) => {
-              // 시군구명은 시도 간 중복(부산/대구 "중구" 등)이 있어 복합 라벨 "{시도} {시군구}"로 전달 —
-              // regionCenter가 복합 키로 기준 좌표를 해석한다 (2026-07-10 전 지역 시드).
-              const label = `${region.sido} ${g}`;
-              const active = current === label || current === g;
+              // 지역 표기 규칙 (2026-07-12): 시군구명이 시도 간 중복(부산/대구 "중구" 등)이면
+              // "{시도} {시군구}" 복합 표기, 전국 유일한 단독 지명이면 시군구만 표기 (regions.ts
+              // regionLabel). 어느 쪽이든 regionCenter가 기준 좌표를 해석한다 (geo.ts).
+              const label = regionLabel(region.sido, g);
+              const active = current === label || current === g || current === `${region.sido} ${g}`;
               return (
                 <button
                   key={g}
