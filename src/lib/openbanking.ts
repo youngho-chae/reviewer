@@ -23,6 +23,12 @@ export function openbankingConfigured(): boolean {
   return !!(process.env.KFTC_CLIENT_ID && process.env.KFTC_CLIENT_SECRET);
 }
 
+// 테스트베드/스텁 여부 — 운영망(openapi.openbanking.or.kr)이 아니면 true.
+// 예금주 힌트 등 테스트 보조 정보는 테스트베드에서만 노출한다 (운영에서는 미노출).
+export function isTestbedBase(): boolean {
+  return !apiBase().startsWith("https://openapi.openbanking.or.kr");
+}
+
 function apiBase(): string {
   // 비프로덕션에서는 KFTC_API_BASE로 스텁/테스트베드 교체 가능.
   // production은 명시 설정이 없으면 테스트베드가 아닌 운영 URL을 실수로 쓰지 않도록 그대로 env 우선.
@@ -30,10 +36,11 @@ function apiBase(): string {
 }
 
 function orgCodeFallback(): string {
-  // 이용기관코드 10자리 — 우선순위: 토큰 응답의 client_use_code(자동) → env → 테스트베드 예시.
+  // 이용기관코드 10자리 — 우선순위: 토큰 응답의 client_use_code(자동) → env → 발급 코드 기본값.
   // bank_tran_id 앞자리가 실제 이용기관코드와 다르면 "요청전문 포맷 에러"가 응답되므로,
   // 토큰 발급 시 KFTC가 알려주는 client_use_code를 캐시해 자동 사용한다 (설정 불필요).
-  return process.env.KFTC_ORG_CODE || "F123456789";
+  // 기본값 = 발급받은 이용기관코드(2026-07-16 반영 — 전문에 노출되는 공개 값, 시크릿 아님).
+  return process.env.KFTC_ORG_CODE || "M202601033";
 }
 
 // 은행명 → 표준 은행코드 — src/lib/bank-codes.ts (클라이언트 안전 모듈)에서 관리
