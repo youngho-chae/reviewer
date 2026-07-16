@@ -29,21 +29,24 @@ function apiBase(): string {
   return process.env.KFTC_API_BASE || TESTBED_BASE;
 }
 
-function orgCode(): string {
-  // 이용기관코드 10자리 — 테스트베드 문서 예시("F123456789") 폴백.
-  // 실제 발급 코드가 다르면 rsp_code 오류가 응답되므로 env로 교체한다.
+function orgCodeFallback(): string {
+  // 이용기관코드 10자리 — 우선순위: 토큰 응답의 client_use_code(자동) → env → 테스트베드 예시.
+  // bank_tran_id 앞자리가 실제 이용기관코드와 다르면 "요청전문 포맷 에러"가 응답되므로,
+  // 토큰 발급 시 KFTC가 알려주는 client_use_code를 캐시해 자동 사용한다 (설정 불필요).
   return process.env.KFTC_ORG_CODE || "F123456789";
 }
 
 // 은행명 → 표준 은행코드 — src/lib/bank-codes.ts (클라이언트 안전 모듈)에서 관리
 export { BANK_CODES, bankCodeOf } from "./bank-codes";
 
-// ── 이용기관 토큰 (2-legged) — 메모리 캐시 ──
-let cachedToken: { token: string; expiresAt: number } | null = null;
+// ── 이용기관 토큰 (2-legged) — 메모리 캐시 (client_use_code = 이용기관코드 포함) ──
+let cachedToken: { token: string; expiresAt: number; orgCode: string } | null = null;
 
-async function getOrgToken(): Promise<string> {
+async function getOrgToken(): Promise<{ token: string; orgCode: string }> {
   const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.token;
+  if (cachedToken && cachedToken.expiresAt > now + 60_000) {
+    return { token: cachedToken.token, orgCode: cachedToken.orgCode };
+  }
   const res = await fetch(`${apiBase()}/oauth/2.0/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -59,15 +62,22 @@ async function getOrgToken(): Promise<string> {
   if (!res.ok || !data.access_token) {
     throw new Error(`오픈뱅킹 토큰 발급 실패 (${res.status}): ${data.error_description || data.rsp_message || "Client ID/Secret을 확인해주세요"}`);
   }
+  // 이용기관코드 자동 채택 — 토큰 응답의 client_use_code가 정답 (env는 수동 오버라이드용).
+  // "bank_tran_id 앞자리가 이용기관코드와 다릅니다" 오류의 원인 제거 (2026-07-16 정정).
+  const orgCode = String(data.client_use_code || process.env.KFTC_ORG_CODE || orgCodeFallback());
   // expires_in 초 단위 (기관 토큰은 장기) — 여유 두고 캐시
-  cachedToken = { token: data.access_token, expiresAt: now + Math.min(Number(data.expires_in || 3600), 86400) * 1000 };
-  return cachedToken.token;
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: now + Math.min(Number(data.expires_in || 3600), 86400) * 1000,
+    orgCode,
+  };
+  return { token: cachedToken.token, orgCode };
 }
 
 // bank_tran_id — 이용기관코드(10) + "U" + 9자리 영숫자 (요청마다 유일)
-function newBankTranId(): string {
+function newBankTranId(orgCode: string): string {
   const rand = crypto.randomBytes(6).toString("base64url").replace(/[^0-9A-Za-z]/g, "").toUpperCase().slice(0, 9).padEnd(9, "0");
-  return `${orgCode()}U${rand}`;
+  return `${orgCode}U${rand}`;
 }
 
 function tranDtime(): string {
@@ -89,12 +99,12 @@ export async function inquireRealName(params: {
   accountNum: string;
   birthday: string; // 생년월일 6자리 (주민번호 앞자리)
 }): Promise<RealNameResult> {
-  const token = await getOrgToken();
+  const { token, orgCode } = await getOrgToken();
   const res = await fetch(`${apiBase()}/v2.0/inquiry/real_name`, {
     method: "POST",
     headers: { "content-type": "application/json; charset=UTF-8", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      bank_tran_id: newBankTranId(),
+      bank_tran_id: newBankTranId(orgCode),
       bank_code_std: params.bankCodeStd,
       account_num: params.accountNum,
       account_holder_info_type: " ", // 개인 — 생년월일

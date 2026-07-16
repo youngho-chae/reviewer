@@ -12,6 +12,8 @@ import http from "node:http";
 const PORT = 4500;
 const VALID = { account: "1101230000678", birthday: "880101", holder: "박북촌" };
 const TOKEN = "stub-org-access-token";
+// 폴백(F123456789)과 다른 이용기관코드 — 토큰 응답의 client_use_code 자동 채택을 강제 검증
+const ORG_CODE = "M999888777";
 
 function json(res, code, body) {
   res.writeHead(code, { "content-type": "application/json; charset=UTF-8" });
@@ -32,7 +34,7 @@ const server = http.createServer((req, res) => {
       if (!p.get("client_id") || !p.get("client_secret")) {
         return json(res, 401, { error: "invalid_client", error_description: "client_id/secret required" });
       }
-      return json(res, 200, { access_token: TOKEN, token_type: "Bearer", expires_in: 7776000, scope: "oob", client_use_code: "F123456789" });
+      return json(res, 200, { access_token: TOKEN, token_type: "Bearer", expires_in: 7776000, scope: "oob", client_use_code: ORG_CODE });
     }
 
     if (req.method === "POST" && url.pathname === "/v2.0/inquiry/real_name") {
@@ -48,6 +50,13 @@ const server = http.createServer((req, res) => {
       // bank_tran_id 형식 검증 — 이용기관코드(10) + U + 9자리
       if (!/^[A-Z0-9]{10}U[0-9A-Z]{9}$/.test(String(body.bank_tran_id || ""))) {
         return json(res, 400, { rsp_code: "A0003", rsp_message: "bank_tran_id 형식 오류" });
+      }
+      // 실 테스트베드와 동일 검증 — 앞자리가 토큰의 이용기관코드와 다르면 포맷 에러
+      if (!String(body.bank_tran_id).startsWith(`${ORG_CODE}U`)) {
+        return json(res, 400, {
+          rsp_code: "A0021",
+          rsp_message: "요청전문 포맷 에러 [은행거래고유번호(bank_tran_id) 앞자리가 이용기관코드와 다릅니다.]",
+        });
       }
       if (body.account_num === VALID.account && body.account_holder_info === VALID.birthday) {
         return json(res, 200, {
