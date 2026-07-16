@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
-import { Pass, Grade, SnsKind } from "@/lib/types";
+import { Pass, Grade, SnsKind, ShippingInfo } from "@/lib/types";
 import { CHANNEL_LABEL } from "@/lib/channels";
 import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
-import { PRESS_ENABLED } from "@/lib/flags";
+import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 
@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { campaignId, channel } = await req.json();
+  const { campaignId, channel, shipping } = await req.json();
   const db = await getDBAsync();
   const me = db.reviewers.find((r) => r.id === s.userId);
   const c = db.campaigns.find((x) => x.id === campaignId);
@@ -31,6 +31,22 @@ export async function POST(req: NextRequest) {
   // [MVP] 기자단은 1차 출시 범위에서 제외 — 발급 차단 (src/lib/flags.ts)
   if (isPress && !PRESS_ENABLED) {
     return NextResponse.json({ error: "기자단 캠페인은 준비 중입니다" }, { status: 403 });
+  }
+  // 배송형(2026-07-12 레뷰 벤치마크) — 신청 시 배송지 필수, 발송 처리 후 리뷰 7일
+  const isDelivery = c.kind === "delivery";
+  if (isDelivery && !DELIVERY_ENABLED) {
+    return NextResponse.json({ error: "배송형 캠페인은 준비 중입니다" }, { status: 403 });
+  }
+  let shippingInfo: ShippingInfo | undefined;
+  if (isDelivery) {
+    const sh = shipping as Partial<ShippingInfo> | undefined;
+    const recipient = String(sh?.recipient || "").trim().slice(0, 30);
+    const phone = String(sh?.phone || "").trim().slice(0, 20);
+    const address = String(sh?.address || "").trim().slice(0, 120);
+    if (!recipient || !phone || !address) {
+      return NextResponse.json({ error: "배송지 정보(수령인·연락처·주소)를 입력해주세요" }, { status: 400 });
+    }
+    shippingInfo = { recipient, phone, address };
   }
   const selectedChannel: SnsKind | undefined = isPress
     ? undefined
@@ -141,8 +157,10 @@ export async function POST(req: NextRequest) {
     consumedSlot, // 만료/취소 시 이 슬롯을 복구
     reviewChannel: selectedChannel,
     issuedAt: now,
-    // 방문형은 발급 후 72시간 사용 기한(연장·복구 없음), 기자단은 캠페인 종료까지 작성 가능
-    expiresAt: isPress ? c.endAt : now + PASS_VALIDITY_MS,
+    // 방문형은 발급 후 72시간 사용 기한(연장·복구 없음).
+    // 기자단은 캠페인 종료까지 작성, 배송형은 캠페인 종료까지 발송 대기(발송 후 리뷰 7일).
+    expiresAt: isPress || isDelivery ? c.endAt : now + PASS_VALIDITY_MS,
+    ...(shippingInfo ? { shipping: shippingInfo } : {}),
     status: "active",
   };
   db.passes.push(pass);
@@ -151,9 +169,10 @@ export async function POST(req: NextRequest) {
     id: rid("nt"),
     userId: pass.ownerId,
     role: "owner",
-    title: isPress ? "기자단 신청" : "체험권 발급",
+    title: isPress ? "기자단 신청" : isDelivery ? "배송형 신청 (발송 대기)" : "체험권 발급",
     // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 비노출 — 익명·채널만 전달
-    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.`,
+    // (배송형 수령인 정보는 알림이 아니라 발송 처리 화면에서만 — 목적 제한 노출)
+    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${isDelivery ? " 발송 처리를 진행해주세요." : ""}`,
     createdAt: now,
     read: false,
     link: "/o/home",

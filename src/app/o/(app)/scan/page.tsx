@@ -172,9 +172,7 @@ export default function ScanPage() {
           </div>
         )}
 
-        <p className="mt-8 text-[12px] text-mutedSoft leading-[1.5]">
-          인증이 반복해서 실패하면 고객센터(help@catchrank.co.kr)로 문의해주세요.
-        </p>
+        {/* [2026-07-12 회의 §9-3] 고객센터 문의 안내 삭제 */}
       </div>
     </div>
   );

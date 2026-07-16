@@ -16,7 +16,10 @@ import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
 
 interface Props {
   campaignId: string;
-  base: number; // 기준 지원금 (S 등급 = 최대)
+  // 배송형(2026-07-12 레뷰 벤치마크) — 신청 시 배송지 입력, 혜택 = 제품(균일) + 포인트(등급 배율)
+  kind?: "visit" | "delivery";
+  base: number; // 기준 지원금 (S 등급 = 최대) / 배송형은 제공 상품 정가
+  pointReward?: number; // 배송형 기준 포인트 (리뷰 검수 승인 시 등급 배율 적용 적립)
   requiredChannels: SnsKind[];
   myChannelGrades: Partial<Record<SnsKind, Grade>>;
   myActivePassId: string | null;
@@ -37,7 +40,9 @@ function supportFor(base: number, g: Grade): number {
    [P1] 등급은 참여 자격이 아님 — 채널 연동 여부만 선택 가능 조건이고, 등급은 금액만 바꾼다. */
 export default function StoreParticipate({
   campaignId,
+  kind = "visit",
   base,
+  pointReward = 0,
   requiredChannels,
   myChannelGrades,
   myActivePassId,
@@ -64,12 +69,21 @@ export default function StoreParticipate({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // 배송형 — 신청 시 배송지 입력 (발송 목적 한정으로 사장님에게 노출 — 데이터정책서 §1.0b)
+  const [recipient, setRecipient] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
 
+  const isDelivery = kind === "delivery";
   const myGrade: Grade | undefined = selected ? myChannelGrades[selected] : undefined;
   const connected = !!myGrade;
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
-  const conditions = selected ? CHANNEL_REVIEW_CONDITIONS[selected] ?? [] : [];
+  // 배송형 적립 포인트 — 기준 포인트 × 등급 배율 (points.ts pointsForGrade와 동일 반올림)
+  const selectedPoints = connected && pointReward > 0 ? supportFor(pointReward, myGrade as Grade) : 0;
+  // [2026-07-12 회의 §10-3] 리뷰 조건에는 실제 작성 요건만 — 90일 유지(keep)는 유의사항으로 분리
+  const conditions = selected ? (CHANNEL_REVIEW_CONDITIONS[selected] ?? []).filter((c) => !c.keep) : [];
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
+  const shippingValid = !isDelivery || (recipient.trim() && phone.trim() && address.trim());
 
   async function copyNotice() {
     if (!selected) return;
@@ -88,7 +102,11 @@ export default function StoreParticipate({
     const res = await fetch("/api/passes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ campaignId, channel: selected }),
+      body: JSON.stringify({
+        campaignId,
+        channel: selected,
+        ...(isDelivery ? { shipping: { recipient: recipient.trim(), phone: phone.trim(), address: address.trim() } } : {}),
+      }),
     });
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({}));
@@ -159,14 +177,22 @@ export default function StoreParticipate({
                   </span>
                 </span>
                 <span className="text-[16px] font-bold text-ink tabular-nums shrink-0">
-                  {sbNum(SBUI.support, `${supportFor(base, g).toLocaleString()}원`)}
+                  {isDelivery
+                    ? pointReward > 0
+                      ? sbNum(SBUI.point, `+${supportFor(pointReward, g).toLocaleString()}P`)
+                      : "제품 제공"
+                    : sbNum(SBUI.support, `${supportFor(base, g).toLocaleString()}원`)}
                 </span>
               </button>
             );
           })}
         </div>
         {/* [2026-07-07 회의] 타 등급 최대 지원금 비교·동기부여 문구는 노출하지 않는다 — 등급별 상이 사실만 안내 */}
-        <p className="mt-2 text-[12px] text-muted">지원금은 채널별 내 등급에 따라 달라져요 · 매장이 결제 시 직접 할인해 드리는 금액이에요.</p>
+        <p className="mt-2 text-[12px] text-muted">
+          {isDelivery
+            ? "체험 상품은 동일하게 제공돼요 · 포인트는 채널별 내 등급에 따라 달라지고 리뷰 검수 승인 후 적립돼요."
+            : "지원금은 채널별 내 등급에 따라 달라져요 · 매장이 결제 시 직접 할인해 드리는 금액이에요."}
+        </p>
       </section>
 
       {/* 정적 섹션들 (필수 메뉴 · 키워드 · 소개 · 지도 · 이용 방법) */}
@@ -181,7 +207,7 @@ export default function StoreParticipate({
         {selected ? (
           <>
             <p className="mt-1 text-[13px] text-muted">
-              리뷰를 작성하기 <span className="font-semibold text-ink2">전에</span> 아래 조건을 꼭 확인해주세요. 제출 화면에서는 자가 점검만 진행해요.
+              리뷰를 작성하기 <span className="font-semibold text-ink2">전에</span> 아래 조건을 미리 확인해주세요. 제출 화면에서는 자가 점검만 진행해요.
             </p>
             <div className="mt-3 rounded-md border border-hairline overflow-hidden">
               {conditions.map((cnd, i) => (
@@ -223,9 +249,15 @@ export default function StoreParticipate({
       <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] bg-canvas border-t border-hairlineSoft z-20">
         <div className="px-5 py-3 flex items-center gap-4">
           <div className="shrink-0">
-            <div className="text-[12px] text-muted">지원 금액</div>
+            <div className="text-[12px] text-muted">{isDelivery ? "적립 포인트" : "지원 금액"}</div>
             <div className="text-[18px] font-bold text-ink tabular-nums leading-tight">
-              {connected ? sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) : "—"}
+              {!connected
+                ? "—"
+                : isDelivery
+                  ? pointReward > 0
+                    ? sbNum(SBUI.point, `+${selectedPoints.toLocaleString()}P`)
+                    : "제품 제공"
+                  : sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}
             </div>
           </div>
           {/* CTA 우선순위 (2026-07-10 §1): 종료 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
@@ -258,7 +290,7 @@ export default function StoreParticipate({
               disabled={!connected}
               className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
             >
-              체험권 발급받기
+              {isDelivery ? "배송 체험 신청하기" : "체험권 발급받기"}
             </button>
           )}
         </div>
@@ -271,15 +303,27 @@ export default function StoreParticipate({
             <div className="flex justify-center pb-3">
               <span className="w-9 h-1 rounded-pill bg-borderStrong" />
             </div>
-            <h2 className="text-[20px] font-bold text-ink tracking-title text-center">체험권을 발급받을까요?</h2>
+            <h2 className="text-[20px] font-bold text-ink tracking-title text-center">
+              {isDelivery ? "배송 체험을 신청할까요?" : "체험권을 발급받을까요?"}
+            </h2>
 
-            {/* 결제 기한 카드 — 발급 시점 + 72h */}
+            {/* 기한 카드 — 방문형: 발급 + 72h 결제 / 배송형: 발송 후 7일 리뷰 */}
             <div className="mt-5 rounded-md bg-brandSoft px-4 py-4 text-center">
-              <div className="text-[13px] text-ink2">지금 발급하면</div>
-              <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
-                {sbNum(SBUI.dateTime, fmtKoDateTime(Date.now() + PASS_VALIDITY_MS))}까지 결제
-              </div>
-              <div className="mt-1.5 text-[12px] text-muted">발급 후 72시간 · 결제 전 QR을 제시해주세요</div>
+              {isDelivery ? (
+                <>
+                  <div className="text-[13px] text-ink2">신청하면 사장님이 상품을 발송해요</div>
+                  <div className="mt-1 text-[17px] font-bold text-brand">발송 후 7일 이내 리뷰 제출</div>
+                  <div className="mt-1.5 text-[12px] text-muted">발송되면 알림으로 운송장을 알려드려요</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-[13px] text-ink2">지금 발급하면</div>
+                  <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
+                    {sbNum(SBUI.dateTime, fmtKoDateTime(Date.now() + PASS_VALIDITY_MS))}까지 결제
+                  </div>
+                  <div className="mt-1.5 text-[12px] text-muted">발급 후 72시간 · 결제 전 QR을 제시해주세요</div>
+                </>
+              )}
             </div>
 
             <div className="mt-5 space-y-3 text-[15px]">
@@ -291,23 +335,58 @@ export default function StoreParticipate({
                 <span className="text-muted">채널 등급</span>
                 <span className="text-ink font-semibold">{myGrade}등급</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">지원 금액</span>
-                <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}</span>
-              </div>
+              {isDelivery ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted">제공 상품</span>
+                    <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.price, `${base.toLocaleString()}원 상당`)}</span>
+                  </div>
+                  {pointReward > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted">적립 포인트 (검수 승인 후)</span>
+                      <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.point, `+${selectedPoints.toLocaleString()}P`)}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-muted">지원 금액</span>
+                  <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}</span>
+                </div>
+              )}
             </div>
 
-            {/* 꼭 확인해주세요 — 정책 고지 4종 */}
-            <div className="mt-5 rounded-md bg-sunken px-4 py-3.5">
-              <div className="text-[13px] font-bold text-ink">ⓘ 꼭 확인해주세요</div>
-              <ul className="mt-2 space-y-1 text-[12px] text-muted leading-[1.55] list-disc pl-4">
-                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요. (취소는 불이익이 없어요)</li>
-                <li>같은 캠페인의 경우 재신청은 12시간 뒤부터 가능해요.</li>
-                <li>기한이 지난 체험권은 연장·복구되지 않아요.</li>
-                <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
-                <li>미사용 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
-              </ul>
-            </div>
+            {/* 배송지 입력 — 배송형 필수 (발송 목적 한정으로 사장님에게 노출) */}
+            {isDelivery && (
+              <div className="mt-5">
+                <div className="text-[13px] font-bold text-ink">배송지 입력</div>
+                <div className="mt-2 space-y-2">
+                  <input
+                    value={recipient}
+                    onChange={(e) => setRecipient(e.target.value)}
+                    placeholder="수령인 이름"
+                    className="w-full h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft"
+                  />
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="연락처 (발송 안내용)"
+                    inputMode="tel"
+                    className="w-full h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft"
+                  />
+                  <input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="주소 (상세주소 포함)"
+                    className="w-full h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft"
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted">배송지 정보는 상품 발송 목적으로만 사장님에게 전달돼요.</p>
+              </div>
+            )}
+
+            {/* [2026-07-12 회의 §10-1] '꼭 확인해주세요' 반복 고지 삭제 — 발급 바텀시트는
+                발급되는 체험권 핵심 정보만. 정책 안내는 상세 페이지 하단 유의사항으로 통합. */}
 
             {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
             <div className="mt-5 flex gap-2">
@@ -319,10 +398,10 @@ export default function StoreParticipate({
               </button>
               <button
                 onClick={go}
-                disabled={busy}
+                disabled={busy || !shippingValid}
                 className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:opacity-60"
               >
-                {busy ? "발급 중..." : "발급받고 체험권 보기"}
+                {busy ? (isDelivery ? "신청 중..." : "발급 중...") : isDelivery ? "신청하고 체험권 보기" : "발급받고 체험권 보기"}
               </button>
             </div>
           </div>

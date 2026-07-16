@@ -4,7 +4,7 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
-import { PRESS_ENABLED } from "@/lib/flags";
+import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { supportForGrade } from "@/lib/grade";
 import { passDisplayStatus, DISPLAY_BADGE } from "@/lib/pass-display";
 import GradeBadge from "@/components/GradeBadge";
@@ -85,7 +85,11 @@ export default async function MyPasses({
   const items: VisitPassItem[] = visit.map((p) => {
     const store = findStore(p.storeId);
     const c = findCampaign(p.campaignId);
+    const isDelivery = c?.kind === "delivery";
     return {
+      isDelivery,
+      // 내 적립 예정 포인트 = 기준 포인트 × 등급 배율 (points.ts와 동일 반올림 — supportForGrade 공유)
+      pointReward: isDelivery && c?.pointReward ? supportForGrade(c.pointReward, p.reviewerGrade) : 0,
       id: p.id,
       storeId: p.storeId,
       campaignId: p.campaignId,
@@ -126,6 +130,8 @@ export default async function MyPasses({
 
       <PassesView
         items={items}
+        // 배송형 세그먼트 (2026-07-12 분리) — 플래그 on 또는 과거 배송 패스 보유 시 노출
+        showDelivery={DELIVERY_ENABLED || items.some((it) => it.isDelivery)}
         showPress={PRESS_ENABLED || press.length > 0}
         pressCount={press.length}
         unread={unread}

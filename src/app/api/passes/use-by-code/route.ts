@@ -7,9 +7,10 @@ import { findSupportBoost, boostedLimit } from "@/lib/referral";
 
 export const runtime = "nodejs";
 
-// 4자리 코드 오입력 가드 — 연속 5회 실패 시 10분 잠금 (0000~9999 브루트포스 방지).
+// 4자리 코드 오입력 가드 — 연속 5회 실패 시 3분 잠금 (0000~9999 브루트포스 방지).
+// [2026-07-12 회의 §9-2] 10분 → 3분. 잠금 해제 후 재실패 시에도 동일하게 3분(단계 증가 없음).
 const CODE_MAX_ATTEMPTS = 5;
-const CODE_LOCK_MS = 10 * 60 * 1000;
+const CODE_LOCK_MS = 3 * 60 * 1000;
 
 // 체험권 화면(체험자 세션)에서 사장님이 캠페인 4자리 코드를 직접 입력해 사용 처리.
 // 코드는 화면에 노출되지 않으므로, 올바른 4자리 입력 = 사장님 확인으로 간주.

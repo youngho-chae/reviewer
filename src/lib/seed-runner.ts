@@ -501,6 +501,12 @@ export function runSeed(db: DBShape) {
         : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: DEMO_USE_CODE,
+      // 방문 전 예약 필수 (예약형 라이트, 2026-07-12) — 미용·의료·웰니스 등 예약 기반 업종
+      ...(["미용실", "네일아트", "피부과", "치과", "한의원", "PT", "필라테스", "마사지", "애견미용", "동물병원"].includes(
+        s.category,
+      )
+        ? { reservationRequired: true }
+        : {}),
     };
     db.campaigns.push(campaign);
   }
@@ -1116,15 +1122,16 @@ export function runSeed(db: DBShape) {
     menus: string[];
     support: number;
     channels: SnsKind[];
+    reserve?: boolean; // 방문 전 예약 필수 (예약형 라이트, 2026-07-12) — 미용·웰니스 업종
   }> = [
     { category: "카페", name: (g) => `${g} 로스터리`, emoji: "☕", menus: ["시그니처 라떼", "크루아상 세트"], support: 40000, channels: ["naver_blog", "instagram"] },
     { category: "한식", name: (g) => `${g} 밥상`, emoji: "🍚", menus: ["제철 정식", "모둠 전"], support: 80000, channels: ["naver_blog"] },
     { category: "양식", name: (g) => `${g} 키친`, emoji: "🍝", menus: ["시그니처 파스타", "화덕 피자"], support: 90000, channels: ["naver_blog", "instagram"] },
     { category: "디저트", name: (g) => `${g} 베이크`, emoji: "🍰", menus: ["시즌 케이크", "휘낭시에"], support: 40000, channels: ["instagram", "tiktok"] },
     { category: "일식", name: (g) => `${g} 스시야`, emoji: "🍣", menus: ["초밥 12P", "사케동"], support: 100000, channels: ["naver_blog", "instagram"] },
-    { category: "미용실", name: (g) => `${g} 헤어 라운지`, emoji: "💇", menus: ["컷+두피 클리닉", "전체 염색"], support: 70000, channels: ["instagram"] },
-    { category: "필라테스", name: (g) => `${g} 필라테스 랩`, emoji: "🧘", menus: ["1:1 체험 클래스", "그룹 클래스 4회"], support: 55000, channels: ["naver_blog", "instagram", "tiktok"] },
-    { category: "마사지", name: (g) => `${g} 테라피 스파`, emoji: "💆", menus: ["아로마 전신 60분", "등·어깨 집중 관리"], support: 70000, channels: ["naver_blog", "instagram"] },
+    { category: "미용실", name: (g) => `${g} 헤어 라운지`, emoji: "💇", menus: ["컷+두피 클리닉", "전체 염색"], support: 70000, channels: ["instagram"], reserve: true },
+    { category: "필라테스", name: (g) => `${g} 필라테스 랩`, emoji: "🧘", menus: ["1:1 체험 클래스", "그룹 클래스 4회"], support: 55000, channels: ["naver_blog", "instagram", "tiktok"], reserve: true },
+    { category: "마사지", name: (g) => `${g} 테라피 스파`, emoji: "💆", menus: ["아로마 전신 60분", "등·어깨 집중 관리"], support: 70000, channels: ["naver_blog", "instagram"], reserve: true },
   ];
 
   for (const region of REGIONS) {
@@ -1173,8 +1180,232 @@ export function runSeed(db: DBShape) {
         highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
         createdAt: regionCreatedAt,
         useCode: DEMO_USE_CODE,
+        ...(shop.reserve ? { reservationRequired: true } : {}),
       });
     }
+  }
+
+  // ── 배송형 + 포인트 시드 (2026-07-12 레뷰 벤치마크 — docs/벤치마크-레뷰.md) ──
+  // 배송형 캠페인 3건(demo@store.com 소유 — 사장님 홈 발송 대기 큐 데모)과
+  // 데모 체험자의 배송 패스(발송 대기/발송 완료/검수 완료) + 포인트 원장/출금 내역.
+  {
+    // category = **상품 카테고리** (2026-07-12 정정 — delivery-categories.ts 목록값).
+    // 배송형은 매장이 아닌 스토어의 상품이 대상이라 플레이스 분류(카페·디저트 등)를 쓰지 않는다.
+    const dvBrands: Array<{
+      key: string;
+      name: string;
+      category: string;
+      emoji: string;
+      product: string;
+      productValue: number;
+      pointReward: number; // 0 = 제품만
+      channels: SnsKind[];
+    }> = [
+      { key: "dv-bakes", name: "카라멜 베이크 하우스", category: "식품", emoji: "🍪", product: "수제 쿠키 선물 세트", productValue: 32000, pointReward: 10000, channels: ["naver_blog", "instagram"] },
+      { key: "dv-beans", name: "미드나잇 로스터스", category: "식품", emoji: "☕", product: "스페셜티 원두 2종 세트", productValue: 28000, pointReward: 5000, channels: ["tiktok"] },
+      { key: "dv-meal", name: "한상 밀키트", category: "식품", emoji: "🍲", product: "갈비찜 밀키트 2인분", productValue: 39000, pointReward: 0, channels: ["instagram"] },
+      { key: "dv-serum", name: "글로우랩 코스메틱", category: "뷰티", emoji: "🧴", product: "비타민 세럼 30ml", productValue: 42000, pointReward: 8000, channels: ["instagram", "tiktok"] },
+      { key: "dv-diffuser", name: "온음 리빙", category: "리빙", emoji: "🕯️", product: "우드 룸 디퓨저 세트", productValue: 35000, pointReward: 0, channels: ["naver_blog"] },
+      { key: "dv-airbuds", name: "사운드포켓", category: "디지털", emoji: "🎧", product: "무선 이어버드 라이트", productValue: 59000, pointReward: 15000, channels: ["naver_blog", "instagram"] },
+    ];
+    const dvStoreIds: Record<string, string> = {};
+    for (const b of dvBrands) {
+      const stId = detId("st", b.key);
+      dvStoreIds[b.key] = stId;
+      db.stores.push({
+        id: stId,
+        ownerId: owner.id,
+        name: STORYBOARD ? SB.storeName : b.name,
+        category: STORYBOARD ? SB.category : b.category,
+        area: STORYBOARD ? SB.area : "전국 택배",
+        coverEmoji: b.emoji,
+        rating: Math.round((4.3 + detNum(`${b.key}:rating`, 6) / 10) * 10) / 10,
+        reviewCount: 60 + detNum(`${b.key}:rc`, 300),
+        hours: STORYBOARD ? SB.hours : "평일 발송 · 주문 후 2~3일",
+        // 브랜드 물류 기준지 좌표 (지도 노출 대상 아님 — 배송 세그먼트는 리스트 전용)
+        lat: 37.5665 + (detNum(`${b.key}:lat`, 100) - 50) / 1000,
+        lng: 126.978 + (detNum(`${b.key}:lng`, 100) - 50) / 1000,
+        address: STORYBOARD ? SB.address : "서울 성동구 물류센터로 12",
+      });
+      db.campaigns.push({
+        id: detId("cp", `${b.key}-camp`),
+        storeId: stId,
+        kind: "delivery",
+        title: STORYBOARD ? SB.visitTitle : `${b.product} 배송 체험단`,
+        startAt: now - (5 + detNum(`${b.key}:start`, 5)) * day,
+        endAt: now + (10 + detNum(`${b.key}:end`, 14)) * day,
+        supportAmount: b.productValue, // 배송형 = 제공 상품 정가
+        quota: { S: 1, A: 2, B: 3, C: 2 },
+        used: { S: 0, A: 0, B: 0, C: 0 },
+        requiredChannels: b.channels,
+        requiredMenus: [],
+        description: STORYBOARD
+          ? SB.visitDesc
+          : `${b.product}를 집으로 받아 체험하고 후기를 남겨주세요. 리뷰 검수 통과 시 ${b.pointReward > 0 ? `${b.pointReward.toLocaleString()}P(등급 배율 적용)가 적립됩니다.` : "브랜드 스토어에 후기가 소개됩니다."}`,
+        highlightKeywords: STORYBOARD ? [SB.keyword] : [b.product, "택배 언박싱"],
+        createdAt: now - (5 + detNum(`${b.key}:start`, 5)) * day,
+        useCode: DEMO_USE_CODE,
+        ...(b.pointReward > 0 ? { pointReward: b.pointReward } : {}),
+        productCategory: b.category, // 상품 카테고리 — 탐색 배송 칩·필터 기준
+      });
+    }
+    const dvCamp = (key: string) => db.campaigns.find((c) => c.id === detId("cp", `${key}-camp`))!;
+
+    // 배송 패스 — ① 발송 대기(사장님 큐 데모: demo + demo-a 2건) ② 발송 완료(리뷰 대기) ③ 검수 완료(포인트 적립)
+    const mkShipping = (who: string) =>
+      STORYBOARD
+        ? { recipient: "수령인", phone: "000-0000-0000", address: "주소" }
+        : who === "a"
+          ? { recipient: "김성수", phone: "010-2222-3333", address: "서울 성동구 왕십리로 83, 101동 202호" }
+          : { recipient: "박북촌", phone: "010-1234-5678", address: "서울 종로구 북촌로 57, 3층" };
+
+    const dvPassSeeds: Array<{
+      key: string;
+      brand: string;
+      status: "active" | "used" | "completed";
+      reviewerId: string;
+      grade: "A" | "B";
+      channel: SnsKind;
+      who: string;
+      issuedOffset: number;
+      usedOffset?: number;
+      trackingNo?: string;
+    }> = [
+      { key: "demo-dv-active", brand: "dv-meal", status: "active", reviewerId: reviewer.id, grade: "B", channel: "instagram", who: "r", issuedOffset: 1 * day },
+      { key: "demo-dv-ship-a", brand: "dv-bakes", status: "active", reviewerId: reviewerA.id, grade: "A", channel: "instagram", who: "a", issuedOffset: 2 * day },
+      { key: "demo-dv-used", brand: "dv-bakes", status: "used", reviewerId: reviewer.id, grade: "B", channel: "naver_blog", who: "r", issuedOffset: 4 * day, usedOffset: 2 * day, trackingNo: "6912-3456-7890" },
+    ];
+    for (const sp of dvPassSeeds) {
+      const camp = dvCamp(sp.brand);
+      const p: Pass = {
+        id: detId("ps", sp.key),
+        code: detPassCode(sp.key),
+        reviewerId: sp.reviewerId,
+        campaignId: camp.id,
+        storeId: camp.storeId,
+        ownerId: owner.id,
+        reviewerGrade: sp.grade,
+        reviewChannel: sp.channel,
+        issuedAt: now - sp.issuedOffset,
+        expiresAt: camp.endAt, // 배송형 active 기한 = 캠페인 종료일
+        shipping: mkShipping(sp.who),
+        status: sp.status,
+      };
+      if (sp.usedOffset !== undefined) {
+        p.usedAt = now - sp.usedOffset;
+        p.shippedAt = now - sp.usedOffset;
+        if (sp.trackingNo) p.trackingNo = sp.trackingNo;
+      }
+      camp.used[sp.grade] += 1;
+      p.consumedSlot = sp.grade;
+      db.passes.push(p);
+    }
+
+    // 검수 완료 배송 패스 — 포인트 적립 근거 (지난주 완료: 원두 세트는 지난 시즌 캠페인으로 가정)
+    const dvDoneCamp = dvCamp("dv-bakes");
+    const dvDone: Pass = {
+      id: detId("ps", "demo-dv-done"),
+      code: detPassCode("demo-dv-done"),
+      reviewerId: reviewer.id,
+      campaignId: dvDoneCamp.id,
+      storeId: dvDoneCamp.storeId,
+      ownerId: owner.id,
+      reviewerGrade: "B",
+      reviewChannel: "naver_blog",
+      issuedAt: now - 12 * day,
+      expiresAt: dvDoneCamp.endAt,
+      shipping: mkShipping("r"),
+      usedAt: now - 10 * day,
+      shippedAt: now - 10 * day,
+      trackingNo: "6900-0000-1111",
+      reviewSubmittedAt: now - 8 * day,
+      reviewUrl: "https://blog.naver.com/demo/dv-bakes-review",
+      reviewBody: "수제 쿠키 선물 세트 언박싱부터 시식까지. 버터 향이 진하고 패키징이 선물용으로 좋았다...",
+      reviewStatus: "approved",
+      adNoticeConfirmed: true,
+      reviewSelfCheck: Object.fromEntries(selfCheckConditions("naver_blog").map((c) => [c.key, true])),
+      keepAgreed: true,
+      completedAt: now - 7 * day,
+      consumedSlot: "B",
+      status: "completed",
+    };
+    dvDoneCamp.used.B += 1;
+    db.passes.push(dvDone);
+
+    // 포인트 원장 — 적립은 검수 승인 이벤트만(P4). 잔액 = 6,000 + 39,600 − 20,000 − 10,000 = 15,600P
+    if (!db.pointTxns) db.pointTxns = [];
+    if (!db.withdrawals) db.withdrawals = [];
+    // ① dv-bakes 검수 승인 적립: 10,000P × B등급 60% = 6,000P
+    db.pointTxns.push({
+      id: detId("pt", "demo-pt-earn-1"),
+      reviewerId: reviewer.id,
+      type: "earn",
+      amount: 6000,
+      refPassId: dvDone.id,
+      memo: STORYBOARD ? "적립 사유" : `${STORYBOARD ? SB.storeName : "카라멜 베이크 하우스"} 체험 리뷰 승인`,
+      createdAt: now - 7 * day,
+    });
+    // ② 지난달 시즌 캠페인 적립(집계 이력) — 66,000P × B등급 60% = 39,600P
+    db.pointTxns.push({
+      id: detId("pt", "demo-pt-earn-2"),
+      reviewerId: reviewer.id,
+      type: "earn",
+      amount: 39600,
+      refPassId: dvDone.id,
+      memo: STORYBOARD ? "적립 사유" : "시즌 기획전 배송 체험 리뷰 승인",
+      createdAt: now - 26 * day,
+    });
+    // ③ 출금 완료 1건 — 20,000P: 세액 660원 → 소액부징수(1,000원 미만) 0원 · 수수료 500 · 실지급 19,500원
+    const wdPaid = {
+      id: detId("wd", "demo-wd-paid"),
+      reviewerId: reviewer.id,
+      amountPoints: 20000,
+      incomeType: "business" as const,
+      taxWithheld: 0,
+      fee: 500,
+      payout: 19500,
+      bank: STORYBOARD ? "은행명" : "케이뱅크",
+      account: STORYBOARD ? "계좌번호" : "100-123-456789",
+      holder: STORYBOARD ? "예금주" : "박북촌",
+      status: "paid" as const,
+      requestedAt: now - 6 * day,
+      processedAt: now - 4 * day,
+    };
+    db.withdrawals.push(wdPaid);
+    db.pointTxns.push({
+      id: detId("pt", "demo-pt-wd-1"),
+      reviewerId: reviewer.id,
+      type: "withdraw",
+      amount: -20000,
+      refWithdrawalId: wdPaid.id,
+      memo: STORYBOARD ? "출금 신청" : "출금 신청 (케이뱅크 · 실지급 19,500원)",
+      createdAt: now - 6 * day,
+    });
+    // ④ 출금 대기 1건 — 10,000P (어드민 출금 큐 데모): 세액 330원 → 소액부징수 0원 · 실지급 9,500원
+    const wdPending = {
+      id: detId("wd", "demo-wd-pending"),
+      reviewerId: reviewer.id,
+      amountPoints: 10000,
+      incomeType: "business" as const,
+      taxWithheld: 0,
+      fee: 500,
+      payout: 9500,
+      bank: STORYBOARD ? "은행명" : "케이뱅크",
+      account: STORYBOARD ? "계좌번호" : "100-123-456789",
+      holder: STORYBOARD ? "예금주" : "박북촌",
+      status: "requested" as const,
+      requestedAt: now - 8 * hour,
+    };
+    db.withdrawals.push(wdPending);
+    db.pointTxns.push({
+      id: detId("pt", "demo-pt-wd-2"),
+      reviewerId: reviewer.id,
+      type: "withdraw",
+      amount: -10000,
+      refWithdrawalId: wdPending.id,
+      memo: STORYBOARD ? "출금 신청" : "출금 신청 (케이뱅크 · 실지급 9,500원)",
+      createdAt: now - 8 * hour,
+    });
   }
 
   // 데모 사장님 알림 몇 건

@@ -4,7 +4,7 @@ import Icon from "@/components/Icon";
 import LocationSheet from "../home/LocationSheet";
 import { CHANNEL_ORDER, CHANNEL_LABEL } from "@/lib/channels";
 import { SnsKind } from "@/lib/types";
-import type { ExploreStoreCard } from "./ExploreView";
+import { VISIT_MODE_LABEL, type VisitMode } from "@/lib/delivery-categories";
 
 /**
  * 통합 필터 바텀시트 (2026-07-10 §8 개편 — ExploreView에서 추출)
@@ -14,6 +14,8 @@ import type { ExploreStoreCard } from "./ExploreView";
  *  - 지역 항목은 **3상태** (2026-07-10 확정): 미선택(기본 — 두 칩 모두 비활성·전국 기준) /
  *    현위치(칩 토글 — 재클릭 시 해제) / 지역(시도→시군구, LocationSheet 재사용). 상호 배타.
  *  - [초기화] = 카테고리·채널 전체 해제 + 지역 미선택 (미선택이 정식 기본값)
+ *  - mode="visit"에 **참여 방식**(전체/바로 방문/예약 필수 — 단일 선택) 섹션 (2026-07-12).
+ *  - mode="delivery" (2026-07-12): 배송형은 지역·참여 방식 개념이 없어 **상품 카테고리·채널만** 노출.
  */
 interface CatGroup {
   key: string;
@@ -22,30 +24,49 @@ interface CatGroup {
   match: (c: string) => boolean;
 }
 
+// previewCount 계산에 필요한 최소 필드 — 방문형 카드·배송형 카드 공용
+interface FilterableCard {
+  category: string;
+  requiredChannels: SnsKind[];
+  reservationRequired?: boolean;
+}
+
 export default function FilterSheet({
+  mode = "visit",
   cards,
   appliedCats,
   appliedChannels,
   appliedArea,
   appliedCurrent,
+  appliedVisitMode = "all",
   catGroups,
   onClose,
   onApply,
 }: {
-  cards: ExploreStoreCard[];
+  mode?: "visit" | "delivery";
+  cards: FilterableCard[];
   appliedCats: Set<string>;
   appliedChannels: Set<SnsKind>;
   appliedArea: string | null;
   appliedCurrent: boolean; // 현위치 필터 선택 여부 (area와 상호 배타)
+  appliedVisitMode?: VisitMode; // 참여 방식 (방문형 전용)
   catGroups: CatGroup[];
   onClose: () => void;
-  onApply: (next: { cats: Set<string>; channels: Set<SnsKind>; area: string | null; useCurrent: boolean }) => void;
+  onApply: (next: {
+    cats: Set<string>;
+    channels: Set<SnsKind>;
+    area: string | null;
+    useCurrent: boolean;
+    visitMode: VisitMode;
+  }) => void;
 }) {
+  const isDelivery = mode === "delivery";
   // 오픈 시점 스냅샷 — 시트가 열려 있는 동안 상단 칩 조작이 draft를 덮지 않는다
   const [draftCats, setDraftCats] = useState<Set<string>>(() => new Set(appliedCats));
   const [draftChannels, setDraftChannels] = useState<Set<SnsKind>>(() => new Set(appliedChannels));
   const [draftArea, setDraftArea] = useState<string | null>(appliedArea);
   const [draftCurrent, setDraftCurrent] = useState<boolean>(appliedCurrent);
+  const [draftVisitMode, setDraftVisitMode] = useState<VisitMode>(appliedVisitMode);
   const [regionOpen, setRegionOpen] = useState(false);
 
   function toggleDraftCat(key: string) {
@@ -73,10 +94,12 @@ export default function FilterSheet({
         : (c: string) => catGroups.filter((g) => draftCats.has(g.key)).some((g) => g.match(c));
     return cards.filter((p) => {
       if (!matchCat(p.category)) return false;
+      if (!isDelivery && draftVisitMode === "walkin" && p.reservationRequired) return false;
+      if (!isDelivery && draftVisitMode === "reserve" && !p.reservationRequired) return false;
       if (draftChannels.size > 0 && !p.requiredChannels.some((ch) => draftChannels.has(ch))) return false;
       return true;
     }).length;
-  }, [cards, draftCats, draftChannels, catGroups]);
+  }, [cards, draftCats, draftChannels, draftVisitMode, catGroups, isDelivery]);
 
   const chipCls = (active: boolean) =>
     `inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill text-[14px] font-medium bg-canvas whitespace-nowrap ${
@@ -104,7 +127,34 @@ export default function FilterSheet({
           </button>
         </div>
 
-        {/* 지역 — 3상태: 미선택(기본·두 칩 비활성) / 현위치(토글 — 재클릭 해제) / 지역 선택 (§8-3, 2026-07-10) */}
+        {/* 참여 방식 (방문형 전용, 2026-07-12) — 전체 / 바로 방문(예약 없이) / 예약 필수. 단일 선택 */}
+        {!isDelivery && (
+          <div className="mt-4">
+            <div className="text-[14px] font-semibold text-ink">참여 방식</div>
+            <div className="mt-2.5 flex gap-2 flex-wrap">
+              {(Object.keys(VISIT_MODE_LABEL) as VisitMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDraftVisitMode(m)}
+                  aria-pressed={draftVisitMode === m}
+                  className={chipCls(draftVisitMode === m)}
+                >
+                  {m === "walkin" && <span aria-hidden>🏃</span>}
+                  {m === "reserve" && <span aria-hidden>📅</span>}
+                  {VISIT_MODE_LABEL[m]}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted">
+              바로 방문 = 예약 없이 바로 갈 수 있는 체험 · 예약 필수 = 방문 전 매장 예약이 필요한 체험 · 배송 체험은 상단 배송형 세그먼트에서 볼 수 있어요
+            </p>
+          </div>
+        )}
+
+        {/* 지역 — 3상태: 미선택(기본·두 칩 비활성) / 현위치(토글 — 재클릭 해제) / 지역 선택 (§8-3, 2026-07-10).
+            배송형은 전국 택배 대상이라 지역 개념이 없음 — 섹션 자체를 노출하지 않는다 (2026-07-12) */}
+        {!isDelivery && (
         <div className="mt-4">
           <div className="text-[14px] font-semibold text-ink">지역</div>
           <div className="mt-2.5 flex gap-2 flex-wrap">
@@ -138,6 +188,7 @@ export default function FilterSheet({
             선택하지 않으면 전국 기준이에요 · 지역을 선택하면 그 지역 기준으로 지도와 거리가 바뀌어요 (탐색에서만 적용)
           </p>
         </div>
+        )}
 
         <div className="mt-5">
           <div className="text-[14px] font-semibold text-ink">SNS 채널</div>
@@ -165,7 +216,7 @@ export default function FilterSheet({
         </div>
 
         <div className="mt-5">
-          <div className="text-[14px] font-semibold text-ink">카테고리</div>
+          <div className="text-[14px] font-semibold text-ink">{isDelivery ? "상품 카테고리" : "카테고리"}</div>
           <div className="mt-2.5 flex gap-2 flex-wrap">
             <button
               type="button"
@@ -200,6 +251,7 @@ export default function FilterSheet({
               setDraftChannels(new Set());
               setDraftArea(null);
               setDraftCurrent(false);
+              setDraftVisitMode("all");
             }}
             className="cp-action h-[52px] px-5 rounded-md bg-sunken text-[15px] font-semibold text-ink inline-flex items-center gap-1.5"
           >
@@ -207,7 +259,15 @@ export default function FilterSheet({
           </button>
           <button
             type="button"
-            onClick={() => onApply({ cats: draftCats, channels: draftChannels, area: draftArea, useCurrent: draftCurrent })}
+            onClick={() =>
+              onApply({
+                cats: draftCats,
+                channels: draftChannels,
+                area: draftArea,
+                useCurrent: draftCurrent,
+                visitMode: draftVisitMode,
+              })
+            }
             className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold"
           >
             적용하기 · 체험 {previewCount}개

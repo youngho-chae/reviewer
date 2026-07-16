@@ -55,6 +55,59 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
     ? boostedLimit(campaign?.supportAmount ?? 0, entitledSupport, boost.value)
     : entitledSupport;
 
+  // 배송형 (2026-07-12 레뷰 벤치마크) — QR 없음. active = 발송 대기 (발송 처리 전 취소 가능)
+  const isDelivery = campaign?.kind === "delivery";
+  if (pass.status === "active" && isDelivery) {
+    return (
+      <div className="pb-24 bg-canvas min-h-[100dvh]">
+        <div className="sticky top-0 z-10 bg-canvas">
+          <div className="h-[52px] px-3 flex items-center gap-1">
+            <Link href="/r/passes" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="내 체험권으로">
+              <Icon name="chevron-left" variant="border" size={22} />
+            </Link>
+            <div className="text-[18px] font-bold text-ink tracking-title">배송 체험</div>
+          </div>
+        </div>
+
+        <section className="px-5 pt-6 text-center">
+          <div className="flex justify-center mb-3">
+            <GradeBadge grade={pass.reviewerGrade} size="lg" />
+          </div>
+          <h1 className="text-[20px] font-bold text-ink tracking-title leading-[1.3]">{store?.name}</h1>
+          <p className="mt-1.5 text-[14px] text-ink2">{store?.category} · 전국 택배</p>
+        </section>
+
+        <div className="px-5 mt-6">
+          <div className="rounded-md bg-brandSoft px-4 py-4 text-center">
+            <div className="text-[15px] font-bold text-brand">📦 발송 대기 중</div>
+            <p className="mt-1.5 text-[13px] text-ink2 leading-[1.55]">
+              사장님이 상품을 발송하면 알림으로 알려드려요.
+              <br />
+              발송 후 7일 이내에 리뷰를 등록해주세요.
+            </p>
+          </div>
+
+          {pass.shipping && (
+            <div className="mt-4 rounded-md border border-hairline p-4">
+              <div className="text-[13px] font-bold text-ink">배송지</div>
+              <div className="mt-2 text-[14px] text-ink leading-[1.6]">
+                {pass.shipping.recipient} · {pass.shipping.phone}
+                <br />
+                <span className="text-ink2">{pass.shipping.address}</span>
+              </div>
+              <p className="mt-2 text-[11px] text-muted">배송지 정보는 상품 발송 목적으로만 사장님에게 전달돼요.</p>
+            </div>
+          )}
+
+          {/* 발송 처리 전에만 취소 가능 — 발송 후에는 취소 불가 (벤치마크 §3.2) */}
+          <div className="mt-8 pb-12 text-center">
+            <CancelPassButton passId={pass.id} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Active state — QR 스캔 / 코드 입력 세그먼트 (2026-07-08 시안 개편)
   if (pass.status === "active") {
     return (
@@ -85,10 +138,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           boosted={!!boost && displaySupport > entitledSupport}
         />
 
-        {/* 방문이 어려운 경우 취소 유도 — 슬롯을 다른 체험자에게 돌려줌 */}
-        <div className="pb-12 text-center">
-          <CancelPassButton passId={pass.id} />
-        </div>
+        {/* [2026-07-12 회의 §8-1] QR 인증 화면에서 참여 취소 제거 — 매장 직원과 함께 쓰는
+            인증 중심 화면으로 단순화. 방문 취소는 내 체험권 리스트의 [참여 취소]에서. */}
+        <div className="pb-12" />
       </div>
     );
   }
@@ -115,7 +167,11 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         {/* [확정 정책 7] 캠페인명은 사장님 내부 관리용 — 체험자에게는 매장명 중심 노출 */}
         <p className="mt-1.5 text-[14px] text-ink2">{store?.area} · {store?.category}</p>
         <p className="mt-1 text-[13px] text-muted">
-          지원금 <span className="font-bold text-ink tabular-nums">{SBUI.support}</span>
+          {isDelivery ? (
+            <>제품 제공{campaign?.pointReward ? <> + 포인트 <span className="font-bold text-ink tabular-nums">{SBUI.point}</span></> : null}</>
+          ) : (
+            <>지원금 <span className="font-bold text-ink tabular-nums">{SBUI.support}</span></>
+          )}
           {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
         </p>
       </section>
@@ -126,8 +182,14 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             <div className="rounded-md bg-brandSoft px-4 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-[15px] font-bold text-brand">사용 완료</div>
-                  <div className="mt-1 text-[14px] text-ink2 tabular-nums">결제 {SBUI.price} · 지원 {SBUI.support}</div>
+                  <div className="text-[15px] font-bold text-brand">{isDelivery ? "📦 발송 완료" : "사용 완료"}</div>
+                  {isDelivery ? (
+                    <div className="mt-1 text-[14px] text-ink2 tabular-nums">
+                      {pass.trackingNo ? `운송장 ${SBUI.trackingNo}` : "상품이 발송되었어요"}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-[14px] text-ink2 tabular-nums">결제 {SBUI.price} · 지원 {SBUI.support}</div>
+                  )}
                 </div>
                 {pass.usedAt && (
                   <div className="text-right">
@@ -141,35 +203,25 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   </div>
                 )}
               </div>
-              <div className="mt-2 text-[12px] text-muted">초과분 {SBUI.price}은 직접 결제하셨습니다</div>
+              {isDelivery && (
+                <div className="mt-2 text-[12px] text-muted">
+                  {campaign?.pointReward ? "리뷰가 검수를 통과하면 포인트가 적립돼요" : "수령 후 체험하고 리뷰를 등록해주세요"}
+                </div>
+              )}
             </div>
 
-            {/* T1 트리거 — 패스 사용 직후 친구 초대 카드 (viral) */}
-            <Link
-              href={`/r/invite/new?store=${encodeURIComponent(pass.storeId)}&campaign=${encodeURIComponent(pass.campaignId)}`}
-              className="cp-action mt-4 flex items-center gap-3 p-4 rounded-md border border-hairline bg-canvas"
-            >
-              <span className="text-[28px]" aria-hidden>🎁</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-semibold text-ink">
-                  {SBUI.support} 절약 완료! 친구도 받게 해줄래요?
-                </div>
-                <div className="text-[11px] text-muted mt-0.5">친구 가입 즉시 내 행운 박스 오픈 + 친구는 첫 캠페인 +50% 지원금</div>
-              </div>
-              <span className="text-brand text-[18px] shrink-0">›</span>
-            </Link>
+            {/* [2026-07-12 회의 §11-1] 리뷰 작성 화면의 친구 초대(코드) 카드 삭제 — 초대는 /r/rewards 전용 */}
 
             {passDisplayStatus(pass) === "overdue" ? (
               /* 제출 기한 초과 — 서버(/api/passes/review)도 기한 경과 제출을 차단하므로 폼 대신 안내만 */
               <div className="mt-9 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
-                리뷰 제출 기한(이용 후 7일)이 지나 더 이상 제출할 수 없어요. 기한 초과는 월간 등급 재평가에
-                감점으로 반영됩니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+                리뷰 제출 기한(이용 후 7일)이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요.
               </div>
             ) : (
               <>
-                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">리뷰 인증</h2>
+                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">제출 전 마지막 확인</h2>
                 <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-                  실제 게시 후 URL을 제출해주세요. 작성 조건·광고 표시 문구는 매장 상세에서 미리 확인했어요 — 여기서는 자가 점검만 진행해요.
+                  게시한 리뷰 URL을 제출하고, 작성 조건을 확인했는지 가볍게 점검해주세요.
                 </p>
                 <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
               </>
@@ -187,23 +239,13 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             <div className="mt-6 rounded-md bg-successSoft p-5 text-[15px] text-ink">
               <span className="text-successStrong font-semibold">✓ 리뷰 검수 통과.</span> 등급 점수가 반영되었습니다.
             </div>
-            {/* T2 트리거 — 검수 통과 후 친구 초대 */}
-            <Link
-              href={`/r/invite/new?store=${encodeURIComponent(pass.storeId)}&campaign=${encodeURIComponent(pass.campaignId)}`}
-              className="cp-action mt-3 flex items-center gap-3 p-4 rounded-md border border-hairline bg-canvas"
-            >
-              <span className="text-[28px]" aria-hidden>🎁</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-semibold text-ink">검수 통과! 행운 박스 더 키우러 갈까요?</div>
-                <div className="text-[11px] text-muted mt-0.5">친구 3명 더 모으면 실버 박스 · 5명이면 골드 박스</div>
-              </div>
-              <span className="text-brand text-[18px] shrink-0">›</span>
-            </Link>
           </>
         )}
         {pass.status === "expired" && (
           <div className="mt-6 rounded-md bg-sunken p-5 text-[15px] text-muted">
-            사용 기한(발급 후 72시간)이 지나 만료된 체험권입니다. 만료된 체험권은 연장·복구되지 않으며, 모집 자리는 다른 체험자에게 돌아갔어요.
+            {isDelivery
+              ? "캠페인이 종료될 때까지 발송이 진행되지 않아 만료된 신청입니다. 모집 자리는 다른 체험자에게 돌아갔어요."
+              : "사용 기한(발급 후 72시간)이 지나 만료된 체험권입니다. 만료된 체험권은 연장·복구되지 않으며, 모집 자리는 다른 체험자에게 돌아갔어요."}
           </div>
         )}
         {pass.status === "cancelled" && (
@@ -231,7 +273,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   </div>
                 ) : (
                   <div className="mt-2 text-[13px] text-muted">
-                    재제출 기한이 지났거나 이미 재제출했습니다. 이의가 있으면 고객센터(help@catchrank.co.kr)로 문의해주세요.
+                    재제출 기한(반려 후 7일)이 지나 다시 제출할 수 없어요.
                   </div>
                 )}
               </div>

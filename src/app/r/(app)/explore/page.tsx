@@ -2,12 +2,12 @@ import { after } from "next/server";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
-import { PRESS_ENABLED } from "@/lib/flags";
+import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import { PLAN_RANK } from "@/lib/plan-policy";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import type { SnsKind } from "@/lib/types";
-import ExploreView, { ExploreStoreCard, ExplorePressCard } from "./ExploreView";
+import ExploreView, { ExploreStoreCard, ExplorePressCard, ExploreDeliveryCard } from "./ExploreView";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -15,7 +15,7 @@ export const maxDuration = 60;
 export default async function ReviewerExplore({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string }>;
+  searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string; tab?: string; v?: string; dcat?: string }>;
 }) {
   const me = await getCurrentReviewer();
   // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
@@ -32,12 +32,7 @@ export default async function ReviewerExplore({
   // [추천순] 사장님 멤버십 플랜 랭크 조인 — storeId → Store.ownerId → Owner.plan (현재 플랜 적용).
   // [P1] 리뷰어 등급과 무관한 사장님 멤버십 기준 노출 우대 — 참여 자격에는 영향 없음.
   const ownerPlanRank = new Map(db.owners.map((o) => [o.id, PLAN_RANK[o.plan] ?? 0]));
-  // [§6] 이미 참여 중(진행 중 패스 보유)인 캠페인 — 리스트에서 제외하지 않고 "참여 중" 뱃지로 표시
-  const myCampaignIds = new Set(
-    db.passes
-      .filter((p) => p.reviewerId === me.id && ["active", "used", "review_submitted"].includes(p.status))
-      .map((p) => p.campaignId),
-  );
+  // [2026-07-12 회의 §1-3] 카드 '참여 중' 배지 삭제 — 신청 상태는 상세 CTA(내 체험권 보기)로 구분
 
   // [노출 정책] 발급 소진 ≠ 종료 — 살아있는 체험권이 남은 캠페인은 계속 노출 (2026-07-07 회의)
   const cards: ExploreStoreCard[] = db.campaigns
@@ -68,10 +63,11 @@ export default async function ReviewerExplore({
         endAt: c.endAt,
         createdAt: c.createdAt,
         planRank: ownerPlanRank.get(store.ownerId) ?? 0,
-        participating: myCampaignIds.has(c.id),
         // 검색 확장(확정 정책 2-1) — 지역명(주소)·강조 키워드까지 검색 대상
         address: store.address,
         keywords: c.highlightKeywords,
+        // 참여 방식 필터·예약 배지 (2026-07-12) — 방문 전 예약 필수 여부
+        reservationRequired: c.reservationRequired ?? false,
       };
     });
 
@@ -112,6 +108,34 @@ export default async function ReviewerExplore({
       };
     });
 
+  // 배송형 (2026-07-12 레뷰 벤치마크) — 지역 무관 전국 참여, 리스트 전용 세그먼트
+  const deliveryCards: ExploreDeliveryCard[] = db.campaigns
+    .filter((c) => DELIVERY_ENABLED && c.kind === "delivery" && isCampaignVisible(c, db.passes, now))
+    .map((c) => {
+      const store = db.stores.find((s) => s.id === c.storeId)!;
+      const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
+      return {
+        campaignId: c.id,
+        storeId: store.id,
+        storeName: store.name,
+        area: store.area,
+        // 상품 카테고리 (2026-07-12 정정) — 배송형은 플레이스 분류가 아닌 상품군 분류
+        // (delivery-categories.ts). 구버전 데이터는 스토어 분류로 폴백.
+        category: c.productCategory ?? store.category,
+        coverEmoji: store.coverEmoji,
+        productValue: c.supportAmount,
+        pointReward: c.pointReward ?? 0,
+        requiredChannels: c.requiredChannels,
+        remain: campaignRemain(c),
+        soldOut: campaignExposure(c, db.passes, now) === "issued_out",
+        endAt: c.endAt,
+        createdAt: c.createdAt,
+        planRank: ownerPlanRank.get(store.ownerId) ?? 0,
+        keywords: c.highlightKeywords,
+        totalQuota: totalQ,
+      } as ExploreDeliveryCard;
+    });
+
   // 지도 클라이언트 ID는 env로만 주입 (미설정 시 SDK 로드 실패 → 리스트 폴백 카드).
   // NEXT_PUBLIC_ 전용 변수가 없으면 서버 지도 키(NAVER_MAP_CLIENT_ID)로 폴백한다 —
   // page.tsx는 force-dynamic 서버 컴포넌트라 런타임에 서버 env를 읽어 prop으로 넘길 수 있고,
@@ -145,6 +169,12 @@ export default async function ReviewerExplore({
       initialLoc={initialLoc}
       initialNationwide={nationwide}
       pressEnabled={PRESS_ENABLED}
+      deliveryCards={deliveryCards}
+      deliveryEnabled={DELIVERY_ENABLED}
+      initialTab={sp.tab === "delivery" || sp.tab === "press" ? sp.tab : "visit"}
+      // 참여 방식(?v=) · 배송형 상품 카테고리(?dcat=) 복원 (2026-07-12)
+      initialVisitMode={sp.v === "walkin" || sp.v === "reserve" ? sp.v : "all"}
+      initialDvCats={sp.dcat ? sp.dcat.split(",") : []}
     />
   );
 }

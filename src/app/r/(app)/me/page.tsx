@@ -5,6 +5,8 @@ import LogoutButton from "@/components/LogoutButton";
 import DeleteAccountButton from "@/components/DeleteAccountButton";
 import { getDBAsync } from "@/lib/db";
 import { effectiveChannelState } from "@/lib/sns-cookie";
+import { pointBalance } from "@/lib/points";
+import { SBUI, sbNum } from "@/lib/storyboard";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,8 @@ export default async function Me() {
     .filter((p) => p.reviewerId === me.id && p.supportApplied)
     .reduce((s, p) => s + (p.supportApplied || 0), 0);
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
+  // 체험 포인트 잔액 — append-only 원장 합산 (2026-07-12 레뷰 벤치마크, src/lib/points.ts)
+  const points = pointBalance(db, me.id);
 
   return (
     <div className="pb-24 bg-canvas">
@@ -78,6 +82,22 @@ export default async function Me() {
             <div className="text-[12px] text-muted mt-2">누적 혜택</div>
           </div>
         </div>
+      </section>
+
+      {/* 체험 포인트 — 배송형 리뷰 승인 적립·출금 (2026-07-12 레뷰 벤치마크) */}
+      <section className="px-5 py-2">
+        <Link
+          href="/r/me/points"
+          className="cp-action rounded-lg border border-hairline bg-canvas px-5 py-4 flex items-center justify-between"
+        >
+          <div>
+            <div className="text-[12px] text-muted">체험 포인트</div>
+            <div className="mt-1 text-[20px] font-bold text-ink tabular-nums leading-none">
+              {sbNum(SBUI.pointBalance, `${points.toLocaleString()}P`)}
+            </div>
+          </div>
+          <span className="text-[13px] font-semibold text-brand">내역 · 출금 →</span>
+        </Link>
       </section>
 
       {/* Light tile — connected channels (관리·본인 인증은 /r/me/channels — 2026-07-10) */}

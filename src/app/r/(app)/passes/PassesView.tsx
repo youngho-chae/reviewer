@@ -36,6 +36,9 @@ export interface VisitPassItem {
   deadlineKind: "review" | "resubmit" | null; // 날짜 라벨 — "리뷰마감" vs "재제출 기한"
   rejectReason: string | null;
   highlight: boolean;
+  // 배송형 (2026-07-12 레뷰 벤치마크) — active="발송 대기", 혜택 표기 = 제품(+포인트)
+  isDelivery?: boolean;
+  pointReward?: number; // 등급 배율 적용된 내 적립 예정 포인트
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -45,6 +48,13 @@ const REVIEW_STATUSES = ["used", "review_submitted", "completed", "rejected"] as
 const ISSUED_CHIPS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
   { key: "active", label: "사용가능" },
+  { key: "cancelled", label: "취소" },
+  { key: "expired", label: "만료" },
+];
+// 배송형 — active는 QR 사용 개념이 없어 "발송 대기" (2026-07-12 세그먼트 분리)
+const DELIVERY_ISSUED_CHIPS: { key: string; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "active", label: "발송 대기" },
   { key: "cancelled", label: "취소" },
   { key: "expired", label: "만료" },
 ];
@@ -59,25 +69,34 @@ const REVIEW_CHIPS: { key: string; label: string }[] = [
 
 export default function PassesView({
   items,
+  showDelivery,
   showPress,
   pressCount,
   pressView,
   unread,
 }: {
   items: VisitPassItem[];
+  // 배송형 세그먼트 노출 여부 (2026-07-12 분리 — 배송 패스는 방문형 대카테고리에 섞지 않는다)
+  showDelivery: boolean;
   showPress: boolean;
   pressCount: number;
   pressView: ReactNode;
   unread: number;
 }) {
-  const [segment, setSegment] = useState<"visit" | "press">("visit");
+  const [segment, setSegment] = useState<"visit" | "delivery" | "press">("visit");
   const [tab, setTab] = useState<"issued" | "review">("issued");
   const [chip, setChip] = useState("all");
 
+  // 배송형은 방문형과 별개 세그먼트 (2026-07-12) — 카드·칩·빈 상태 카피가 각각의 방식 기준
+  const visitItems = useMemo(() => items.filter((it) => !it.isDelivery), [items]);
+  const deliveryItems = useMemo(() => items.filter((it) => !!it.isDelivery), [items]);
+  const deliveryCount = deliveryItems.length;
+
   const tabItems = useMemo(() => {
+    const base = segment === "delivery" ? deliveryItems : visitItems;
     const statuses = tab === "issued" ? ISSUED_STATUSES : REVIEW_STATUSES;
-    return items.filter((it) => (statuses as readonly string[]).includes(it.status));
-  }, [items, tab]);
+    return base.filter((it) => (statuses as readonly string[]).includes(it.status));
+  }, [visitItems, deliveryItems, segment, tab]);
   // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다
   const filtered =
     chip === "all"
@@ -87,7 +106,7 @@ export default function PassesView({
             ? it.displayStatus === "overdue" || it.displayStatus === "resubmit_expired"
             : it.displayStatus === chip,
         );
-  const chips = tab === "issued" ? ISSUED_CHIPS : REVIEW_CHIPS;
+  const chips = tab === "issued" ? (segment === "delivery" ? DELIVERY_ISSUED_CHIPS : ISSUED_CHIPS) : REVIEW_CHIPS;
 
   return (
     <div>
@@ -97,11 +116,27 @@ export default function PassesView({
           <div className="flex items-baseline gap-3">
             <button
               type="button"
-              onClick={() => setSegment("visit")}
+              onClick={() => {
+                setSegment("visit");
+                setChip("all");
+              }}
               className={`cp-action text-[20px] tracking-title ${segment === "visit" ? "font-bold text-ink" : "font-semibold text-mutedSoft"}`}
             >
               방문형
             </button>
+            {/* 배송형 — 방문형 대카테고리에서 분리 (2026-07-12). 탐색 세그먼트와 동일 문법 */}
+            {showDelivery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSegment("delivery");
+                  setChip("all");
+                }}
+                className={`cp-action text-[20px] tracking-title ${segment === "delivery" ? "font-bold text-ink" : "font-semibold text-mutedSoft"}`}
+              >
+                배송형{deliveryCount > 0 ? ` ${deliveryCount}` : ""}
+              </button>
+            )}
             {/* 기자단은 MVP 제외 — 과거 발급분이 있을 때만 전환 가능, 없으면 비활성 표기 */}
             <button
               type="button"
@@ -124,13 +159,13 @@ export default function PassesView({
           </div>
         </div>
 
-        {segment === "visit" && (
+        {segment !== "press" && (
           <>
-            {/* 서브 탭 — 체험권 / 리뷰작성 (퍼플 언더라인) */}
+            {/* 서브 탭 — 체험권(배송형은 신청 내역) / 리뷰작성 (퍼플 언더라인) */}
             <div className="grid grid-cols-2 border-b border-hairlineSoft">
               {(
                 [
-                  { key: "issued", label: "체험권" },
+                  { key: "issued", label: segment === "delivery" ? "신청 내역" : "체험권" },
                   { key: "review", label: "리뷰작성" },
                 ] as const
               ).map((t) => {
@@ -186,11 +221,26 @@ export default function PassesView({
             {filtered.length === 0 && (
               <div className="py-16 text-center">
                 <p className="text-[15px] text-muted">
-                  {tab === "issued" ? "해당하는 체험권이 없어요." : "리뷰 단계의 체험이 없어요."}
+                  {segment === "delivery"
+                    ? tab === "issued"
+                      ? "해당하는 배송 체험 신청이 없어요."
+                      : "리뷰 단계의 배송 체험이 없어요."
+                    : tab === "issued"
+                      ? "해당하는 체험권이 없어요."
+                      : "리뷰 단계의 체험이 없어요."}
                 </p>
-                <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
-                  홈에서 체험권 받기 →
-                </Link>
+                {segment === "delivery" ? (
+                  <Link
+                    href="/r/explore?mode=list&tab=delivery"
+                    className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand"
+                  >
+                    배송 체험 둘러보기 →
+                  </Link>
+                ) : (
+                  <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
+                    홈에서 체험권 받기 →
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -201,7 +251,11 @@ export default function PassesView({
 }
 
 function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
-  const badge = DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
+  // 배송형 active = 발송 대기 (QR 사용 개념이 없음 — 파생 라벨만 교체, 실상태는 동일)
+  const badge =
+    it.isDelivery && it.displayStatus === "active"
+      ? { label: "발송 대기", cls: "bg-brandSoft text-brand" }
+      : DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
   const isActive = it.displayStatus === "active";
   // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기 — 기한 초과 제외)
   const emphasized = isActive || it.displayStatus === "used" || it.highlight;
@@ -228,8 +282,19 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             {it.channel ? CHANNEL_LABEL[it.channel] : "채널 미정"} · {it.grade}등급 적용
           </p>
           <p className="mt-1.5 text-[16px] tabular-nums">
-            <span className="font-bold text-ink">{sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
-            <span className="text-[13px] text-muted">지원</span>
+            {it.isDelivery ? (
+              <>
+                <span className="font-bold text-ink">📦 제품 제공</span>
+                {(it.pointReward ?? 0) > 0 && (
+                  <span className="text-[13px] text-muted"> + {sbNum(SBUI.point, `${(it.pointReward ?? 0).toLocaleString()}P`)} 적립</span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="font-bold text-ink">{sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
+                <span className="text-[13px] text-muted">지원</span>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -242,7 +307,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       {isActive && (
         <>
           <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
-            <span className="text-muted">유효기간</span>
+            <span className="text-muted">{it.isDelivery ? "신청 유효" : "유효기간"}</span>
             <span className="font-semibold text-ink tabular-nums">
               {sbNum(SBUI.dateTime, fmtKoDateTime(it.expiresAt))}까지
             </span>
@@ -294,7 +359,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               href={`/r/passes/${it.id}`}
               className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
             >
-              리뷰 제출
+              리뷰 작성하기
             </Link>
           </div>
         </>
@@ -340,7 +405,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               href={`/r/passes/${it.id}`}
               className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold flex items-center justify-center"
             >
-              리뷰 다시 제출
+              리뷰 다시 제출하기
             </Link>
           </div>
         </>
@@ -352,8 +417,9 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
           <div className="mt-3.5 flex">
             <StoreInfoButton it={it} />
           </div>
+          {/* [2026-07-12 회의 §12-4] "재제출 횟수 사용" 같은 불명확한 표현 대신 기한 사실 중심 */}
           <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
-            재제출 기한(반려 후 7일)이 지났거나 재제출 횟수(1회)를 사용했어요. 이의가 있으면 고객센터로 문의해주세요.
+            재제출 기한(반려 후 7일) 안에 다시 제출하지 않아 마감된 체험이에요.
           </div>
         </>
       )}

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { photoForStore } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance, NEARBY_RADIUS_M } from "@/lib/distance-mock";
-import { haversineM, nearestSido, SIDO_CENTERS, type LatLng } from "@/lib/geo";
+import { haversineM, nearestSido, nearestRegionLabel, SIDO_CENTERS, type LatLng } from "@/lib/geo";
 import Icon from "./Icon";
 
 export interface MapStorePin {
@@ -75,6 +75,7 @@ export default function NaverMapView({
   onSelectionChange,
   initialSearchCenter = null,
   nationwide = false,
+  onRegionChange,
 }: {
   pins: MapStorePin[];
   clientId: string;
@@ -85,6 +86,9 @@ export default function NaverMapView({
   // [§6-4] 전국 진입(홈 '전체 리스트' 더 둘러보기) — 대한민국 전체 축소로 시작해
   // 시도별 건수 클러스터를 즉시 노출. initialSearchCenter가 있으면 지역 포커스가 우선.
   nationwide?: boolean;
+  // [2026-07-12 회의 §1-1] 재검색 ↔ 지역 필터 동기화 — '이 지역 재검색' = 지도 중심의 최근접
+  // 시군구로 지역 필터 자동 변경(적용하기와 동일 · SNS/카테고리 유지), 전국 줌아웃 = 지역 필터 해제.
+  onRegionChange?: (label: string | null) => void;
 }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -106,6 +110,12 @@ export default function NaverMapView({
   const startNationwide = nationwide && !initialSearchCenter;
   const [zoomLevel, setZoomLevel] = useState(initialSearchCenter ? 13 : startNationwide ? NATIONWIDE_ZOOM : 12);
   const clusterMode = zoomLevel < CLUSTER_ZOOM_BELOW;
+  // 줌 임계 교차 감지 + 초기 등록 리스너에서 최신 onRegionChange 참조 (2026-07-12 §1-1)
+  const zoomRef = useRef(initialSearchCenter ? 13 : startNationwide ? NATIONWIDE_ZOOM : 12);
+  const onRegionChangeRef = useRef(onRegionChange);
+  useEffect(() => {
+    onRegionChangeRef.current = onRegionChange;
+  }, [onRegionChange]);
 
   const visiblePins = useMemo(
     () => (searchCenter ? pins.filter((p) => haversineM(searchCenter, p) <= NEARBY_RADIUS_M) : pins),
@@ -161,12 +171,21 @@ export default function NaverMapView({
     setSelIdx(null);
   }, [visiblePins]);
 
-  // 재검색 실행 — 현재 지도 중심 기준 반경 3km로 데이터 갱신
+  // 재검색 실행 — [2026-07-12 §1-1] 현재 지도 중심의 최근접 시군구로 지역 필터를 자동 변경한다.
+  // 부모(ExploreView)가 필터를 갱신하면 initialSearchCenter가 행정 기준점으로 되돌아와
+  // 지도 재센터 + 반경 3km 재조회가 [적용하기]와 동일하게 함께 일어난다. (콜백 없으면 로컬 반경만 갱신)
   function researchHere() {
     if (!mapRef.current) return;
     try {
       const c = mapRef.current.getCenter();
       const center = { lat: c.lat(), lng: c.lng() };
+      const label = onRegionChange ? nearestRegionLabel(center) : null;
+      if (onRegionChange && label) {
+        onRegionChange(label);
+        setShowResearch(false);
+        setSelIdx(null);
+        return;
+      }
       searchCenterRef.current = center;
       setSearchCenter(center);
       setShowResearch(false);
@@ -185,6 +204,8 @@ export default function NaverMapView({
     setSearchCenter(null);
     setShowResearch(false);
     setSelIdx(null);
+    // [2026-07-12 §1-1] 전체 보기 복귀 = 지역 필터 해제
+    onRegionChange?.(null);
   }
 
   // [§5·§8] 지역 기준점 prop 변경(필터 적용 등) — 지도 포커스·반경 3km 필터 갱신
@@ -317,11 +338,21 @@ export default function NaverMapView({
       naver.maps.Event.addListener(mapRef.current, "dragend", onMapMoved);
       naver.maps.Event.addListener(mapRef.current, "zoom_changed", onMapMoved);
       // 줌 추적 — 클러스터 모드 판정 (§6-4). 클러스터 중에는 재검색 버튼을 숨긴다.
+      // [2026-07-12 §1-1] 전국 범위(클러스터 임계 미만)로 축소되면 지역 필터를 해제한다 —
+      // 임계 교차 시 1회만 통지 (다시 확대 후 '이 지역 재검색'으로 지역 필터 재적용 가능).
       naver.maps.Event.addListener(mapRef.current, "zoom_changed", () => {
         try {
           const z = mapRef.current.getZoom();
+          const wasCluster = zoomRef.current < CLUSTER_ZOOM_BELOW;
+          zoomRef.current = z;
           setZoomLevel(z);
-          if (z < CLUSTER_ZOOM_BELOW) setShowResearch(false);
+          if (z < CLUSTER_ZOOM_BELOW) {
+            setShowResearch(false);
+            if (!wasCluster) {
+              setSearchCenter(null);
+              onRegionChangeRef.current?.(null);
+            }
+          }
         } catch {}
       });
     } catch {
@@ -354,7 +385,7 @@ export default function NaverMapView({
       for (const [sido, count] of counts) {
         const pos = SIDO_CENTERS[sido];
         if (!pos) continue;
-        const label = STORYBOARD ? "00건" : `${count}건`;
+        const label = STORYBOARD ? "00개" : `${count}개`;
         const html = `
           <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;gap:2px;">
             <div style="min-width:52px;padding:8px 10px;border-radius:9999px;background:#9333EA;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.2);text-align:center;line-height:1.2;">
@@ -477,7 +508,7 @@ export default function NaverMapView({
         {/* 반경 모드 표시 칩 — 재검색 결과 기준 안내 + 전체 복귀 (클러스터 모드 중 억제) */}
         {sdkReady && !sdkFailed && searchCenter && !showResearch && !clusterMode && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 h-8 px-3 rounded-pill bg-white/95 shadow-sm text-[12px] text-ink2">
-            <span>이 지역 반경 3km · {visiblePins.length}곳</span>
+            <span>이 지역 반경 3km · {visiblePins.length}개</span>
             <button type="button" onClick={resetResearch} className="cp-action font-semibold text-brand">
               전체 보기
             </button>

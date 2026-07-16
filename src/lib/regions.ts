@@ -102,3 +102,38 @@ export function findSido(label: string | undefined): string | null {
   }
   return null;
 }
+
+// 시도 간 중복되는 시군구명 집합 (부산/대구/인천/대전/울산 "중구·동구·서구·남구·북구",
+// 서울/부산 "강서구", 강원/경남 "고성군" 등) — 표기 규칙의 판정 기준.
+const DUP_GUGUN_NAMES: Set<string> = (() => {
+  const seen = new Map<string, number>();
+  for (const r of REGIONS) for (const g of r.gugun) seen.set(g, (seen.get(g) ?? 0) + 1);
+  return new Set([...seen.entries()].filter(([, n]) => n > 1).map(([g]) => g));
+})();
+
+export function isDupGugunName(gugun: string): boolean {
+  return DUP_GUGUN_NAMES.has(gugun);
+}
+
+// 지역 표기 라벨 (2026-07-12 표기 규칙) — 시군구명이 시도 간 중복이면 "{시도} {시군구}"
+// (예: "서울 중구"), 전국에서 유일한 단독 지명이면 시군구만 (예: "마포구", "해운대구").
+// 단독 라벨도 findSido → 복합 키 경유로 regionCenter가 좌표를 해석한다 (geo.ts).
+export function regionLabel(sido: string, gugun: string): string {
+  return isDupGugunName(gugun) ? `${sido} ${gugun}` : gugun;
+}
+
+// 카드 지역 정보 (2026-07-12 회의 §6-2) — 주소에서 "1차 2차" 행정구역을 추출해
+// "서울 강남구" 형태로 노출한다 (동일 상호 지점 구분·전국 리스트 지역 식별).
+// 주소 첫 토큰이 시도명일 때만 신뢰하고, 아니면 매장 area(동네 라벨)로 폴백.
+export function regionFromAddress(address?: string | null, fallback?: string): string {
+  if (address) {
+    const [t0, t1] = address.trim().split(/\s+/);
+    if (t0 && t1 && REGIONS.some((r) => r.sido === t0)) return `${t0} ${t1}`;
+  }
+  if (fallback) {
+    const sido = findSido(fallback);
+    if (sido && sido !== fallback) return `${sido} ${fallback}`;
+    return fallback;
+  }
+  return "";
+}

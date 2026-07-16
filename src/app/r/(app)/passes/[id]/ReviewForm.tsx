@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SnsKind } from "@/lib/types";
-import { CHANNEL_LABEL, CHANNEL_URL_PLACEHOLDER, KEEP_DAYS, selfCheckConditions } from "@/lib/channels";
+import { CHANNEL_LABEL, KEEP_DAYS, selfCheckConditions } from "@/lib/channels";
 import Icon from "@/components/Icon";
 
 // 참여 시 채널이 확정되므로(체험권 발급 단계) 여기서는 재선택하지 않고 고정 표기.
@@ -32,7 +32,9 @@ export default function ReviewForm({
   const [loading, setLoading] = useState(false);
 
   const allSelfChecked = conditions.every((c) => selfCheck[c.key]);
-  const canSubmit = !!reviewUrl && adChecked && allSelfChecked && keepAgreed && !loading;
+  // [2026-07-12 회의 §11-2] 입력 URL 형식 검증 — http(s):// 로 시작하는 유효한 주소만 제출
+  const urlValid = /^https?:\/\/\S+\.\S+/.test(reviewUrl.trim());
+  const canSubmit = !!reviewUrl && urlValid && adChecked && allSelfChecked && keepAgreed && !loading;
 
   async function submit() {
     setLoading(true);
@@ -86,9 +88,12 @@ export default function ReviewForm({
         <input
           value={reviewUrl}
           onChange={(e) => setReviewUrl(e.target.value)}
-          placeholder={CHANNEL_URL_PLACEHOLDER[channel]}
+          placeholder="리뷰 URL을 입력해 주세요"
           className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
         />
+        {reviewUrl.trim() !== "" && !urlValid && (
+          <p className="mt-1.5 text-[12px] text-error">http:// 또는 https:// 로 시작하는 게시물 주소를 입력해주세요.</p>
+        )}
       </div>
 
       {/* 3. 작성 조건 자가점검 — 광고 문구 포함 여부를 첫 항목으로 확인 */}

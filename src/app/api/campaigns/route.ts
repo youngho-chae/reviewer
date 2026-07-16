@@ -5,6 +5,7 @@ import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 import { CHANNEL_ORDER } from "@/lib/channels";
+import { isDeliveryCategory } from "@/lib/delivery-categories";
 import { availableQuotaBonus, consumeQuotaBonus } from "@/lib/referral";
 
 export const runtime = "nodejs";
@@ -22,16 +23,28 @@ export async function POST(req: NextRequest) {
   const totalQuota = Math.max(0, Math.floor(Number(body.totalQuota) || 0));
   if (totalQuota <= 0) return NextResponse.json({ error: "모집 인원을 1명 이상 입력해주세요" }, { status: 400 });
 
-  // 사용처리 4자리 숫자 코드 — 필수
-  const useCode = normalizeUseCode(String(body.useCode ?? ""));
+  // 사용처리 4자리 숫자 코드 — 방문형 필수.
+  // 배송형(2026-07-12)은 QR/코드 사용 처리가 없어 미입력 시 자동 생성한다 (스키마 필수 필드 유지).
+  const isDeliveryKind = body.kind === "delivery";
+  let useCode = normalizeUseCode(String(body.useCode ?? ""));
   if (!isUseCode(useCode)) {
-    return NextResponse.json({ error: "사용처리 코드는 숫자 4자리로 입력해주세요" }, { status: 400 });
+    if (!isDeliveryKind) {
+      return NextResponse.json({ error: "사용처리 코드는 숫자 4자리로 입력해주세요" }, { status: 400 });
+    }
+    useCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
   }
   // 동일 사장님의 진행 중(미마감) 캠페인 간 4자리 코드 중복 방지 (조회 모호성 제거)
   const ownerStoreIdSet = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
-  const dupActive = db.campaigns.some(
-    (c) => ownerStoreIdSet.has(c.storeId) && c.endAt > Date.now() && c.useCode === useCode,
-  );
+  const codeInUse = (code: string) =>
+    db.campaigns.some((c) => ownerStoreIdSet.has(c.storeId) && c.endAt > Date.now() && c.useCode === code);
+  // 배송형 자동 생성 코드가 충돌하면 재생성 (사장님 입력이 아니므로 오류 대신 해소)
+  if (isDeliveryKind && !isUseCode(normalizeUseCode(String(body.useCode ?? "")))) {
+    let guard = 0;
+    while (codeInUse(useCode) && guard++ < 50) {
+      useCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    }
+  }
+  const dupActive = codeInUse(useCode);
   if (dupActive) {
     return NextResponse.json(
       { error: `사용처리 코드 ${useCode}는 진행 중인 다른 캠페인에서 사용 중입니다. 다른 4자리를 입력해주세요.` },
@@ -105,10 +118,22 @@ export async function POST(req: NextRequest) {
   // 캠페인명 — 사장님 내부 관리용 제목 (확정 정책 7). 미입력 시 매장명 자동.
   // 체험자 화면은 항상 매장명(store.name) 중심으로 노출한다.
   const ownerTitle = String(body.title || "").trim().slice(0, 40);
+  // 캠페인 유형 (2026-07-12 레뷰 벤치마크) — 방문형 | 배송형. 배송형은 체험 포인트(선택) 지급 가능.
+  const kind: Campaign["kind"] = body.kind === "delivery" ? "delivery" : "visit";
+  // 기준 포인트 — 100P 단위 절사, 최대 100만P (배송형 전용, 실지급은 등급 배율 적용)
+  const pointReward =
+    kind === "delivery" ? Math.min(1000000, Math.floor((Number(body.pointReward) || 0) / 100) * 100) : 0;
+  // 상품 카테고리 — 배송형 필수. 플레이스 카테고리가 아닌 상품군 분류 (delivery-categories.ts)
+  const productCategory = kind === "delivery" ? String(body.productCategory || "").trim() : "";
+  if (kind === "delivery" && !isDeliveryCategory(productCategory)) {
+    return NextResponse.json({ error: "상품 카테고리를 선택해주세요" }, { status: 400 });
+  }
+  // 방문 전 예약 필수 (예약형 라이트) — 방문형 전용 옵션
+  const reservationRequired = kind === "visit" && body.reservationRequired === true;
   const c: Campaign = {
     id: rid("cp"),
     storeId: store.id,
-    kind: "visit",
+    kind,
     title: ownerTitle || store.name,
     startAt: now,
     endAt: now + (Number(body.days) || 30) * 86400000,
@@ -121,6 +146,9 @@ export async function POST(req: NextRequest) {
     highlightKeywords,
     createdAt: now,
     useCode,
+    ...(pointReward > 0 ? { pointReward } : {}),
+    ...(productCategory ? { productCategory } : {}),
+    ...(reservationRequired ? { reservationRequired: true } : {}),
   };
   db.campaigns.push(c);
   await saveDBAsync();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
+import { appendPointTxn, pointsForGrade } from "@/lib/points";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,31 @@ export async function POST(req: NextRequest) {
     // 검수 통과 시 체험자 누적 완료 리뷰 +1 (등급 산정 반영)
     const reviewer = db.reviewers.find((r) => r.id === pass.reviewerId);
     if (reviewer) reviewer.completedReviews += 1;
+    // 배송형 체험 포인트 적립 (2026-07-12 레뷰 벤치마크) — 검수 승인이라는 실제 발생
+    // 이벤트에만 적립(P4). 지급액 = pointReward × 참여 채널 등급 배율 (P1: 등급은 혜택 크기).
+    const campaign = db.campaigns.find((x) => x.id === pass.campaignId);
+    if (campaign?.kind === "delivery" && (campaign.pointReward ?? 0) > 0) {
+      const points = pointsForGrade(campaign.pointReward as number, pass.reviewerGrade);
+      if (points > 0) {
+        appendPointTxn(db, {
+          reviewerId: pass.reviewerId,
+          type: "earn",
+          amount: points,
+          refPassId: pass.id,
+          memo: `${storeName} 체험 리뷰 승인`,
+        });
+        db.notifications.push({
+          id: rid("nt"),
+          userId: pass.reviewerId,
+          role: "reviewer",
+          title: "체험 포인트 적립 💰",
+          body: `${storeName} 리뷰 승인으로 ${points.toLocaleString()}P가 적립되었습니다. 포인트는 마이페이지에서 출금할 수 있어요.`,
+          createdAt: now,
+          read: false,
+          link: "/r/me/points",
+        });
+      }
+    }
     db.notifications.push({
       id: rid("nt"),
       userId: pass.reviewerId,
