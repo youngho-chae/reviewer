@@ -36,6 +36,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const c = allCampaigns.find((x) => x.id === campaignId) || openCampaigns[0];
   if (!c) return notFound();
   const isDelivery = c.kind === "delivery";
+  const isReserve = !isDelivery && !!c.reservationRequired;
 
   const ended = c.endAt <= now;
   const remain = campaignRemain(c);
@@ -142,23 +143,30 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {/* 방문 전 예약 필수 — 예약형 라이트 (2026-07-12 레뷰 벤치마크 §2.1-4) */}
-        {!isDelivery && c.reservationRequired && (
-          <div className="mt-3 rounded-md bg-infoSoft px-3.5 py-3 flex items-center gap-2">
-            <span aria-hidden>📅</span>
-            <span className="text-[13px] font-semibold text-info">
-              방문 전 예약이 필요한 체험이에요 · 매장에 전화로 예약을 확정한 뒤 방문해주세요.
-            </span>
+        {/* 방문 전 예약 필수 — 예약 플로우 (2026-07-16 리뷰노트 벤치마크: 신청 시 일시 선택 → 사장님 확인) */}
+        {isReserve && (
+          <div className="mt-3 rounded-md bg-infoSoft px-3.5 py-3">
+            <div className="flex items-center gap-2">
+              <span aria-hidden>📅</span>
+              <span className="text-[13px] font-semibold text-info">
+                예약 방문 체험이에요 · 신청할 때 희망 방문 일시를 선택하면 사장님이 예약을 확인해드려요.
+              </span>
+            </div>
+            {c.reservationNote && (
+              <p className="mt-1.5 pl-6 text-[12px] text-ink2">📌 {c.reservationNote}</p>
+            )}
           </div>
         )}
 
-        {/* notice-banner — 사용 기한 고지 (방문형: 발급 후 72시간 / 배송형: 발송 후 리뷰 7일) */}
+        {/* notice-banner — 사용 기한 고지 (방문형: 72시간 / 예약형: 예약일까지 / 배송형: 발송 후 리뷰 7일) */}
         <div className="mt-3 rounded-md bg-brandSoft px-3.5 py-3 flex items-center gap-2">
           <span aria-hidden>{isDelivery ? "📦" : "💬"}</span>
           <span className="text-[13px] font-semibold text-brand">
             {isDelivery
               ? "신청하면 사장님이 상품을 발송해요 · 발송 후 7일 이내 리뷰를 등록해주세요."
-              : "체험권 발급 후 72시간 내로 사용하지 않으면 사라져요."}
+              : isReserve
+                ? "체험권은 예약한 방문일까지 사용할 수 있어요 · 방문하지 않으면 만료돼요."
+                : "체험권 발급 후 72시간 내로 사용하지 않으면 사라져요."}
           </span>
         </div>
       </section>
@@ -173,6 +181,10 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         myChannelGrades={eff.channelGrades}
         myActivePassId={myActivePass?.id ?? null}
         remain={remain}
+        reservationRequired={isReserve}
+        reservationNote={c.reservationNote ?? ""}
+        endAt={c.endAt}
+        productOptions={c.productOptions ?? []}
         ended={ended}
         exposure={exposure}
         cooldownLeftH={cooldownLeftH}
@@ -242,11 +254,18 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
                   { t: "상품 수령", d: "사장님이 발송하면 알림으로 운송장을 알려드려요." },
                   { t: "리뷰 작성", d: "발송 후 7일 이내 후기를 남기고 URL을 제출하면 완료! 검수 승인 시 포인트가 적립돼요." },
                 ]
-              : [
-                  { t: "체험권 발급받기", d: "내 체험권에 QR이 발급됩니다." },
-                  { t: "QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
-                  { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
-                ]
+              : isReserve
+                ? [
+                    { t: "희망 방문 일시 선택하고 발급받기", d: "예약이 함께 접수되고, 내 체험권에 QR이 발급됩니다." },
+                    { t: "예약 확인 알림 받기", d: "사장님이 예약을 확인하면 알림을 드려요 · 일정이 바뀌면 방문 전까지 예약을 변경할 수 있어요." },
+                    { t: "예약 시간에 방문해 QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
+                    { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
+                  ]
+                : [
+                    { t: "체험권 발급받기", d: "내 체험권에 QR이 발급됩니다." },
+                    { t: "QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
+                    { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
+                  ]
             ).map((s, i, arr) => (
               <div key={s.t} className="flex gap-3.5">
                 <div className="flex flex-col items-center">
@@ -270,10 +289,20 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
             {isDelivery ? (
               <>
                 <li>발송 처리 전에는 언제든 취소할 수 있지만, 발송된 후에는 취소할 수 없어요.</li>
+                <li>리뷰 기한은 발송된 뒤부터 계산돼요 — 발송이 늦어져도 리뷰 시간이 줄어들지 않아요.</li>
                 <li>리뷰는 발송 후 7일 이내 제출해야 해요.</li>
                 <li>제출한 리뷰는 등록일로부터 90일 이상 게시를 유지해야 해요. (제출 시 별도 동의)</li>
                 <li>포인트는 리뷰가 검수를 통과하면 적립돼요 · 출금 시 세금(3.3%)과 수수료가 차감돼요.</li>
                 <li>리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
+              </>
+            ) : isReserve ? (
+              <>
+                <li>체험권은 예약한 방문일 당일까지 사용할 수 있어요 · 기한이 지나면 연장·복구되지 않아요.</li>
+                <li>예약은 사장님 확인 후 확정돼요 · 일정이 바뀌면 방문 전까지 체험권에서 예약을 변경할 수 있어요.</li>
+                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요 · 취소한 캠페인은 12시간 뒤부터 재신청할 수 있어요.</li>
+                <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
+                <li>제출한 리뷰는 등록일로부터 90일 이상 게시를 유지해야 해요. (제출 시 별도 동의)</li>
+                <li>미방문 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
               </>
             ) : (
               <>

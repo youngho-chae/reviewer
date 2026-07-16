@@ -42,6 +42,8 @@ export default function NewCampaign() {
   // 배송형 상품 카테고리 (필수) — 플레이스 분류가 아닌 상품군 분류 (delivery-categories.ts)
   const [productCategory, setProductCategory] = useState("");
   const [reservationRequired, setReservationRequired] = useState(false); // 방문형 예약 필수 옵션
+  const [reservationNote, setReservationNote] = useState(""); // 예약 안내 (가능 요일·시간대 — 선택)
+  const [productOptionsRaw, setProductOptionsRaw] = useState(""); // 배송형 상품 옵션 (쉼표 구분 · 최대 5)
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
@@ -150,7 +152,11 @@ export default function NewCampaign() {
         useCode: isDelivery ? undefined : useCode,
         pointReward: isDelivery && pointReward ? Number(pointReward) : undefined,
         productCategory: isDelivery ? productCategory : undefined,
+        productOptions: isDelivery
+          ? productOptionsRaw.split(/[,\n]/).map((o) => o.trim()).filter((o) => o.length > 0).slice(0, 5)
+          : undefined,
         reservationRequired: !isDelivery && reservationRequired ? true : undefined,
+        reservationNote: !isDelivery && reservationRequired ? reservationNote.trim() || undefined : undefined,
         requiredMenus: isDelivery ? [] : cleanMenus,
         requiredChannels: channels,
         highlightKeywords,
@@ -339,6 +345,24 @@ export default function NewCampaign() {
           </section>
         )}
 
+        {/* 배송형 — 상품 옵션 (선택, 2026-07-16 리뷰노트 벤치마크) */}
+        {isDelivery && (
+          <section>
+            <div className="text-[14px] font-semibold text-ink mb-2">
+              상품 옵션 <span className="text-[12px] text-muted font-normal">(선택 · 쉼표로 최대 5개)</span>
+            </div>
+            <input
+              value={productOptionsRaw}
+              onChange={(e) => setProductOptionsRaw(e.target.value)}
+              placeholder="예: 화이트, 블랙"
+              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+            />
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              색상·구성 등 옵션이 있는 상품이라면 입력하세요. 체험자가 신청할 때 하나를 선택하고, 발송 대기 큐에 표시돼요.
+            </p>
+          </section>
+        )}
+
         {/* 배송형 — 체험 포인트 (선택) */}
         {isDelivery && (
           <section>
@@ -372,10 +396,23 @@ export default function NewCampaign() {
               <span>
                 <span className="text-[14px] font-semibold text-ink block">방문 전 예약 필수</span>
                 <span className="text-[12px] text-muted leading-[1.5] block mt-0.5">
-                  숙박·미용 등 예약이 필요한 업종이라면 체크하세요. 체험자 상세 화면에 &quot;방문 전 예약 필수&quot; 안내가 표시돼요.
+                  숙박·미용 등 예약이 필요한 업종이라면 체크하세요. 체험자가 신청할 때 희망 방문 일시를 선택하고,
+                  사장님 홈의 예약 확인 큐에서 확정할 수 있어요.
                 </span>
               </span>
             </label>
+            {/* 예약 안내 — 가능 요일·시간대 등 (선택, 2026-07-16 리뷰노트 벤치마크) */}
+            {reservationRequired && (
+              <div className="mt-2">
+                <input
+                  value={reservationNote}
+                  onChange={(e) => setReservationNote(e.target.value.slice(0, 80))}
+                  placeholder="예약 안내 (선택) — 예: 화~일 11:00~20:00 · 월요일 휴무"
+                  className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+                />
+                <p className="mt-1.5 text-[12px] text-muted">가능 요일·시간대를 적어주시면 체험자 상세·신청 화면에 표시돼요.</p>
+              </div>
+            )}
           </section>
         )}
 

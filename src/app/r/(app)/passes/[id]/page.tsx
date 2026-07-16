@@ -6,8 +6,10 @@ import { supportForGrade } from "@/lib/grade";
 import { passDisplayStatus } from "@/lib/pass-display";
 import { CHANNEL_LABEL, defaultChannel } from "@/lib/channels";
 import { findSupportBoost, boostedLimit } from "@/lib/referral";
-import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
+import { REVIEW_DEADLINE_MS, SHIP_DELAY_NOTICE_MS } from "@/lib/pass-lifecycle";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
+import { courierLabel, trackingUrl } from "@/lib/couriers";
+import { STORYBOARD } from "@/lib/storyboard";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
 import { SBUI } from "@/lib/storyboard";
@@ -15,6 +17,7 @@ import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
 import PassTicket from "./PassTicket";
 import CancelPassButton from "./CancelPassButton";
+import ReservationPanel from "./ReservationPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +90,15 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             </p>
           </div>
 
+          {/* 발송 지연 안내 (2026-07-16 리뷰노트 벤치마크) — 표시 전용, 리뷰 기한은 발송 후 롤링이라 불이익 없음 */}
+          {Date.now() - pass.issuedAt > SHIP_DELAY_NOTICE_MS && (
+            <div className="mt-3 rounded-md bg-warningSoft px-4 py-3 text-[13px] text-ink2 leading-[1.55]">
+              <span className="font-bold text-warning">발송이 늦어지고 있어요</span> — 신청 후{" "}
+              {Math.floor((Date.now() - pass.issuedAt) / 86400000)}일이 지났어요. 리뷰 기한은 발송된 뒤부터
+              계산되니 불이익은 없고, 발송 전에는 언제든 취소할 수 있어요.
+            </div>
+          )}
+
           {pass.shipping && (
             <div className="mt-4 rounded-md border border-hairline p-4">
               <div className="text-[13px] font-bold text-ink">배송지</div>
@@ -95,6 +107,11 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                 <br />
                 <span className="text-ink2">{pass.shipping.address}</span>
               </div>
+              {pass.shipping.option && (
+                <div className="mt-2 text-[13px] text-ink">
+                  <span className="text-muted">선택 옵션</span> · <span className="font-semibold">{pass.shipping.option}</span>
+                </div>
+              )}
               <p className="mt-2 text-[11px] text-muted">배송지 정보는 상품 발송 목적으로만 사장님에게 전달돼요.</p>
             </div>
           )}
@@ -137,6 +154,17 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           expiresAt={pass.expiresAt}
           boosted={!!boost && displaySupport > entitledSupport}
         />
+
+        {/* 예약 방문 패널 (2026-07-16 리뷰노트 벤치마크) — 예약 일시·상태 + 예약 변경 */}
+        {pass.reservation && (
+          <ReservationPanel
+            passId={pass.id}
+            date={pass.reservation.date}
+            time={pass.reservation.time}
+            status={pass.reservation.status}
+            endAt={campaign?.endAt ?? pass.expiresAt}
+          />
+        )}
 
         {/* [2026-07-12 회의 §8-1] QR 인증 화면에서 참여 취소 제거 — 매장 직원과 함께 쓰는
             인증 중심 화면으로 단순화. 방문 취소는 내 체험권 리스트의 [참여 취소]에서. */}
@@ -185,7 +213,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                   <div className="text-[15px] font-bold text-brand">{isDelivery ? "📦 발송 완료" : "사용 완료"}</div>
                   {isDelivery ? (
                     <div className="mt-1 text-[14px] text-ink2 tabular-nums">
-                      {pass.trackingNo ? `운송장 ${SBUI.trackingNo}` : "상품이 발송되었어요"}
+                      {pass.trackingNo
+                        ? `${courierLabel(pass.courier)} 운송장 ${STORYBOARD ? SBUI.trackingNo : pass.trackingNo}`
+                        : "상품이 발송되었어요"}
                     </div>
                   ) : (
                     <div className="mt-1 text-[14px] text-ink2 tabular-nums">결제 {SBUI.price} · 지원 {SBUI.support}</div>
@@ -207,6 +237,17 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
                 <div className="mt-2 text-[12px] text-muted">
                   {campaign?.pointReward ? "리뷰가 검수를 통과하면 포인트가 적립돼요" : "수령 후 체험하고 리뷰를 등록해주세요"}
                 </div>
+              )}
+              {/* 배송 조회 (2026-07-16 리뷰노트 벤치마크) — 택배사 조회 페이지로 이동 */}
+              {isDelivery && !STORYBOARD && trackingUrl(pass.courier, pass.trackingNo) && (
+                <a
+                  href={trackingUrl(pass.courier, pass.trackingNo)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="cp-action mt-3 inline-flex h-9 px-3.5 items-center rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-ink"
+                >
+                  🚚 배송 조회 →
+                </a>
               )}
             </div>
 

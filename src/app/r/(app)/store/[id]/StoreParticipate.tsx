@@ -13,6 +13,12 @@ import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { fmtKoDateTime } from "@/lib/dates";
 import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
+import {
+  RESERVATION_TIME_SLOTS,
+  reservationDateOptions,
+  fmtReservationDateLabel,
+  fmtReservationLabel,
+} from "@/lib/reservation";
 
 interface Props {
   campaignId: string;
@@ -24,6 +30,12 @@ interface Props {
   myChannelGrades: Partial<Record<SnsKind, Grade>>;
   myActivePassId: string | null;
   remain: number;
+  // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — 신청 시 희망 방문 일시 선택
+  reservationRequired?: boolean;
+  reservationNote?: string; // 캠페인 예약 안내 (가능 요일·시간대)
+  endAt?: number; // 캠페인 종료일 — 예약 가능 날짜 한도
+  // 배송형 상품 옵션 (2026-07-16) — 설정 시 신청에서 택1 필수
+  productOptions?: string[];
   ended?: boolean; // 캠페인 기간 종료 — 상세는 열람 가능하되 신청 차단 (관심 목록 경유)
   // 노출 상태 (campaign-visibility) — issued_out = 일시 소진 (미사용 만료 시 복구 가능 · 종료 아님)
   exposure?: "open" | "issued_out" | "closed";
@@ -47,6 +59,10 @@ export default function StoreParticipate({
   myChannelGrades,
   myActivePassId,
   remain,
+  reservationRequired = false,
+  reservationNote = "",
+  endAt = 0,
+  productOptions = [],
   ended = false,
   exposure = "open",
   cooldownLeftH = null,
@@ -73,8 +89,14 @@ export default function StoreParticipate({
   const [recipient, setRecipient] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [option, setOption] = useState(""); // 상품 옵션 (옵션 캠페인 택1 필수)
+  // 예약형 — 희망 방문 일시 (신청 필수, 사장님이 확인 후 확정)
+  const [rsvDate, setRsvDate] = useState("");
+  const [rsvTime, setRsvTime] = useState("");
 
   const isDelivery = kind === "delivery";
+  const isReserve = !isDelivery && reservationRequired;
+  const rsvDates = useMemo(() => (isReserve && endAt > 0 ? reservationDateOptions(endAt) : []), [isReserve, endAt]);
   const myGrade: Grade | undefined = selected ? myChannelGrades[selected] : undefined;
   const connected = !!myGrade;
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
@@ -83,7 +105,9 @@ export default function StoreParticipate({
   // [2026-07-12 회의 §10-3] 리뷰 조건에는 실제 작성 요건만 — 90일 유지(keep)는 유의사항으로 분리
   const conditions = selected ? (CHANNEL_REVIEW_CONDITIONS[selected] ?? []).filter((c) => !c.keep) : [];
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
-  const shippingValid = !isDelivery || (recipient.trim() && phone.trim() && address.trim());
+  const shippingValid =
+    !isDelivery || (recipient.trim() && phone.trim() && address.trim() && (productOptions.length === 0 || !!option));
+  const reservationValid = !isReserve || (!!rsvDate && !!rsvTime);
 
   async function copyNotice() {
     if (!selected) return;
@@ -105,7 +129,17 @@ export default function StoreParticipate({
       body: JSON.stringify({
         campaignId,
         channel: selected,
-        ...(isDelivery ? { shipping: { recipient: recipient.trim(), phone: phone.trim(), address: address.trim() } } : {}),
+        ...(isDelivery
+          ? {
+              shipping: {
+                recipient: recipient.trim(),
+                phone: phone.trim(),
+                address: address.trim(),
+                ...(option ? { option } : {}),
+              },
+            }
+          : {}),
+        ...(isReserve ? { reservation: { date: rsvDate, time: rsvTime } } : {}),
       }),
     });
     if (!res.ok) {
@@ -290,7 +324,7 @@ export default function StoreParticipate({
               disabled={!connected}
               className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
             >
-              {isDelivery ? "배송 체험 신청하기" : "체험권 발급받기"}
+              {isDelivery ? "배송 체험 신청하기" : isReserve ? "예약하고 체험권 받기" : "체험권 발급받기"}
             </button>
           )}
         </div>
@@ -314,6 +348,14 @@ export default function StoreParticipate({
                   <div className="text-[13px] text-ink2">신청하면 사장님이 상품을 발송해요</div>
                   <div className="mt-1 text-[17px] font-bold text-brand">발송 후 7일 이내 리뷰 제출</div>
                   <div className="mt-1.5 text-[12px] text-muted">발송되면 알림으로 운송장을 알려드려요</div>
+                </>
+              ) : isReserve ? (
+                <>
+                  <div className="text-[13px] text-ink2">희망 방문 일시를 선택하면</div>
+                  <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
+                    {rsvDate && rsvTime ? sbNum(SBUI.dateTime, fmtReservationLabel(rsvDate, rsvTime)) : "선택한 방문 일시"}에 방문
+                  </div>
+                  <div className="mt-1.5 text-[12px] text-muted">사장님이 예약을 확인해드려요 · 체험권은 방문일까지 유효해요</div>
                 </>
               ) : (
                 <>
@@ -356,11 +398,65 @@ export default function StoreParticipate({
               )}
             </div>
 
+            {/* 희망 방문 일시 — 예약형 필수 (2026-07-16 리뷰노트 벤치마크). 사장님이 확인 후 확정 */}
+            {isReserve && (
+              <div className="mt-5">
+                <div className="text-[13px] font-bold text-ink">희망 방문 일시</div>
+                {reservationNote && <p className="mt-1 text-[12px] text-muted">📌 {reservationNote}</p>}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <select
+                    value={rsvDate}
+                    onChange={(e) => setRsvDate(e.target.value)}
+                    aria-label="방문 날짜"
+                    className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvDate ? "text-ink" : "text-mutedSoft"}`}
+                  >
+                    <option value="">날짜 선택</option>
+                    {rsvDates.map((d) => (
+                      <option key={d} value={d}>
+                        {fmtReservationDateLabel(d)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={rsvTime}
+                    onChange={(e) => setRsvTime(e.target.value)}
+                    aria-label="방문 시간"
+                    className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvTime ? "text-ink" : "text-mutedSoft"}`}
+                  >
+                    <option value="">시간 선택</option>
+                    {RESERVATION_TIME_SLOTS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted">
+                  발급과 함께 예약이 접수되고, 사장님이 확인하면 알림을 드려요 · 방문 전까지 예약 변경이 가능해요.
+                </p>
+              </div>
+            )}
+
             {/* 배송지 입력 — 배송형 필수 (발송 목적 한정으로 사장님에게 노출) */}
             {isDelivery && (
               <div className="mt-5">
                 <div className="text-[13px] font-bold text-ink">배송지 입력</div>
                 <div className="mt-2 space-y-2">
+                  {productOptions.length > 0 && (
+                    <select
+                      value={option}
+                      onChange={(e) => setOption(e.target.value)}
+                      aria-label="상품 옵션 선택"
+                      className={`w-full h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${option ? "text-ink" : "text-mutedSoft"}`}
+                    >
+                      <option value="">상품 옵션 선택 (필수)</option>
+                      {productOptions.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <input
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
@@ -398,7 +494,7 @@ export default function StoreParticipate({
               </button>
               <button
                 onClick={go}
-                disabled={busy || !shippingValid}
+                disabled={busy || !shippingValid || !reservationValid}
                 className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:opacity-60"
               >
                 {busy ? (isDelivery ? "신청 중..." : "발급 중...") : isDelivery ? "신청하고 체험권 보기" : "발급받고 체험권 보기"}

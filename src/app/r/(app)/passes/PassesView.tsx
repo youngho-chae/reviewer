@@ -39,6 +39,9 @@ export interface VisitPassItem {
   // 배송형 (2026-07-12 레뷰 벤치마크) — active="발송 대기", 혜택 표기 = 제품(+포인트)
   isDelivery?: boolean;
   pointReward?: number; // 등급 배율 적용된 내 적립 예정 포인트
+  // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — active 카드에 예약 일시·확인 상태 표기
+  reservationLabel?: string | null; // "7월 18일 (토) 14:00"
+  reservationStatus?: "requested" | "confirmed" | null;
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -306,6 +309,19 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       {/* 상태별 하단 영역 */}
       {isActive && (
         <>
+          {/* 예약 방문 (2026-07-16) — 예약 일시 + 확인 상태 */}
+          {it.reservationLabel && (
+            <div className="mt-3 flex items-center gap-2 text-[13px]">
+              <span className="font-semibold text-ink tabular-nums">📅 {sbNum(SBUI.dateTime, it.reservationLabel)} 방문</span>
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded-pill text-[11px] font-semibold ${
+                  it.reservationStatus === "confirmed" ? "bg-successSoft text-successStrong" : "bg-sunken text-muted"
+                }`}
+              >
+                {it.reservationStatus === "confirmed" ? "예약 확정" : "예약 확인 대기"}
+              </span>
+            </div>
+          )}
           <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
             <span className="text-muted">{it.isDelivery ? "신청 유효" : "유효기간"}</span>
             <span className="font-semibold text-ink tabular-nums">

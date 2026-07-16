@@ -5,6 +5,8 @@ import { PLAN_POLICY } from "@/lib/plan-policy";
 import type { Campaign } from "@/lib/types";
 import CampaignTabs from "./CampaignTabs";
 import ShipQueue, { type ShipQueueItem } from "./ShipQueue";
+import ReservationQueue, { type ReservationQueueItem } from "./ReservationQueue";
+import { fmtReservationLabel, reservationEpoch } from "@/lib/reservation";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +35,23 @@ export default async function OwnerHome() {
       recipient: p.shipping!.recipient,
       phone: p.shipping!.phone,
       address: p.shipping!.address,
+      option: p.shipping!.option,
       issuedAt: p.issuedAt,
     }));
+
+  // 예약 확인 큐 (2026-07-16 리뷰노트 벤치마크) — 예약형 방문 신청 (익명 #last4 · 일시만).
+  // [P1] 예약 확인은 일정 조율 — 거절 없음. 방문 임박 순 정렬, 확정 건도 방문 예정으로 함께 표시.
+  const reservationQueue: ReservationQueueItem[] = myPasses
+    .filter((p) => p.status === "active" && p.reservation)
+    .map((p) => ({
+      passId: p.id,
+      masked: `#${p.reviewerId.slice(-4)}`,
+      campaignTitle: myCampaigns.find((c) => c.id === p.campaignId)?.title ?? "캠페인",
+      label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),
+      status: p.reservation!.status,
+      epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
+    }))
+    .sort((a, b) => a.epoch - b.epoch);
 
   return (
     <div className="pb-24 bg-canvas">
@@ -51,6 +68,9 @@ export default async function OwnerHome() {
         </div>
         <div className="text-[13px] font-semibold text-brand mt-1">후기 모니터링 →</div>
       </Link>
+
+      {/* 방문 예약 확인 큐 — 예약형 방문 신청 확인·확정 (2026-07-16) */}
+      <ReservationQueue items={reservationQueue} />
 
       {/* 배송형 발송 대기 큐 — 운송장 입력 후 발송 처리 (2026-07-12) */}
       <ShipQueue items={shipQueue} />

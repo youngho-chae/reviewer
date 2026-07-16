@@ -159,6 +159,23 @@ export interface Campaign {
   // ── 방문형 예약 옵션 (예약형 라이트 — flags.ts '추후 확장'의 1단계) ──
   // true면 상세·체험권에 "방문 전 예약 필수" 배지 + 안내. 선정 절차는 두지 않는다(즉시 발급 유지).
   reservationRequired?: boolean;
+  // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — "가능 요일" 대응) — 가능 요일·시간대 등 자유 텍스트.
+  // 상세 배너·발급 시트에 노출. reservationRequired 캠페인 전용 (선택 입력, 최대 80자).
+  reservationNote?: string;
+  // 배송형 상품 옵션 (2026-07-16 리뷰노트 벤치마크) — 색상·구성 등 최대 5개.
+  // 설정 시 신청에서 택1 필수 (Pass.shipping.option) — 발송 목적으로 발송 큐에 표시.
+  productOptions?: string[];
+}
+
+// 예약형 방문 일정 (2026-07-16 리뷰노트 벤치마크 — 정본: 운영정책서 §15, src/lib/reservation.ts)
+// 예약은 참여 승인/선정이 아니라 "일정 조율"이다 — 거절 상태를 두지 않는다(P1: 참여 차단 조건 3가지뿐).
+// 일시가 곤란하면 매장이 연락해 조율하고 체험자가 예약을 변경한다. 미확정이어도 사용(QR)은 가능.
+export interface PassReservation {
+  date: string; // "YYYY-MM-DD" (KST)
+  time: string; // "HH:mm" — RESERVATION_TIME_SLOTS 중 하나
+  status: "requested" | "confirmed"; // 확인 대기 / 사장님 확인 완료
+  requestedAt: number;
+  confirmedAt?: number;
 }
 
 // 배송형 신청 시 체험자가 입력하는 배송지 — 발송 목적 한정으로 사장님에게 노출된다
@@ -167,6 +184,8 @@ export interface ShippingInfo {
   recipient: string; // 수령인 이름
   phone: string;
   address: string;
+  // 선택한 상품 옵션 — campaign.productOptions 중 하나 (옵션 캠페인은 필수, 2026-07-16)
+  option?: string;
 }
 
 export type PassStatus =
@@ -226,6 +245,10 @@ export interface Pass {
   shipping?: ShippingInfo; // 신청 시 입력한 배송지 (발송 목적 한정 노출)
   shippedAt?: number; // 사장님 발송 처리 시각 (= usedAt과 함께 세팅 — 리뷰 7일 기산점)
   trackingNo?: string; // 운송장 번호 (선택)
+  courier?: string; // 택배사 코드 (src/lib/couriers.ts — 체험자 배송 조회 링크용, 2026-07-16)
+  // ── 예약형 방문 전용 (2026-07-16 리뷰노트 벤치마크) ──
+  // 존재 시 expiresAt = 예약일 당일 말(KST 23:59) — 72h 고정 기한의 명시적 예외.
+  reservation?: PassReservation;
   status: PassStatus;
 }
 

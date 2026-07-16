@@ -29,6 +29,8 @@ const SB = {
   ownerStore: "매장명",
   keyword: "키워드",
   material: "자료명",
+  reserveNote: "예약안내",
+  productOption: "옵션명",
 };
 
 // 결정론적 ID — 서버리스 인스턴스 간 동일 ID 보장
@@ -501,11 +503,14 @@ export function runSeed(db: DBShape) {
         : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: DEMO_USE_CODE,
-      // 방문 전 예약 필수 (예약형 라이트, 2026-07-12) — 미용·의료·웰니스 등 예약 기반 업종
+      // 방문 전 예약 필수 (예약형, 2026-07-12 · 안내 문구 2026-07-16) — 미용·의료·웰니스 등 예약 기반 업종
       ...(["미용실", "네일아트", "피부과", "치과", "한의원", "PT", "필라테스", "마사지", "애견미용", "동물병원"].includes(
         s.category,
       )
-        ? { reservationRequired: true }
+        ? {
+            reservationRequired: true,
+            reservationNote: STORYBOARD ? SB.reserveNote : "화~일 11:00~20:00 예약 가능 · 월요일 휴무",
+          }
         : {}),
     };
     db.campaigns.push(campaign);
@@ -1180,7 +1185,13 @@ export function runSeed(db: DBShape) {
         highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
         createdAt: regionCreatedAt,
         useCode: DEMO_USE_CODE,
-        ...(shop.reserve ? { reservationRequired: true } : {}),
+        // 예약형 (2026-07-16 리뷰노트 벤치마크) — 예약 안내(가능 요일·시간대) 포함
+        ...(shop.reserve
+          ? {
+              reservationRequired: true,
+              reservationNote: STORYBOARD ? SB.reserveNote : "화~일 11:00~20:00 예약 가능 · 월요일 휴무",
+            }
+          : {}),
       });
     }
   }
@@ -1200,13 +1211,14 @@ export function runSeed(db: DBShape) {
       productValue: number;
       pointReward: number; // 0 = 제품만
       channels: SnsKind[];
+      options?: string[]; // 상품 옵션 (2026-07-16 리뷰노트 벤치마크 — 신청 시 택1)
     }> = [
       { key: "dv-bakes", name: "카라멜 베이크 하우스", category: "식품", emoji: "🍪", product: "수제 쿠키 선물 세트", productValue: 32000, pointReward: 10000, channels: ["naver_blog", "instagram"] },
       { key: "dv-beans", name: "미드나잇 로스터스", category: "식품", emoji: "☕", product: "스페셜티 원두 2종 세트", productValue: 28000, pointReward: 5000, channels: ["tiktok"] },
       { key: "dv-meal", name: "한상 밀키트", category: "식품", emoji: "🍲", product: "갈비찜 밀키트 2인분", productValue: 39000, pointReward: 0, channels: ["instagram"] },
-      { key: "dv-serum", name: "글로우랩 코스메틱", category: "뷰티", emoji: "🧴", product: "비타민 세럼 30ml", productValue: 42000, pointReward: 8000, channels: ["instagram", "tiktok"] },
+      { key: "dv-serum", name: "글로우랩 코스메틱", category: "뷰티", emoji: "🧴", product: "비타민 세럼 30ml", productValue: 42000, pointReward: 8000, channels: ["instagram", "tiktok"], options: ["비타민C 세럼", "레티놀 세럼"] },
       { key: "dv-diffuser", name: "온음 리빙", category: "리빙", emoji: "🕯️", product: "우드 룸 디퓨저 세트", productValue: 35000, pointReward: 0, channels: ["naver_blog"] },
-      { key: "dv-airbuds", name: "사운드포켓", category: "디지털", emoji: "🎧", product: "무선 이어버드 라이트", productValue: 59000, pointReward: 15000, channels: ["naver_blog", "instagram"] },
+      { key: "dv-airbuds", name: "사운드포켓", category: "디지털", emoji: "🎧", product: "무선 이어버드 라이트", productValue: 59000, pointReward: 15000, channels: ["naver_blog", "instagram"], options: ["화이트", "블랙"] },
     ];
     const dvStoreIds: Record<string, string> = {};
     for (const b of dvBrands) {
@@ -1247,6 +1259,8 @@ export function runSeed(db: DBShape) {
         useCode: DEMO_USE_CODE,
         ...(b.pointReward > 0 ? { pointReward: b.pointReward } : {}),
         productCategory: b.category, // 상품 카테고리 — 탐색 배송 칩·필터 기준
+        // 상품 옵션 (2026-07-16) — 신청 시 택1, 발송 큐 표시
+        ...(b.options ? { productOptions: STORYBOARD ? b.options.map((_, i) => `${SB.productOption} ${i + 1}`) : b.options } : {}),
       });
     }
     const dvCamp = (key: string) => db.campaigns.find((c) => c.id === detId("cp", `${key}-camp`))!;

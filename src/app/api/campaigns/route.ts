@@ -130,6 +130,16 @@ export async function POST(req: NextRequest) {
   }
   // 방문 전 예약 필수 (예약형 라이트) — 방문형 전용 옵션
   const reservationRequired = kind === "visit" && body.reservationRequired === true;
+  // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — 가능 요일·시간대 등) — 예약형 전용, 선택 입력
+  const reservationNote = reservationRequired ? String(body.reservationNote || "").trim().slice(0, 80) : "";
+  // 배송형 상품 옵션 (2026-07-16) — 최대 5개, 각 30자, 중복 제거. 설정 시 신청에서 택1 필수.
+  const productOptions: string[] =
+    kind === "delivery" && Array.isArray(body.productOptions)
+      ? (body.productOptions as unknown[])
+          .map((o) => String(o ?? "").trim().slice(0, 30))
+          .filter((o, i, arr) => o.length > 0 && arr.indexOf(o) === i)
+          .slice(0, 5)
+      : [];
   const c: Campaign = {
     id: rid("cp"),
     storeId: store.id,
@@ -149,6 +159,8 @@ export async function POST(req: NextRequest) {
     ...(pointReward > 0 ? { pointReward } : {}),
     ...(productCategory ? { productCategory } : {}),
     ...(reservationRequired ? { reservationRequired: true } : {}),
+    ...(reservationNote ? { reservationNote } : {}),
+    ...(productOptions.length > 0 ? { productOptions } : {}),
   };
   db.campaigns.push(c);
   await saveDBAsync();
