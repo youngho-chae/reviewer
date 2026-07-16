@@ -11,13 +11,23 @@
 // env (.env.local — 발급받은 키를 여기에):
 //   KFTC_CLIENT_ID / KFTC_CLIENT_SECRET  : 오픈뱅킹 앱의 Client ID·Secret (필수)
 //   KFTC_ORG_CODE                        : 이용기관코드 10자리 (미설정 시 테스트베드 예시값)
-//   KFTC_API_BASE                        : 기본 테스트베드. 운영 전환 시 https://openapi.openbanking.or.kr
+//   KFTC_API_BASE                        : 명시 오버라이드 (스텁/테스트베드/운영). 미설정 시
+//                                          배포(Vercel/production)=운영망 · 로컬=테스트베드 기본.
 // 키 미설정 시에는 데모 인증 모드(입력 예금주를 그대로 승인·verifiedVia "demo")로 동작한다.
+//
+// ★ 실계좌 인증의 환경 조건 (2026-07-16 — KFTC 구조적 제약, 코드로 우회 불가):
+//   테스트베드(testapi)는 은행 원장에 연결되지 않은 "시뮬레이터" — 실제 계좌·임의 계좌는
+//   조회 자체가 불가능하고, 개발자사이트 [마이페이지→테스트 관리→테스트 데이터 관리]에
+//   등록된 테스트 계좌 조합만 응답이 존재한다. 실제 계좌가 실제로 조회·검증되는 것은
+//   운영망(openapi.openbanking.or.kr)을 운영 승인 키로 호출할 때뿐 — 배포 환경은 기본으로
+//   운영망을 호출하며(2026-07-16, Vercel 실키 등록에 따른 지시 반영), 테스트 힌트·배너는
+//   운영망에서 자동 비활성. 배포에서 테스트베드가 필요하면 KFTC_API_BASE로 명시한다.
 // ─────────────────────────────────────────────────────────────
 
 import crypto from "node:crypto";
 
 const TESTBED_BASE = "https://testapi.openbanking.or.kr";
+const PRODUCTION_BASE = "https://openapi.openbanking.or.kr";
 
 export function openbankingConfigured(): boolean {
   return !!(process.env.KFTC_CLIENT_ID && process.env.KFTC_CLIENT_SECRET);
@@ -26,13 +36,17 @@ export function openbankingConfigured(): boolean {
 // 테스트베드/스텁 여부 — 운영망(openapi.openbanking.or.kr)이 아니면 true.
 // 예금주 힌트 등 테스트 보조 정보는 테스트베드에서만 노출한다 (운영에서는 미노출).
 export function isTestbedBase(): boolean {
-  return !apiBase().startsWith("https://openapi.openbanking.or.kr");
+  return !apiBase().startsWith(PRODUCTION_BASE);
 }
 
 function apiBase(): string {
-  // 비프로덕션에서는 KFTC_API_BASE로 스텁/테스트베드 교체 가능.
-  // production은 명시 설정이 없으면 테스트베드가 아닌 운영 URL을 실수로 쓰지 않도록 그대로 env 우선.
-  return process.env.KFTC_API_BASE || TESTBED_BASE;
+  // 우선순위: KFTC_API_BASE 명시(스텁/테스트베드/운영 어디든) → 환경 기본값.
+  // 배포(Vercel/production) 기본 = 운영망 — Vercel에 등록된 실키로 실계좌 실명조회를 호출한다
+  // (2026-07-16 지시 반영. 배포에서 테스트베드를 쓰려면 KFTC_API_BASE로 명시).
+  // 로컬 개발 기본 = 테스트베드 — 실수로 운영망을 호출하지 않도록.
+  if (process.env.KFTC_API_BASE) return process.env.KFTC_API_BASE;
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") return PRODUCTION_BASE;
+  return TESTBED_BASE;
 }
 
 function orgCodeFallback(): string {
@@ -67,7 +81,11 @@ async function getOrgToken(): Promise<{ token: string; orgCode: string }> {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.access_token) {
-    throw new Error(`오픈뱅킹 토큰 발급 실패 (${res.status}): ${data.error_description || data.rsp_message || "Client ID/Secret을 확인해주세요"}`);
+    // 어느 망을 호출했는지 명시 — 운영망 인증 실패의 최다 원인은 "테스트베드용 키" (운영키는 이용기관 승인 후 별도 발급)
+    const net = isTestbedBase() ? "테스트베드" : "운영망";
+    const reason = data.error_description || data.rsp_message || "Client ID/Secret을 확인해주세요";
+    const hint = isTestbedBase() ? "" : " — 운영 승인 키인지 확인해주세요 (테스트베드용 키는 운영망에서 사용할 수 없어요)";
+    throw new Error(`오픈뱅킹 토큰 발급 실패 (${net}, ${res.status}): ${reason}${hint}`);
   }
   // 이용기관코드 자동 채택 — 토큰 응답의 client_use_code가 정답 (env는 수동 오버라이드용).
   // "bank_tran_id 앞자리가 이용기관코드와 다릅니다" 오류의 원인 제거 (2026-07-16 정정).

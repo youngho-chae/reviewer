@@ -48,13 +48,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "오픈뱅킹 연동 오류" }, { status: 502 });
     }
     if (!result.ok) {
-      // 테스트베드 시뮬레이터 특성 안내 — 시뮬레이터에 등록된 테스트 계좌 조합으로만 응답이 존재
+      // 테스트베드 시뮬레이터 특성 안내 — 테스트베드는 은행 원장에 연결되지 않은 시뮬레이터라
+      // 실계좌·임의 계좌는 조회가 불가능하고, 등록된 테스트 계좌 조합으로만 응답이 존재한다.
+      // 실계좌 인증 = 운영망(openapi) + 운영 승인 키 전환 (KFTC 구조적 제약 — 코드로 우회 불가).
       const msg = String(result.message || "");
       if (msg.includes("시뮬레이터")) {
         return NextResponse.json(
           {
             error:
-              "테스트베드 시뮬레이터에 등록되지 않은 계좌예요. KFTC 개발자사이트 마이페이지 → 테스트 관리 → 테스트 데이터 관리에서 계좌(은행·계좌번호·생년월일·예금주)를 등록한 뒤, 그 정보로 인증해주세요.",
+              "KFTC 테스트베드는 시뮬레이터라서 실제 계좌는 조회되지 않아요. 개발자사이트 마이페이지 → 테스트 관리 → 테스트 데이터 관리에 계좌(은행·계좌번호·생년월일·예금주)를 등록한 뒤 그 조합으로 인증해주세요. 실계좌 인증은 운영망 전환 후 가능해요.",
             rspCode: result.rspCode,
           },
           { status: 400 },
