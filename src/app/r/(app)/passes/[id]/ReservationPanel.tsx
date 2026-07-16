@@ -26,7 +26,7 @@ export default function ReservationPanel({
   passId: string;
   date: string;
   time: string;
-  status: "requested" | "confirmed";
+  status: "requested" | "proposed" | "confirmed";
   endAt: number; // 캠페인 종료일 — 변경 가능 날짜 한도
 }) {
   const router = useRouter();

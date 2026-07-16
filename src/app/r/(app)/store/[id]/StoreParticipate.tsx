@@ -355,7 +355,7 @@ export default function StoreParticipate({
                   <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
                     {rsvDate && rsvTime ? sbNum(SBUI.dateTime, fmtReservationLabel(rsvDate, rsvTime)) : "선택한 방문 일시"}에 방문
                   </div>
-                  <div className="mt-1.5 text-[12px] text-muted">사장님이 예약을 확인해드려요 · 체험권은 방문일까지 유효해요</div>
+                  <div className="mt-1.5 text-[12px] text-muted">사장님이 예약을 확인하면 체험권 QR이 열려요 · 체험권은 방문일까지 유효해요</div>
                 </>
               ) : (
                 <>

@@ -50,6 +50,7 @@ export default async function OwnerHome() {
       label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),
       status: p.reservation!.status,
       epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
+      endAt: myCampaigns.find((c) => c.id === p.campaignId)?.endAt ?? p.expiresAt,
     }))
     .sort((a, b) => a.epoch - b.epoch);
 

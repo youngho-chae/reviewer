@@ -45,12 +45,14 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const exposure = campaignExposure(c, db.passes, now);
   const interested = (db.interests ?? []).some((i) => i.reviewerId === me.id && i.campaignId === c.id);
   const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
-  // 취소 후 12h 재신청 쿨다운 — 발급 API와 동일 판정을 서버에서 미리 계산해 CTA에 반영 (§1-1)
+  // 취소 후 12h 재신청 쿨다운 — 발급 API와 동일 판정을 서버에서 미리 계산해 CTA에 반영 (§1-1).
+  // 예약 제안 거절 취소(cancelledVia)는 제한 없음 (2026-07-16 v2 — 발급 API와 동일 예외)
   const recentCancel = db.passes.find(
     (p) =>
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
       p.status === "cancelled" &&
+      p.cancelledVia !== "proposal_declined" &&
       typeof p.cancelledAt === "number" &&
       now - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
   );
@@ -256,8 +258,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
                 ]
               : isReserve
                 ? [
-                    { t: "희망 방문 일시 선택하고 발급받기", d: "예약이 함께 접수되고, 내 체험권에 QR이 발급됩니다." },
-                    { t: "예약 확인 알림 받기", d: "사장님이 예약을 확인하면 알림을 드려요 · 일정이 바뀌면 방문 전까지 예약을 변경할 수 있어요." },
+                    { t: "희망 방문 일시 선택하고 발급받기", d: "예약이 함께 접수돼요 · 체험권 QR은 예약이 확정된 뒤에 열려요." },
+                    { t: "예약 확인 알림 받기", d: "사장님이 예약을 확인하면 QR이 열려요 · 다른 시간을 제안받으면 체험권에서 선택해 확정하면 돼요." },
                     { t: "예약 시간에 방문해 QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
                     { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
                   ]
@@ -298,7 +300,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
             ) : isReserve ? (
               <>
                 <li>체험권은 예약한 방문일 당일까지 사용할 수 있어요 · 기한이 지나면 연장·복구되지 않아요.</li>
-                <li>예약은 사장님 확인 후 확정돼요 · 일정이 바뀌면 방문 전까지 체험권에서 예약을 변경할 수 있어요.</li>
+                <li>예약은 사장님 확인 후 확정되며, 확정 전에는 체험권 QR이 열리지 않아요 · 일정이 바뀌면 방문 전까지 예약을 변경할 수 있어요.</li>
+                <li>사장님이 다른 시간을 제안하면 수락(확정)하거나 다른 시간을 다시 요청할 수 있고, 모두 안 맞으면 취소해도 패널티·재신청 제한이 없어요.</li>
                 <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요 · 취소한 캠페인은 12시간 뒤부터 재신청할 수 있어요.</li>
                 <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
                 <li>제출한 리뷰는 등록일로부터 90일 이상 게시를 유지해야 해요. (제출 시 별도 동의)</li>

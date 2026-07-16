@@ -89,5 +89,16 @@ export function fmtReservationDateLabel(date: string): string {
 
 export const RESERVATION_STATUS_LABEL: Record<PassReservation["status"], string> = {
   requested: "예약 확인 대기",
+  proposed: "다른 시간 제안 도착",
   confirmed: "예약 확정",
 };
+
+// 사장님 대안 제안 한도 (2026-07-16 v2) — 슬롯 최대 3개 + 수기 안내사항 최대 200자.
+// 선택지가 3개보다 많거나 추가 안내가 필요하면 안내사항에 직접 작성해 체험자에게 노출한다.
+export const PROPOSAL_MAX_SLOTS = 3;
+export const PROPOSAL_NOTE_MAX = 200;
+
+// 예약 사용 가능 여부 — QR·코드 사용 처리는 예약 확정 후에만 (확정 전 QR 미노출과 동일 기준)
+export function reservationUsable(reservation: PassReservation | undefined): boolean {
+  return !reservation || reservation.status === "confirmed";
+}

@@ -167,15 +167,24 @@ export interface Campaign {
   productOptions?: string[];
 }
 
-// 예약형 방문 일정 (2026-07-16 리뷰노트 벤치마크 — 정본: 운영정책서 §15, src/lib/reservation.ts)
-// 예약은 참여 승인/선정이 아니라 "일정 조율"이다 — 거절 상태를 두지 않는다(P1: 참여 차단 조건 3가지뿐).
-// 일시가 곤란하면 매장이 연락해 조율하고 체험자가 예약을 변경한다. 미확정이어도 사용(QR)은 가능.
+// 예약형 방문 일정 (2026-07-16 리뷰노트 벤치마크 · v2 제안 플로우 — 정본: 운영정책서 §15, src/lib/reservation.ts)
+// 예약은 참여 승인/선정이 아니라 "일정 조율"이다 — 사장님의 일방 거절/취소는 없다(P1).
+// 사장님은 [예약 확인] 또는 [다른 시간 제안]만 가능하고, 취소 결정권은 체험자에게 있다
+// (제안 거절 = 체험자 취소 — 패널티·재신청 제한 없음).
+// **QR·사용 처리는 예약 확정(confirmed) 후에만 열린다** (2026-07-16 회의 — 확정 전 QR 미노출).
 export interface PassReservation {
-  date: string; // "YYYY-MM-DD" (KST)
-  time: string; // "HH:mm" — RESERVATION_TIME_SLOTS 중 하나
-  status: "requested" | "confirmed"; // 확인 대기 / 사장님 확인 완료
+  date: string; // "YYYY-MM-DD" (KST) — 체험자 희망(또는 확정) 일시
+  time: string; // "HH:mm" — RESERVATION_TIME_SLOTS 중 하나 (기타 직접 입력 포함)
+  status: "requested" | "proposed" | "confirmed"; // 확인 대기 / 사장님 대안 제안(응답 대기) / 확정
   requestedAt: number;
   confirmedAt?: number;
+  // 사장님 대안 제안 — 슬롯 최대 3개 + 수기 안내사항(선택지가 더 필요하거나 추가 안내 시).
+  // 체험자는 슬롯 수락(=확정) / 기타 일시 직접 입력(=재요청) / 거절(=취소) 중 선택한다.
+  proposal?: {
+    slots: Array<{ date: string; time: string }>; // 0~3개 (0개면 안내사항 필수)
+    note?: string; // 수기 안내사항 — 체험자 화면에 그대로 노출 (최대 200자)
+    proposedAt: number;
+  };
 }
 
 // 배송형 신청 시 체험자가 입력하는 배송지 — 발송 목적 한정으로 사장님에게 노출된다
@@ -211,6 +220,9 @@ export interface Pass {
   expiresAt: number;
   usedAt?: number;
   cancelledAt?: number; // 체험자 취소 시각
+  // 취소 경위 — "proposal_declined" = 사장님 시간 제안 거절로 인한 취소 (2026-07-16 v2).
+  // 이 취소는 패널티·12h 재신청 제한을 적용하지 않는다 (일정이 맞지 않은 것일 뿐).
+  cancelledVia?: "proposal_declined";
   paidAmount?: number;
   supportApplied?: number;
   // 초대 보상(지원금 부스트)이 사용 처리에 적용된 경우 기록

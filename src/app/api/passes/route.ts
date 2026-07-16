@@ -102,13 +102,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 취소 후 동일 캠페인 재신청 제한 12시간 — 장기 점유 후 취소·재발급 악용 방지
+  // 취소 후 동일 캠페인 재신청 제한 12시간 — 장기 점유 후 취소·재발급 악용 방지.
+  // 예약 제안 거절로 인한 취소(cancelledVia)는 일정 불일치일 뿐이므로 제한하지 않는다 (2026-07-16 v2).
   const now0 = Date.now();
   const recentCancel = db.passes.find(
     (p) =>
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
       p.status === "cancelled" &&
+      p.cancelledVia !== "proposal_declined" &&
       typeof p.cancelledAt === "number" &&
       now0 - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
   );

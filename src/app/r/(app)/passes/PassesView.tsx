@@ -41,7 +41,7 @@ export interface VisitPassItem {
   pointReward?: number; // 등급 배율 적용된 내 적립 예정 포인트
   // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — active 카드에 예약 일시·확인 상태 표기
   reservationLabel?: string | null; // "7월 18일 (토) 14:00"
-  reservationStatus?: "requested" | "confirmed" | null;
+  reservationStatus?: "requested" | "proposed" | "confirmed" | null;
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -315,10 +315,18 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               <span className="font-semibold text-ink tabular-nums">📅 {sbNum(SBUI.dateTime, it.reservationLabel)} 방문</span>
               <span
                 className={`inline-flex items-center px-1.5 py-0.5 rounded-pill text-[11px] font-semibold ${
-                  it.reservationStatus === "confirmed" ? "bg-successSoft text-successStrong" : "bg-sunken text-muted"
+                  it.reservationStatus === "confirmed"
+                    ? "bg-successSoft text-successStrong"
+                    : it.reservationStatus === "proposed"
+                      ? "bg-brandSoft text-brand"
+                      : "bg-sunken text-muted"
                 }`}
               >
-                {it.reservationStatus === "confirmed" ? "예약 확정" : "예약 확인 대기"}
+                {it.reservationStatus === "confirmed"
+                  ? "예약 확정"
+                  : it.reservationStatus === "proposed"
+                    ? "시간 제안 도착"
+                    : "예약 확인 대기"}
               </span>
             </div>
           )}

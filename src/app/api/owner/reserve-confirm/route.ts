@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
   if (pass.reservation.status === "confirmed") {
     return NextResponse.json({ ok: true }); // 멱등 — 이미 확정
   }
+  if (pass.reservation.status === "proposed") {
+    return NextResponse.json({ error: "다른 시간을 제안한 상태예요 — 체험자 응답을 기다려주세요" }, { status: 400 });
+  }
 
   const now = Date.now();
   pass.reservation.status = "confirmed";

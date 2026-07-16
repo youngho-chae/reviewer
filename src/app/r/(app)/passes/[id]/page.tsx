@@ -18,6 +18,8 @@ import Countdown from "./Countdown";
 import PassTicket from "./PassTicket";
 import CancelPassButton from "./CancelPassButton";
 import ReservationPanel from "./ReservationPanel";
+import ReservationRespond from "./ReservationRespond";
+import { fmtReservationLabel } from "@/lib/reservation";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +122,70 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           <div className="mt-8 pb-12 text-center">
             <CancelPassButton passId={pass.id} />
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 예약형 — 예약 확정 전에는 QR·코드를 노출하지 않는다 (2026-07-16 v2 회의).
+  // requested = 사장님 확인 대기(예약 변경 가능) / proposed = 사장님 시간 제안 응답 대기(수락·기타·거절).
+  if (pass.status === "active" && pass.reservation && pass.reservation.status !== "confirmed") {
+    const rsv = pass.reservation;
+    const proposalSlots = (rsv.proposal?.slots ?? []).map((sl) => ({
+      date: sl.date,
+      time: sl.time,
+      label: fmtReservationLabel(sl.date, sl.time),
+    }));
+    return (
+      <div className="pb-24 bg-canvas min-h-[100dvh]">
+        <div className="sticky top-0 z-10 bg-canvas">
+          <div className="h-[52px] px-3 flex items-center gap-1">
+            <Link href="/r/passes" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="내 체험권으로">
+              <Icon name="chevron-left" variant="border" size={22} />
+            </Link>
+            <div className="text-[18px] font-bold text-ink tracking-title">예약 방문</div>
+          </div>
+        </div>
+
+        <section className="px-5 pt-6 text-center">
+          <div className="flex justify-center mb-3">
+            <GradeBadge grade={pass.reviewerGrade} size="lg" />
+          </div>
+          <h1 className="text-[20px] font-bold text-ink tracking-title leading-[1.3]">{store?.name}</h1>
+          <p className="mt-1.5 text-[14px] text-ink2">{store?.area} · {store?.category}</p>
+        </section>
+
+        <div className="mx-5 mt-6 rounded-md bg-brandSoft px-4 py-4 text-center">
+          <div className="text-[15px] font-bold text-brand">
+            {rsv.status === "proposed" ? "📅 사장님이 다른 시간을 제안했어요" : "📅 예약 확인 대기 중"}
+          </div>
+          <p className="mt-1.5 text-[13px] text-ink2 leading-[1.55]">
+            {rsv.status === "proposed"
+              ? "아래에서 시간을 선택해 예약을 확정해주세요."
+              : "사장님이 예약을 확인하면 알림을 드리고, 체험권 QR이 열려요."}
+          </p>
+        </div>
+
+        {rsv.status === "proposed" ? (
+          <ReservationRespond
+            passId={pass.id}
+            slots={proposalSlots}
+            note={rsv.proposal?.note}
+            endAt={campaign?.endAt ?? pass.expiresAt}
+          />
+        ) : (
+          <ReservationPanel
+            passId={pass.id}
+            date={rsv.date}
+            time={rsv.time}
+            status={rsv.status}
+            endAt={campaign?.endAt ?? pass.expiresAt}
+          />
+        )}
+
+        {/* 확정 전에는 취소 접근 유지 (QR 인증 화면 아님 — §8-1과 충돌 없음) */}
+        <div className="mt-8 pb-12 text-center">
+          <CancelPassButton passId={pass.id} />
         </div>
       </div>
     );
