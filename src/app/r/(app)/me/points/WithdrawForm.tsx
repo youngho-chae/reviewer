@@ -7,16 +7,26 @@ import {
   quoteWithdrawal,
   validateWithdrawalAmount,
 } from "@/lib/points";
+import { BANK_CODES } from "@/lib/bank-codes";
 import { SBUI, sbNum } from "@/lib/storyboard";
 
-// 출금 신청 폼 — 세금(사업소득 3.3%)·수수료 미리보기는 서버와 동일한 quoteWithdrawal을 사용해
-// 표시 값과 확정 값이 어긋나지 않게 한다 (2026-07-12 레뷰 벤치마크, 운영정책서 §14).
-export default function WithdrawForm({ balance }: { balance: number }) {
+/**
+ * 출금 신청 폼 (2026-07-12 고도화 — KFTC 오픈뱅킹 계좌 본인 인증)
+ *  1) 출금 포인트·은행·예금주·계좌번호 입력 → [본인 인증하기] 활성화
+ *  2) 인증(계좌실명조회 — 예금주 대조) 완료 → 버튼이 [출금 요청]으로 전환
+ *  3) 입력값을 바꾸면 인증이 무효화되어 다시 [본인 인증하기]로 복귀
+ * 세금(사업소득 3.3%)·수수료 미리보기는 서버와 동일한 quoteWithdrawal 공유.
+ * KFTC 키 미설정 환경은 데모 인증 모드(via:"demo") — 플로우는 동일.
+ */
+export default function WithdrawForm({ balance, obConfigured = false }: { balance: number; obConfigured?: boolean }) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
   const [bank, setBank] = useState("");
   const [account, setAccount] = useState("");
   const [holder, setHolder] = useState("");
+  const [birthday, setBirthday] = useState(""); // 실명 확인용 생년월일 6자리 (실키 모드)
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState<{ via: "openbanking" | "demo"; holderName: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -24,7 +34,39 @@ export default function WithdrawForm({ balance }: { balance: number }) {
   const amountNum = Number(amount.replace(/[^0-9]/g, "")) || 0;
   const amountErr = amountNum > 0 ? validateWithdrawalAmount(amountNum, balance) : null;
   const quote = useMemo(() => (amountNum > 0 && !amountErr ? quoteWithdrawal(amountNum) : null), [amountNum, amountErr]);
-  const canSubmit = !busy && !!quote && bank.trim() && account.trim() && holder.trim();
+
+  // [본인 인증하기] 활성 조건 — 출금 포인트·은행·예금주·계좌번호 4종 입력 (+실키 모드는 생년월일)
+  const fieldsFilled = !!quote && bank.trim() !== "" && account.trim() !== "" && holder.trim() !== "";
+  const birthdayOk = !obConfigured || /^\d{6}$/.test(birthday);
+  const canVerify = !verifying && !busy && fieldsFilled && birthdayOk;
+  const canSubmit = !busy && !!verified && fieldsFilled;
+
+  // 인증 후 계좌 정보를 수정하면 인증 무효 — 서버 증빙(쿠키)도 값 불일치로 거부된다
+  function editField<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setVerified(null);
+    };
+  }
+
+  async function verify() {
+    if (!canVerify) return;
+    setVerifying(true);
+    setErr(null);
+    const res = await fetch("/api/points/verify-account", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bank, account: account.trim(), holder: holder.trim(), birthday }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setErr(data.error || "계좌 인증에 실패했어요.");
+      setVerifying(false);
+      return;
+    }
+    setVerified({ via: data.via, holderName: data.holderName || holder.trim() });
+    setVerifying(false);
+  }
 
   async function submit() {
     if (!canSubmit) return;
@@ -33,7 +75,7 @@ export default function WithdrawForm({ balance }: { balance: number }) {
     const res = await fetch("/api/points/withdraw", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ amount: amountNum, bank: bank.trim(), account: account.trim(), holder: holder.trim() }),
+      body: JSON.stringify({ amount: amountNum, bank, account: account.trim(), holder: holder.trim() }),
     });
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({}));
@@ -69,23 +111,30 @@ export default function WithdrawForm({ balance }: { balance: number }) {
       <div className="space-y-2">
         <input
           value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+          onChange={(e) => editField(setAmount)(e.target.value.replace(/[^0-9]/g, ""))}
           placeholder={`출금 포인트 (${WITHDRAWAL_UNIT_POINTS.toLocaleString()}P 단위)`}
           inputMode="numeric"
           disabled={disabled}
           className="w-full h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft tabular-nums disabled:bg-sunken"
         />
         <div className="grid grid-cols-2 gap-2">
-          <input
+          <select
             value={bank}
-            onChange={(e) => setBank(e.target.value)}
-            placeholder="은행"
+            onChange={(e) => editField(setBank)(e.target.value)}
             disabled={disabled}
-            className="h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft disabled:bg-sunken"
-          />
+            aria-label="은행 선택"
+            className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] disabled:bg-sunken ${bank ? "text-ink" : "text-mutedSoft"}`}
+          >
+            <option value="">은행 선택</option>
+            {BANK_CODES.map((b) => (
+              <option key={b.code} value={b.name}>
+                {b.name}
+              </option>
+            ))}
+          </select>
           <input
             value={holder}
-            onChange={(e) => setHolder(e.target.value)}
+            onChange={(e) => editField(setHolder)(e.target.value)}
             placeholder="예금주"
             disabled={disabled}
             className="h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft disabled:bg-sunken"
@@ -93,12 +142,22 @@ export default function WithdrawForm({ balance }: { balance: number }) {
         </div>
         <input
           value={account}
-          onChange={(e) => setAccount(e.target.value)}
-          placeholder="계좌번호"
+          onChange={(e) => editField(setAccount)(e.target.value.replace(/[^0-9-]/g, ""))}
+          placeholder="계좌번호 ('-' 없이 입력 가능)"
           inputMode="numeric"
           disabled={disabled}
           className="w-full h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft tabular-nums disabled:bg-sunken"
         />
+        {obConfigured && (
+          <input
+            value={birthday}
+            onChange={(e) => editField(setBirthday)(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+            placeholder="생년월일 6자리 (계좌 실명 확인용)"
+            inputMode="numeric"
+            disabled={disabled}
+            className="w-full h-11 px-3.5 rounded-sm border border-hairline bg-canvas text-[14px] text-ink placeholder:text-mutedSoft tabular-nums disabled:bg-sunken"
+          />
+        )}
       </div>
 
       {amountErr && <p className="mt-2 text-[12px] text-error">{amountErr}</p>}
@@ -125,14 +184,48 @@ export default function WithdrawForm({ balance }: { balance: number }) {
         </div>
       )}
 
+      {/* 계좌 인증 완료 배지 — 인증 수단 구분 (오픈뱅킹 실명조회 / 데모) */}
+      {verified && (
+        <div className="mt-3 rounded-sm bg-successSoft px-3.5 py-2.5 flex items-center gap-2">
+          <span aria-hidden>✅</span>
+          <span className="text-[13px] font-semibold text-successStrong">
+            계좌 본인 인증 완료 · 예금주 {verified.holderName}
+          </span>
+          <span
+            className={`ml-auto shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill text-[11px] font-semibold ${
+              verified.via === "openbanking" ? "bg-canvas text-successStrong" : "bg-brandSoft text-brand"
+            }`}
+          >
+            {verified.via === "openbanking" ? "오픈뱅킹 인증" : "데모 인증"}
+          </span>
+        </div>
+      )}
+
       {err && <p className="mt-2 text-[12px] text-error">{err}</p>}
-      <button
-        onClick={submit}
-        disabled={!canSubmit}
-        className="cp-action mt-3 w-full h-11 rounded-sm bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
-      >
-        {busy ? "신청 중..." : "출금 신청하기"}
-      </button>
+
+      {/* 2단계 버튼 — 미인증: [본인 인증하기] / 인증 완료: [출금 요청] */}
+      {!verified ? (
+        <button
+          onClick={verify}
+          disabled={!canVerify || disabled}
+          className="cp-action mt-3 w-full h-11 rounded-sm border-[1.5px] border-brand bg-canvas text-brand text-[14px] font-bold disabled:border-hairline disabled:bg-sunken disabled:text-mutedSoft"
+        >
+          {verifying ? "계좌 확인 중..." : "본인 인증하기"}
+        </button>
+      ) : (
+        <button
+          onClick={submit}
+          disabled={!canSubmit}
+          className="cp-action mt-3 w-full h-11 rounded-sm bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+        >
+          {busy ? "신청 중..." : "출금 요청"}
+        </button>
+      )}
+      <p className="mt-2 text-[11px] text-muted leading-[1.5]">
+        {obConfigured
+          ? "오픈뱅킹 계좌실명조회로 본인 명의 계좌인지 확인한 뒤 출금을 신청할 수 있어요."
+          : "본인 명의 계좌 인증 후 출금을 신청할 수 있어요. (데모 인증 모드 — 오픈뱅킹 키 설정 시 실명조회로 자동 전환)"}
+      </p>
     </div>
   );
 }

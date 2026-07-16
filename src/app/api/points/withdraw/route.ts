@@ -4,6 +4,7 @@ import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { WithdrawalRequest } from "@/lib/types";
 import { appendPointTxn, pointBalance, quoteWithdrawal, validateWithdrawalAmount } from "@/lib/points";
+import { ACCT_VERIFY_COOKIE, verifyAccountProof } from "@/lib/openbanking";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,23 @@ export async function POST(req: NextRequest) {
   const me = db.reviewers.find((r) => r.id === s.userId);
   if (!me) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
 
+  // 계좌 본인 인증 필수 (2026-07-12 고도화) — verify-account가 발급한 HMAC 증빙(10분)이
+  // 있고, 신청한 계좌 정보(은행·계좌번호·예금주)와 정확히 일치해야 한다.
+  const proof = verifyAccountProof(req.cookies.get(ACCT_VERIFY_COOKIE)?.value);
+  const accountDigits = account.replace(/[^0-9]/g, "");
+  if (
+    !proof ||
+    proof.reviewerId !== me.id ||
+    proof.bank !== bank ||
+    proof.account !== accountDigits ||
+    proof.holder !== holder
+  ) {
+    return NextResponse.json(
+      { error: "계좌 본인 인증이 필요합니다. [본인 인증하기]로 계좌를 먼저 인증해주세요." },
+      { status: 403 },
+    );
+  }
+
   const balance = pointBalance(db, me.id);
   const invalid = validateWithdrawalAmount(amountPoints, balance);
   if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
@@ -43,6 +61,7 @@ export async function POST(req: NextRequest) {
     bank,
     account,
     holder,
+    accountVerifiedVia: proof.via, // 계좌 본인 인증 수단 (openbanking = KFTC 실명조회 대조 완료)
     status: "requested",
     requestedAt: now,
   };

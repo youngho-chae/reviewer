@@ -266,6 +266,9 @@ export interface WithdrawalRequest {
   bank: string;
   account: string;
   holder: string; // 예금주
+  // 계좌 본인 인증 수단 (2026-07-12 고도화) — "openbanking" = KFTC 계좌실명조회로
+  // 예금주 대조 완료 / "demo" = 키 미설정 환경의 데모 인증. 인증 없이는 신청 불가.
+  accountVerifiedVia?: "openbanking" | "demo";
   status: WithdrawalStatus;
   requestedAt: number;
   processedAt?: number; // 운영팀 지급/반려 처리 시각

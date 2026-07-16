@@ -10,6 +10,7 @@ import {
   withdrawalsOf,
 } from "@/lib/points";
 import { SBUI, sbNum } from "@/lib/storyboard";
+import { openbankingConfigured } from "@/lib/openbanking";
 import { fmtKoDateTime } from "@/lib/dates";
 import Icon from "@/components/Icon";
 import WithdrawForm from "./WithdrawForm";
@@ -60,10 +61,10 @@ export default async function PointsPage() {
       <section className="px-5 mt-7">
         <h2 className="text-[17px] font-bold text-ink tracking-title">출금 신청</h2>
         <p className="mt-1 text-[12px] text-muted leading-[1.55]">
-          리뷰 활동 보상은 세법상 사업소득으로 원천징수(3.3%) 후 지급돼요 · 이체 수수료 {WITHDRAWAL_FEE.toLocaleString()}원이 차감돼요.
+          본인 명의 계좌 인증 후 신청할 수 있어요 · 세법상 사업소득으로 원천징수(3.3%) 후 지급되며 이체 수수료 {WITHDRAWAL_FEE.toLocaleString()}원이 차감돼요.
         </p>
         <div className="mt-3">
-          <WithdrawForm balance={balance} />
+          <WithdrawForm balance={balance} obConfigured={openbankingConfigured()} />
         </div>
         {pendingWd.length > 0 && (
           <p className="mt-2 text-[12px] text-brand font-semibold">처리 대기 중인 출금 신청 {pendingWd.length}건이 있어요.</p>

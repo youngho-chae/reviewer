@@ -45,6 +45,11 @@ export default async function AdminPoints() {
               </div>
               <div className="mt-1 text-[12px] text-muted">
                 {w.bank} {w.account} · 예금주 {w.holder}
+                {w.accountVerifiedVia && (
+                  <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-pill text-[10px] font-semibold ${w.accountVerifiedVia === "openbanking" ? "bg-successSoft text-successStrong" : "bg-brandSoft text-brand"}`}>
+                    {w.accountVerifiedVia === "openbanking" ? "오픈뱅킹 실명 인증" : "데모 인증"}
+                  </span>
+                )}
               </div>
               <div className="mt-1 text-[11px] text-muted tabular-nums">신청 {fmtWhen(w.requestedAt)}</div>
               <ProcessWithdrawalButtons withdrawalId={w.id} />
