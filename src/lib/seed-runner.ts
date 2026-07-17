@@ -7,6 +7,7 @@ import { selfCheckConditions, defaultChannel } from "./channels";
 import { REGIONS } from "./regions";
 import { regionCenter } from "./geo";
 import { STORYBOARD } from "./storyboard";
+import { kstTodayStr, reservationDayEnd } from "./reservation";
 
 // ─────────────────────────────────────────────────────────────
 // [스토리보드 모드] design/storyboard-schema 브랜치 전용.
@@ -1420,6 +1421,71 @@ export function runSeed(db: DBShape) {
       memo: STORYBOARD ? "출금 신청" : "출금 신청 (케이뱅크 · 실지급 9,500원)",
       createdAt: now - 8 * hour,
     });
+  }
+
+  // ── 예약형 방문 예약 시드 (2026-07-16 v2 — 사장님 홈 예약 큐 데모) ──
+  // 발송 대기 큐와 동일 취지: 예약 신청이 있어야 큐가 렌더되므로, 데모 사장님(demo@store.com)의
+  // 예약형 캠페인에 3가지 상태(확인 대기 · 다른 시간 제안(응답 대기) · 확정)를 시드한다.
+  // proposed 건의 체험자 = demo — 체험자 계정에서 제안 응답(라디오 4행) 화면도 바로 시연된다.
+  {
+    const ownerStoreIds = new Set(db.stores.filter((s) => s.ownerId === owner.id).map((s) => s.id));
+    const rsvCamps = db.campaigns.filter(
+      (c) => c.kind === "visit" && c.reservationRequired && ownerStoreIds.has(c.storeId) && c.endAt > now,
+    );
+    const dstr = (days: number) => kstTodayStr(now + days * day);
+    const rsvSeeds: Array<{
+      key: string;
+      camp: Campaign | undefined;
+      reviewerId: string;
+      grade: "A" | "B" | "C";
+      date: string;
+      time: string;
+      status: "requested" | "proposed" | "confirmed";
+    }> = [
+      { key: "demo-rsv-requested", camp: rsvCamps[0], reviewerId: reviewerA.id, grade: "A", date: dstr(2), time: "14:00", status: "requested" },
+      { key: "demo-rsv-proposed", camp: rsvCamps[1], reviewerId: reviewer.id, grade: "B", date: dstr(3), time: "19:00", status: "proposed" },
+      { key: "demo-rsv-confirmed", camp: rsvCamps[2], reviewerId: reviewerC.id, grade: "C", date: dstr(1), time: "11:30", status: "confirmed" },
+    ];
+    for (const sp of rsvSeeds) {
+      if (!sp.camp) continue; // 예약형 캠페인이 부족한 구성에서도 시드가 깨지지 않게
+      const p: Pass = {
+        id: detId("ps", sp.key),
+        code: detPassCode(sp.key),
+        reviewerId: sp.reviewerId,
+        campaignId: sp.camp.id,
+        storeId: sp.camp.storeId,
+        ownerId: owner.id,
+        reviewerGrade: sp.grade,
+        reviewChannel: defaultChannel(sp.camp.requiredChannels) ?? sp.camp.requiredChannels[0],
+        consumedSlot: sp.grade,
+        issuedAt: now - 6 * hour,
+        expiresAt: reservationDayEnd(sp.date), // 예약형 기한 = 예약일 당일 말 (운영정책서 §15)
+        reservation: {
+          date: sp.date,
+          time: sp.time,
+          status: sp.status,
+          requestedAt: now - 6 * hour,
+          ...(sp.status === "confirmed" ? { confirmedAt: now - 3 * hour } : {}),
+          ...(sp.status === "proposed"
+            ? {
+                proposal: {
+                  slots: [
+                    { date: sp.date, time: "17:00" },
+                    { date: dstr(4), time: "13:00" },
+                  ],
+                  note: STORYBOARD
+                    ? "안내사항"
+                    : "저녁 시간대는 예약이 몰려 있어요. 제안드린 시간이 어려우면 평일 낮으로 기타 요청 부탁드려요!",
+                  proposedAt: now - 2 * hour,
+                },
+              }
+            : {}),
+        },
+        status: "active",
+      };
+      sp.camp.used[sp.grade] += 1;
+      db.passes.push(p);
+    }
   }
 
   // 데모 사장님 알림 몇 건
