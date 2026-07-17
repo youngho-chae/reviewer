@@ -3,7 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
-import { validateReservation, reservationDayEnd, fmtReservationLabel } from "@/lib/reservation";
+import { validateReservation, reservationDayEnd, fmtReservationLabel, reservationHistory } from "@/lib/reservation";
 
 export const runtime = "nodejs";
 
@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
   if (pass.status !== "active") {
     return NextResponse.json({ error: "사용 전 체험권만 예약을 변경할 수 있어요" }, { status: 400 });
   }
+  // 제안 응답 대기 중에는 변경 대신 응답(수락/재제안/거절)으로 처리 (v3 — 협상 1회 제한과 충돌 방지)
+  if (pass.reservation.status === "proposed") {
+    return NextResponse.json({ error: "사장님이 제안한 시간에 먼저 응답해주세요" }, { status: 400 });
+  }
   const rd = String(date || "");
   const rt = String(time || "");
   const rerr = validateReservation(rd, rt, c.endAt);
@@ -33,7 +37,14 @@ export async function POST(req: NextRequest) {
 
   const now = Date.now();
   const prevLabel = fmtReservationLabel(pass.reservation.date, pass.reservation.time);
-  pass.reservation = { date: rd, time: rt, status: "requested", requestedAt: now };
+  pass.reservation = {
+    date: rd,
+    time: rt,
+    status: "requested",
+    requestedAt: now,
+    // 변경 = 내 희망 일시 재요청 — 히스토리에 request로 기록 (제안/재제안 횟수와 무관)
+    history: [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "request", date: rd, time: rt }],
+  };
   pass.expiresAt = reservationDayEnd(rd); // 유효기간 = 새 예약일 당일 말 (KST)
   pass.expiringSoonNotified = false; // 기한이 바뀌었으므로 만료 임박 리마인드 재활성
 

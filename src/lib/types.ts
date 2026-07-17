@@ -179,12 +179,27 @@ export interface PassReservation {
   requestedAt: number;
   confirmedAt?: number;
   // 사장님 대안 제안 — 슬롯 최대 3개 + 수기 안내사항(선택지가 더 필요하거나 추가 안내 시).
-  // 체험자는 슬롯 수락(=확정) / 기타 일시 직접 입력(=재요청) / 거절(=취소) 중 선택한다.
+  // 체험자는 슬롯 수락(=확정) / 기타 일시 직접 입력(=재제안, 1회) / 거절(=취소) 중 선택한다.
   proposal?: {
     slots: Array<{ date: string; time: string }>; // 0~3개 (0개면 안내사항 필수)
     note?: string; // 수기 안내사항 — 체험자 화면에 그대로 노출 (최대 200자)
     proposedAt: number;
   };
+  // 협상 히스토리 (2026-07-16 v3) — 양측 화면에 타임라인으로 노출되는 append-only 로그.
+  // 제안 횟수 판정의 정본: 사장님 propose 1회 · 체험자 counter 1회 (reservation.ts 헬퍼).
+  history?: ReservationEvent[];
+}
+
+// 예약 협상 이벤트 — request(체험자 희망/변경) → propose(사장님 대안, 1회) →
+// counter(체험자 재제안, 1회) → confirm/accept(확정) 또는 decline(거절 = 취소, 패널티 없음)
+export interface ReservationEvent {
+  at: number;
+  by: "reviewer" | "owner";
+  kind: "request" | "propose" | "counter" | "confirm" | "accept" | "decline";
+  date?: string; // request/counter/confirm/accept의 일시
+  time?: string;
+  slots?: Array<{ date: string; time: string }>; // propose 전용
+  note?: string; // propose 안내사항
 }
 
 // 배송형 신청 시 체험자가 입력하는 배송지 — 발송 목적 한정으로 사장님에게 노출된다

@@ -65,7 +65,15 @@ export async function POST(req: NextRequest) {
     const rt = String(reservation?.time || "");
     const rerr = validateReservation(rd, rt, c.endAt);
     if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
-    reservationInfo = { date: rd, time: rt, status: "requested", requestedAt: Date.now() };
+    const at = Date.now();
+    reservationInfo = {
+      date: rd,
+      time: rt,
+      status: "requested",
+      requestedAt: at,
+      // 협상 히스토리 시작 (v3) — 이후 제안/재제안/확정/거절이 append 된다
+      history: [{ at, by: "reviewer", kind: "request", date: rd, time: rt }],
+    };
   }
   const selectedChannel: SnsKind | undefined = isPress
     ? undefined

@@ -18,6 +18,10 @@ export interface ReservationQueueItem {
   status: "requested" | "proposed" | "confirmed";
   epoch: number; // 예약 일시 (정렬용)
   endAt: number; // 캠페인 종료일 — 제안 가능 날짜 한도
+  // 협상 히스토리 (v3) — 서버에서 포맷된 타임라인 (일시는 sbNum으로 마스킹 가능하게 분리)
+  history: Array<{ prefix: string; timeLabel: string; note?: string }>;
+  proposalUsed: boolean; // 사장님 제안 1회 소진 — 소진 후 재제안 불가
+  counterUsed: boolean; // 체험자 재제안 수신 — 이때만 [거절] 가능
 }
 
 type SlotDraft = { date: string; time: string };
@@ -30,6 +34,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [proposingId, setProposingId] = useState<string | null>(null); // 제안 폼 열린 항목
+  const [decliningId, setDecliningId] = useState<string | null>(null); // 거절 확인 열린 항목
   const [slots, setSlots] = useState<SlotDraft[]>([{ date: "", time: "" }]);
   const [note, setNote] = useState("");
 
@@ -71,9 +76,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
   return (
     <div className="mx-5 mt-3 rounded-lg border border-info bg-canvas p-4">
       <div className="flex items-center justify-between">
-        <div className="text-[14px] font-bold text-ink">
-          📅 방문 예약 {items.length}건{pendingCount > 0 ? ` · 확인 대기 ${pendingCount}건` : ""}
-        </div>
+        <div className="text-[12px] text-muted">{pendingCount > 0 ? `확인 대기 ${pendingCount}건` : "모두 처리됨"}</div>
         <div className="text-[11px] text-muted">확인·제안하면 체험자에게 알림이 가요</div>
       </div>
       <div className="mt-3 space-y-2.5">
@@ -85,7 +88,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold text-ink tabular-nums">
-                {sbNum(SBUI.dateTime, it.label)} 방문 희망
+                {sbNum(SBUI.dateTime, it.label)} {it.counterUsed && it.status === "requested" ? "재제안" : "방문 희망"}
               </span>
               {it.status === "confirmed" && (
                 <span className="inline-flex items-center px-2 py-1 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">
@@ -99,8 +102,23 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
               )}
             </div>
 
-            {/* 확인 대기 — [예약 확인] + [다른 시간 제안] */}
-            {it.status === "requested" && proposingId !== it.passId && (
+            {/* 협상 히스토리 (v3) — 누가 언제 어떤 시간을 제안했는지 타임라인 */}
+            {it.history.length > 1 && (
+              <div className="mt-2 rounded-sm bg-sunken px-3 py-2 space-y-1">
+                {it.history.map((h, i) => (
+                  <div key={i} className="text-[12px] text-ink2 leading-[1.5]">
+                    <span className={h.prefix.startsWith("사장님") ? "font-semibold text-brand" : "font-semibold text-ink"}>
+                      {h.prefix}
+                    </span>
+                    {h.timeLabel && <span className="tabular-nums"> · {sbNum(SBUI.dateTime, h.timeLabel)}</span>}
+                    {h.note && <div className="text-[11px] text-muted pl-2">💬 {h.note}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 확인 대기 — [예약 확인] + (제안 미사용) [다른 시간 제안] / (재제안 수신) [거절] */}
+            {it.status === "requested" && proposingId !== it.passId && decliningId !== it.passId && (
               <div className="mt-2.5 flex gap-2">
                 <button
                   type="button"
@@ -110,13 +128,53 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                 >
                   {busyId === it.passId ? "확인 중..." : "예약 확인"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openPropose(it.passId)}
-                  className="cp-action h-9 px-4 rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-ink"
-                >
-                  다른 시간 제안
-                </button>
+                {!it.proposalUsed && (
+                  <button
+                    type="button"
+                    onClick={() => openPropose(it.passId)}
+                    className="cp-action h-9 px-4 rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-ink"
+                  >
+                    다른 시간 제안
+                  </button>
+                )}
+                {it.counterUsed && (
+                  <button
+                    type="button"
+                    onClick={() => setDecliningId(it.passId)}
+                    className="cp-action h-9 px-4 rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-muted"
+                  >
+                    거절
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 거절 확인 — 재제안까지 온 뒤에만 (서로 각 1회 소진). 체험자 패널티 없음 */}
+            {it.status === "requested" && decliningId === it.passId && (
+              <div className="mt-2.5 rounded-sm bg-sunken px-3 py-2.5">
+                <p className="text-[12px] text-ink2 leading-[1.5]">
+                  재제안 시간도 어려우신가요? 거절하면 신청이 취소돼요 — 체험자에게 패널티는 없어요.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDecliningId(null)}
+                    className="cp-action h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold text-ink"
+                  >
+                    돌아가기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await post("/api/owner/reserve-decline", { passId: it.passId }, it.passId);
+                      if (ok) setDecliningId(null);
+                    }}
+                    disabled={busyId === it.passId}
+                    className="cp-action h-8 px-3.5 rounded-sm bg-errorSoft text-error text-[12px] font-bold disabled:opacity-60"
+                  >
+                    {busyId === it.passId ? "처리 중..." : "거절하고 취소"}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -207,7 +265,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
       </div>
       {err && <p className="mt-2 text-[12px] text-error">{err}</p>}
       <p className="mt-2.5 text-[11px] text-muted leading-[1.5]">
-        체험자는 제안 시간 수락(확정) · 다른 시간 재요청 · 취소 중에 선택해요 — 예약이 확정되기 전에는 체험권(QR)이 열리지 않아요.
+        제안은 서로 1회씩 가능해요 (사장님 제안 → 체험자 재제안 → 확인 또는 거절) · 예약이 확정되기 전에는 체험권(QR)이 열리지 않아요.
       </p>
     </div>
   );

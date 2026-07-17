@@ -22,12 +22,14 @@ export default function ReservationPanel({
   time,
   status,
   endAt,
+  historyLines = [],
 }: {
   passId: string;
   date: string;
   time: string;
   status: "requested" | "proposed" | "confirmed";
   endAt: number; // 캠페인 종료일 — 변경 가능 날짜 한도
+  historyLines?: Array<{ prefix: string; timeLabel: string; note?: string }>; // 협상 히스토리 (v3)
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -78,6 +80,18 @@ export default function ReservationPanel({
           ? "예약이 확인되었어요 · 예약 시간에 방문해 QR을 제시해주세요."
           : "사장님이 예약을 확인하면 알림을 드려요."}
       </p>
+
+      {/* 협상 히스토리 (v3) — 주고받은 시간 타임라인 */}
+      {historyLines.length > 1 && (
+        <div className="mt-2.5 rounded-sm bg-sunken px-3 py-2 space-y-1">
+          {historyLines.map((h, i) => (
+            <div key={i} className="text-[12px] text-ink2 leading-[1.5]">
+              <span className={h.prefix.startsWith("사장님") ? "font-semibold text-brand" : "font-semibold text-ink"}>{h.prefix}</span>
+              {h.timeLabel && <span className="tabular-nums"> · {sbNum(SBUI.dateTime, h.timeLabel)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {!editing ? (
         <button

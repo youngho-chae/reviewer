@@ -8,6 +8,8 @@ import {
   RESERVATION_TIME_SLOTS,
   fmtReservationLabel,
   reservationEpoch,
+  reservationHistory,
+  ownerProposalUsed,
 } from "@/lib/reservation";
 
 export const runtime = "nodejs";
@@ -26,8 +28,18 @@ export async function POST(req: NextRequest) {
   if (pass.status !== "active" || !pass.reservation) {
     return NextResponse.json({ error: "제안할 예약이 없습니다" }, { status: 400 });
   }
-  if (pass.reservation.status === "confirmed") {
-    return NextResponse.json({ error: "이미 확정된 예약입니다" }, { status: 400 });
+  if (pass.reservation.status !== "requested") {
+    return NextResponse.json(
+      { error: pass.reservation.status === "confirmed" ? "이미 확정된 예약입니다" : "체험자 응답을 기다리는 중입니다" },
+      { status: 400 },
+    );
+  }
+  // 제안은 서로 각 1회 (2026-07-16 v3) — 사장님 제안 소진 후에는 [예약 확인]/[거절]만 가능
+  if (ownerProposalUsed(pass.reservation)) {
+    return NextResponse.json(
+      { error: "다른 시간 제안은 1회만 보낼 수 있어요 — 체험자의 재제안을 확인하거나 거절해주세요" },
+      { status: 400 },
+    );
   }
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
   if (!c) return NextResponse.json({ error: "캠페인을 찾을 수 없습니다" }, { status: 400 });
@@ -58,6 +70,11 @@ export async function POST(req: NextRequest) {
 
   pass.reservation.status = "proposed";
   pass.reservation.proposal = { slots: cleanSlots, ...(cleanNote ? { note: cleanNote } : {}), proposedAt: now };
+  // 협상 히스토리 (v3) — 구버전 데이터는 헬퍼가 최초 요청을 합성하므로 그대로 이어붙인다
+  pass.reservation.history = [
+    ...reservationHistory(pass.reservation),
+    { at: now, by: "owner", kind: "propose", slots: cleanSlots, ...(cleanNote ? { note: cleanNote } : {}) },
+  ];
 
   const store = db.stores.find((x) => x.id === pass.storeId);
   db.notifications.push({

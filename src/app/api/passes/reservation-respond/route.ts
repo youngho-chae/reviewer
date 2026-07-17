@@ -3,7 +3,14 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
-import { validateReservation, reservationDayEnd, reservationEpoch, fmtReservationLabel } from "@/lib/reservation";
+import {
+  validateReservation,
+  reservationDayEnd,
+  reservationEpoch,
+  fmtReservationLabel,
+  reservationHistory,
+  reviewerCounterUsed,
+} from "@/lib/reservation";
 
 export const runtime = "nodejs";
 
@@ -42,6 +49,7 @@ export async function POST(req: NextRequest) {
       status: "confirmed", // 수락 = 즉시 확정 — 체험권(QR) 활성화
       requestedAt: pass.reservation.requestedAt,
       confirmedAt: now,
+      history: [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "accept", date: rd, time: rt }],
     };
     pass.expiresAt = reservationDayEnd(rd);
     pass.expiringSoonNotified = false;
@@ -60,20 +68,33 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "counter") {
+    // 재제안은 1회만 (2026-07-16 v3) — 소진 후에는 수락 또는 거절만 가능
+    if (reviewerCounterUsed(pass.reservation)) {
+      return NextResponse.json(
+        { error: "다른 시간 요청은 1회만 보낼 수 있어요 — 제안된 시간을 수락하거나 취소해주세요" },
+        { status: 400 },
+      );
+    }
     const rd = String(date || "");
     const rt = String(time || "");
     const rerr = validateReservation(rd, rt, c?.endAt ?? pass.expiresAt);
     if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
     const prevLabel = fmtReservationLabel(pass.reservation.date, pass.reservation.time);
-    pass.reservation = { date: rd, time: rt, status: "requested", requestedAt: now };
+    pass.reservation = {
+      date: rd,
+      time: rt,
+      status: "requested",
+      requestedAt: now,
+      history: [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "counter", date: rd, time: rt }],
+    };
     pass.expiresAt = reservationDayEnd(rd);
     pass.expiringSoonNotified = false;
     db.notifications.push({
       id: rid("nt"),
       userId: pass.ownerId,
       role: "owner",
-      title: "새 방문 시간 요청",
-      body: `익명 ${masked} 체험자가 제안 대신 ${fmtReservationLabel(rd, rt)} 방문을 요청했습니다 (기존 희망 ${prevLabel}). 예약을 확인해주세요.`,
+      title: "체험자 재제안 — 새 방문 시간 요청",
+      body: `익명 ${masked} 체험자가 제안 대신 ${fmtReservationLabel(rd, rt)} 방문을 요청했습니다 (기존 희망 ${prevLabel}). 예약을 확인하거나 거절할 수 있어요.`,
       createdAt: now,
       read: false,
       link: "/o/home",
@@ -87,6 +108,7 @@ export async function POST(req: NextRequest) {
     pass.status = "cancelled";
     pass.cancelledAt = now;
     pass.cancelledVia = "proposal_declined";
+    pass.reservation.history = [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "decline" }];
     restoreQuotaSlot(db, pass);
     db.notifications.push({
       id: rid("nt"),

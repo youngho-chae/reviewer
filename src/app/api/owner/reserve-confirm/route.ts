@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
-import { fmtReservationLabel } from "@/lib/reservation";
+import { fmtReservationLabel, reservationHistory } from "@/lib/reservation";
 
 export const runtime = "nodejs";
 
@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   pass.reservation.status = "confirmed";
   pass.reservation.confirmedAt = now;
+  pass.reservation.history = [
+    ...reservationHistory(pass.reservation),
+    { at: now, by: "owner", kind: "confirm", date: pass.reservation.date, time: pass.reservation.time },
+  ];
 
   const store = db.stores.find((x) => x.id === pass.storeId);
   db.notifications.push({

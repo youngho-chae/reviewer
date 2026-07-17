@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
+import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, ReservationEvent, Reviewer, SnsKind, Store } from "./types";
 import { channelGradesFromSns, bestGrade } from "./grade";
 import { kstMonthKey, kstMonthStart, prevMonthKey } from "./grade-regrade";
 import { selfCheckConditions, defaultChannel } from "./channels";
@@ -1433,6 +1433,10 @@ export function runSeed(db: DBShape) {
       (c) => c.kind === "visit" && c.reservationRequired && ownerStoreIds.has(c.storeId) && c.endAt > now,
     );
     const dstr = (days: number) => kstTodayStr(now + days * day);
+    const proposalNote = STORYBOARD
+      ? "안내사항"
+      : "저녁 시간대는 예약이 몰려 있어요. 제안드린 시간이 어려우면 평일 낮으로 기타 요청 부탁드려요!";
+    // 협상 히스토리(v3)를 상태별로 구성 — 확인 대기 / 제안(응답 대기) / 재제안(확인·거절 대기) / 확정
     const rsvSeeds: Array<{
       key: string;
       camp: Campaign | undefined;
@@ -1441,13 +1445,36 @@ export function runSeed(db: DBShape) {
       date: string;
       time: string;
       status: "requested" | "proposed" | "confirmed";
+      withProposal?: boolean; // proposed 상태의 proposal 페이로드
+      withCounter?: boolean; // 재제안까지 진행된 requested (사장님 확인/거절 대기)
     }> = [
       { key: "demo-rsv-requested", camp: rsvCamps[0], reviewerId: reviewerA.id, grade: "A", date: dstr(2), time: "14:00", status: "requested" },
-      { key: "demo-rsv-proposed", camp: rsvCamps[1], reviewerId: reviewer.id, grade: "B", date: dstr(3), time: "19:00", status: "proposed" },
+      { key: "demo-rsv-proposed", camp: rsvCamps[1], reviewerId: reviewer.id, grade: "B", date: dstr(3), time: "19:00", status: "proposed", withProposal: true },
       { key: "demo-rsv-confirmed", camp: rsvCamps[2], reviewerId: reviewerC.id, grade: "C", date: dstr(1), time: "11:30", status: "confirmed" },
+      { key: "demo-rsv-counter", camp: rsvCamps[3], reviewerId: reviewerA.id, grade: "A", date: dstr(3), time: "12:00", status: "requested", withCounter: true },
     ];
     for (const sp of rsvSeeds) {
       if (!sp.camp) continue; // 예약형 캠페인이 부족한 구성에서도 시드가 깨지지 않게
+      const proposalSlots = [
+        { date: sp.date, time: "17:00" },
+        { date: dstr(4), time: "13:00" },
+      ];
+      // 히스토리 — request → (propose) → (counter) → (confirm)
+      const history: ReservationEvent[] = [
+        sp.withCounter
+          ? { at: now - 8 * hour, by: "reviewer", kind: "request", date: dstr(2), time: "15:00" }
+          : { at: now - 6 * hour, by: "reviewer", kind: "request", date: sp.date, time: sp.time },
+      ];
+      if (sp.withProposal) {
+        history.push({ at: now - 2 * hour, by: "owner", kind: "propose", slots: proposalSlots, note: proposalNote });
+      }
+      if (sp.withCounter) {
+        history.push({ at: now - 5 * hour, by: "owner", kind: "propose", slots: [{ date: dstr(2), time: "18:00" }] });
+        history.push({ at: now - 1 * hour, by: "reviewer", kind: "counter", date: sp.date, time: sp.time });
+      }
+      if (sp.status === "confirmed") {
+        history.push({ at: now - 3 * hour, by: "owner", kind: "confirm", date: sp.date, time: sp.time });
+      }
       const p: Pass = {
         id: detId("ps", sp.key),
         code: detPassCode(sp.key),
@@ -1465,20 +1492,10 @@ export function runSeed(db: DBShape) {
           time: sp.time,
           status: sp.status,
           requestedAt: now - 6 * hour,
+          history,
           ...(sp.status === "confirmed" ? { confirmedAt: now - 3 * hour } : {}),
-          ...(sp.status === "proposed"
-            ? {
-                proposal: {
-                  slots: [
-                    { date: sp.date, time: "17:00" },
-                    { date: dstr(4), time: "13:00" },
-                  ],
-                  note: STORYBOARD
-                    ? "안내사항"
-                    : "저녁 시간대는 예약이 몰려 있어요. 제안드린 시간이 어려우면 평일 낮으로 기타 요청 부탁드려요!",
-                  proposedAt: now - 2 * hour,
-                },
-              }
+          ...(sp.withProposal
+            ? { proposal: { slots: proposalSlots, note: proposalNote, proposedAt: now - 2 * hour } }
             : {}),
         },
         status: "active",

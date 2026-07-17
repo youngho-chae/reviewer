@@ -19,7 +19,7 @@ import PassTicket from "./PassTicket";
 import CancelPassButton from "./CancelPassButton";
 import ReservationPanel from "./ReservationPanel";
 import ReservationRespond from "./ReservationRespond";
-import { fmtReservationLabel } from "@/lib/reservation";
+import { fmtReservationLabel, reservationHistoryLines, reviewerCounterUsed } from "@/lib/reservation";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +136,12 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
       time: sl.time,
       label: fmtReservationLabel(sl.date, sl.time),
     }));
+    // 협상 히스토리 (v3) — 양측 동일 타임라인
+    const rsvHistory = reservationHistoryLines(rsv).map((h) => ({
+      prefix: h.prefix,
+      timeLabel: h.timeLabel,
+      ...(h.note ? { note: h.note } : {}),
+    }));
     return (
       <div className="pb-24 bg-canvas min-h-[100dvh]">
         <div className="sticky top-0 z-10 bg-canvas">
@@ -172,6 +178,8 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             slots={proposalSlots}
             note={rsv.proposal?.note}
             endAt={campaign?.endAt ?? pass.expiresAt}
+            historyLines={rsvHistory}
+            counterUsed={reviewerCounterUsed(rsv)}
           />
         ) : (
           <ReservationPanel
@@ -180,6 +188,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             time={rsv.time}
             status={rsv.status}
             endAt={campaign?.endAt ?? pass.expiresAt}
+            historyLines={rsvHistory}
           />
         )}
 
@@ -221,7 +230,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           boosted={!!boost && displaySupport > entitledSupport}
         />
 
-        {/* 예약 방문 패널 (2026-07-16 리뷰노트 벤치마크) — 예약 일시·상태 + 예약 변경 */}
+        {/* 예약 방문 패널 (2026-07-16 리뷰노트 벤치마크) — 예약 일시·상태 + 예약 변경 + 협상 히스토리 */}
         {pass.reservation && (
           <ReservationPanel
             passId={pass.id}
@@ -229,6 +238,11 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             time={pass.reservation.time}
             status={pass.reservation.status}
             endAt={campaign?.endAt ?? pass.expiresAt}
+            historyLines={reservationHistoryLines(pass.reservation).map((h) => ({
+              prefix: h.prefix,
+              timeLabel: h.timeLabel,
+              ...(h.note ? { note: h.note } : {}),
+            }))}
           />
         )}
 
@@ -357,7 +371,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         )}
         {pass.status === "cancelled" && (
           <div className="mt-6 rounded-md bg-sunken p-5 text-[15px] text-muted">
-            직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요.
+            {pass.cancelledVia === "proposal_declined"
+              ? "예약 일정이 맞지 않아 취소된 신청입니다. 패널티나 재신청 제한 없이 언제든 다시 신청할 수 있어요."
+              : "직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요."}
           </div>
         )}
         {pass.status === "rejected" && (() => {

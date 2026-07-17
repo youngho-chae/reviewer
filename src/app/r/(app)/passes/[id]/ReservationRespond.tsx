@@ -20,11 +20,17 @@ export default function ReservationRespond({
   slots,
   note,
   endAt,
+  historyLines = [],
+  counterUsed = false,
 }: {
   passId: string;
   slots: Array<{ date: string; time: string; label: string }>; // 최대 3
   note?: string;
   endAt: number;
+  // 협상 히스토리 (v3) — 서버 포맷 타임라인
+  historyLines?: Array<{ prefix: string; timeLabel: string; note?: string }>;
+  // 재제안 1회 소진 여부 — 소진 시 기타(직접 입력) 행 미노출 (수락/거절만)
+  counterUsed?: boolean;
 }) {
   const router = useRouter();
   const [choice, setChoice] = useState<string>(""); // "0"|"1"|"2"|"etc"
@@ -69,6 +75,17 @@ export default function ReservationRespond({
   return (
     <div className="mx-5 mt-4 rounded-md border border-brand p-4">
       <div className="text-[15px] font-bold text-ink">사장님이 다른 방문 시간을 제안했어요</div>
+      {/* 협상 히스토리 — 지금까지 주고받은 시간 (v3) */}
+      {historyLines.length > 1 && (
+        <div className="mt-2 rounded-sm bg-sunken px-3 py-2 space-y-1">
+          {historyLines.map((h, i) => (
+            <div key={i} className="text-[12px] text-ink2 leading-[1.5]">
+              <span className={h.prefix.startsWith("사장님") ? "font-semibold text-brand" : "font-semibold text-ink"}>{h.prefix}</span>
+              {h.timeLabel && <span className="tabular-nums"> · {sbNum(SBUI.dateTime, h.timeLabel)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
       {note && (
         <div className="mt-2 rounded-sm bg-sunken px-3 py-2.5 text-[13px] text-ink2 leading-[1.55] whitespace-pre-line">
           💬 {note}
@@ -100,7 +117,8 @@ export default function ReservationRespond({
             </button>
           );
         })}
-        {/* 기타 행 — 내부에 select가 있어 button 중첩 대신 role="radio" 컨테이너로 구성 */}
+        {/* 기타 행 — 재제안은 1회만 가능(v3). 소진 시 미노출 (수락 또는 거절만) */}
+        {!counterUsed && (
         <div
           role="radio"
           aria-checked={isEtc}
@@ -150,11 +168,14 @@ export default function ReservationRespond({
             </div>
           )}
         </div>
+        )}
       </div>
       <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-        {isEtc
-          ? "직접 입력한 시간은 사장님이 다시 확인한 뒤 확정돼요."
-          : "제안된 시간을 수락하면 예약이 확정되고 체험권(QR)이 열려요."}
+        {counterUsed
+          ? "다른 시간 요청은 1회만 가능해요 — 제안된 시간을 수락하거나, 모두 어려우면 취소해주세요."
+          : isEtc
+            ? "직접 입력한 시간은 사장님이 다시 확인한 뒤 확정돼요 · 다른 시간 요청은 1회만 가능해요."
+            : "제안된 시간을 수락하면 예약이 확정되고 체험권(QR)이 열려요."}
       </p>
 
       {err && <p className="mt-2 text-[12px] text-error">{err}</p>}

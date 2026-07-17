@@ -6,7 +6,14 @@ import type { Campaign } from "@/lib/types";
 import CampaignTabs from "./CampaignTabs";
 import ShipQueue, { type ShipQueueItem } from "./ShipQueue";
 import ReservationQueue, { type ReservationQueueItem } from "./ReservationQueue";
-import { fmtReservationLabel, reservationEpoch } from "@/lib/reservation";
+import HomeQueues from "./HomeQueues";
+import {
+  fmtReservationLabel,
+  reservationEpoch,
+  reservationHistoryLines,
+  ownerProposalUsed,
+  reviewerCounterUsed,
+} from "@/lib/reservation";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +58,14 @@ export default async function OwnerHome() {
       status: p.reservation!.status,
       epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
       endAt: myCampaigns.find((c) => c.id === p.campaignId)?.endAt ?? p.expiresAt,
+      // 협상 히스토리 (v3) — 누가 언제 어떤 시간을 제안했는지 + 각 1회 제안 소진 여부
+      history: reservationHistoryLines(p.reservation!).map((h) => ({
+        prefix: h.prefix,
+        timeLabel: h.timeLabel,
+        ...(h.note ? { note: h.note } : {}),
+      })),
+      proposalUsed: ownerProposalUsed(p.reservation!),
+      counterUsed: reviewerCounterUsed(p.reservation!),
     }))
     .sort((a, b) => a.epoch - b.epoch);
 
@@ -61,36 +76,9 @@ export default async function OwnerHome() {
         <h1 className="text-[20px] font-bold text-ink tracking-title mt-1">안녕하세요, 사장님</h1>
       </div>
 
-      {/* 신규 리뷰 모니터링 — 운영팀이 검수하며 사장님은 조회만 */}
-      <Link href="/o/reviews" className="cp-action block mx-5 rounded-lg border border-hairline bg-canvas p-5">
-        <div className="text-[13px] text-muted">최근 등록된 후기</div>
-        <div className="text-[20px] font-bold text-ink tracking-title mt-1">
-          <span className="text-brand tabular-nums">{pendingReviews}건</span>이 운영팀 검수 중
-        </div>
-        <div className="text-[13px] font-semibold text-brand mt-1">후기 모니터링 →</div>
-      </Link>
-
-      {/* 방문 예약 확인 큐 — 예약형 방문 신청 확인·확정 (2026-07-16) */}
-      <ReservationQueue items={reservationQueue} />
-
-      {/* 배송형 발송 대기 큐 — 운송장 입력 후 발송 처리 (2026-07-12) */}
-      <ShipQueue items={shipQueue} />
-
-      {/* 멤버십 스트립 */}
-      <div className="mx-5 mt-3 rounded-md border border-hairline bg-canvas p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[12px] text-muted">현재 플랜</div>
-            <div className="text-[15px] font-semibold text-ink mt-0.5">
-              {me.plan} · {PLAN_POLICY[me.plan].monthlyTeamLimit === null ? "무제한 모집" : `월 ${PLAN_POLICY[me.plan].monthlyTeamLimit}팀 모집`}
-            </div>
-          </div>
-          <Link href="/o/me" className="cp-action text-[13px] font-semibold text-brand">관리 →</Link>
-        </div>
-      </div>
-
-      {/* 이번 달 모집 현황 */}
-      <div className="mx-5 mt-3 rounded-lg border border-hairline bg-canvas p-4">
+      {/* 이번 달 모집 현황 — 홈 최상단 (2026-07-16 회의). 플랜·관리 기능을 하단에 간소화 통합.
+          '최근 등록된 후기' 카드는 메인 [후기] 탭과 역할이 겹쳐 제거. */}
+      <div className="mx-5 rounded-lg border border-hairline bg-canvas p-4">
         <div className="text-[14px] font-bold text-ink">이번 달 모집 현황</div>
         <div className="mt-3 grid grid-cols-3 gap-3 text-center">
           <div>
@@ -106,7 +94,22 @@ export default async function OwnerHome() {
             <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{pendingReviews}</div>
           </div>
         </div>
+        <div className="mt-3.5 pt-3 border-t border-hairlineSoft flex items-center justify-between">
+          <span className="text-[13px] text-muted">
+            현재 플랜 <span className="font-semibold text-ink">{me.plan}</span> ·{" "}
+            {PLAN_POLICY[me.plan].monthlyTeamLimit === null ? "무제한 모집" : `월 ${PLAN_POLICY[me.plan].monthlyTeamLimit}팀 모집`}
+          </span>
+          <Link href="/o/me" className="cp-action text-[13px] font-semibold text-brand">관리 →</Link>
+        </div>
       </div>
+
+      {/* 홈 내부 큐 탭 — [방문 예약 | 발송 대기] (2026-07-16 회의) */}
+      <HomeQueues
+        reservationCount={reservationQueue.length}
+        shipCount={shipQueue.length}
+        reservationView={<ReservationQueue items={reservationQueue} />}
+        shipView={<ShipQueue items={shipQueue} />}
+      />
 
       {/* 진행 중 캠페인 */}
       <div className="px-5 mt-8 flex items-end justify-between">
