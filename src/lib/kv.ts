@@ -29,7 +29,13 @@ export async function kvLoad<T>(): Promise<T | null> {
     if (!r.ok) return null;
     const data = (await r.json()) as { result: string | null };
     if (!data.result) return null;
-    return JSON.parse(data.result) as T;
+    let parsed: unknown = JSON.parse(data.result);
+    // 구버전 kvSave가 이중 직렬화로 저장한 값 호환 — 문자열이 나오면 한 번 더 파싱.
+    // (이중 직렬화 + 단일 파싱 불일치로 KV 연결 시 DB가 문자열로 로드되어 전 요청이
+    //  500 나던 버그의 잔존 데이터 처리 — 2026-07-17 수정)
+    if (typeof parsed === "string") parsed = JSON.parse(parsed);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as T;
   } catch {
     return null;
   }
@@ -41,8 +47,9 @@ export async function kvSave<T>(value: T): Promise<boolean> {
   try {
     const r = await fetch(`${e.url}/set/${encodeURIComponent(KEY)}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${e.token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(JSON.stringify(value)),
+      // Upstash REST는 요청 본문 원문을 값으로 저장한다 — 단일 직렬화 (이중 직렬화 금지)
+      headers: { Authorization: `Bearer ${e.token}` },
+      body: JSON.stringify(value),
       cache: "no-store",
     });
     return r.ok;
