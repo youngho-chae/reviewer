@@ -227,7 +227,6 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           grade={pass.reviewerGrade}
           support={displaySupport}
           expiresAt={pass.expiresAt}
-          boosted={!!boost && displaySupport > entitledSupport}
         />
 
         {/* 예약 방문 패널 (2026-07-16 리뷰노트 벤치마크) — 예약 일시·상태 + 예약 변경 + 협상 히스토리 */}
