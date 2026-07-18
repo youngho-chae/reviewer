@@ -10,9 +10,10 @@ import { REVIEW_DEADLINE_MS, SHIP_DELAY_NOTICE_MS } from "@/lib/pass-lifecycle";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import { courierLabel, trackingUrl } from "@/lib/couriers";
 import { STORYBOARD } from "@/lib/storyboard";
+import { fmtKoDateTime } from "@/lib/dates";
 import GradeBadge from "@/components/GradeBadge";
 import Icon from "@/components/Icon";
-import { SBUI } from "@/lib/storyboard";
+import { SBUI, sbNum } from "@/lib/storyboard";
 import ReviewForm from "./ReviewForm";
 import Countdown from "./Countdown";
 import PassTicket from "./PassTicket";
@@ -252,6 +253,135 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
     );
   }
 
+  // 리뷰 제출 화면 (2026-07-17 시안 개편) — used(작성)·rejected(재제출, 기자단 제외) 공용 레이아웃:
+  // 히어로(매장명·혜택·마감 카드) → [반려 시] 반려 사유 카드 → 파스텔 채널 배너 → URL·최종 확인 폼.
+  if (pass.status === "used" || (pass.status === "rejected" && campaign?.kind !== "press")) {
+    const isRejected = pass.status === "rejected";
+    const channel = pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog";
+    // 파스텔 채널 배너 — 디자인 시스템 SNS 토큰 재사용 (블로그 그린 / 인스타 핑크 / 틱톡 틸)
+    const banner = {
+      naver_blog: { label: "네이버 블로그", box: "bg-snsBlogBg", strong: "text-snsBlogText" },
+      instagram: { label: "인스타", box: "bg-snsInstaBg", strong: "text-snsInstaText" },
+      tiktok: { label: "틱톡", box: "bg-snsTiktokBg", strong: "text-snsTiktokText" },
+    }[channel];
+    // 마감 기산점 — used: 이용 후 7일 / rejected: 반려 후 7일 (1회 재제출)
+    const deadline = isRejected
+      ? (pass.rejectedAt ?? Date.now()) + REVIEW_DEADLINE_MS
+      : (pass.usedAt ?? Date.now()) + REVIEW_DEADLINE_MS;
+    const display = passDisplayStatus(pass);
+    const closed = display === "overdue" || display === "resubmit_expired"; // 기한 초과·재제출 소진 — 폼 미노출
+    const myPoint = isDelivery && campaign?.pointReward ? supportForGrade(campaign.pointReward, pass.reviewerGrade) : 0;
+    const track = isDelivery ? trackingUrl(pass.courier, pass.trackingNo) : null;
+    // 반려 사유 — 줄바꿈 단위로 번호 목록 렌더 (어드민 입력 원문)
+    const rejectReasons = isRejected
+      ? String(pass.rejectReason ?? "작성 조건 미충족 (자세한 내용은 고객센터 문의)")
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+    return (
+      <div className="pb-44 bg-canvas min-h-[100dvh]">
+        <div className="sticky top-0 z-10 bg-canvas">
+          <div className="h-[52px] px-3 grid grid-cols-[40px_1fr_40px] items-center">
+            <Link href="/r/passes" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="내 체험권으로">
+              <Icon name="chevron-left" variant="border" size={22} />
+            </Link>
+            <h1 className="text-[16px] font-bold text-ink tracking-title text-center">리뷰 제출</h1>
+            <span />
+          </div>
+        </div>
+
+        {/* 히어로 — 매장명(최대 2줄) + 받은 혜택 + 리뷰마감 카운트다운 카드 */}
+        <section className="bg-parchment px-5 pt-5 pb-6">
+          <h2 className="text-[20px] font-bold text-ink tracking-title leading-[1.3] line-clamp-2">{store?.name}</h2>
+          <p className="mt-1.5 text-[15px] text-ink">
+            {isDelivery ? (
+              myPoint > 0 ? (
+                <>
+                  검수 승인 시{" "}
+                  <span className="font-bold text-[#FF6B00] tabular-nums">{sbNum(SBUI.point, `+${myPoint.toLocaleString()}P`)}</span>{" "}
+                  적립돼요!
+                </>
+              ) : (
+                <>제품을 받아 체험했어요 — 리뷰를 남겨주세요!</>
+              )
+            ) : (
+              <>
+                총{" "}
+                <span className="font-bold text-[#FF6B00] tabular-nums">
+                  {sbNum(SBUI.support, `${(pass.supportApplied ?? entitledSupport).toLocaleString()}원`)}
+                </span>{" "}
+                지원 받았어요!
+              </>
+            )}
+          </p>
+          <div className="mt-4 rounded-lg border-[1.5px] border-brand bg-canvas px-4 py-3.5 flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-brand shrink-0">
+              <span aria-hidden>🕐</span>
+              {isRejected ? "재제출 기한" : "리뷰마감"}
+            </span>
+            <div className="text-right">
+              {closed ? (
+                <div className="text-[18px] font-bold text-error">마감 지남</div>
+              ) : (
+                <Countdown expiresAt={deadline} mode="dhm" className="!text-[20px] !text-brand" expiredText="마감 지남" />
+              )}
+              <div className="mt-0.5 text-[12px] text-ink2 tabular-nums">{sbNum(SBUI.dateTime, fmtKoDateTime(deadline))}까지</div>
+            </div>
+          </div>
+
+          {/* 반려 사유 카드 (2026-07-17 시안) — 반려 안내 + 번호 목록 */}
+          {isRejected && (
+            <div className="mt-3 rounded-lg border-[1.5px] border-error bg-canvas p-4">
+              <div className="rounded-md bg-errorSoft px-4 py-3 text-center">
+                <div className="text-[15px] font-bold text-error">리뷰가 반려되었어요</div>
+                <div className="mt-0.5 text-[12px] text-ink2">반려 후 7일 이내 1회 재제출 할 수 있어요</div>
+              </div>
+              <ol className="mt-3 space-y-2.5 px-1">
+                {rejectReasons.map((reason, i) => (
+                  <li key={i} className="flex gap-2 text-[15px] font-semibold text-ink leading-[1.45]">
+                    <span className="shrink-0 tabular-nums">{i + 1}.</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </section>
+
+        {/* 파스텔 채널 배너 — 참여 채널 고정 표기 */}
+        <div className={`mx-5 mt-5 rounded-lg px-4 py-4 text-center text-[15px] text-ink ${banner.box}`}>
+          이번 체험은 <span className={`font-bold ${banner.strong}`}>{banner.label}</span> 참여했어요
+        </div>
+
+        {/* 배송형 — 운송장·배송 조회 유지 */}
+        {isDelivery && pass.trackingNo && (
+          <div className="mx-5 mt-3 rounded-lg border border-hairline px-4 py-3.5 flex items-center justify-between gap-2">
+            <span className="text-[13px] text-ink2 tabular-nums truncate">
+              📦 {courierLabel(pass.courier)} 운송장 {STORYBOARD ? SBUI.trackingNo : pass.trackingNo}
+            </span>
+            {!STORYBOARD && track && (
+              <a href={track} target="_blank" rel="noreferrer" className="cp-action shrink-0 text-[13px] font-semibold text-brand">
+                배송 조회 →
+              </a>
+            )}
+          </div>
+        )}
+
+        {closed ? (
+          /* 기한 초과·재제출 소진 — 서버(/api/passes/review)도 차단하므로 폼 대신 안내만 */
+          <div className="mx-5 mt-8 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
+            {isRejected
+              ? "재제출 기한(반려 후 7일)이 지났거나 재제출 횟수(1회)를 모두 사용해 다시 제출할 수 없어요."
+              : "리뷰 제출 기한(이용 후 7일)이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요."}
+          </div>
+        ) : (
+          <ReviewForm passId={pass.id} storeId={pass.storeId} channel={channel} resubmit={isRejected} />
+        )}
+      </div>
+    );
+  }
+
   // Other states — light canvas product page
   return (
     <div className="pb-24 bg-canvas min-h-[100dvh]">
@@ -284,71 +414,6 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
       </section>
 
       <div className="px-5">
-        {pass.status === "used" && (
-          <div className="mt-6">
-            <div className="rounded-md bg-brandSoft px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[15px] font-bold text-brand">{isDelivery ? "📦 발송 완료" : "사용 완료"}</div>
-                  {isDelivery ? (
-                    <div className="mt-1 text-[14px] text-ink2 tabular-nums">
-                      {pass.trackingNo
-                        ? `${courierLabel(pass.courier)} 운송장 ${STORYBOARD ? SBUI.trackingNo : pass.trackingNo}`
-                        : "상품이 발송되었어요"}
-                    </div>
-                  ) : (
-                    <div className="mt-1 text-[14px] text-ink2 tabular-nums">결제 {SBUI.price} · 지원 {SBUI.support}</div>
-                  )}
-                </div>
-                {pass.usedAt && (
-                  <div className="text-right">
-                    <div className="text-[11px] text-muted">리뷰 마감</div>
-                    <Countdown
-                      expiresAt={pass.usedAt + REVIEW_DEADLINE_MS}
-                      mode="dhm"
-                      className="!text-[15px] mt-1"
-                      expiredText="마감 지남"
-                    />
-                  </div>
-                )}
-              </div>
-              {isDelivery && (
-                <div className="mt-2 text-[12px] text-muted">
-                  {campaign?.pointReward ? "리뷰가 검수를 통과하면 포인트가 적립돼요" : "수령 후 체험하고 리뷰를 등록해주세요"}
-                </div>
-              )}
-              {/* 배송 조회 (2026-07-16 리뷰노트 벤치마크) — 택배사 조회 페이지로 이동 */}
-              {isDelivery && !STORYBOARD && trackingUrl(pass.courier, pass.trackingNo) && (
-                <a
-                  href={trackingUrl(pass.courier, pass.trackingNo)!}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="cp-action mt-3 inline-flex h-9 px-3.5 items-center rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-ink"
-                >
-                  🚚 배송 조회 →
-                </a>
-              )}
-            </div>
-
-            {/* [2026-07-12 회의 §11-1] 리뷰 작성 화면의 친구 초대(코드) 카드 삭제 — 초대는 /r/rewards 전용 */}
-
-            {passDisplayStatus(pass) === "overdue" ? (
-              /* 제출 기한 초과 — 서버(/api/passes/review)도 기한 경과 제출을 차단하므로 폼 대신 안내만 */
-              <div className="mt-9 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
-                리뷰 제출 기한(이용 후 7일)이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요.
-              </div>
-            ) : (
-              <>
-                <h2 className="mt-9 text-[18px] font-bold text-ink tracking-title">제출 전 마지막 확인</h2>
-                <p className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-                  게시한 리뷰 URL을 제출하고, 작성 조건을 확인했는지 가볍게 점검해주세요.
-                </p>
-                <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
-              </>
-            )}
-          </div>
-        )}
-
         {pass.status === "review_submitted" && (
           <div className="mt-6 rounded-md border border-hairline bg-canvas p-5 text-[15px] text-ink">
             ✓ 리뷰가 등록되었습니다. 운영팀이 광고 표시·작성 조건을 검수합니다 (영업일 기준 최대 3일).
