@@ -214,8 +214,7 @@ export default async function ReviewerHome({
             {walkTitleArea ? `${walkTitleArea}에서 갈 수 있어요` : "걸어서 갈 수 있어요"}
             <span aria-hidden>👀</span>
           </h2>
-          {/* [§11] 반경은 도보 거리가 아닌 직선 거리 기준임을 고지 */}
-          <p className="mt-0.5 text-[11px] text-mutedSoft">반경 3km · 직선 거리 기준</p>
+          {/* 서브 타이틀 제거 (2026-07-17 지시) — 반경·직선거리 고지는 홈에서 미노출 */}
         </div>
         <Link
           href={`/r/explore?mode=list&sort=distance${selectedArea ? `&area=${encodeURIComponent(selectedArea)}` : ""}`}
@@ -250,7 +249,7 @@ export default async function ReviewerHome({
               <h2 className="text-[18px] font-bold text-ink tracking-title truncate">
                 집으로 배송받는 체험<span aria-hidden>📦</span>
               </h2>
-              <p className="mt-0.5 text-[11px] text-mutedSoft">전국 어디서나 · 리뷰 승인 시 포인트 적립</p>
+              {/* 서브 타이틀 제거 (2026-07-17 지시) */}
             </div>
             <Link
               href="/r/explore?mode=list&tab=delivery"
