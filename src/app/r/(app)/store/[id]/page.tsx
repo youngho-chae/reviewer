@@ -125,15 +125,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {/* 신청 완료 — 이미 참여 중인 체험 재접근 시 상태 안내 (§1-1) */}
-        {!ended && myActivePass && (
-          <div className="mt-3 rounded-md bg-successSoft px-3.5 py-3 flex items-center gap-2">
-            <span aria-hidden>✅</span>
-            <span className="text-[13px] font-semibold text-successStrong">
-              이미 신청한 체험이에요 · 진행 상황은 내 체험권에서 확인할 수 있어요.
-            </span>
-          </div>
-        )}
+        {/* 신청 완료 배너 제거 (2026-07-17 지시) — CTA [내 체험권 보기]로 상태 구분이 충분 */}
 
         {/* 체험권 일시 소진 — 완전 종료가 아님을 구분 안내 (§1-2: 72h 미사용 만료 시 복구 가능) */}
         {!ended && !myActivePass && exposure === "issued_out" && (
