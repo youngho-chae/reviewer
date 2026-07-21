@@ -189,7 +189,7 @@ export default async function ReviewerHome({
         </div>
       </section>
 
-      {/* stat-strip — 이번 달 아낀 금액 / 작성해야 하는 리뷰 / 발급받은 체험권 (확정 정책 1-1) */}
+      {/* stat-strip — 이번 달 아낀 금액 / 밀린 리뷰 / 참여 예정 (확정 정책 1-1 · 라벨 2026-07-17) */}
       <section className="px-5 mt-3">
         <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
           <div className="py-4 px-3 text-center">
@@ -197,11 +197,11 @@ export default async function ReviewerHome({
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.saved, `${savedThisMonth.toLocaleString()}원`)}</div>
           </div>
           <div className="py-4 px-3 text-center border-l border-r border-hairlineSoft">
-            <div className="text-[12px] text-muted">작성할 리뷰</div>
+            <div className="text-[12px] text-muted">밀린 리뷰</div>
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.count, `${pendingReviews}건`)}</div>
           </div>
           <Link href="/r/passes" className="cp-action py-4 px-3 text-center block">
-            <div className="text-[12px] text-brand font-semibold">🎫 발급받은 체험권</div>
+            <div className="text-[12px] text-brand font-semibold">🎫 참여 예정</div>
             <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{sbNum(SBUI.count, `${upcoming}건`)}</div>
           </Link>
         </div>
