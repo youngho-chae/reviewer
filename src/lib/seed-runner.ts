@@ -1490,6 +1490,7 @@ export function runSeed(db: DBShape) {
         reservation: {
           date: sp.date,
           time: sp.time,
+          partySize: 2, // 방문 인원수 (2026-07-17 — 데모 2명)
           status: sp.status,
           requestedAt: now - 6 * hour,
           history,

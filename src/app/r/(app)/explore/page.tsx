@@ -68,6 +68,8 @@ export default async function ReviewerExplore({
         keywords: c.highlightKeywords,
         // 참여 방식 필터·예약 배지 (2026-07-12) — 방문 전 예약 필수 여부
         reservationRequired: c.reservationRequired ?? false,
+        // 카드 캐러셀 사진 (2026-07-17) — 사장님 등록 사진 (미보유 시 클라이언트 폴백)
+        photos: c.photos,
       };
     });
 
@@ -133,6 +135,7 @@ export default async function ReviewerExplore({
         planRank: ownerPlanRank.get(store.ownerId) ?? 0,
         keywords: c.highlightKeywords,
         totalQuota: totalQ,
+        photos: c.photos, // 카드 캐러셀 사진 (2026-07-17)
       } as ExploreDeliveryCard;
     });
 

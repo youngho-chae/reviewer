@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     pass.reservation = {
       date: rd,
       time: rt,
+      partySize: pass.reservation.partySize, // 인원수 유지 (2026-07-17)
       status: "confirmed", // 수락 = 즉시 확정 — 체험권(QR) 활성화
       requestedAt: pass.reservation.requestedAt,
       confirmedAt: now,
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
     pass.reservation = {
       date: rd,
       time: rt,
+      partySize: pass.reservation.partySize, // 인원수 유지 (2026-07-17)
       status: "requested",
       requestedAt: now,
       history: [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "counter", date: rd, time: rt }],

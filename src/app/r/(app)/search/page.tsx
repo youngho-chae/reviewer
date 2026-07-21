@@ -117,8 +117,9 @@ export default async function SearchPage({
                   href={`/r/store/${r.storeId}?campaign=${r.campaignId}`}
                   className="cp-action flex gap-3"
                 >
-                  <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
-                    <Image src={photoForStore(r.storeId, r.category)} alt={r.name} fill sizes="96px" className="object-cover" />
+                  {/* 검색 결과 카드 (2026-07-17 시안) — 100×75(4:3) 썸네일 · 가게명 1줄 · 혜택 · 지역(오렌지) · 잔여 칩 */}
+                  <div className="relative w-[100px] h-[75px] shrink-0 rounded-md overflow-hidden bg-sunken">
+                    <Image src={photoForStore(r.storeId, r.category)} alt={r.name} fill sizes="100px" className="object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
@@ -128,24 +129,21 @@ export default async function SearchPage({
                             📦 배송
                           </span>
                         )}
-                        <ChannelIcons channels={r.requiredChannels} size={12} />
+                        <span className="text-[15px] font-semibold text-ink leading-[1.4] truncate">{r.name}</span>
                       </div>
                       {r.soldOut ? (
-                        <div className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</div>
+                        <span className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</span>
                       ) : (
-                        <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
-                          <span aria-hidden>🎫</span>
-                          <span className="tabular-nums">{sbNum(SBUI.remain, `${r.remain}개`)}</span> 남음
-                        </div>
+                        <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-xs bg-brandSoft text-brand text-[12px] font-semibold">
+                          <span aria-hidden>🎫</span> 잔여 <span className="tabular-nums">{sbNum(SBUI.remain, `${r.remain}`)}</span>
+                        </span>
                       )}
                     </div>
-                    <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{r.name}</div>
-                    {/* 지역 1차·2차 — 동일·유사 상호를 지역으로 구분 (§6-2) */}
-                    <div className="mt-0.5 text-[13px] text-muted truncate">
-                      {r.category}
-                      {r.region && <> · {sbNum(SBUI.area, r.region)}</>}
-                    </div>
                     <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{r.benefit}</div>
+                    {/* 지역 1차·2차 — 시안: 오렌지 강조 (동일·유사 상호를 지역으로 구분, §6-2) */}
+                    <div className="mt-0.5 text-[13px] font-semibold text-[#FF6B00] truncate">
+                      {r.region ? sbNum(SBUI.area, r.region) : r.category}
+                    </div>
                   </div>
                 </Link>
               ))}

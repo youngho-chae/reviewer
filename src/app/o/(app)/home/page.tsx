@@ -58,6 +58,7 @@ export default async function OwnerHome() {
       status: p.reservation!.status,
       epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
       endAt: myCampaigns.find((c) => c.id === p.campaignId)?.endAt ?? p.expiresAt,
+      partySize: p.reservation!.partySize, // 방문 인원수 (2026-07-17)
       // 협상 히스토리 (v3) — 누가 언제 어떤 시간을 제안했는지 + 각 1회 제안 소진 여부
       history: reservationHistoryLines(p.reservation!).map((h) => ({
         prefix: h.prefix,

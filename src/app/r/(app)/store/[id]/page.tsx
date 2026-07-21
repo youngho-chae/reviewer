@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { photoForStore } from "@/lib/store-photo";
+import { photosForCampaign } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
 import { CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
@@ -79,16 +79,20 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      {/* 히어로 — full-bleed 사진 */}
-      <section className="relative aspect-[4/3] bg-sunken overflow-hidden">
-        <Image
-          src={photoForStore(store.id, store.category)}
-          alt={store.name}
-          fill
-          priority
-          sizes="(max-width: 480px) 100vw, 480px"
-          className="object-cover"
-        />
+      {/* 히어로 — 가로 풀폭 4:3 사진 캐러셀 (2026-07-17: 대표 이미지 + 사장님 등록 사진) */}
+      <section className="flex overflow-x-auto snap-x snap-mandatory" style={{ scrollbarWidth: "none" }}>
+        {photosForCampaign(c.photos, store.id, store.category).map((src, i) => (
+          <div key={i} className="relative w-full aspect-[4/3] shrink-0 snap-start bg-sunken overflow-hidden">
+            <Image
+              src={src}
+              alt={`${store.name} 사진 ${i + 1}`}
+              fill
+              priority={i === 0}
+              sizes="(max-width: 480px) 100vw, 480px"
+              className="object-cover"
+            />
+          </div>
+        ))}
       </section>
 
       {/* 매장 헤더 — 배지 + 이름 + 플레이스 링크 */}
@@ -291,7 +295,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
               </>
             ) : isReserve ? (
               <>
-                <li>체험권은 예약한 방문일 당일까지 사용할 수 있어요 · 기한이 지나면 연장·복구되지 않아요.</li>
+                <li>체험권(QR)은 예약한 방문일 다음날까지 사용할 수 있어요 · 기한이 지나면 연장·복구되지 않아요.</li>
                 <li>예약은 사장님 확인 후 확정되며, 확정 전에는 체험권 QR이 열리지 않아요 · 일정이 바뀌면 방문 전까지 예약을 변경할 수 있어요.</li>
                 <li>사장님이 다른 시간을 제안하면 수락(확정)하거나 다른 시간을 다시 요청할 수 있고, 모두 안 맞으면 취소해도 패널티·재신청 제한이 없어요.</li>
                 <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요 · 취소한 캠페인은 12시간 뒤부터 재신청할 수 있어요.</li>

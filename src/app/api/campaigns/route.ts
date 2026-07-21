@@ -140,6 +140,18 @@ export async function POST(req: NextRequest) {
           .filter((o, i, arr) => o.length > 0 && arr.indexOf(o) === i)
           .slice(0, 5)
       : [];
+  // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 + 사장님 추가, 3~20장 필수.
+  // dataURL(클라이언트 리사이즈) 또는 URL만 허용, 장당 300KB 제한 (단일 키 DB 비대화 방지).
+  const photos: string[] = Array.isArray(body.photos)
+    ? (body.photos as unknown[])
+        .map((p) => String(p ?? ""))
+        .filter((p) => (p.startsWith("data:image/") || p.startsWith("http") || p.startsWith("/")) && p.length <= 300 * 1024)
+        .slice(0, 20)
+    : [];
+  if (photos.length < 3) {
+    return NextResponse.json({ error: "매장·상품 사진을 3장 이상 등록해주세요 (최대 20장)" }, { status: 400 });
+  }
+
   const c: Campaign = {
     id: rid("cp"),
     storeId: store.id,
@@ -161,6 +173,7 @@ export async function POST(req: NextRequest) {
     ...(reservationRequired ? { reservationRequired: true } : {}),
     ...(reservationNote ? { reservationNote } : {}),
     ...(productOptions.length > 0 ? { productOptions } : {}),
+    photos,
   };
   db.campaigns.push(c);
   await saveDBAsync();

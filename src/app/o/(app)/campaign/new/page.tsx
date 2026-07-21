@@ -44,6 +44,37 @@ export default function NewCampaign() {
   const [reservationRequired, setReservationRequired] = useState(false); // 방문형 예약 필수 옵션
   const [reservationNote, setReservationNote] = useState(""); // 예약 안내 (가능 요일·시간대 — 선택)
   const [productOptionsRaw, setProductOptionsRaw] = useState(""); // 배송형 상품 옵션 (쉼표 구분 · 최대 5)
+  // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 자리 + 추가 사진, 3~20장 필수.
+  // 업로드 파일은 클라이언트에서 640px·JPEG로 리사이즈해 dataURL 저장 (DB 비대화 방지)
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
+
+  async function addPhotos(files: FileList | null) {
+    if (!files) return;
+    setPhotoErr(null);
+    const next = [...photos];
+    for (const file of Array.from(files)) {
+      if (next.length >= 20) break;
+      if (!file.type.startsWith("image/")) continue;
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const img = new window.Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const scale = Math.min(1, 640 / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL("image/jpeg", 0.6));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("이미지를 읽을 수 없어요")); };
+        img.src = url;
+      }).catch(() => "");
+      if (dataUrl && dataUrl.length <= 300 * 1024) next.push(dataUrl);
+    }
+    setPhotos(next.slice(0, 20));
+  }
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
@@ -157,6 +188,7 @@ export default function NewCampaign() {
           : undefined,
         reservationRequired: !isDelivery && reservationRequired ? true : undefined,
         reservationNote: !isDelivery && reservationRequired ? reservationNote.trim() || undefined : undefined,
+        photos, // 매장·상품 사진 3~20장 (2026-07-17)
         requiredMenus: isDelivery ? [] : cleanMenus,
         requiredChannels: channels,
         highlightKeywords,
@@ -552,6 +584,46 @@ export default function NewCampaign() {
         </section>
         )}
 
+        {/* 매장·상품 사진 (2026-07-17 회의) — 대표 이미지 + 추가 사진, 3~20장 필수.
+            체험자 탐색 카드 캐러셀·상세 히어로에 노출된다. 첫 장이 대표 이미지. */}
+        <section>
+          <div className="text-[14px] font-semibold text-ink mb-2">
+            매장·상품 사진 <span className="text-[12px] text-muted font-normal">(필수 · 3~20장, 첫 장이 대표)</span>
+          </div>
+          <p className="text-[12px] text-muted mb-3 leading-[1.5]">
+            플레이스 대표 이미지와 매장·메뉴 사진을 등록하세요. 체험자 탐색 카드와 상세 화면에 캐러셀로 노출됩니다.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {photos.map((src, i) => (
+              <div key={i} className="relative w-[100px] h-[75px] rounded-md overflow-hidden bg-sunken border border-hairline">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                {i === 0 && (
+                  <span className="absolute left-1 top-1 px-1 py-0.5 rounded-xs bg-ink/70 text-white text-[10px] font-semibold">대표</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPhotos((arr) => arr.filter((_, j) => j !== i))}
+                  aria-label={`사진 ${i + 1} 삭제`}
+                  className="absolute right-1 top-1 w-5 h-5 rounded-full bg-ink/70 text-white text-[11px] leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {photos.length < 20 && (
+              <label className="w-[100px] h-[75px] rounded-md border border-dashed border-hairline grid place-items-center text-[12px] text-muted cursor-pointer">
+                + 추가
+                <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
+              </label>
+            )}
+          </div>
+          <p className={`mt-2 text-[12px] ${photos.length >= 3 ? "text-muted" : "text-error"}`}>
+            {photos.length}/20장 등록됨{photos.length < 3 ? " — 최소 3장이 필요해요" : ""}
+          </p>
+          {photoErr && <p className="mt-1 text-[12px] text-error">{photoErr}</p>}
+        </section>
+
         {/* 강조 키워드 */}
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">강조 키워드</div>
@@ -596,7 +668,7 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory)}
+          disabled={busy || !storeId || overLimit || photos.length < 3 || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory)}
           type="submit"
           className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >

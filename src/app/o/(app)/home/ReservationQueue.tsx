@@ -18,6 +18,7 @@ export interface ReservationQueueItem {
   status: "requested" | "proposed" | "confirmed";
   epoch: number; // 예약 일시 (정렬용)
   endAt: number; // 캠페인 종료일 — 제안 가능 날짜 한도
+  partySize?: number; // 방문 인원수 (2026-07-17 — 신청 시 필수 입력)
   // 협상 히스토리 (v3) — 서버에서 포맷된 타임라인 (일시는 sbNum으로 마스킹 가능하게 분리)
   history: Array<{ prefix: string; timeLabel: string; note?: string }>;
   proposalUsed: boolean; // 사장님 제안 1회 소진 — 소진 후 재제안 불가
@@ -88,7 +89,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold text-ink tabular-nums">
-                {sbNum(SBUI.dateTime, it.label)} {it.counterUsed && it.status === "requested" ? "재제안" : "방문 희망"}
+                {sbNum(SBUI.dateTime, it.label)}{it.partySize ? ` · ${it.partySize}명` : ""} {it.counterUsed && it.status === "requested" ? "재제안" : "방문 희망"}
               </span>
               {it.status === "confirmed" && (
                 <span className="inline-flex items-center px-2 py-1 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">

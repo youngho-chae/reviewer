@@ -58,3 +58,14 @@ export function photoForStore(storeId: string, category?: string): string {
   }
   return FOOD_PHOTOS[hash(storeId) % FOOD_PHOTOS.length];
 }
+
+// 캠페인 카드 캐러셀용 사진 목록 (2026-07-17 회의) — 사장님 등록 사진(campaign.photos:
+// 대표 1 + 추가, 3~20장) 우선, 미등록 캠페인(구 시드)은 대표 1장 + 결정론적 2장 폴백.
+export function photosForCampaign(campaignPhotos: string[] | undefined, storeId: string, category?: string): string[] {
+  if (campaignPhotos && campaignPhotos.length > 0) return STORYBOARD ? campaignPhotos.map(() => STORYBOARD_THUMB) : campaignPhotos;
+  if (STORYBOARD) return [STORYBOARD_THUMB, STORYBOARD_THUMB, STORYBOARD_THUMB];
+  const cover = photoForStore(storeId, category);
+  const extra1 = FOOD_PHOTOS[(hash(storeId) + 1) % FOOD_PHOTOS.length];
+  const extra2 = FOOD_PHOTOS[(hash(storeId) + 2) % FOOD_PHOTOS.length];
+  return [cover, extra1, extra2];
+}

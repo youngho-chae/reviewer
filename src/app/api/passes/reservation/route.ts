@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
   pass.reservation = {
     date: rd,
     time: rt,
+    partySize: pass.reservation.partySize, // 인원수 유지 (2026-07-17)
     status: "requested",
     requestedAt: now,
     // 변경 = 내 희망 일시 재요청 — 히스토리에 request로 기록 (제안/재제안 횟수와 무관)

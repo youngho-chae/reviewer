@@ -90,9 +90,10 @@ export default function StoreParticipate({
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [option, setOption] = useState(""); // 상품 옵션 (옵션 캠페인 택1 필수)
-  // 예약형 — 희망 방문 일시 (신청 필수, 사장님이 확인 후 확정)
+  // 예약형 — 희망 방문 일시 + 인원수 (신청 필수, 사장님이 확인 후 확정)
   const [rsvDate, setRsvDate] = useState("");
   const [rsvTime, setRsvTime] = useState("");
+  const [rsvParty, setRsvParty] = useState(""); // 방문 인원수 (2026-07-17 필수)
 
   const isDelivery = kind === "delivery";
   const isReserve = !isDelivery && reservationRequired;
@@ -107,7 +108,7 @@ export default function StoreParticipate({
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
   const shippingValid =
     !isDelivery || (recipient.trim() && phone.trim() && address.trim() && (productOptions.length === 0 || !!option));
-  const reservationValid = !isReserve || (!!rsvDate && !!rsvTime);
+  const reservationValid = !isReserve || (!!rsvDate && !!rsvTime && !!rsvParty);
 
   async function copyNotice() {
     if (!selected) return;
@@ -139,7 +140,7 @@ export default function StoreParticipate({
               },
             }
           : {}),
-        ...(isReserve ? { reservation: { date: rsvDate, time: rsvTime } } : {}),
+        ...(isReserve ? { reservation: { date: rsvDate, time: rsvTime, partySize: Number(rsvParty) } } : {}),
       }),
     });
     if (!res.ok) {
@@ -355,7 +356,7 @@ export default function StoreParticipate({
                   <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
                     {rsvDate && rsvTime ? sbNum(SBUI.dateTime, fmtReservationLabel(rsvDate, rsvTime)) : "선택한 방문 일시"}에 방문
                   </div>
-                  <div className="mt-1.5 text-[12px] text-muted">사장님이 예약을 확인하면 체험권 QR이 열려요 · 체험권은 방문일까지 유효해요</div>
+                  <div className="mt-1.5 text-[12px] text-muted">사장님이 예약을 확인하면 체험권 QR이 열려요 · 체험권은 방문일 다음날까지 유효해요</div>
                 </>
               ) : (
                 <>
@@ -431,6 +432,20 @@ export default function StoreParticipate({
                     ))}
                   </select>
                 </div>
+                {/* 방문 인원수 — 필수 (2026-07-17) · 사장님 예약 큐에 표시 */}
+                <select
+                  value={rsvParty}
+                  onChange={(e) => setRsvParty(e.target.value)}
+                  aria-label="방문 인원수"
+                  className={`mt-2 w-full h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvParty ? "text-ink" : "text-mutedSoft"}`}
+                >
+                  <option value="">방문 인원수 선택 (필수)</option>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n}명
+                    </option>
+                  ))}
+                </select>
                 <p className="mt-1.5 text-[11px] text-muted">
                   발급과 함께 예약이 접수되고, 사장님이 확인하면 알림을 드려요 · 방문 전까지 예약 변경이 가능해요.
                 </p>

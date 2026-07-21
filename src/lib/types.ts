@@ -165,6 +165,10 @@ export interface Campaign {
   // 배송형 상품 옵션 (2026-07-16 리뷰노트 벤치마크) — 색상·구성 등 최대 5개.
   // 설정 시 신청에서 택1 필수 (Pass.shipping.option) — 발송 목적으로 발송 큐에 표시.
   productOptions?: string[];
+  // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 + 사장님 추가 사진.
+  // 생성 시 3~20장 필수 (클라이언트 리사이즈 dataURL 또는 URL). 미보유 구 시드는
+  // photosForCampaign 폴백(대표 1 + 결정론 2장)으로 렌더.
+  photos?: string[];
 }
 
 // 예약형 방문 일정 (2026-07-16 리뷰노트 벤치마크 · v2 제안 플로우 — 정본: 운영정책서 §15, src/lib/reservation.ts)
@@ -175,6 +179,8 @@ export interface Campaign {
 export interface PassReservation {
   date: string; // "YYYY-MM-DD" (KST) — 체험자 희망(또는 확정) 일시
   time: string; // "HH:mm" — RESERVATION_TIME_SLOTS 중 하나 (기타 직접 입력 포함)
+  // 방문 인원수 (2026-07-17 회의 — 신청 시 필수, 사장님 예약 큐에 표시)
+  partySize?: number;
   status: "requested" | "proposed" | "confirmed"; // 확인 대기 / 사장님 대안 제안(응답 대기) / 확정
   requestedAt: number;
   confirmedAt?: number;

@@ -65,10 +65,16 @@ export async function POST(req: NextRequest) {
     const rt = String(reservation?.time || "");
     const rerr = validateReservation(rd, rt, c.endAt);
     if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
+    // 방문 인원수 필수 (2026-07-17 회의) — 사장님이 예약 큐에서 확인
+    const partySize = Math.floor(Number(reservation?.partySize) || 0);
+    if (partySize < 1 || partySize > 10) {
+      return NextResponse.json({ error: "방문 인원수를 선택해주세요 (1~10명)" }, { status: 400 });
+    }
     const at = Date.now();
     reservationInfo = {
       date: rd,
       time: rt,
+      partySize,
       status: "requested",
       requestedAt: at,
       // 협상 히스토리 시작 (v3) — 이후 제안/재제안/확정/거절이 append 된다

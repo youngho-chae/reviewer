@@ -34,10 +34,15 @@ export function reservationEpoch(date: string, time: string): number {
   return Date.parse(`${date}T${time}:00+09:00`);
 }
 
-// 예약일 당일 말(KST 23:59:59) — 예약형 체험권의 expiresAt
+// 예약형 체험권 expiresAt — 방문 희망일 **+1일** 말(KST 23:59:59)까지 QR 유지 (2026-07-17 회의).
+// 방문 당일을 넘겨도 다음날까지는 사용 처리(QR)가 가능하다.
 export function reservationDayEnd(date: string): number {
-  return Date.parse(`${date}T23:59:59+09:00`);
+  return Date.parse(`${date}T23:59:59+09:00`) + 24 * 60 * 60 * 1000;
 }
+
+// 방문 인원수 (2026-07-17 회의 — 신청 시 필수)
+export const RESERVATION_PARTY_MIN = 1;
+export const RESERVATION_PARTY_MAX = 10;
 
 // 선택 가능한 날짜 목록 — 오늘(KST)부터 min(14일, 캠페인 종료일)까지
 export function reservationDateOptions(endAt: number, now: number = Date.now()): string[] {
