@@ -15,6 +15,9 @@ export const PASS_VALIDITY_MS = 72 * 60 * 60 * 1000;
 export const REVIEW_DEADLINE_MS = 7 * 24 * 60 * 60 * 1000;
 // 취소 후 동일 캠페인 재신청 제한 — 발급 API(/api/passes)와 매장 상세 CTA가 공유
 export const CANCEL_REAPPLY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+// 배송형 발송 지연 안내 기준 — 신청 후 이 시간 경과 미발송이면 체험자·사장님 화면에 지연 표시
+// (2026-07-16 리뷰노트 벤치마크 — 표시 전용, 상태 전이 없음. 리뷰 기한은 발송 후 7일 롤링이라 불이익 없음)
+export const SHIP_DELAY_NOTICE_MS = 3 * 24 * 60 * 60 * 1000;
 const EXPIRY_REMINDER_MS = 6 * 60 * 60 * 1000;
 const REVIEW_DUE_REMINDER_MS = 24 * 60 * 60 * 1000;
 

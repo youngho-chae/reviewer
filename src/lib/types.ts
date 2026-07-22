@@ -159,6 +159,53 @@ export interface Campaign {
   // ── 방문형 예약 옵션 (예약형 라이트 — flags.ts '추후 확장'의 1단계) ──
   // true면 상세·체험권에 "방문 전 예약 필수" 배지 + 안내. 선정 절차는 두지 않는다(즉시 발급 유지).
   reservationRequired?: boolean;
+  // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — "가능 요일" 대응) — 가능 요일·시간대 등 자유 텍스트.
+  // 상세 배너·발급 시트에 노출. reservationRequired 캠페인 전용 (선택 입력, 최대 80자).
+  reservationNote?: string;
+  // 배송형 상품 옵션 (2026-07-16 리뷰노트 벤치마크) — 색상·구성 등 최대 5개.
+  // 설정 시 신청에서 택1 필수 (Pass.shipping.option) — 발송 목적으로 발송 큐에 표시.
+  productOptions?: string[];
+  // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 + 사장님 추가 사진.
+  // 생성 시 3~20장 필수 (클라이언트 리사이즈 dataURL 또는 URL). 미보유 구 시드는
+  // photosForCampaign 폴백(대표 1 + 결정론 2장)으로 렌더.
+  photos?: string[];
+}
+
+// 예약형 방문 일정 (2026-07-16 리뷰노트 벤치마크 · v2 제안 플로우 — 정본: 운영정책서 §15, src/lib/reservation.ts)
+// 예약은 참여 승인/선정이 아니라 "일정 조율"이다 — 사장님의 일방 거절/취소는 없다(P1).
+// 사장님은 [예약 확인] 또는 [다른 시간 제안]만 가능하고, 취소 결정권은 체험자에게 있다
+// (제안 거절 = 체험자 취소 — 패널티·재신청 제한 없음).
+// **QR·사용 처리는 예약 확정(confirmed) 후에만 열린다** (2026-07-16 회의 — 확정 전 QR 미노출).
+export interface PassReservation {
+  date: string; // "YYYY-MM-DD" (KST) — 체험자 희망(또는 확정) 일시
+  time: string; // "HH:mm" — RESERVATION_TIME_SLOTS 중 하나 (기타 직접 입력 포함)
+  // 방문 인원수 (2026-07-17 회의 — 신청 시 필수, 사장님 예약 큐에 표시)
+  partySize?: number;
+  status: "requested" | "proposed" | "confirmed"; // 확인 대기 / 사장님 대안 제안(응답 대기) / 확정
+  requestedAt: number;
+  confirmedAt?: number;
+  // 사장님 대안 제안 — 슬롯 최대 3개 + 수기 안내사항(선택지가 더 필요하거나 추가 안내 시).
+  // 체험자는 슬롯 수락(=확정) / 기타 일시 직접 입력(=재제안, 1회) / 거절(=취소) 중 선택한다.
+  proposal?: {
+    slots: Array<{ date: string; time: string }>; // 0~3개 (0개면 안내사항 필수)
+    note?: string; // 수기 안내사항 — 체험자 화면에 그대로 노출 (최대 200자)
+    proposedAt: number;
+  };
+  // 협상 히스토리 (2026-07-16 v3) — 양측 화면에 타임라인으로 노출되는 append-only 로그.
+  // 제안 횟수 판정의 정본: 사장님 propose 1회 · 체험자 counter 1회 (reservation.ts 헬퍼).
+  history?: ReservationEvent[];
+}
+
+// 예약 협상 이벤트 — request(체험자 희망/변경) → propose(사장님 대안, 1회) →
+// counter(체험자 재제안, 1회) → confirm/accept(확정) 또는 decline(거절 = 취소, 패널티 없음)
+export interface ReservationEvent {
+  at: number;
+  by: "reviewer" | "owner";
+  kind: "request" | "propose" | "counter" | "confirm" | "accept" | "decline";
+  date?: string; // request/counter/confirm/accept의 일시
+  time?: string;
+  slots?: Array<{ date: string; time: string }>; // propose 전용
+  note?: string; // propose 안내사항
 }
 
 // 배송형 신청 시 체험자가 입력하는 배송지 — 발송 목적 한정으로 사장님에게 노출된다
@@ -167,6 +214,8 @@ export interface ShippingInfo {
   recipient: string; // 수령인 이름
   phone: string;
   address: string;
+  // 선택한 상품 옵션 — campaign.productOptions 중 하나 (옵션 캠페인은 필수, 2026-07-16)
+  option?: string;
 }
 
 export type PassStatus =
@@ -192,6 +241,9 @@ export interface Pass {
   expiresAt: number;
   usedAt?: number;
   cancelledAt?: number; // 체험자 취소 시각
+  // 취소 경위 — "proposal_declined" = 사장님 시간 제안 거절로 인한 취소 (2026-07-16 v2).
+  // 이 취소는 패널티·12h 재신청 제한을 적용하지 않는다 (일정이 맞지 않은 것일 뿐).
+  cancelledVia?: "proposal_declined";
   paidAmount?: number;
   supportApplied?: number;
   // 초대 보상(지원금 부스트)이 사용 처리에 적용된 경우 기록
@@ -226,6 +278,10 @@ export interface Pass {
   shipping?: ShippingInfo; // 신청 시 입력한 배송지 (발송 목적 한정 노출)
   shippedAt?: number; // 사장님 발송 처리 시각 (= usedAt과 함께 세팅 — 리뷰 7일 기산점)
   trackingNo?: string; // 운송장 번호 (선택)
+  courier?: string; // 택배사 코드 (src/lib/couriers.ts — 체험자 배송 조회 링크용, 2026-07-16)
+  // ── 예약형 방문 전용 (2026-07-16 리뷰노트 벤치마크) ──
+  // 존재 시 expiresAt = 예약일 당일 말(KST 23:59) — 72h 고정 기한의 명시적 예외.
+  reservation?: PassReservation;
   status: PassStatus;
 }
 

@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
     await saveDBAsync();
     return NextResponse.json({ error: "만료된 체험권입니다" }, { status: 400 });
   }
+  // 예약형 (2026-07-16 v2) — 예약 확정 전에는 사용 불가 (QR·코드 미노출과 동일 기준)
+  if (pass.reservation && pass.reservation.status !== "confirmed") {
+    return NextResponse.json({ error: "예약이 확정된 뒤에 사용할 수 있어요" }, { status: 400 });
+  }
 
   const campaign = db.campaigns.find((c) => c.id === pass.campaignId);
   if (!campaign) return NextResponse.json({ error: "캠페인 정보를 찾을 수 없습니다" }, { status: 400 });

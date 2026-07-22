@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
-import { Pass, Grade, SnsKind, ShippingInfo } from "@/lib/types";
+import { Pass, PassReservation, Grade, SnsKind, ShippingInfo } from "@/lib/types";
 import { CHANNEL_LABEL } from "@/lib/channels";
 import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
+import { validateReservation, reservationDayEnd, fmtReservationLabel } from "@/lib/reservation";
 import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 import { effectiveChannelState } from "@/lib/sns-cookie";
@@ -18,7 +19,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { campaignId, channel, shipping } = await req.json();
+  const { campaignId, channel, shipping, reservation } = await req.json();
   const db = await getDBAsync();
   const me = db.reviewers.find((r) => r.id === s.userId);
   const c = db.campaigns.find((x) => x.id === campaignId);
@@ -47,6 +48,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "배송지 정보(수령인·연락처·주소)를 입력해주세요" }, { status: 400 });
     }
     shippingInfo = { recipient, phone, address };
+    // 상품 옵션 (2026-07-16 리뷰노트 벤치마크) — 옵션 캠페인은 택1 필수 (목록에 있는 값만)
+    if (c.productOptions && c.productOptions.length > 0) {
+      const option = String(sh?.option || "").trim();
+      if (!c.productOptions.includes(option)) {
+        return NextResponse.json({ error: "상품 옵션을 선택해주세요" }, { status: 400 });
+      }
+      shippingInfo.option = option;
+    }
+  }
+  // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — 신청 시 희망 방문 일시 필수.
+  // 예약은 선정이 아니라 일정 조율(P1) — 발급은 즉시, 사장님은 확인만 한다.
+  let reservationInfo: PassReservation | undefined;
+  if (!isPress && !isDelivery && c.reservationRequired) {
+    const rd = String(reservation?.date || "");
+    const rt = String(reservation?.time || "");
+    const rerr = validateReservation(rd, rt, c.endAt);
+    if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
+    // 방문 인원수 필수 (2026-07-17 회의) — 사장님이 예약 큐에서 확인
+    const partySize = Math.floor(Number(reservation?.partySize) || 0);
+    if (partySize < 1 || partySize > 10) {
+      return NextResponse.json({ error: "방문 인원수를 선택해주세요 (1~10명)" }, { status: 400 });
+    }
+    const at = Date.now();
+    reservationInfo = {
+      date: rd,
+      time: rt,
+      partySize,
+      status: "requested",
+      requestedAt: at,
+      // 협상 히스토리 시작 (v3) — 이후 제안/재제안/확정/거절이 append 된다
+      history: [{ at, by: "reviewer", kind: "request", date: rd, time: rt }],
+    };
   }
   const selectedChannel: SnsKind | undefined = isPress
     ? undefined
@@ -83,13 +116,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 취소 후 동일 캠페인 재신청 제한 12시간 — 장기 점유 후 취소·재발급 악용 방지
+  // 취소 후 동일 캠페인 재신청 제한 12시간 — 장기 점유 후 취소·재발급 악용 방지.
+  // 예약 제안 거절로 인한 취소(cancelledVia)는 일정 불일치일 뿐이므로 제한하지 않는다 (2026-07-16 v2).
   const now0 = Date.now();
   const recentCancel = db.passes.find(
     (p) =>
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
       p.status === "cancelled" &&
+      p.cancelledVia !== "proposal_declined" &&
       typeof p.cancelledAt === "number" &&
       now0 - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
   );
@@ -159,8 +194,15 @@ export async function POST(req: NextRequest) {
     issuedAt: now,
     // 방문형은 발급 후 72시간 사용 기한(연장·복구 없음).
     // 기자단은 캠페인 종료까지 작성, 배송형은 캠페인 종료까지 발송 대기(발송 후 리뷰 7일).
-    expiresAt: isPress || isDelivery ? c.endAt : now + PASS_VALIDITY_MS,
+    // 예약형 방문은 예약일 당일 말(KST)까지 — 72h 고정 기한의 명시적 예외 (운영정책서 §15).
+    expiresAt:
+      isPress || isDelivery
+        ? c.endAt
+        : reservationInfo
+          ? reservationDayEnd(reservationInfo.date)
+          : now + PASS_VALIDITY_MS,
     ...(shippingInfo ? { shipping: shippingInfo } : {}),
+    ...(reservationInfo ? { reservation: reservationInfo } : {}),
     status: "active",
   };
   db.passes.push(pass);
@@ -169,10 +211,16 @@ export async function POST(req: NextRequest) {
     id: rid("nt"),
     userId: pass.ownerId,
     role: "owner",
-    title: isPress ? "기자단 신청" : isDelivery ? "배송형 신청 (발송 대기)" : "체험권 발급",
+    title: isPress ? "기자단 신청" : isDelivery ? "배송형 신청 (발송 대기)" : reservationInfo ? "예약 방문 신청" : "체험권 발급",
     // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 비노출 — 익명·채널만 전달
     // (배송형 수령인 정보는 알림이 아니라 발송 처리 화면에서만 — 목적 제한 노출)
-    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${isDelivery ? " 발송 처리를 진행해주세요." : ""}`,
+    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${
+      isDelivery
+        ? " 발송 처리를 진행해주세요."
+        : reservationInfo
+          ? ` ${fmtReservationLabel(reservationInfo.date, reservationInfo.time)} 방문 희망 — 예약을 확인해주세요.`
+          : ""
+    }`,
     createdAt: now,
     read: false,
     link: "/o/home",

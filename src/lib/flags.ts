@@ -10,7 +10,8 @@
 export const PRESS_ENABLED = false;
 
 /**
- * 배송형(delivery) 노출·참여 허용 여부 — 2026-07-12 레뷰 벤치마크 반영으로 활성.
- * "MVP는 방문형만"(2026-07-07 회의)의 범위 변경 — 근거·판정: docs/벤치마크-레뷰.md §2.1.
+ * 배송형(delivery) 노출·참여 허용 여부.
+ * main 릴리스(2026-07-21)는 배송형 일체 제외 — false 시 탐색/홈/검색/상세/발급 API·시드·
+ * 생성 폼 유형·MY 포인트·발송 대기 탭이 모두 게이트된다. dev 브랜치는 true로 개발 지속.
  */
-export const DELIVERY_ENABLED = true;
+export const DELIVERY_ENABLED = false;

@@ -1,12 +1,14 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, Reviewer, SnsKind, Store } from "./types";
+import { AdminUser, Campaign, DBShape, Owner, Pass, RequiredMenu, ReservationEvent, Reviewer, SnsKind, Store } from "./types";
 import { channelGradesFromSns, bestGrade } from "./grade";
 import { kstMonthKey, kstMonthStart, prevMonthKey } from "./grade-regrade";
 import { selfCheckConditions, defaultChannel } from "./channels";
 import { REGIONS } from "./regions";
 import { regionCenter } from "./geo";
 import { STORYBOARD } from "./storyboard";
+import { DELIVERY_ENABLED } from "./flags";
+import { kstTodayStr, reservationDayEnd } from "./reservation";
 
 // ─────────────────────────────────────────────────────────────
 // [스토리보드 모드] design/storyboard-schema 브랜치 전용.
@@ -29,6 +31,8 @@ const SB = {
   ownerStore: "매장명",
   keyword: "키워드",
   material: "자료명",
+  reserveNote: "예약안내",
+  productOption: "옵션명",
 };
 
 // 결정론적 ID — 서버리스 인스턴스 간 동일 ID 보장
@@ -501,11 +505,14 @@ export function runSeed(db: DBShape) {
         : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: DEMO_USE_CODE,
-      // 방문 전 예약 필수 (예약형 라이트, 2026-07-12) — 미용·의료·웰니스 등 예약 기반 업종
+      // 방문 전 예약 필수 (예약형, 2026-07-12 · 안내 문구 2026-07-16) — 미용·의료·웰니스 등 예약 기반 업종
       ...(["미용실", "네일아트", "피부과", "치과", "한의원", "PT", "필라테스", "마사지", "애견미용", "동물병원"].includes(
         s.category,
       )
-        ? { reservationRequired: true }
+        ? {
+            reservationRequired: true,
+            reservationNote: STORYBOARD ? SB.reserveNote : "화~일 11:00~20:00 예약 가능 · 월요일 휴무",
+          }
         : {}),
     };
     db.campaigns.push(campaign);
@@ -1180,7 +1187,13 @@ export function runSeed(db: DBShape) {
         highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
         createdAt: regionCreatedAt,
         useCode: DEMO_USE_CODE,
-        ...(shop.reserve ? { reservationRequired: true } : {}),
+        // 예약형 (2026-07-16 리뷰노트 벤치마크) — 예약 안내(가능 요일·시간대) 포함
+        ...(shop.reserve
+          ? {
+              reservationRequired: true,
+              reservationNote: STORYBOARD ? SB.reserveNote : "화~일 11:00~20:00 예약 가능 · 월요일 휴무",
+            }
+          : {}),
       });
     }
   }
@@ -1188,7 +1201,8 @@ export function runSeed(db: DBShape) {
   // ── 배송형 + 포인트 시드 (2026-07-12 레뷰 벤치마크 — docs/벤치마크-레뷰.md) ──
   // 배송형 캠페인 3건(demo@store.com 소유 — 사장님 홈 발송 대기 큐 데모)과
   // 데모 체험자의 배송 패스(발송 대기/발송 완료/검수 완료) + 포인트 원장/출금 내역.
-  {
+  // DELIVERY_ENABLED=false(main 릴리스)면 배송형 일체(매장·캠페인·패스·포인트·출금) 미시드.
+  if (DELIVERY_ENABLED) {
     // category = **상품 카테고리** (2026-07-12 정정 — delivery-categories.ts 목록값).
     // 배송형은 매장이 아닌 스토어의 상품이 대상이라 플레이스 분류(카페·디저트 등)를 쓰지 않는다.
     const dvBrands: Array<{
@@ -1200,13 +1214,14 @@ export function runSeed(db: DBShape) {
       productValue: number;
       pointReward: number; // 0 = 제품만
       channels: SnsKind[];
+      options?: string[]; // 상품 옵션 (2026-07-16 리뷰노트 벤치마크 — 신청 시 택1)
     }> = [
       { key: "dv-bakes", name: "카라멜 베이크 하우스", category: "식품", emoji: "🍪", product: "수제 쿠키 선물 세트", productValue: 32000, pointReward: 10000, channels: ["naver_blog", "instagram"] },
       { key: "dv-beans", name: "미드나잇 로스터스", category: "식품", emoji: "☕", product: "스페셜티 원두 2종 세트", productValue: 28000, pointReward: 5000, channels: ["tiktok"] },
       { key: "dv-meal", name: "한상 밀키트", category: "식품", emoji: "🍲", product: "갈비찜 밀키트 2인분", productValue: 39000, pointReward: 0, channels: ["instagram"] },
-      { key: "dv-serum", name: "글로우랩 코스메틱", category: "뷰티", emoji: "🧴", product: "비타민 세럼 30ml", productValue: 42000, pointReward: 8000, channels: ["instagram", "tiktok"] },
+      { key: "dv-serum", name: "글로우랩 코스메틱", category: "뷰티", emoji: "🧴", product: "비타민 세럼 30ml", productValue: 42000, pointReward: 8000, channels: ["instagram", "tiktok"], options: ["비타민C 세럼", "레티놀 세럼"] },
       { key: "dv-diffuser", name: "온음 리빙", category: "리빙", emoji: "🕯️", product: "우드 룸 디퓨저 세트", productValue: 35000, pointReward: 0, channels: ["naver_blog"] },
-      { key: "dv-airbuds", name: "사운드포켓", category: "디지털", emoji: "🎧", product: "무선 이어버드 라이트", productValue: 59000, pointReward: 15000, channels: ["naver_blog", "instagram"] },
+      { key: "dv-airbuds", name: "사운드포켓", category: "디지털", emoji: "🎧", product: "무선 이어버드 라이트", productValue: 59000, pointReward: 15000, channels: ["naver_blog", "instagram"], options: ["화이트", "블랙"] },
     ];
     const dvStoreIds: Record<string, string> = {};
     for (const b of dvBrands) {
@@ -1247,6 +1262,8 @@ export function runSeed(db: DBShape) {
         useCode: DEMO_USE_CODE,
         ...(b.pointReward > 0 ? { pointReward: b.pointReward } : {}),
         productCategory: b.category, // 상품 카테고리 — 탐색 배송 칩·필터 기준
+        // 상품 옵션 (2026-07-16) — 신청 시 택1, 발송 큐 표시
+        ...(b.options ? { productOptions: STORYBOARD ? b.options.map((_, i) => `${SB.productOption} ${i + 1}`) : b.options } : {}),
       });
     }
     const dvCamp = (key: string) => db.campaigns.find((c) => c.id === detId("cp", `${key}-camp`))!;
@@ -1406,6 +1423,89 @@ export function runSeed(db: DBShape) {
       memo: STORYBOARD ? "출금 신청" : "출금 신청 (케이뱅크 · 실지급 9,500원)",
       createdAt: now - 8 * hour,
     });
+  }
+
+  // ── 예약형 방문 예약 시드 (2026-07-16 v2 — 사장님 홈 예약 큐 데모) ──
+  // 발송 대기 큐와 동일 취지: 예약 신청이 있어야 큐가 렌더되므로, 데모 사장님(demo@store.com)의
+  // 예약형 캠페인에 3가지 상태(확인 대기 · 다른 시간 제안(응답 대기) · 확정)를 시드한다.
+  // proposed 건의 체험자 = demo — 체험자 계정에서 제안 응답(라디오 4행) 화면도 바로 시연된다.
+  {
+    const ownerStoreIds = new Set(db.stores.filter((s) => s.ownerId === owner.id).map((s) => s.id));
+    const rsvCamps = db.campaigns.filter(
+      (c) => c.kind === "visit" && c.reservationRequired && ownerStoreIds.has(c.storeId) && c.endAt > now,
+    );
+    const dstr = (days: number) => kstTodayStr(now + days * day);
+    const proposalNote = STORYBOARD
+      ? "안내사항"
+      : "저녁 시간대는 예약이 몰려 있어요. 제안드린 시간이 어려우면 평일 낮으로 기타 요청 부탁드려요!";
+    // 협상 히스토리(v3)를 상태별로 구성 — 확인 대기 / 제안(응답 대기) / 재제안(확인·거절 대기) / 확정
+    const rsvSeeds: Array<{
+      key: string;
+      camp: Campaign | undefined;
+      reviewerId: string;
+      grade: "A" | "B" | "C";
+      date: string;
+      time: string;
+      status: "requested" | "proposed" | "confirmed";
+      withProposal?: boolean; // proposed 상태의 proposal 페이로드
+      withCounter?: boolean; // 재제안까지 진행된 requested (사장님 확인/거절 대기)
+    }> = [
+      { key: "demo-rsv-requested", camp: rsvCamps[0], reviewerId: reviewerA.id, grade: "A", date: dstr(2), time: "14:00", status: "requested" },
+      { key: "demo-rsv-proposed", camp: rsvCamps[1], reviewerId: reviewer.id, grade: "B", date: dstr(3), time: "19:00", status: "proposed", withProposal: true },
+      { key: "demo-rsv-confirmed", camp: rsvCamps[2], reviewerId: reviewerC.id, grade: "C", date: dstr(1), time: "11:30", status: "confirmed" },
+      { key: "demo-rsv-counter", camp: rsvCamps[3], reviewerId: reviewerA.id, grade: "A", date: dstr(3), time: "12:00", status: "requested", withCounter: true },
+    ];
+    for (const sp of rsvSeeds) {
+      if (!sp.camp) continue; // 예약형 캠페인이 부족한 구성에서도 시드가 깨지지 않게
+      const proposalSlots = [
+        { date: sp.date, time: "17:00" },
+        { date: dstr(4), time: "13:00" },
+      ];
+      // 히스토리 — request → (propose) → (counter) → (confirm)
+      const history: ReservationEvent[] = [
+        sp.withCounter
+          ? { at: now - 8 * hour, by: "reviewer", kind: "request", date: dstr(2), time: "15:00" }
+          : { at: now - 6 * hour, by: "reviewer", kind: "request", date: sp.date, time: sp.time },
+      ];
+      if (sp.withProposal) {
+        history.push({ at: now - 2 * hour, by: "owner", kind: "propose", slots: proposalSlots, note: proposalNote });
+      }
+      if (sp.withCounter) {
+        history.push({ at: now - 5 * hour, by: "owner", kind: "propose", slots: [{ date: dstr(2), time: "18:00" }] });
+        history.push({ at: now - 1 * hour, by: "reviewer", kind: "counter", date: sp.date, time: sp.time });
+      }
+      if (sp.status === "confirmed") {
+        history.push({ at: now - 3 * hour, by: "owner", kind: "confirm", date: sp.date, time: sp.time });
+      }
+      const p: Pass = {
+        id: detId("ps", sp.key),
+        code: detPassCode(sp.key),
+        reviewerId: sp.reviewerId,
+        campaignId: sp.camp.id,
+        storeId: sp.camp.storeId,
+        ownerId: owner.id,
+        reviewerGrade: sp.grade,
+        reviewChannel: defaultChannel(sp.camp.requiredChannels) ?? sp.camp.requiredChannels[0],
+        consumedSlot: sp.grade,
+        issuedAt: now - 6 * hour,
+        expiresAt: reservationDayEnd(sp.date), // 예약형 기한 = 예약일 당일 말 (운영정책서 §15)
+        reservation: {
+          date: sp.date,
+          time: sp.time,
+          partySize: 2, // 방문 인원수 (2026-07-17 — 데모 2명)
+          status: sp.status,
+          requestedAt: now - 6 * hour,
+          history,
+          ...(sp.status === "confirmed" ? { confirmedAt: now - 3 * hour } : {}),
+          ...(sp.withProposal
+            ? { proposal: { slots: proposalSlots, note: proposalNote, proposedAt: now - 2 * hour } }
+            : {}),
+        },
+        status: "active",
+      };
+      sp.camp.used[sp.grade] += 1;
+      db.passes.push(p);
+    }
   }
 
   // 데모 사장님 알림 몇 건

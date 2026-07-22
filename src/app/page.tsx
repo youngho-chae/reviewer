@@ -33,6 +33,16 @@ export default function Landing() {
             <span className="shrink-0 text-[14px] font-semibold text-brand">시작하기 →</span>
           </div>
         </Link>
+        {/* 관리자(운영팀) 진입 — /admin 백오피스 (2026-07-17 지시) */}
+        <Link href="/admin/login" className="cp-action block rounded-md border border-hairline bg-canvas p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[16px] font-bold text-ink">관리자로 시작</div>
+              <div className="mt-1 text-[13px] text-muted leading-[1.4]">운영팀 백오피스 — 검수·회원·출금·인증 관리</div>
+            </div>
+            <span className="shrink-0 text-[14px] font-semibold text-brand">시작하기 →</span>
+          </div>
+        </Link>
       </div>
 
       {/* 제품 스토리 — notice-banner 톤 */}
@@ -53,6 +63,7 @@ export default function Landing() {
           <div className="space-y-1 text-[13px] text-ink2">
             <div>체험자 · <span className="font-mono text-[12px]">demo@reviewer.com</span> / demo1234</div>
             <div>사장님 · <span className="font-mono text-[12px]">demo@store.com</span> / demo1234</div>
+            <div>관리자 · <span className="font-mono text-[12px]">admin@catchrank.co.kr</span> / demo1234</div>
           </div>
         </div>
       </div>

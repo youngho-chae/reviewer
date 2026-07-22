@@ -2,11 +2,13 @@
 // 앱 실행 없이 30초 안에 확인한다 (.env.local의 키를 자동 로드).
 //
 // 사용:
-//   node scripts/kftc-smoke.mjs                          # 토큰 발급만 확인
+//   node scripts/kftc-smoke.mjs                          # 토큰 발급만 확인 (기본: 테스트베드)
 //   node scripts/kftc-smoke.mjs 097 1101230000678 880101 # + 계좌실명조회 (은행코드 계좌번호 생년월일)
+//   KFTC_API_BASE=https://openapi.openbanking.or.kr node scripts/kftc-smoke.mjs ...  # 운영망 실계좌 확인
 //
-// ※ 테스트베드 실명조회는 KFTC가 제공/등록한 테스트 계좌 데이터로만 A0000(성공)이 나온다.
-//   임의 계좌는 "실명 확인 불가" 류 응답이 정상 — 그 응답이 왔다면 연동 자체는 성공한 것.
+// ※ 테스트베드 실명조회는 KFTC가 제공/등록한 테스트 계좌 데이터로만 A0000(성공)이 나온다
+//   (시뮬레이터 — 실계좌 조회 불가). 임의 계좌는 "실명 확인 불가" 류 응답이 정상.
+//   실계좌 검증은 운영망 + 이용기관 승인 운영키 조합에서만 가능하다.
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -23,7 +25,7 @@ if (fs.existsSync(envPath)) {
 const BASE = process.env.KFTC_API_BASE || "https://testapi.openbanking.or.kr";
 const ID = process.env.KFTC_CLIENT_ID;
 const SECRET = process.env.KFTC_CLIENT_SECRET;
-const ORG = process.env.KFTC_ORG_CODE || "F123456789";
+const ORG = process.env.KFTC_ORG_CODE || "M202601033";
 
 if (!ID || !SECRET) {
   console.error("✗ KFTC_CLIENT_ID / KFTC_CLIENT_SECRET이 없습니다 — .env.local을 확인하세요.");

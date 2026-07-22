@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
     await saveDBAsync();
     return NextResponse.json({ error: "만료된 체험권입니다" }, { status: 400 });
   }
+  // 예약형 (2026-07-16 v2) — 예약 확정 전에는 사용 처리 불가 (확정 전 QR 미노출과 동일 기준)
+  if (pass.reservation && pass.reservation.status !== "confirmed") {
+    return NextResponse.json({ error: "예약이 확정되지 않은 체험권입니다 — 예약 확인 후 사용해주세요" }, { status: 400 });
+  }
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
   const paid = Math.max(0, Number(paidAmount) || 0);
   // 지원금 한도 = 기준 지원금 × 채널 등급 배율 (v2.16)

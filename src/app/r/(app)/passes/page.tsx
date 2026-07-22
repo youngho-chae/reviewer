@@ -7,6 +7,7 @@ import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { supportForGrade } from "@/lib/grade";
 import { passDisplayStatus, DISPLAY_BADGE } from "@/lib/pass-display";
+import { fmtReservationLabel } from "@/lib/reservation";
 import GradeBadge from "@/components/GradeBadge";
 import PassesView, { type VisitPassItem } from "./PassesView";
 import PassPendingBanner from "./PassPendingBanner";
@@ -112,6 +113,9 @@ export default async function MyPasses({
       deadlineKind: p.status === "rejected" ? ("resubmit" as const) : p.usedAt ? ("review" as const) : null,
       rejectReason: p.rejectReason ?? null,
       highlight: p.id === justIssued,
+      // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — active 카드에 예약 일시·확인 상태
+      reservationLabel: p.reservation ? fmtReservationLabel(p.reservation.date, p.reservation.time) : null,
+      reservationStatus: p.reservation?.status ?? null,
     };
   });
 

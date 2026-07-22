@@ -19,7 +19,6 @@ export default function PassTicket({
   grade,
   support,
   expiresAt,
-  boosted,
 }: {
   passId: string;
   code: string;
@@ -28,7 +27,6 @@ export default function PassTicket({
   grade: string;
   support: number;
   expiresAt: number;
-  boosted: boolean;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"qr" | "code">("qr");
@@ -104,7 +102,7 @@ export default function PassTicket({
           <div className="text-[12px] text-muted mt-0.5 truncate">
             {channelLabel} · {grade}등급 적용
           </div>
-          {boosted && <div className="text-[11px] text-brand font-semibold mt-0.5">🎁 초대 보상 부스트 포함</div>}
+          {/* '초대 보상 부스트 포함' 라벨 제거 (2026-07-17 지시) — 부스트 금액은 지원금 수치에만 반영 */}
         </div>
         <div className="shrink-0 text-right">
           <span className="text-[17px] font-bold text-brand tabular-nums">{sbNum(SBUI.support, `${support.toLocaleString()}원`)}</span>{" "}

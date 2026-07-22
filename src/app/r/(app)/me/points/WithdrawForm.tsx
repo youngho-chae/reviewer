@@ -18,7 +18,15 @@ import { SBUI, sbNum } from "@/lib/storyboard";
  * 세금(사업소득 3.3%)·수수료 미리보기는 서버와 동일한 quoteWithdrawal 공유.
  * KFTC 키 미설정 환경은 데모 인증 모드(via:"demo") — 플로우는 동일.
  */
-export default function WithdrawForm({ balance, obConfigured = false }: { balance: number; obConfigured?: boolean }) {
+export default function WithdrawForm({
+  balance,
+  obConfigured = false,
+  obTestbed = false,
+}: {
+  balance: number;
+  obConfigured?: boolean;
+  obTestbed?: boolean; // 테스트베드(시뮬레이터) 연결 여부 — 실계좌 조회 불가 안내용
+}) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
   const [bank, setBank] = useState("");
@@ -107,6 +115,14 @@ export default function WithdrawForm({ balance, obConfigured = false }: { balanc
         <p className="mb-3 text-[12px] text-muted">
           보유 포인트가 {MIN_WITHDRAWAL_POINTS.toLocaleString()}P 이상이면 출금을 신청할 수 있어요.
         </p>
+      )}
+      {/* 테스트베드 안내 — KFTC 테스트베드는 시뮬레이터라 실계좌가 조회되지 않는다 (운영망 전환 시 자동 소멸) */}
+      {obConfigured && obTestbed && (
+        <div className="mb-3 rounded-sm bg-warningSoft px-3.5 py-2.5 text-[12px] leading-[1.55] text-ink2">
+          <span className="font-bold text-warning">테스트베드 모드</span> — 지금은 KFTC 테스트베드(시뮬레이터)에 연결되어 있어{" "}
+          <b>실제 계좌는 조회되지 않아요.</b> 개발자사이트의 테스트 데이터 관리에 등록한 계좌 조합으로 인증을 테스트할 수
+          있고, 실계좌 인증은 운영망 전환 후 가능해요.
+        </div>
       )}
       <div className="space-y-2">
         <input

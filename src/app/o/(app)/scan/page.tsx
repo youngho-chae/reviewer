@@ -26,8 +26,9 @@ const STATUS_NOTE: Record<string, string> = {
 
 export default function ScanPage() {
   const router = useRouter();
-  const [code, setCode] = useState("");
-  const [scanning, setScanning] = useState(false);
+  // 진입 즉시 카메라 시작 (2026-07-17 지시) — 사장님이 4자리를 입력하는 케이스는 없음
+  // (매장 확인 번호 4자리는 체험자 화면의 '코드 입력' 탭에서 체험자가 입력하는 방식)
+  const [scanning, setScanning] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
   const [paidAmount, setPaidAmount] = useState("");
@@ -97,11 +98,16 @@ export default function ScanPage() {
           <h1 className="text-[18px] font-bold text-ink tracking-title">사용 처리</h1>
         </div>
       </div>
-      <p className="px-5 pt-1 pb-4 text-[13px] text-muted leading-[1.5]">체험자의 QR을 스캔하거나, 캠페인의 매장 확인 번호 4자리를 직접 입력하세요.</p>
+      <p className="px-5 pt-1 pb-4 text-[13px] text-muted leading-[1.5]">
+        체험자의 체험권 QR을 스캔해 사용 처리하세요. 카메라가 어려우면 체험자 화면의 &apos;코드 입력&apos; 탭으로 진행할 수 있어요.
+      </p>
 
       <div className="px-5">
+        {/* 사장님 4자리 직접 입력 섹션 제거 (2026-07-17) — QR 스캔 단일 경로, 진입 즉시 카메라 */}
         {!scanning ? (
-          <button onClick={() => setScanning(true)} className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold">📷 카메라로 스캔하기</button>
+          <button onClick={() => setScanning(true)} className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold">
+            📷 {result ? "다른 체험권 스캔하기" : "다시 스캔하기"}
+          </button>
         ) : (
           <div className="rounded-md overflow-hidden border border-hairline">
             <Html5QrScanner
@@ -113,21 +119,6 @@ export default function ScanPage() {
             />
           </div>
         )}
-
-        <div className="mt-4">
-          <div className="text-[13px] text-muted mb-2">또는 매장 확인 번호 4자리 직접 입력</div>
-          <div className="flex gap-2">
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              placeholder="예) 1234"
-              inputMode="numeric"
-              maxLength={4}
-              className="flex-1 h-12 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[20px] font-semibold tracking-[0.4em] text-center"
-            />
-            <button onClick={() => lookup(code)} disabled={code.length !== 4} className="h-12 px-4 rounded-md bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft">조회</button>
-          </div>
-        </div>
 
         {err && (
           <div className="mt-4">

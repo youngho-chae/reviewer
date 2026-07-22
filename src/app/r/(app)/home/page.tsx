@@ -189,7 +189,7 @@ export default async function ReviewerHome({
         </div>
       </section>
 
-      {/* stat-strip — 이번 달 아낀 금액 / 작성해야 하는 리뷰 / 발급받은 체험권 (확정 정책 1-1) */}
+      {/* stat-strip — 이번 달 아낀 금액 / 밀린 리뷰 / 참여 예정 (확정 정책 1-1 · 라벨 2026-07-17) */}
       <section className="px-5 mt-3">
         <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
           <div className="py-4 px-3 text-center">
@@ -197,11 +197,11 @@ export default async function ReviewerHome({
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.saved, `${savedThisMonth.toLocaleString()}원`)}</div>
           </div>
           <div className="py-4 px-3 text-center border-l border-r border-hairlineSoft">
-            <div className="text-[12px] text-muted">작성할 리뷰</div>
+            <div className="text-[12px] text-muted">밀린 리뷰</div>
             <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.count, `${pendingReviews}건`)}</div>
           </div>
           <Link href="/r/passes" className="cp-action py-4 px-3 text-center block">
-            <div className="text-[12px] text-brand font-semibold">🎫 발급받은 체험권</div>
+            <div className="text-[12px] text-brand font-semibold">🎫 참여 예정</div>
             <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{sbNum(SBUI.count, `${upcoming}건`)}</div>
           </Link>
         </div>
@@ -214,8 +214,7 @@ export default async function ReviewerHome({
             {walkTitleArea ? `${walkTitleArea}에서 갈 수 있어요` : "걸어서 갈 수 있어요"}
             <span aria-hidden>👀</span>
           </h2>
-          {/* [§11] 반경은 도보 거리가 아닌 직선 거리 기준임을 고지 */}
-          <p className="mt-0.5 text-[11px] text-mutedSoft">반경 3km · 직선 거리 기준</p>
+          {/* 서브 타이틀 제거 (2026-07-17 지시) — 반경·직선거리 고지는 홈에서 미노출 */}
         </div>
         <Link
           href={`/r/explore?mode=list&sort=distance${selectedArea ? `&area=${encodeURIComponent(selectedArea)}` : ""}`}
@@ -250,7 +249,7 @@ export default async function ReviewerHome({
               <h2 className="text-[18px] font-bold text-ink tracking-title truncate">
                 집으로 배송받는 체험<span aria-hidden>📦</span>
               </h2>
-              <p className="mt-0.5 text-[11px] text-mutedSoft">전국 어디서나 · 리뷰 승인 시 포인트 적립</p>
+              {/* 서브 타이틀 제거 (2026-07-17 지시) */}
             </div>
             <Link
               href="/r/explore?mode=list&tab=delivery"

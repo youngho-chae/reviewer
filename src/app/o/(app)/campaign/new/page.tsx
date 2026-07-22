@@ -5,6 +5,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 
 interface OwnerStore {
   id: string;
@@ -42,6 +43,39 @@ export default function NewCampaign() {
   // 배송형 상품 카테고리 (필수) — 플레이스 분류가 아닌 상품군 분류 (delivery-categories.ts)
   const [productCategory, setProductCategory] = useState("");
   const [reservationRequired, setReservationRequired] = useState(false); // 방문형 예약 필수 옵션
+  const [reservationNote, setReservationNote] = useState(""); // 예약 안내 (가능 요일·시간대 — 선택)
+  const [productOptionsRaw, setProductOptionsRaw] = useState(""); // 배송형 상품 옵션 (쉼표 구분 · 최대 5)
+  // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 자리 + 추가 사진, 3~20장 필수.
+  // 업로드 파일은 클라이언트에서 640px·JPEG로 리사이즈해 dataURL 저장 (DB 비대화 방지)
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
+
+  async function addPhotos(files: FileList | null) {
+    if (!files) return;
+    setPhotoErr(null);
+    const next = [...photos];
+    for (const file of Array.from(files)) {
+      if (next.length >= 20) break;
+      if (!file.type.startsWith("image/")) continue;
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const img = new window.Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const scale = Math.min(1, 640 / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL("image/jpeg", 0.6));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("이미지를 읽을 수 없어요")); };
+        img.src = url;
+      }).catch(() => "");
+      if (dataUrl && dataUrl.length <= 300 * 1024) next.push(dataUrl);
+    }
+    setPhotos(next.slice(0, 20));
+  }
   const [days, setDays] = useState(30);
   const [supportAmount, setSupportAmount] = useState("50000");
   const [totalQuota, setTotalQuota] = useState("20");
@@ -150,7 +184,12 @@ export default function NewCampaign() {
         useCode: isDelivery ? undefined : useCode,
         pointReward: isDelivery && pointReward ? Number(pointReward) : undefined,
         productCategory: isDelivery ? productCategory : undefined,
+        productOptions: isDelivery
+          ? productOptionsRaw.split(/[,\n]/).map((o) => o.trim()).filter((o) => o.length > 0).slice(0, 5)
+          : undefined,
         reservationRequired: !isDelivery && reservationRequired ? true : undefined,
+        reservationNote: !isDelivery && reservationRequired ? reservationNote.trim() || undefined : undefined,
+        photos, // 매장·상품 사진 3~20장 (2026-07-17)
         requiredMenus: isDelivery ? [] : cleanMenus,
         requiredChannels: channels,
         highlightKeywords,
@@ -239,7 +278,8 @@ export default function NewCampaign() {
             {(
               [
                 { key: "visit", label: "🏠 방문형", desc: "매장 방문 · 결제 시 직접 할인" },
-                { key: "delivery", label: "📦 배송형", desc: "택배 발송 · 전국 모집" },
+                // 배송형 — DELIVERY_ENABLED=false(main 릴리스)면 유형 선택에서 제외
+                ...(DELIVERY_ENABLED ? [{ key: "delivery" as const, label: "📦 배송형", desc: "택배 발송 · 전국 모집" }] : []),
               ] as const
             ).map((k) => (
               <button
@@ -339,6 +379,24 @@ export default function NewCampaign() {
           </section>
         )}
 
+        {/* 배송형 — 상품 옵션 (선택, 2026-07-16 리뷰노트 벤치마크) */}
+        {isDelivery && (
+          <section>
+            <div className="text-[14px] font-semibold text-ink mb-2">
+              상품 옵션 <span className="text-[12px] text-muted font-normal">(선택 · 쉼표로 최대 5개)</span>
+            </div>
+            <input
+              value={productOptionsRaw}
+              onChange={(e) => setProductOptionsRaw(e.target.value)}
+              placeholder="예: 화이트, 블랙"
+              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+            />
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              색상·구성 등 옵션이 있는 상품이라면 입력하세요. 체험자가 신청할 때 하나를 선택하고, 발송 대기 큐에 표시돼요.
+            </p>
+          </section>
+        )}
+
         {/* 배송형 — 체험 포인트 (선택) */}
         {isDelivery && (
           <section>
@@ -372,10 +430,23 @@ export default function NewCampaign() {
               <span>
                 <span className="text-[14px] font-semibold text-ink block">방문 전 예약 필수</span>
                 <span className="text-[12px] text-muted leading-[1.5] block mt-0.5">
-                  숙박·미용 등 예약이 필요한 업종이라면 체크하세요. 체험자 상세 화면에 &quot;방문 전 예약 필수&quot; 안내가 표시돼요.
+                  숙박·미용 등 예약이 필요한 업종이라면 체크하세요. 체험자가 신청할 때 희망 방문 일시를 선택하고,
+                  사장님 홈의 예약 확인 큐에서 확정할 수 있어요.
                 </span>
               </span>
             </label>
+            {/* 예약 안내 — 가능 요일·시간대 등 (선택, 2026-07-16 리뷰노트 벤치마크) */}
+            {reservationRequired && (
+              <div className="mt-2">
+                <input
+                  value={reservationNote}
+                  onChange={(e) => setReservationNote(e.target.value.slice(0, 80))}
+                  placeholder="예약 안내 (선택) — 예: 화~일 11:00~20:00 · 월요일 휴무"
+                  className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+                />
+                <p className="mt-1.5 text-[12px] text-muted">가능 요일·시간대를 적어주시면 체험자 상세·신청 화면에 표시돼요.</p>
+              </div>
+            )}
           </section>
         )}
 
@@ -515,6 +586,46 @@ export default function NewCampaign() {
         </section>
         )}
 
+        {/* 매장·상품 사진 (2026-07-17 회의) — 대표 이미지 + 추가 사진, 3~20장 필수.
+            체험자 탐색 카드 캐러셀·상세 히어로에 노출된다. 첫 장이 대표 이미지. */}
+        <section>
+          <div className="text-[14px] font-semibold text-ink mb-2">
+            매장·상품 사진 <span className="text-[12px] text-muted font-normal">(필수 · 3~20장, 첫 장이 대표)</span>
+          </div>
+          <p className="text-[12px] text-muted mb-3 leading-[1.5]">
+            플레이스 대표 이미지와 매장·메뉴 사진을 등록하세요. 체험자 탐색 카드와 상세 화면에 캐러셀로 노출됩니다.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {photos.map((src, i) => (
+              <div key={i} className="relative w-[100px] h-[75px] rounded-md overflow-hidden bg-sunken border border-hairline">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                {i === 0 && (
+                  <span className="absolute left-1 top-1 px-1 py-0.5 rounded-xs bg-ink/70 text-white text-[10px] font-semibold">대표</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPhotos((arr) => arr.filter((_, j) => j !== i))}
+                  aria-label={`사진 ${i + 1} 삭제`}
+                  className="absolute right-1 top-1 w-5 h-5 rounded-full bg-ink/70 text-white text-[11px] leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {photos.length < 20 && (
+              <label className="w-[100px] h-[75px] rounded-md border border-dashed border-hairline grid place-items-center text-[12px] text-muted cursor-pointer">
+                + 추가
+                <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
+              </label>
+            )}
+          </div>
+          <p className={`mt-2 text-[12px] ${photos.length >= 3 ? "text-muted" : "text-error"}`}>
+            {photos.length}/20장 등록됨{photos.length < 3 ? " — 최소 3장이 필요해요" : ""}
+          </p>
+          {photoErr && <p className="mt-1 text-[12px] text-error">{photoErr}</p>}
+        </section>
+
         {/* 강조 키워드 */}
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">강조 키워드</div>
@@ -559,7 +670,7 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory)}
+          disabled={busy || !storeId || overLimit || photos.length < 3 || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory)}
           type="submit"
           className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >

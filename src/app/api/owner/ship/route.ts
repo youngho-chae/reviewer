@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
+import { courierOf, courierLabel } from "@/lib/couriers";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "owner") return NextResponse.json({ error: "사장님 로그인 필요" }, { status: 401 });
-  const { passId, trackingNo } = await req.json();
+  const { passId, trackingNo, courier } = await req.json();
   const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === String(passId || ""));
   if (!pass) return NextResponse.json({ error: "체험권을 찾을 수 없습니다" }, { status: 404 });
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
   pass.shippedAt = now;
   const tn = String(trackingNo || "").trim().slice(0, 30);
   if (tn) pass.trackingNo = tn;
+  // 택배사 (2026-07-16 리뷰노트 벤치마크) — 체험자 배송 조회 링크용 (couriers.ts 목록만 허용)
+  const cr = courierOf(String(courier || ""));
+  if (cr) pass.courier = cr.code;
 
   const store = db.stores.find((x) => x.id === pass.storeId);
   db.notifications.push({
@@ -38,7 +42,7 @@ export async function POST(req: NextRequest) {
     userId: pass.reviewerId,
     role: "reviewer",
     title: "상품이 발송되었어요 📦",
-    body: `${store?.name ?? "매장"} 체험 상품이 발송되었습니다.${tn ? ` 운송장 ${tn}.` : ""} 수령 후 7일 이내에 리뷰를 등록해주세요.`,
+    body: `${store?.name ?? "매장"} 체험 상품이 발송되었습니다.${tn ? ` ${cr ? `${courierLabel(cr.code)} ` : ""}운송장 ${tn}.` : ""} 수령 후 7일 이내에 리뷰를 등록해주세요.`,
     createdAt: now,
     read: false,
     link: `/r/passes/${pass.id}`,

@@ -7,7 +7,7 @@ import NaverMapView, { MapStorePin } from "@/components/NaverMapView";
 import MockMapView from "@/components/MockMapView";
 import Icon from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
-import { photoForStore } from "@/lib/store-photo";
+import { photoForStore, photosForCampaign } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
 import { compareRecommended } from "@/lib/recommend";
@@ -33,6 +33,7 @@ export interface ExploreStoreCard extends MapStorePin {
   keywords?: string[];
   // 방문 전 예약 필수 (예약형 라이트) — 참여 방식 필터·카드 배지 (2026-07-12)
   reservationRequired?: boolean;
+  photos?: string[]; // 카드 캐러셀 (2026-07-17) — 사장님 등록 사진
 }
 
 // 배송형 카드 (2026-07-12 레뷰 벤치마크) — 지역 무관 전국 참여라 지도·거리 개념이 없다.
@@ -53,6 +54,7 @@ export interface ExploreDeliveryCard {
   createdAt: number;
   planRank: number;
   keywords?: string[];
+  photos?: string[]; // 카드 캐러셀 (2026-07-17)
 }
 
 export interface ExplorePressCard {
@@ -741,39 +743,44 @@ function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?
   // 마감 임박 필터는 정렬(곧 마감)로만 반영. 카드 상태 정보 과다 노출 방지.
   // [§6-2] 지역 1차·2차 정보 — 동일 상호 지점 구분·전국 리스트 지역 식별
   const region = regionFromAddress(card.address, card.area);
+  const photos = photosForCampaign(card.photos, card.storeId, card.category);
   return (
-    <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action flex gap-3">
-      <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
-        <Image src={photoForStore(card.storeId, card.category)} alt={card.name} fill sizes="96px" className="object-cover" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <ChannelIcons channels={card.requiredChannels} size={12} />
-            {/* 방문 전 예약 필수 — 참여 방식 배지 (예약 없이 바로 = 배지 없음이 기본) */}
-            {card.reservationRequired && (
-              <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-xs bg-infoSoft text-info text-[11px] font-semibold">
-                📅 예약 필수
-              </span>
-            )}
+    <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action block">
+      {/* 사진 캐러셀 (2026-07-17 시안) — 플레이스 대표 + 사장님 등록 사진, 140×105(4:3) 타일 */}
+      <div className="flex gap-1.5 overflow-x-auto snap-x rounded-md" style={{ scrollbarWidth: "none" }}>
+        {photos.map((src, i) => (
+          <div key={i} className="relative w-[140px] h-[105px] shrink-0 snap-start rounded-md overflow-hidden bg-sunken">
+            <Image src={src} alt={`${card.name} 사진 ${i + 1}`} fill sizes="140px" className="object-cover" />
           </div>
-          {card.soldOut ? (
-            <div className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</div>
-          ) : (
-            <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
-              <span aria-hidden>🎫</span>
-              <span className="tabular-nums">{sbNum(SBUI.remain, `${card.remain}개`)}</span> 남음
-            </div>
-          )}
-        </div>
-        <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{card.name}</div>
-        <div className="mt-0.5 text-[13px] text-muted truncate">
+        ))}
+      </div>
+      <div className="mt-2.5 flex items-start justify-between gap-2">
+        <div className="text-[15px] font-semibold text-ink leading-[1.4] truncate">{card.name}</div>
+        {card.soldOut ? (
+          <span className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</span>
+        ) : (
+          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-xs bg-brandSoft text-brand text-[12px] font-semibold">
+            <span aria-hidden>🎫</span> 잔여 <span className="tabular-nums">{sbNum(SBUI.remain, `${card.remain}`)}</span>
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <div className="text-[13px] text-muted truncate">
           {card.category}
           {region && <> · {sbNum(SBUI.area, region)}</>}
           {" · "}
           {sbNum(SBUI.distance, formatDistance(dist))}
         </div>
-        <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+        {/* 방문 전 예약 필수 — 참여 방식 배지 (시안: 우측 오렌지 톤) */}
+        {card.reservationRequired && (
+          <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-xs bg-warningSoft text-warning text-[11px] font-semibold">
+            📅 예약 필수
+          </span>
+        )}
+      </div>
+      <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+      <div className="mt-1.5">
+        <ChannelIcons channels={card.requiredChannels} size={12} />
       </div>
     </Link>
   );
@@ -783,35 +790,38 @@ function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?
    포인트 표기는 기준 포인트(등급 배율 전) — 실제 적립액은 상세에서 채널 등급 기준으로 확인. */
 function DeliveryRow({ card }: { card: ExploreDeliveryCard }) {
   // [2026-07-12 회의 §1-3] '참여 중'·'마감 임박' 배지 삭제 (방문형 행과 동일 원칙)
+  const photos = photosForCampaign(card.photos, card.storeId, card.category);
   return (
-    <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action flex gap-3">
-      <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
-        <Image src={photoForStore(card.storeId, card.category)} alt={card.storeName} fill sizes="96px" className="object-cover" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="shrink-0 inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-0.5 text-[11px] font-semibold">
-              📦 배송
-            </span>
-            <ChannelIcons channels={card.requiredChannels} size={12} />
+    <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action block">
+      {/* 사진 캐러셀 (2026-07-17 시안) — 140×105(4:3) 타일 */}
+      <div className="flex gap-1.5 overflow-x-auto snap-x rounded-md" style={{ scrollbarWidth: "none" }}>
+        {photos.map((src, i) => (
+          <div key={i} className="relative w-[140px] h-[105px] shrink-0 snap-start rounded-md overflow-hidden bg-sunken">
+            <Image src={src} alt={`${card.storeName} 사진 ${i + 1}`} fill sizes="140px" className="object-cover" />
           </div>
-          {card.soldOut ? (
-            <div className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</div>
-          ) : (
-            <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
-              <span aria-hidden>🎫</span>
-              <span className="tabular-nums">{sbNum(SBUI.remain, `${card.remain}개`)}</span> 남음
-            </div>
-          )}
+        ))}
+      </div>
+      <div className="mt-2.5 flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="shrink-0 inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-0.5 text-[11px] font-semibold">
+            📦 배송
+          </span>
+          <span className="text-[15px] font-semibold text-ink leading-[1.4] truncate">{card.storeName}</span>
         </div>
-        <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{card.storeName}</div>
-        <div className="mt-0.5 text-[13px] text-muted">
-          {card.category} · 전국 택배
-        </div>
-        <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">
-          제품 제공{card.pointReward > 0 && <> + {sbNum(SBUI.point, `${card.pointReward.toLocaleString()}P`)} 적립</>}
-        </div>
+        {card.soldOut ? (
+          <span className="shrink-0 text-[12px] font-semibold text-mutedSoft">발급 마감</span>
+        ) : (
+          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-xs bg-brandSoft text-brand text-[12px] font-semibold">
+            <span aria-hidden>🎫</span> 잔여 <span className="tabular-nums">{sbNum(SBUI.remain, `${card.remain}`)}</span>
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 text-[13px] text-muted">{card.category} · 전국 택배</div>
+      <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">
+        제품 제공{card.pointReward > 0 && <> + {sbNum(SBUI.point, `${card.pointReward.toLocaleString()}P`)} 적립</>}
+      </div>
+      <div className="mt-1.5">
+        <ChannelIcons channels={card.requiredChannels} size={12} />
       </div>
     </Link>
   );
@@ -821,8 +831,8 @@ function DeliveryRow({ card }: { card: ExploreDeliveryCard }) {
 function PressRow({ card }: { card: ExplorePressCard }) {
   return (
     <Link href={`/r/press/${card.campaignId}`} className="cp-action flex gap-3">
-      <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
-        <Image src={photoForStore(card.storeId, card.category)} alt={card.storeName} fill sizes="96px" className="object-cover" />
+      <div className="relative w-[100px] h-[75px] shrink-0 rounded-md overflow-hidden bg-sunken">
+        <Image src={photoForStore(card.storeId, card.category)} alt={card.storeName} fill sizes="100px" className="object-cover" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">

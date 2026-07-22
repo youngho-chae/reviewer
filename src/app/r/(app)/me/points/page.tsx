@@ -10,7 +10,7 @@ import {
   withdrawalsOf,
 } from "@/lib/points";
 import { SBUI, sbNum } from "@/lib/storyboard";
-import { openbankingConfigured } from "@/lib/openbanking";
+import { isTestbedBase, openbankingConfigured } from "@/lib/openbanking";
 import { fmtKoDateTime } from "@/lib/dates";
 import Icon from "@/components/Icon";
 import WithdrawForm from "./WithdrawForm";
@@ -64,7 +64,7 @@ export default async function PointsPage() {
           본인 명의 계좌 인증 후 신청할 수 있어요 · 세법상 사업소득으로 원천징수(3.3%) 후 지급되며 이체 수수료 {WITHDRAWAL_FEE.toLocaleString()}원이 차감돼요.
         </p>
         <div className="mt-3">
-          <WithdrawForm balance={balance} obConfigured={openbankingConfigured()} />
+          <WithdrawForm balance={balance} obConfigured={openbankingConfigured()} obTestbed={isTestbedBase()} />
         </div>
         {pendingWd.length > 0 && (
           <p className="mt-2 text-[12px] text-brand font-semibold">처리 대기 중인 출금 신청 {pendingWd.length}건이 있어요.</p>
