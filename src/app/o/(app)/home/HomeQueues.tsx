@@ -1,5 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 
 /**
  * 사장님 홈 내부 큐 탭 (2026-07-16 회의) — [방문 예약 | 발송 대기]를 각각 볼 수 있는 탭.
@@ -21,7 +22,10 @@ export default function HomeQueues({
 
   const tabs = [
     { key: "reserve" as const, label: `📅 방문 예약${reservationCount > 0 ? ` ${reservationCount}` : ""}` },
-    { key: "ship" as const, label: `📦 발송 대기${shipCount > 0 ? ` ${shipCount}` : ""}` },
+    // 발송 대기 — 배송형 비활성(main 릴리스) 시 탭 자체를 숨긴다 (과거 배송 건 보유 시 유지)
+    ...(DELIVERY_ENABLED || shipCount > 0
+      ? [{ key: "ship" as const, label: `📦 발송 대기${shipCount > 0 ? ` ${shipCount}` : ""}` }]
+      : []),
   ];
 
   return (

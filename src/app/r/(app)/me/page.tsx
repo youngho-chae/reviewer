@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
@@ -85,6 +86,7 @@ export default async function Me() {
       </section>
 
       {/* 체험 포인트 — 배송형 리뷰 승인 적립·출금 (2026-07-12 레뷰 벤치마크) */}
+      {DELIVERY_ENABLED && (
       <section className="px-5 py-2">
         <Link
           href="/r/me/points"
@@ -99,6 +101,7 @@ export default async function Me() {
           <span className="text-[13px] font-semibold text-brand">내역 · 출금 →</span>
         </Link>
       </section>
+      )}
 
       {/* Light tile — connected channels (관리·본인 인증은 /r/me/channels — 2026-07-10) */}
       <section className="bg-canvas px-6 py-12">

@@ -7,6 +7,7 @@ import { selfCheckConditions, defaultChannel } from "./channels";
 import { REGIONS } from "./regions";
 import { regionCenter } from "./geo";
 import { STORYBOARD } from "./storyboard";
+import { DELIVERY_ENABLED } from "./flags";
 import { kstTodayStr, reservationDayEnd } from "./reservation";
 
 // ─────────────────────────────────────────────────────────────
@@ -1200,7 +1201,8 @@ export function runSeed(db: DBShape) {
   // ── 배송형 + 포인트 시드 (2026-07-12 레뷰 벤치마크 — docs/벤치마크-레뷰.md) ──
   // 배송형 캠페인 3건(demo@store.com 소유 — 사장님 홈 발송 대기 큐 데모)과
   // 데모 체험자의 배송 패스(발송 대기/발송 완료/검수 완료) + 포인트 원장/출금 내역.
-  {
+  // DELIVERY_ENABLED=false(main 릴리스)면 배송형 일체(매장·캠페인·패스·포인트·출금) 미시드.
+  if (DELIVERY_ENABLED) {
     // category = **상품 카테고리** (2026-07-12 정정 — delivery-categories.ts 목록값).
     // 배송형은 매장이 아닌 스토어의 상품이 대상이라 플레이스 분류(카페·디저트 등)를 쓰지 않는다.
     const dvBrands: Array<{

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 
 interface OwnerStore {
   id: string;
@@ -277,7 +278,8 @@ export default function NewCampaign() {
             {(
               [
                 { key: "visit", label: "🏠 방문형", desc: "매장 방문 · 결제 시 직접 할인" },
-                { key: "delivery", label: "📦 배송형", desc: "택배 발송 · 전국 모집" },
+                // 배송형 — DELIVERY_ENABLED=false(main 릴리스)면 유형 선택에서 제외
+                ...(DELIVERY_ENABLED ? [{ key: "delivery" as const, label: "📦 배송형", desc: "택배 발송 · 전국 모집" }] : []),
               ] as const
             ).map((k) => (
               <button
