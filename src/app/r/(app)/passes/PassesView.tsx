@@ -39,9 +39,12 @@ export interface VisitPassItem {
   // 배송형 (2026-07-12 레뷰 벤치마크) — active="발송 대기", 혜택 표기 = 제품(+포인트)
   isDelivery?: boolean;
   pointReward?: number; // 등급 배율 적용된 내 적립 예정 포인트
-  // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — active 카드에 예약 일시·확인 상태 표기
-  reservationLabel?: string | null; // "7월 18일 (토) 14:00"
+  // 예약형 방문 — active 카드에 예약 일시(12시간제)·상태 강조 표기 (§8-1)
+  reservationLabel?: string | null; // "7월 18일 (토) 오후 2시"
   reservationStatus?: "requested" | "proposed" | "confirmed" | null;
+  reservationStatusLabel?: string | null; // 예약 대기 / 일정 제안 확인 필요 / 일정 재요청 / 예약 확정 (§15-1)
+  // 취소 서브 문구 (§15-3) — 주체·원인 구분 (사용자/사장님 거절·취소/운영자)
+  cancelledNote?: string | null;
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -310,24 +313,25 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       {/* 상태별 하단 영역 */}
       {isActive && (
         <>
-          {/* 예약 방문 (2026-07-16) — 예약 일시 + 확인 상태 */}
+          {/* 예약 방문 (§8-1) — 예약 일정을 한눈에 확인할 수 있도록 강조 */}
           {it.reservationLabel && (
-            <div className="mt-3 flex items-center gap-2 text-[13px]">
-              <span className="font-semibold text-ink tabular-nums">📅 {sbNum(SBUI.dateTime, it.reservationLabel)} 방문</span>
+            <div className="mt-3 rounded-md bg-brandSoft px-3 py-2.5 flex items-center justify-between gap-2 text-[13px]">
+              <span className="font-bold text-ink tabular-nums">📅 {sbNum(SBUI.dateTime, it.reservationLabel)} 방문</span>
               <span
-                className={`inline-flex items-center px-1.5 py-0.5 rounded-pill text-[11px] font-semibold ${
+                className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-pill text-[11px] font-semibold ${
                   it.reservationStatus === "confirmed"
                     ? "bg-successSoft text-successStrong"
                     : it.reservationStatus === "proposed"
-                      ? "bg-brandSoft text-brand"
-                      : "bg-sunken text-muted"
+                      ? "bg-canvas text-brand"
+                      : "bg-canvas text-muted"
                 }`}
               >
-                {it.reservationStatus === "confirmed"
-                  ? "예약 확정"
-                  : it.reservationStatus === "proposed"
-                    ? "시간 제안 도착"
-                    : "예약 확인 대기"}
+                {it.reservationStatusLabel ??
+                  (it.reservationStatus === "confirmed"
+                    ? "예약 확정"
+                    : it.reservationStatus === "proposed"
+                      ? "일정 제안 확인 필요"
+                      : "예약 대기")}
               </span>
             </div>
           )}
@@ -345,7 +349,8 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             href={`/r/passes/${it.id}`}
             className="cp-action mt-2 flex h-11 items-center justify-center rounded-md bg-brand text-white text-[14px] font-bold"
           >
-            체험권 보기
+            {/* 예약 미확정은 QR 대신 예약 현황 화면으로 이어진다 (§10-1) */}
+            {it.reservationLabel && it.reservationStatus !== "confirmed" ? "예약 현황 보기" : "체험권 보기"}
           </Link>
         </>
       )}
@@ -355,8 +360,9 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
           <div className="mt-3.5 flex">
             <StoreInfoButton it={it} />
           </div>
+          {/* 취소 서브 문구 (§15-3) — 사용자 취소만 12h 재신청 안내, 사장님 거절·취소는 미노출 (§10-3) */}
           <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
-            같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요.
+            {it.cancelledNote ?? "같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요."}
           </div>
         </>
       )}

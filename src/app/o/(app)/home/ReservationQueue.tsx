@@ -1,34 +1,33 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { SBUI, sbNum } from "@/lib/storyboard";
-import {
-  PROPOSAL_MAX_SLOTS,
-  PROPOSAL_NOTE_MAX,
-  RESERVATION_TIME_SLOTS,
-  reservationDateOptions,
-  fmtReservationDateLabel,
-} from "@/lib/reservation";
+import { PROPOSAL_MAX_SLOTS, PROPOSAL_NOTE_MAX } from "@/lib/reservation";
 
 export interface ReservationQueueItem {
   passId: string;
+  campaignId: string;
   masked: string; // 익명 #last4 — 등급·실명 비노출 원칙 유지 (확정 정책 8)
   campaignTitle: string;
-  label: string; // "7월 18일 (토) 14:00" — 체험자 희망(또는 확정) 일시
+  label: string; // "7월 18일 (토) 오후 2시" — 체험자 희망(또는 확정) 일시 (12시간제 — §7-2)
   status: "requested" | "proposed" | "confirmed";
   epoch: number; // 예약 일시 (정렬용)
   endAt: number; // 캠페인 종료일 — 제안 가능 날짜 한도
   partySize?: number; // 방문 인원수 (2026-07-17 — 신청 시 필수 입력)
+  // 제안 폼 선택지 — 캠페인 예약 스케줄(요일·운영시간) 기준으로 서버가 계산 (§2-2)
+  dateOptions: Array<{ date: string; label: string; disabled: boolean }>;
+  timeOptions: Array<{ time: string; label: string }>;
   // 협상 히스토리 (v3) — 서버에서 포맷된 타임라인 (일시는 sbNum으로 마스킹 가능하게 분리)
   history: Array<{ prefix: string; timeLabel: string; note?: string }>;
   proposalUsed: boolean; // 사장님 제안 1회 소진 — 소진 후 재제안 불가
-  counterUsed: boolean; // 체험자 재제안 수신 — 이때만 [거절] 가능
+  counterUsed: boolean; // 체험자 재제안 수신 여부 (표기용)
 }
 
 type SlotDraft = { date: string; time: string };
 
-// 예약 확인 큐 (2026-07-16 리뷰노트 벤치마크 · v2 제안 플로우)
-// [P1] 사장님은 [예약 확인] 또는 [다른 시간 제안]만 가능 — 일방 거절/취소 없음(취소 결정권은 체험자).
+// 예약 확인 큐 (2026-07-22 §4 — 사장님은 예약 확정 / 다른 일정 제안(1회) / 예약 거절 중 선택).
+// 거절은 확정 전 어느 단계에서든 가능 — 체험자 패널티·12h 재신청 제한 없음 (§5-1).
 // 제안 = 슬롯 최대 3개 + 수기 안내사항(선택지가 3개보다 많거나 추가 안내가 필요할 때 — 체험자에게 노출).
 export default function ReservationQueue({ items }: { items: ReservationQueueItem[] }) {
   const router = useRouter();
@@ -85,7 +84,13 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
           <div key={it.passId} className="rounded-md border border-hairline p-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[14px] font-semibold text-ink">익명 {it.masked}</span>
-              <span className="text-[11px] text-muted truncate max-w-[150px]">{it.campaignTitle}</span>
+              {/* 캠페인 상세 관리로 진입 (§12-1) — 예약 목록·일정 차단·확정 취소 */}
+              <Link
+                href={`/o/campaign/${it.campaignId}`}
+                className="cp-action text-[11px] text-muted truncate max-w-[160px]"
+              >
+                {it.campaignTitle} →
+              </Link>
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold text-ink tabular-nums">
@@ -118,7 +123,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
               </div>
             )}
 
-            {/* 확인 대기 — [예약 확인] + (제안 미사용) [다른 시간 제안] / (재제안 수신) [거절] */}
+            {/* 확인 대기 — [예약 확정] + (제안 미사용) [다른 일정 제안] + [예약 거절] (§4-2) */}
             {it.status === "requested" && proposingId !== it.passId && decliningId !== it.passId && (
               <div className="mt-2.5 flex gap-2">
                 <button
@@ -127,7 +132,7 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                   disabled={busyId === it.passId}
                   className="cp-action h-9 px-4 rounded-sm bg-brand text-white text-[13px] font-bold disabled:opacity-60"
                 >
-                  {busyId === it.passId ? "확인 중..." : "예약 확인"}
+                  {busyId === it.passId ? "확정 중..." : "예약 확정"}
                 </button>
                 {!it.proposalUsed && (
                   <button
@@ -135,26 +140,24 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                     onClick={() => openPropose(it.passId)}
                     className="cp-action h-9 px-4 rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-ink"
                   >
-                    다른 시간 제안
+                    다른 일정 제안
                   </button>
                 )}
-                {it.counterUsed && (
-                  <button
-                    type="button"
-                    onClick={() => setDecliningId(it.passId)}
-                    className="cp-action h-9 px-4 rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-muted"
-                  >
-                    거절
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setDecliningId(it.passId)}
+                  className="cp-action h-9 px-4 rounded-sm border border-hairline bg-canvas text-[13px] font-semibold text-muted"
+                >
+                  거절
+                </button>
               </div>
             )}
 
-            {/* 거절 확인 — 재제안까지 온 뒤에만 (서로 각 1회 소진). 체험자 패널티 없음 */}
+            {/* 거절 확인 — 확정 전 언제든 가능 (§5-1). 체험자 패널티·12h 재신청 제한 없음 */}
             {it.status === "requested" && decliningId === it.passId && (
               <div className="mt-2.5 rounded-sm bg-sunken px-3 py-2.5">
                 <p className="text-[12px] text-ink2 leading-[1.5]">
-                  재제안 시간도 어려우신가요? 거절하면 신청이 취소돼요 — 체험자에게 패널티는 없어요.
+                  매장 사정으로 받기 어려운 요청인가요? 거절하면 신청이 취소돼요 — 체험자에게 패널티는 없어요.
                 </p>
                 <div className="mt-2 flex gap-2">
                   <button
@@ -193,9 +196,10 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                         className={`flex-1 h-9 px-2 rounded-sm border border-hairline bg-canvas text-[12px] ${sl.date ? "text-ink" : "text-mutedSoft"}`}
                       >
                         <option value="">날짜</option>
-                        {reservationDateOptions(it.endAt).map((d) => (
-                          <option key={d} value={d}>
-                            {fmtReservationDateLabel(d)}
+                        {it.dateOptions.map((d) => (
+                          <option key={d.date} value={d.date} disabled={d.disabled}>
+                            {d.label}
+                            {d.disabled ? " (휴무·차단)" : ""}
                           </option>
                         ))}
                       </select>
@@ -203,12 +207,12 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                         value={sl.time}
                         onChange={(e) => setSlots((arr) => arr.map((s, j) => (j === i ? { ...s, time: e.target.value } : s)))}
                         aria-label={`제안 시간 ${i + 1}`}
-                        className={`w-[92px] h-9 px-2 rounded-sm border border-hairline bg-canvas text-[12px] ${sl.time ? "text-ink" : "text-mutedSoft"}`}
+                        className={`w-[110px] h-9 px-2 rounded-sm border border-hairline bg-canvas text-[12px] ${sl.time ? "text-ink" : "text-mutedSoft"}`}
                       >
                         <option value="">시간</option>
-                        {RESERVATION_TIME_SLOTS.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
+                        {it.timeOptions.map((t) => (
+                          <option key={t.time} value={t.time}>
+                            {t.label}
                           </option>
                         ))}
                       </select>
@@ -266,7 +270,8 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
       </div>
       {err && <p className="mt-2 text-[12px] text-error">{err}</p>}
       <p className="mt-2.5 text-[11px] text-muted leading-[1.5]">
-        제안은 서로 1회씩 가능해요 (사장님 제안 → 체험자 재제안 → 확인 또는 거절) · 예약이 확정되기 전에는 체험권(QR)이 열리지 않아요.
+        일정 제안은 서로 1회씩 가능해요 (사장님 제안 → 체험자 재제안 → 확정 또는 거절) · 예약이 확정되기 전에는 체험권(QR)이
+        열리지 않아요 · 거절해도 체험자에게 패널티는 없어요. 날짜·시간 차단은 캠페인 관리에서 할 수 있어요.
       </p>
     </div>
   );

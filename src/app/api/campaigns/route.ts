@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
-import { Campaign, RequiredMenu, SnsKind } from "@/lib/types";
+import { Campaign, RequiredMenu, ReservationSchedule, SnsKind } from "@/lib/types";
+import { timeToMin, SLOT_CAPACITY_MIN, SLOT_CAPACITY_MAX } from "@/lib/reservation";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 import { CHANNEL_ORDER } from "@/lib/channels";
 import { isDeliveryCategory } from "@/lib/delivery-categories";
@@ -128,10 +129,58 @@ export async function POST(req: NextRequest) {
   if (kind === "delivery" && !isDeliveryCategory(productCategory)) {
     return NextResponse.json({ error: "상품 카테고리를 선택해주세요" }, { status: 400 });
   }
-  // 방문 전 예약 필수 (예약형 라이트) — 방문형 전용 옵션
+  // 예약형 (2026-07-22 작업 리스트 1-1 — 방문형과 구분되는 유형으로 승격, 데이터는 visit+reservationRequired)
   const reservationRequired = kind === "visit" && body.reservationRequired === true;
   // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — 가능 요일·시간대 등) — 예약형 전용, 선택 입력
   const reservationNote = reservationRequired ? String(body.reservationNote || "").trim().slice(0, 80) : "";
+  // 예약 운영 스케줄 (2026-07-22 §2) — 예약형 필수: 요일·운영시간(30분 단위)·브레이크(선택)·
+  // 예약 가능 시작일(선택, 기본 즉시)·시간대 정원(1~5, 기본 1팀)
+  let reservationSchedule: ReservationSchedule | undefined;
+  if (reservationRequired) {
+    const rs = (body.reservationSchedule ?? {}) as Partial<ReservationSchedule>;
+    const days = Array.isArray(rs.days)
+      ? Array.from(new Set(rs.days.map((d) => Math.floor(Number(d))))).filter((d) => d >= 0 && d <= 6).sort()
+      : [];
+    if (days.length === 0) {
+      return NextResponse.json({ error: "예약 가능한 요일을 1개 이상 선택해주세요" }, { status: 400 });
+    }
+    const isHalfHour = (t: unknown): t is string =>
+      typeof t === "string" && /^([01]\d|2[0-4]):(00|30)$/.test(t) && timeToMin(t) <= 24 * 60;
+    const open = rs.open;
+    const close = rs.close;
+    if (!isHalfHour(open) || !isHalfHour(close) || timeToMin(close) <= timeToMin(open)) {
+      return NextResponse.json({ error: "예약 가능 시간을 확인해주세요 (시작 시간이 종료 시간보다 빨라야 해요)" }, { status: 400 });
+    }
+    reservationSchedule = { days, open, close };
+    // 브레이크 타임 — 선택 입력, 운영시간 내 구간만 (단일 구간 — 2-4)
+    if (rs.breakStart || rs.breakEnd) {
+      const bs = rs.breakStart;
+      const be = rs.breakEnd;
+      if (
+        !isHalfHour(bs) ||
+        !isHalfHour(be) ||
+        timeToMin(be) <= timeToMin(bs) ||
+        timeToMin(bs) < timeToMin(open) ||
+        timeToMin(be) > timeToMin(close)
+      ) {
+        return NextResponse.json({ error: "브레이크 타임은 운영시간 내에서 시작·종료를 선택해주세요" }, { status: 400 });
+      }
+      reservationSchedule.breakStart = bs;
+      reservationSchedule.breakEnd = be;
+    }
+    // 예약 가능 시작일 (2-5) — 오늘 이후만, 캠페인 종료일보다 이르게. 미설정 = 즉시 예약 가능.
+    const opensAt = Number(rs.opensAt);
+    if (Number.isFinite(opensAt) && opensAt > now) {
+      const endAtCandidate = now + (Number(body.days) || 30) * 86400000;
+      if (opensAt >= endAtCandidate) {
+        return NextResponse.json({ error: "예약 가능 시작일은 캠페인 종료일보다 이르게 설정해주세요" }, { status: 400 });
+      }
+      reservationSchedule.opensAt = opensAt;
+    }
+    // 시간대 정원 (§13-A 기본안) — 같은 시간 최대 팀 수 1~5, 기본 1
+    const cap = Math.floor(Number(rs.slotCapacity) || 1);
+    reservationSchedule.slotCapacity = Math.min(SLOT_CAPACITY_MAX, Math.max(SLOT_CAPACITY_MIN, cap));
+  }
   // 배송형 상품 옵션 (2026-07-16) — 최대 5개, 각 30자, 중복 제거. 설정 시 신청에서 택1 필수.
   const productOptions: string[] =
     kind === "delivery" && Array.isArray(body.productOptions)
@@ -172,6 +221,7 @@ export async function POST(req: NextRequest) {
     ...(productCategory ? { productCategory } : {}),
     ...(reservationRequired ? { reservationRequired: true } : {}),
     ...(reservationNote ? { reservationNote } : {}),
+    ...(reservationSchedule ? { reservationSchedule } : {}),
     ...(productOptions.length > 0 ? { productOptions } : {}),
     photos,
   };

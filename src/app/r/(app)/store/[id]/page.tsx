@@ -6,6 +6,7 @@ import { getDBAsync } from "@/lib/db";
 import { photosForCampaign } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
+import { reservationOpenState, buildReservationPicker, fmtReservationDateLabel, kstTodayStr } from "@/lib/reservation";
 import { CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { effectiveChannelState } from "@/lib/sns-cookie";
@@ -40,6 +41,12 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
 
   const ended = c.endAt <= now;
   const remain = campaignRemain(c);
+  // 예약 오픈 상태 (§2-5) — 오픈 전에는 상세 열람 가능·예약 CTA 비활성("예약 오픈 예정")
+  const rsvOpenState = isReserve ? reservationOpenState(c, now) : { open: true as const };
+  const rsvOpensLabel =
+    !rsvOpenState.open && rsvOpenState.opensAt ? fmtReservationDateLabel(kstTodayStr(rsvOpenState.opensAt)) : null;
+  // 날짜/시간 선택지 — 스케줄·차단·시간대 정원 반영 (§3-2·§7-1)
+  const rsvPicker = isReserve && rsvOpenState.open ? buildReservationPicker(c, db.passes) : { dates: [], slotsByDate: {} };
   // 노출 상태 재사용 (재구현 금지) — issued_out = 잔여 0이지만 살아있는 체험권이 남아
   // 만료·취소 시 슬롯이 복구될 수 있는 상태 (완전 종료 아님, 2026-07-10 §1-2)
   const exposure = campaignExposure(c, db.passes, now);
@@ -52,7 +59,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
       p.status === "cancelled" &&
-      p.cancelledVia !== "proposal_declined" &&
+      !p.cancelledVia && // 사장님 거절·취소/제안 거절/운영자 취소는 제한 없음 (§5-1·§5-3)
       typeof p.cancelledAt === "number" &&
       now - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
   );
@@ -141,18 +148,28 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {/* 방문 전 예약 필수 — 예약 플로우 (2026-07-16 리뷰노트 벤치마크: 신청 시 일시 선택 → 사장님 확인) */}
+        {/* 예약형 — 예약 플로우 안내 (신청 시 일시 선택 → 사장님 확정 후 QR) */}
         {isReserve && (
           <div className="mt-3 rounded-md bg-infoSoft px-3.5 py-3">
             <div className="flex items-center gap-2">
               <span aria-hidden>📅</span>
               <span className="text-[13px] font-semibold text-info">
-                예약 방문 체험이에요 · 신청할 때 희망 방문 일시를 선택하면 사장님이 예약을 확인해드려요.
+                예약형 체험이에요 · 신청할 때 희망 방문 일시를 선택하면 사장님이 예약을 확정해드려요.
               </span>
             </div>
             {c.reservationNote && (
               <p className="mt-1.5 pl-6 text-[12px] text-ink2">📌 {c.reservationNote}</p>
             )}
+          </div>
+        )}
+
+        {/* 예약 오픈 예정 (§2-5) — 오픈 전에는 상세 열람만 가능, 예약 CTA 비활성 */}
+        {isReserve && !ended && !rsvOpenState.open && rsvOpensLabel && (
+          <div className="mt-3 rounded-md bg-warningSoft px-3.5 py-3 flex items-center gap-2">
+            <span aria-hidden>⏳</span>
+            <span className="text-[13px] font-semibold text-ink2">
+              곧 예약 가능 · <span className="text-ink">{rsvOpensLabel}</span>부터 예약을 받아요.
+            </span>
           </div>
         )}
 
@@ -181,6 +198,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         remain={remain}
         reservationRequired={isReserve}
         reservationNote={c.reservationNote ?? ""}
+        rsvPicker={rsvPicker}
+        rsvOpensLabel={rsvOpensLabel}
         endAt={c.endAt}
         productOptions={c.productOptions ?? []}
         ended={ended}

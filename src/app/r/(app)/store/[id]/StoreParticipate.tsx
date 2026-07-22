@@ -13,12 +13,7 @@ import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { fmtKoDateTime } from "@/lib/dates";
 import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
-import {
-  RESERVATION_TIME_SLOTS,
-  reservationDateOptions,
-  fmtReservationDateLabel,
-  fmtReservationLabel,
-} from "@/lib/reservation";
+import { fmtReservationLabel, type ReservationPicker } from "@/lib/reservation";
 
 interface Props {
   campaignId: string;
@@ -33,6 +28,10 @@ interface Props {
   // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — 신청 시 희망 방문 일시 선택
   reservationRequired?: boolean;
   reservationNote?: string; // 캠페인 예약 안내 (가능 요일·시간대)
+  // 날짜/시간 선택지 — 서버가 스케줄·차단·시간대 정원 기준으로 계산 (§3-2·§7-1)
+  rsvPicker?: ReservationPicker;
+  // 예약 오픈 예정 (§2-5) — 오픈 전이면 "○월 ○일 (요일)" 라벨, 오픈 상태면 null
+  rsvOpensLabel?: string | null;
   endAt?: number; // 캠페인 종료일 — 예약 가능 날짜 한도
   // 배송형 상품 옵션 (2026-07-16) — 설정 시 신청에서 택1 필수
   productOptions?: string[];
@@ -61,6 +60,8 @@ export default function StoreParticipate({
   remain,
   reservationRequired = false,
   reservationNote = "",
+  rsvPicker = { dates: [], slotsByDate: {} },
+  rsvOpensLabel = null,
   endAt = 0,
   productOptions = [],
   ended = false,
@@ -97,7 +98,7 @@ export default function StoreParticipate({
 
   const isDelivery = kind === "delivery";
   const isReserve = !isDelivery && reservationRequired;
-  const rsvDates = useMemo(() => (isReserve && endAt > 0 ? reservationDateOptions(endAt) : []), [isReserve, endAt]);
+  const rsvSlots = useMemo(() => rsvPicker.slotsByDate[rsvDate] ?? [], [rsvPicker, rsvDate]);
   const myGrade: Grade | undefined = selected ? myChannelGrades[selected] : undefined;
   const connected = !!myGrade;
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
@@ -295,10 +296,15 @@ export default function StoreParticipate({
                   : sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}
             </div>
           </div>
-          {/* CTA 우선순위 (2026-07-10 §1): 종료 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
+          {/* CTA 우선순위 (2026-07-10 §1): 종료 > 예약 오픈 예정 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
           {ended || (remain <= 0 && exposure === "closed") ? (
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
               종료된 체험입니다
+            </button>
+          ) : isReserve && rsvOpensLabel ? (
+            /* 예약 오픈 예정 (§2-5) — 상세 열람은 가능, 예약 CTA만 비활성 */
+            <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
+              예약 오픈 예정 · {rsvOpensLabel}부터
             </button>
           ) : myActivePassId ? (
             <Link
@@ -407,14 +413,18 @@ export default function StoreParticipate({
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <select
                     value={rsvDate}
-                    onChange={(e) => setRsvDate(e.target.value)}
+                    onChange={(e) => {
+                      setRsvDate(e.target.value);
+                      setRsvTime(""); // 날짜가 바뀌면 시간 선택지도 바뀐다 (스케줄·차단·정원)
+                    }}
                     aria-label="방문 날짜"
                     className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvDate ? "text-ink" : "text-mutedSoft"}`}
                   >
                     <option value="">날짜 선택</option>
-                    {rsvDates.map((d) => (
-                      <option key={d} value={d}>
-                        {fmtReservationDateLabel(d)}
+                    {rsvPicker.dates.map((d) => (
+                      <option key={d.date} value={d.date} disabled={d.disabled}>
+                        {d.label}
+                        {d.disabled ? " (예약 불가)" : ""}
                       </option>
                     ))}
                   </select>
@@ -425,9 +435,11 @@ export default function StoreParticipate({
                     className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvTime ? "text-ink" : "text-mutedSoft"}`}
                   >
                     <option value="">시간 선택</option>
-                    {RESERVATION_TIME_SLOTS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                    {/* 예약 불가 시간도 비활성 상태로 노출 (§7-1 — 브레이크 타임/마감/차단 구분) */}
+                    {rsvSlots.map((t) => (
+                      <option key={t.time} value={t.time} disabled={t.disabled}>
+                        {t.label}
+                        {t.disabled ? (t.reason === "break" ? " (브레이크 타임)" : " (마감)") : ""}
                       </option>
                     ))}
                   </select>
@@ -447,7 +459,7 @@ export default function StoreParticipate({
                   ))}
                 </select>
                 <p className="mt-1.5 text-[11px] text-muted">
-                  발급과 함께 예약이 접수되고, 사장님이 확인하면 알림을 드려요 · 방문 전까지 예약 변경이 가능해요.
+                  신청하면 예약이 접수되고, 사장님이 확정하면 알림과 함께 QR이 열려요 · 확정 전 예약 변경은 1회 가능해요.
                 </p>
               </div>
             )}

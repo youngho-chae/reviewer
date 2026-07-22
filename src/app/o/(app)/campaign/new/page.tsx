@@ -6,6 +6,10 @@ import Icon from "@/components/Icon";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 import { DELIVERY_ENABLED } from "@/lib/flags";
+import { timeToMin, minToTime, fmtTime12 } from "@/lib/reservation";
+
+// 예약 운영시간 선택지 — 00:00 ~ 24:00, 30분 단위 (24:00 = 자정 종료, 24시간 매장용)
+const HALF_HOURS: string[] = Array.from({ length: 49 }, (_, i) => minToTime(i * 30));
 
 interface OwnerStore {
   id: string;
@@ -42,8 +46,17 @@ export default function NewCampaign() {
   const [pointReward, setPointReward] = useState(""); // 배송형 기준 포인트 (선택 · 100P 단위)
   // 배송형 상품 카테고리 (필수) — 플레이스 분류가 아닌 상품군 분류 (delivery-categories.ts)
   const [productCategory, setProductCategory] = useState("");
-  const [reservationRequired, setReservationRequired] = useState(false); // 방문형 예약 필수 옵션
+  const [reservationRequired, setReservationRequired] = useState(false); // 예약형 (2026-07-22 §1-1 — 유형 선택)
   const [reservationNote, setReservationNote] = useState(""); // 예약 안내 (가능 요일·시간대 — 선택)
+  // 예약 운영 스케줄 (2026-07-22 §2) — 요일·운영시간·브레이크·예약 오픈일·시간대 정원
+  const [rsvDays, setRsvDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [rsvOpen, setRsvOpen] = useState("11:00");
+  const [rsvClose, setRsvClose] = useState("21:00");
+  const [rsvBreakOn, setRsvBreakOn] = useState(false);
+  const [rsvBreakStart, setRsvBreakStart] = useState("15:00");
+  const [rsvBreakEnd, setRsvBreakEnd] = useState("17:00");
+  const [rsvOpenDate, setRsvOpenDate] = useState(""); // 예약 가능 시작일 (빈 값 = 즉시)
+  const [rsvCapacity, setRsvCapacity] = useState("1"); // 같은 시간 최대 팀 수 (1~5)
   const [productOptionsRaw, setProductOptionsRaw] = useState(""); // 배송형 상품 옵션 (쉼표 구분 · 최대 5)
   // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 자리 + 추가 사진, 3~20장 필수.
   // 업로드 파일은 클라이언트에서 640px·JPEG로 리사이즈해 dataURL 저장 (DB 비대화 방지)
@@ -155,11 +168,32 @@ export default function NewCampaign() {
 
   const isDelivery = kind === "delivery";
 
+  const isReserve = !isDelivery && reservationRequired;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!isDelivery && useCode.length !== 4) {
       setErr("사용처리 코드는 숫자 4자리로 입력해주세요");
       return;
+    }
+    if (isReserve) {
+      if (rsvDays.length === 0) {
+        setErr("예약 가능한 요일을 1개 이상 선택해주세요");
+        return;
+      }
+      if (timeToMin(rsvClose) <= timeToMin(rsvOpen)) {
+        setErr("예약 종료 시간은 시작 시간보다 늦어야 해요");
+        return;
+      }
+      if (
+        rsvBreakOn &&
+        (timeToMin(rsvBreakEnd) <= timeToMin(rsvBreakStart) ||
+          timeToMin(rsvBreakStart) < timeToMin(rsvOpen) ||
+          timeToMin(rsvBreakEnd) > timeToMin(rsvClose))
+      ) {
+        setErr("브레이크 타임은 운영시간 내에서 시작·종료를 선택해주세요");
+        return;
+      }
     }
     setBusy(true);
     setErr(null);
@@ -187,8 +221,19 @@ export default function NewCampaign() {
         productOptions: isDelivery
           ? productOptionsRaw.split(/[,\n]/).map((o) => o.trim()).filter((o) => o.length > 0).slice(0, 5)
           : undefined,
-        reservationRequired: !isDelivery && reservationRequired ? true : undefined,
-        reservationNote: !isDelivery && reservationRequired ? reservationNote.trim() || undefined : undefined,
+        reservationRequired: isReserve ? true : undefined,
+        reservationNote: isReserve ? reservationNote.trim() || undefined : undefined,
+        // 예약 운영 스케줄 (2026-07-22 §2) — 예약형 필수
+        reservationSchedule: isReserve
+          ? {
+              days: rsvDays,
+              open: rsvOpen,
+              close: rsvClose,
+              ...(rsvBreakOn ? { breakStart: rsvBreakStart, breakEnd: rsvBreakEnd } : {}),
+              ...(rsvOpenDate ? { opensAt: Date.parse(`${rsvOpenDate}T00:00:00+09:00`) } : {}),
+              slotCapacity: Math.min(5, Math.max(1, Number(rsvCapacity) || 1)),
+            }
+          : undefined,
         photos, // 매장·상품 사진 3~20장 (2026-07-17)
         requiredMenus: isDelivery ? [] : cleanMenus,
         requiredChannels: channels,
@@ -271,35 +316,53 @@ export default function NewCampaign() {
           )}
         </section>
 
-        {/* 캠페인 유형 — 방문형 | 배송형 (2026-07-12 레뷰 벤치마크) */}
+        {/* 캠페인 유형 — 방문형 | 예약형 | 배송형 (2026-07-22 §1-1 — 예약형을 독립 유형으로 구분) */}
         <section>
           <div className="text-[14px] font-semibold text-ink mb-2">캠페인 유형</div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${DELIVERY_ENABLED ? "grid-cols-3" : "grid-cols-2"}`}>
             {(
               [
-                { key: "visit", label: "🏠 방문형", desc: "매장 방문 · 결제 시 직접 할인" },
+                { key: "visit", label: "🏠 방문형", desc: "예약 없이 방문 · 결제 시 직접 할인" },
+                { key: "reserve", label: "📅 예약형", desc: "방문 일시 예약 후 사장님 확정" },
                 // 배송형 — DELIVERY_ENABLED=false(main 릴리스)면 유형 선택에서 제외
                 ...(DELIVERY_ENABLED ? [{ key: "delivery" as const, label: "📦 배송형", desc: "택배 발송 · 전국 모집" }] : []),
               ] as const
-            ).map((k) => (
-              <button
-                key={k.key}
-                type="button"
-                onClick={() => setKind(k.key)}
-                aria-pressed={kind === k.key}
-                className={`rounded-md px-4 py-3.5 text-left bg-canvas ${
-                  kind === k.key ? "border-[1.5px] border-brand" : "border border-hairline"
-                }`}
-              >
-                <div className={`text-[15px] font-bold ${kind === k.key ? "text-brand" : "text-ink"}`}>{k.label}</div>
-                <div className="mt-0.5 text-[11px] text-muted leading-[1.4]">{k.desc}</div>
-              </button>
-            ))}
+            ).map((k) => {
+              const active = k.key === "delivery" ? isDelivery : !isDelivery && (k.key === "reserve") === reservationRequired;
+              return (
+                <button
+                  key={k.key}
+                  type="button"
+                  onClick={() => {
+                    if (k.key === "delivery") {
+                      setKind("delivery");
+                      setReservationRequired(false);
+                    } else {
+                      setKind("visit");
+                      setReservationRequired(k.key === "reserve");
+                    }
+                  }}
+                  aria-pressed={active}
+                  className={`rounded-md px-3 py-3.5 text-left bg-canvas ${
+                    active ? "border-[1.5px] border-brand" : "border border-hairline"
+                  }`}
+                >
+                  <div className={`text-[15px] font-bold ${active ? "text-brand" : "text-ink"}`}>{k.label}</div>
+                  <div className="mt-0.5 text-[11px] text-muted leading-[1.4]">{k.desc}</div>
+                </button>
+              );
+            })}
           </div>
           {isDelivery && (
             <p className="mt-2 text-[12px] text-muted leading-[1.5]">
               배송형은 체험자가 배송지를 입력해 신청하고, 사장님이 <span className="text-ink font-medium">발송 처리</span>하면
               체험자에게 리뷰 기한(발송 후 7일)이 시작돼요.
+            </p>
+          )}
+          {!isDelivery && reservationRequired && (
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              예약형은 체험자가 희망 방문 일시를 선택해 신청하고, <span className="text-ink font-medium">사장님이 확정해야 QR 체험권이 열려요</span>.
+              방문형의 이용 방식은 그대로 유지됩니다.
             </p>
           )}
         </section>
@@ -417,36 +480,164 @@ export default function NewCampaign() {
           </section>
         )}
 
-        {/* 방문형 — 예약 필수 옵션 (예약형 라이트) */}
-        {!isDelivery && (
-          <section>
-            <label className="flex items-start gap-3 rounded-md border border-hairline px-4 py-3.5">
-              <input
-                type="checkbox"
-                checked={reservationRequired}
-                onChange={(e) => setReservationRequired(e.target.checked)}
-                className="mt-0.5 w-4 h-4 accent-[#9333EA]"
-              />
-              <span>
-                <span className="text-[14px] font-semibold text-ink block">방문 전 예약 필수</span>
-                <span className="text-[12px] text-muted leading-[1.5] block mt-0.5">
-                  숙박·미용 등 예약이 필요한 업종이라면 체크하세요. 체험자가 신청할 때 희망 방문 일시를 선택하고,
-                  사장님 홈의 예약 확인 큐에서 확정할 수 있어요.
-                </span>
-              </span>
-            </label>
-            {/* 예약 안내 — 가능 요일·시간대 등 (선택, 2026-07-16 리뷰노트 벤치마크) */}
-            {reservationRequired && (
-              <div className="mt-2">
-                <input
-                  value={reservationNote}
-                  onChange={(e) => setReservationNote(e.target.value.slice(0, 80))}
-                  placeholder="예약 안내 (선택) — 예: 화~일 11:00~20:00 · 월요일 휴무"
-                  className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
-                />
-                <p className="mt-1.5 text-[12px] text-muted">가능 요일·시간대를 적어주시면 체험자 상세·신청 화면에 표시돼요.</p>
+        {/* 예약형 — 예약 운영 설정 (2026-07-22 §2: 요일·운영시간·브레이크·오픈일·시간대 정원) */}
+        {isReserve && (
+          <section className="rounded-lg border border-hairline p-4 space-y-5">
+            <div>
+              <div className="text-[14px] font-semibold text-ink">예약 운영 설정</div>
+              <p className="mt-1 text-[12px] text-muted leading-[1.5]">
+                네이버 예약 등 외부 플랫폼과 연동되지 않아요 — 외부 예약 상황은 캠페인 관리의{" "}
+                <span className="text-ink font-medium">날짜·시간 차단</span>으로 직접 반영해주세요.
+              </p>
+            </div>
+
+            {/* 예약 가능 요일 */}
+            <div>
+              <div className="text-[13px] font-semibold text-ink mb-2">예약 가능 요일</div>
+              <div className="flex gap-1.5">
+                {["일", "월", "화", "수", "목", "금", "토"].map((label, d) => {
+                  const on = rsvDays.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setRsvDays((arr) => (on ? arr.filter((x) => x !== d) : [...arr, d].sort()))}
+                      aria-pressed={on}
+                      className={`w-10 h-10 rounded-full text-[13px] font-semibold ${
+                        on ? "bg-brand text-white" : "bg-canvas border border-hairline text-muted"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+              <p className="mt-1.5 text-[11px] text-muted">선택하지 않은 요일에는 체험자가 예약할 수 없어요 · 모든 운영 요일에 같은 시간이 적용돼요.</p>
+            </div>
+
+            {/* 운영시간 — 30분 단위, 24시간 매장은 오전 12시~오전 12시(24:00) */}
+            <div>
+              <div className="text-[13px] font-semibold text-ink mb-2">예약 가능 시간 (30분 단위)</div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={rsvOpen}
+                  onChange={(e) => setRsvOpen(e.target.value)}
+                  aria-label="예약 시작 시간"
+                  className="h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
+                >
+                  {HALF_HOURS.slice(0, -1).map((t) => (
+                    <option key={t} value={t}>
+                      {fmtTime12(t)}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={rsvClose}
+                  onChange={(e) => setRsvClose(e.target.value)}
+                  aria-label="예약 종료 시간"
+                  className="h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
+                >
+                  {HALF_HOURS.slice(1).map((t) => (
+                    <option key={t} value={t}>
+                      {t === "24:00" ? "오전 12시 (자정)" : fmtTime12(t)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted">
+                마지막 예약 슬롯은 종료 30분 전이에요 · 24시간 매장은 오전 12시 ~ 오전 12시(자정)로 설정하세요.
+              </p>
+            </div>
+
+            {/* 브레이크 타임 (선택 · 단일 구간) */}
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={rsvBreakOn}
+                  onChange={(e) => setRsvBreakOn(e.target.checked)}
+                  className="w-4 h-4 accent-[#9333EA]"
+                />
+                <span className="text-[13px] font-semibold text-ink">브레이크 타임 설정</span>
+              </label>
+              {rsvBreakOn && (
+                <>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <select
+                      value={rsvBreakStart}
+                      onChange={(e) => setRsvBreakStart(e.target.value)}
+                      aria-label="브레이크 시작"
+                      className="h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
+                    >
+                      {HALF_HOURS.slice(0, -1).map((t) => (
+                        <option key={t} value={t}>
+                          {fmtTime12(t)}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={rsvBreakEnd}
+                      onChange={(e) => setRsvBreakEnd(e.target.value)}
+                      aria-label="브레이크 종료"
+                      className="h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
+                    >
+                      {HALF_HOURS.slice(1).map((t) => (
+                        <option key={t} value={t}>
+                          {t === "24:00" ? "오전 12시 (자정)" : fmtTime12(t)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted">브레이크 타임 시간대는 체험자 예약 화면에 비활성으로 표시돼요.</p>
+                </>
+              )}
+            </div>
+
+            {/* 예약 가능 시작일 (2-5) — 캠페인 공개일과 구분 */}
+            <div>
+              <div className="text-[13px] font-semibold text-ink mb-2">
+                예약 가능 시작일 <span className="text-[12px] text-muted font-normal">(선택)</span>
+              </div>
+              <input
+                type="date"
+                value={rsvOpenDate}
+                onChange={(e) => setRsvOpenDate(e.target.value)}
+                className="w-full h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
+              />
+              <p className="mt-1.5 text-[11px] text-muted leading-[1.5]">
+                비워두면 캠페인 공개와 동시에 예약을 받아요. 날짜를 설정하면 그 전까지 상세 페이지는 열람 가능하지만
+                예약 버튼은 <span className="text-ink font-medium">예약 오픈 예정</span>으로 비활성돼요 (권장: 공개 3일 뒤).
+              </p>
+            </div>
+
+            {/* 같은 시간 최대 팀 수 (§13-A) */}
+            <div>
+              <div className="text-[13px] font-semibold text-ink mb-2">같은 시간 최대 팀 수</div>
+              <select
+                value={rsvCapacity}
+                onChange={(e) => setRsvCapacity(e.target.value)}
+                aria-label="같은 시간 최대 팀 수"
+                className="w-full h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
+              >
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>
+                    {n}팀
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11px] text-muted">시간대 정원이 차면 해당 시간은 자동으로 마감돼요 · 취소되면 자동 복구됩니다.</p>
+            </div>
+
+            {/* 예약 안내 — 가능 요일·시간대 등 자유 텍스트 (선택) */}
+            <div>
+              <input
+                value={reservationNote}
+                onChange={(e) => setReservationNote(e.target.value.slice(0, 80))}
+                placeholder="예약 안내 (선택) — 예: 주차는 매장 뒤 공영주차장을 이용해주세요"
+                className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+              />
+              <p className="mt-1.5 text-[12px] text-muted">추가 안내가 있다면 적어주세요 — 체험자 상세·신청 화면에 표시돼요.</p>
+            </div>
           </section>
         )}
 

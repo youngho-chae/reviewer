@@ -5,7 +5,12 @@ import { rid } from "@/lib/ids";
 import {
   PROPOSAL_MAX_SLOTS,
   PROPOSAL_NOTE_MAX,
-  RESERVATION_TIME_SLOTS,
+  campaignTimeSlots,
+  scheduleOf,
+  isDayAllowed,
+  inBreakTime,
+  isDateBlocked,
+  isSlotBlocked,
   fmtReservationLabel,
   reservationEpoch,
   reservationHistory,
@@ -45,13 +50,18 @@ export async function POST(req: NextRequest) {
   if (!c) return NextResponse.json({ error: "캠페인을 찾을 수 없습니다" }, { status: 400 });
 
   const now = Date.now();
-  // 슬롯 정제 — 형식·미래·캠페인 기간 내·중복 제거, 최대 3개
+  // 슬롯 정제 — 형식·미래·캠페인 기간 내·운영 스케줄(요일·브레이크·차단) 내·중복 제거, 최대 3개.
+  // 사장님 제안도 예약 가능 조건을 지켜야 체험자 수락 시 유효한 예약이 된다 (2026-07-22 §3-2).
+  const schedule = scheduleOf(c);
+  const scheduleSlots = campaignTimeSlots(schedule);
   const seen = new Set<string>();
   const cleanSlots: Array<{ date: string; time: string }> = [];
   for (const raw of Array.isArray(slots) ? slots : []) {
     const date = String(raw?.date || "");
     const time = String(raw?.time || "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !RESERVATION_TIME_SLOTS.includes(time)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !scheduleSlots.includes(time)) continue;
+    if (!isDayAllowed(schedule, date) || inBreakTime(schedule, time)) continue;
+    if (isDateBlocked(c.reservationBlocks, date, now) || isSlotBlocked(c.reservationBlocks, date, time)) continue;
     const epoch = reservationEpoch(date, time);
     if (!Number.isFinite(epoch) || epoch <= now || epoch > c.endAt) continue;
     const key = `${date}T${time}`;

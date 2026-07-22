@@ -3,7 +3,13 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
-import { validateReservation, reservationDayEnd, fmtReservationLabel, reservationHistory } from "@/lib/reservation";
+import {
+  validateReservationForCampaign,
+  reservationDayEnd,
+  fmtReservationLabel,
+  reservationHistory,
+  reviewerCounterUsed,
+} from "@/lib/reservation";
 
 export const runtime = "nodejs";
 
@@ -30,9 +36,22 @@ export async function POST(req: NextRequest) {
   if (pass.reservation.status === "proposed") {
     return NextResponse.json({ error: "사장님이 제안한 시간에 먼저 응답해주세요" }, { status: 400 });
   }
+  // 예약 확정 후에는 변경 불가 (2026-07-22 §3-3 — 확정 전 '예약 대기' 상태에서만)
+  if (pass.reservation.status === "confirmed") {
+    return NextResponse.json({ error: "확정된 예약은 변경할 수 없어요 — 방문이 어려우면 취소 후 다시 신청해주세요" }, { status: 400 });
+  }
+  // 재제안(기타 요청) 이후에는 변경 불가 — 협상 각 1회 제한 우회 방지 (v3)
+  if (reviewerCounterUsed(pass.reservation)) {
+    return NextResponse.json({ error: "재요청한 일정은 변경할 수 없어요 — 사장님 응답을 기다려주세요" }, { status: 400 });
+  }
+  // 희망 일정 변경은 1회만 (2026-07-22 §3-3 — 무제한 변경 금지)
+  if (pass.reservation.changeUsed) {
+    return NextResponse.json({ error: "예약 변경은 1회만 가능해요 — 일정이 어려우면 취소 후 다시 신청해주세요" }, { status: 400 });
+  }
   const rd = String(date || "");
   const rt = String(time || "");
-  const rerr = validateReservation(rd, rt, c.endAt);
+  // 종합 검증 (§3-2) — 오픈일·요일·브레이크·차단·시간대 정원·과거·종료일 (본인 기존 슬롯은 제외)
+  const rerr = validateReservationForCampaign(c, db.passes, c.id, rd, rt, { excludePassId: pass.id });
   if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
 
   const now = Date.now();
@@ -43,6 +62,7 @@ export async function POST(req: NextRequest) {
     partySize: pass.reservation.partySize, // 인원수 유지 (2026-07-17)
     status: "requested",
     requestedAt: now,
+    changeUsed: true, // 1회 소진 — 이후 [예약 변경하기] 비활성 (§3-3)
     // 변경 = 내 희망 일시 재요청 — 히스토리에 request로 기록 (제안/재제안 횟수와 무관)
     history: [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "request", date: rd, time: rt }],
   };

@@ -9,10 +9,15 @@ import ReservationQueue, { type ReservationQueueItem } from "./ReservationQueue"
 import HomeQueues from "./HomeQueues";
 import {
   fmtReservationLabel,
+  fmtTime12,
   reservationEpoch,
   reservationHistoryLines,
   ownerProposalUsed,
   reviewerCounterUsed,
+  campaignDateOptions,
+  campaignTimeSlots,
+  scheduleOf,
+  inBreakTime,
 } from "@/lib/reservation";
 
 export const dynamic = "force-dynamic";
@@ -50,24 +55,38 @@ export default async function OwnerHome() {
   // [P1] 예약 확인은 일정 조율 — 거절 없음. 방문 임박 순 정렬, 확정 건도 방문 예정으로 함께 표시.
   const reservationQueue: ReservationQueueItem[] = myPasses
     .filter((p) => p.status === "active" && p.reservation)
-    .map((p) => ({
-      passId: p.id,
-      masked: `#${p.reviewerId.slice(-4)}`,
-      campaignTitle: myCampaigns.find((c) => c.id === p.campaignId)?.title ?? "캠페인",
-      label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),
-      status: p.reservation!.status,
-      epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
-      endAt: myCampaigns.find((c) => c.id === p.campaignId)?.endAt ?? p.expiresAt,
-      partySize: p.reservation!.partySize, // 방문 인원수 (2026-07-17)
-      // 협상 히스토리 (v3) — 누가 언제 어떤 시간을 제안했는지 + 각 1회 제안 소진 여부
-      history: reservationHistoryLines(p.reservation!).map((h) => ({
-        prefix: h.prefix,
-        timeLabel: h.timeLabel,
-        ...(h.note ? { note: h.note } : {}),
-      })),
-      proposalUsed: ownerProposalUsed(p.reservation!),
-      counterUsed: reviewerCounterUsed(p.reservation!),
-    }))
+    .map((p) => {
+      const c = myCampaigns.find((x) => x.id === p.campaignId);
+      const schedule = c ? scheduleOf(c) : undefined;
+      return {
+        passId: p.id,
+        campaignId: p.campaignId,
+        masked: `#${p.reviewerId.slice(-4)}`,
+        campaignTitle: c?.title ?? "캠페인",
+        label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),
+        status: p.reservation!.status,
+        epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
+        endAt: c?.endAt ?? p.expiresAt,
+        partySize: p.reservation!.partySize, // 방문 인원수 (2026-07-17)
+        // 제안 폼 선택지 — 캠페인 예약 스케줄(요일·운영시간·브레이크) 기준 (§2-2, 12시간제 §7-2)
+        dateOptions: c
+          ? campaignDateOptions(c).map((d) => ({ date: d.date, label: d.label, disabled: d.disabled }))
+          : [],
+        timeOptions: schedule
+          ? campaignTimeSlots(schedule)
+              .filter((t) => !inBreakTime(schedule, t))
+              .map((t) => ({ time: t, label: fmtTime12(t) }))
+          : [],
+        // 협상 히스토리 (v3) — 누가 언제 어떤 시간을 제안했는지 + 각 1회 제안 소진 여부
+        history: reservationHistoryLines(p.reservation!).map((h) => ({
+          prefix: h.prefix,
+          timeLabel: h.timeLabel,
+          ...(h.note ? { note: h.note } : {}),
+        })),
+        proposalUsed: ownerProposalUsed(p.reservation!),
+        counterUsed: reviewerCounterUsed(p.reservation!),
+      };
+    })
     .sort((a, b) => a.epoch - b.epoch);
 
   return (
@@ -132,7 +151,8 @@ export default async function OwnerHome() {
           const pendingLabel = isPress ? "작성 중" : isDelivery ? "발송 대기" : "방문 예정";
           const completedLabel = isPress ? "작성 완료" : isDelivery ? "발송 완료" : "방문 완료";
           return (
-            <div key={c.id} className="rounded-lg border border-hairline bg-canvas p-4">
+            // 카드 전체가 캠페인 상세 관리로 진입 (§12-1) — 모집 현황·예약 관리·일정 차단·후기
+            <Link href={`/o/campaign/${c.id}`} key={c.id} className="cp-action block rounded-lg border border-hairline bg-canvas p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-[15px] font-semibold text-ink flex items-center gap-1.5">
@@ -141,11 +161,18 @@ export default async function OwnerHome() {
                         📦 배송
                       </span>
                     )}
+                    {!isDelivery && !isPress && c.reservationRequired && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold shrink-0">
+                        📅 예약형
+                      </span>
+                    )}
                     <span className="truncate">{c.title}</span>
                   </div>
                   <div className="text-[12px] text-muted mt-0.5">{store?.name}</div>
                 </div>
-                <div className="text-[12px] text-muted tabular-nums">D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</div>
+                <div className="text-[12px] text-muted tabular-nums">
+                  D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))} <span className="text-brand font-semibold">관리 →</span>
+                </div>
               </div>
               {/* [확정 정책 8] 캠페인 진행 현황은 방문 예정/방문 완료/총 모집 3종만 —
                   체험자 등급(등급별 버킷)은 사장님에게 노출하지 않는다 (응대 차별 방지, 내부 데이터는 어드민 전용) */}
@@ -163,7 +190,7 @@ export default async function OwnerHome() {
                   <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{totalQuota}명</div>
                 </div>
               </div>
-            </div>
+            </Link>
           );
         };
 

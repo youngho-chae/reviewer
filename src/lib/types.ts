@@ -156,9 +156,14 @@ export interface Campaign {
   // 상품 카테고리 — 배송형은 매장이 아닌 "특정 스토어의 상품"이 대상이라 플레이스
   // 카테고리(카페·식당 등)와 맥락이 다르다. src/lib/delivery-categories.ts 목록의 값 (배송형 필수).
   productCategory?: string;
-  // ── 방문형 예약 옵션 (예약형 라이트 — flags.ts '추후 확장'의 1단계) ──
-  // true면 상세·체험권에 "방문 전 예약 필수" 배지 + 안내. 선정 절차는 두지 않는다(즉시 발급 유지).
+  // ── 방문형 예약 옵션 (예약형 — 2026-07-22 작업 리스트 1-1에서 독립 유형으로 승격) ──
+  // true면 상세·체험권에 예약형 배지 + 예약 신청 플로우. 선정 절차는 두지 않는다(즉시 발급 유지).
   reservationRequired?: boolean;
+  // 예약 운영 스케줄 (2026-07-22 예약형 체험 시스템 — 정본: 운영정책서 §15, src/lib/reservation.ts).
+  // 예약형(reservationRequired) 전용. 미설정 구버전 캠페인은 reservation.ts 기본 스케줄로 해석.
+  reservationSchedule?: ReservationSchedule;
+  // 사장님 일정 차단 (2026-07-22) — 날짜/시간 차단·당일 일시중지. 예약형 전용 (방문형 미제공 — 6-4).
+  reservationBlocks?: ReservationBlocks;
   // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — "가능 요일" 대응) — 가능 요일·시간대 등 자유 텍스트.
   // 상세 배너·발급 시트에 노출. reservationRequired 캠페인 전용 (선택 입력, 최대 80자).
   reservationNote?: string;
@@ -169,6 +174,31 @@ export interface Campaign {
   // 생성 시 3~20장 필수 (클라이언트 리사이즈 dataURL 또는 URL). 미보유 구 시드는
   // photosForCampaign 폴백(대표 1 + 결정론 2장)으로 렌더.
   photos?: string[];
+}
+
+// 예약 운영 스케줄 (2026-07-22 예약형 체험 시스템 작업 리스트 §2)
+// MVP: 선택한 모든 운영 요일에 동일한 운영시간 적용 (요일별 상이 운영시간은 후속 고도화 — 2-3).
+// 브레이크 타임은 단일 구간만 지원 (복수 구간은 후속 확인 — 2-4).
+export interface ReservationSchedule {
+  days: number[]; // 예약 가능 요일 0(일)~6(토) — 미포함 요일은 신청 불가
+  open: string; // 운영 시작 "HH:mm" (30분 단위)
+  close: string; // 운영 종료 "HH:mm" — "24:00" 허용 (24시간 매장: 00:00~24:00)
+  breakStart?: string; // 브레이크 타임 시작 (선택 — 해당 구간 슬롯은 비활성 표시)
+  breakEnd?: string;
+  // 예약 가능 시작일 (epoch) — 캠페인 공개일과 구분 (2-5). 이전에는 상세 열람만 가능하고
+  // 예약 CTA는 비활성("예약 오픈 예정"). 기본 권장: 캠페인 시작일 D+3.
+  opensAt?: number;
+  // 같은 시간대 동시 예약 가능 팀 수 (§13 확정 필요 A 기본안 — 1~5, 기본 1팀).
+  // 취소·거절·만료 시 정원은 자동 복구된다 (점유 = 살아있는 예약 패스 수 집계 — 별도 원장 없음).
+  slotCapacity?: number;
+}
+
+// 사장님 일정 차단 (2026-07-22 §6) — 예약형 전용. 차단해도 기존 확정 예약은 자동 취소하지 않는다.
+export interface ReservationBlocks {
+  dates?: string[]; // 차단 날짜 "YYYY-MM-DD" — 해당 날짜 전체 비활성
+  slots?: Array<{ date: string; time: string }>; // 특정 날짜의 특정 시간만 차단
+  // 당일 예약 일시중지 — 값이 오늘(KST)과 같을 때만 유효 → 자정이 지나면 자연 해제 (6-3).
+  pausedDate?: string;
 }
 
 // 예약형 방문 일정 (2026-07-16 리뷰노트 벤치마크 · v2 제안 플로우 — 정본: 운영정책서 §15, src/lib/reservation.ts)
@@ -184,6 +214,9 @@ export interface PassReservation {
   status: "requested" | "proposed" | "confirmed"; // 확인 대기 / 사장님 대안 제안(응답 대기) / 확정
   requestedAt: number;
   confirmedAt?: number;
+  // 예약 대기 중 희망 일정 변경 1회 소진 여부 (2026-07-22 §3-3 — 무제한 변경 금지).
+  // 사장님 제안 후 '기타 재제안'(counter 1회)과는 별개 카운트 (§3-3 정책 확인 → 별개로 확정).
+  changeUsed?: boolean;
   // 사장님 대안 제안 — 슬롯 최대 3개 + 수기 안내사항(선택지가 더 필요하거나 추가 안내 시).
   // 체험자는 슬롯 수락(=확정) / 기타 일시 직접 입력(=재제안, 1회) / 거절(=취소) 중 선택한다.
   proposal?: {
@@ -240,10 +273,17 @@ export interface Pass {
   issuedAt: number;
   expiresAt: number;
   usedAt?: number;
-  cancelledAt?: number; // 체험자 취소 시각
-  // 취소 경위 — "proposal_declined" = 사장님 시간 제안 거절로 인한 취소 (2026-07-16 v2).
-  // 이 취소는 패널티·12h 재신청 제한을 적용하지 않는다 (일정이 맞지 않은 것일 뿐).
-  cancelledVia?: "proposal_declined";
+  cancelledAt?: number; // 취소 시각
+  // 취소 경위 (2026-07-22 §5-4 — 운영/CS 화면은 주체를 구분, 체험자 화면은 '취소' + 서브 문구).
+  //  - undefined            : 체험자 직접 취소 — 12h 재신청 제한 적용 (유일하게 쿨다운이 걸리는 경위)
+  //  - "proposal_declined"  : 체험자가 사장님 시간 제안을 거절 (2026-07-16 v2)
+  //  - "owner_declined"     : 사장님이 미확정 예약 요청을 거절 (5-1) 또는 응답 기한 경과 자동 취소 (§13-B)
+  //  - "owner_cancelled"    : 사장님이 확정된 예약을 취소 (5-3 — cancelReason 필수)
+  //  - "admin_cancelled"    : 운영자 수동 취소 (13-1)
+  // undefined 외 모든 경위는 패널티·12h 재신청 제한을 적용하지 않는다 (체험자 귀책 아님).
+  cancelledVia?: "proposal_declined" | "owner_declined" | "owner_cancelled" | "admin_cancelled";
+  // 사장님(확정 취소)·운영자 취소 사유 — 체험자 화면에 그대로 노출 (5-3)
+  cancelReason?: string;
   paidAmount?: number;
   supportApplied?: number;
   // 초대 보상(지원금 부스트)이 사용 처리에 적용된 경우 기록
@@ -267,8 +307,11 @@ export interface Pass {
   completedAt?: number; // 운영팀 검수 승인 시각 — 월간 재평가의 완료·상생 집계 귀속 기준
   // 라이프사이클 스윕 중복 방지 플래그
   overdueHandled?: boolean; // 리뷰 기한(이용 후 7일) 초과 처리 완료
-  expiringSoonNotified?: boolean; // 만료 6시간 전 알림 발송 완료
+  expiringSoonNotified?: boolean; // 만료 임박 알림 발송 완료 (방문형 6h 전 · 예약 확정형 24h 전)
   reviewDueSoonNotified?: boolean; // 리뷰 마감 24시간 전 알림 발송 완료
+  // ── 예약 관련 리마인드 플래그 (2026-07-22 §11-3, §13-B) ──
+  ownerRemindNotified?: boolean; // 예약 요청 24시간 무응답 — 사장님 리마인드 발송 완료
+  visitRemindNotified?: boolean; // 확정 예약 방문 전날 — 체험자 리마인드 발송 완료
   // 4자리 사용처리 코드 오입력 가드 — 연속 5회 실패 시 3분 잠금 (브루트포스 방지, 2026-07-12 §9-2)
   useCodeFailCount?: number; // 연속 실패 횟수 (성공 시 리셋)
   useCodeLockUntil?: number; // 잠금 해제 시각 (epoch ms)

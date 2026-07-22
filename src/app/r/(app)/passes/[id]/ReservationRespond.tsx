@@ -1,12 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  RESERVATION_TIME_SLOTS,
-  reservationDateOptions,
-  fmtReservationDateLabel,
-} from "@/lib/reservation";
 import { SBUI, sbNum } from "@/lib/storyboard";
+import type { RsvPicker } from "./ReservationPanel";
 
 /**
  * 사장님 시간 제안 응답 (2026-07-16 예약형 v2) — 체험권 상세(확정 전)에서 노출.
@@ -19,14 +15,15 @@ export default function ReservationRespond({
   passId,
   slots,
   note,
-  endAt,
+  picker,
   historyLines = [],
   counterUsed = false,
 }: {
   passId: string;
   slots: Array<{ date: string; time: string; label: string }>; // 최대 3
   note?: string;
-  endAt: number;
+  // 기타(직접 입력) 선택지 — 서버가 캠페인 스케줄·차단·정원 기준으로 계산 (§3-2)
+  picker: RsvPicker;
   // 협상 히스토리 (v3) — 서버 포맷 타임라인
   historyLines?: Array<{ prefix: string; timeLabel: string; note?: string }>;
   // 재제안 1회 소진 여부 — 소진 시 기타(직접 입력) 행 미노출 (수락/거절만)
@@ -39,7 +36,7 @@ export default function ReservationRespond({
   const [declining, setDeclining] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const dates = useMemo(() => reservationDateOptions(endAt), [endAt]);
+  const customSlots = picker.slotsByDate[customDate] ?? [];
 
   const isEtc = choice === "etc";
   const canSubmit = !busy && choice !== "" && (!isEtc || (!!customDate && !!customTime));
@@ -141,14 +138,18 @@ export default function ReservationRespond({
             <div className="mt-2.5 grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
               <select
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
+                onChange={(e) => {
+                  setCustomDate(e.target.value);
+                  setCustomTime("");
+                }}
                 aria-label="기타 방문 날짜"
                 className={`h-10 px-3 rounded-sm border border-hairline bg-canvas text-[13px] ${customDate ? "text-ink" : "text-mutedSoft"}`}
               >
                 <option value="">날짜 선택</option>
-                {dates.map((d) => (
-                  <option key={d} value={d}>
-                    {fmtReservationDateLabel(d)}
+                {picker.dates.map((d) => (
+                  <option key={d.date} value={d.date} disabled={d.disabled}>
+                    {d.label}
+                    {d.disabled ? " (예약 불가)" : ""}
                   </option>
                 ))}
               </select>
@@ -159,9 +160,10 @@ export default function ReservationRespond({
                 className={`h-10 px-3 rounded-sm border border-hairline bg-canvas text-[13px] ${customTime ? "text-ink" : "text-mutedSoft"}`}
               >
                 <option value="">시간 선택</option>
-                {RESERVATION_TIME_SLOTS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {customSlots.map((t) => (
+                  <option key={t.time} value={t.time} disabled={t.disabled}>
+                    {t.label}
+                    {t.disabled ? " (마감)" : ""}
                   </option>
                 ))}
               </select>

@@ -3,6 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
+import { reviewerCancelBlockedReason, reservationHistory, fmtReservationLabel } from "@/lib/reservation";
 
 export const runtime = "nodejs";
 
@@ -20,19 +21,28 @@ export async function POST(req: NextRequest) {
   if (pass.status !== "active") {
     return NextResponse.json({ error: "사용 전 상태의 체험권만 취소할 수 있습니다" }, { status: 400 });
   }
+  // 확정 예약 취소 기한 — 방문 전날 23:59(KST)까지, 당일엔 매장 문의 안내 (2026-07-22 §13-C 기본안)
+  const blocked = reviewerCancelBlockedReason(pass.reservation);
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 400 });
 
+  const now = Date.now();
   pass.status = "cancelled";
-  pass.cancelledAt = Date.now();
+  pass.cancelledAt = now;
+  if (pass.reservation) {
+    pass.reservation.history = [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "decline" }];
+  }
   restoreQuotaSlot(db, pass);
 
-  const me = db.reviewers.find((r) => r.id === s.userId);
   db.notifications.push({
     id: rid("nt"),
     userId: pass.ownerId,
     role: "owner",
-    title: "체험권 참여 취소",
-    body: `${me?.nickname ?? "체험자"}님이 참여를 취소했습니다. 모집 슬롯이 복구되었습니다.`,
-    createdAt: Date.now(),
+    title: pass.reservation ? "예약 취소" : "체험권 참여 취소",
+    // [확정 정책 8] 익명 #last4 — 실명·등급 비노출
+    body: pass.reservation
+      ? `익명 #${pass.reviewerId.slice(-4)} 체험자가 ${fmtReservationLabel(pass.reservation.date, pass.reservation.time)} 예약을 취소했습니다. 시간대 정원과 모집 슬롯이 복구되었어요.`
+      : `익명 #${pass.reviewerId.slice(-4)} 체험자가 참여를 취소했습니다. 모집 슬롯이 복구되었습니다.`,
+    createdAt: now,
     read: false,
     link: "/o/home",
   });

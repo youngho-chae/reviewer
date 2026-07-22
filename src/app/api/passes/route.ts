@@ -5,7 +5,7 @@ import { readSession } from "@/lib/auth";
 import { Pass, PassReservation, Grade, SnsKind, ShippingInfo } from "@/lib/types";
 import { CHANNEL_LABEL } from "@/lib/channels";
 import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
-import { validateReservation, reservationDayEnd, fmtReservationLabel } from "@/lib/reservation";
+import { validateReservationForCampaign, reservationDayEnd, fmtReservationLabel } from "@/lib/reservation";
 import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 import { effectiveChannelState } from "@/lib/sns-cookie";
@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
   if (!isPress && !isDelivery && c.reservationRequired) {
     const rd = String(reservation?.date || "");
     const rt = String(reservation?.time || "");
-    const rerr = validateReservation(rd, rt, c.endAt);
+    // 종합 검증 (2026-07-22 §3-2) — 오픈일·요일·브레이크·차단·시간대 정원·과거·종료일
+    const rerr = validateReservationForCampaign(c, db.passes, c.id, rd, rt);
     if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
     // 방문 인원수 필수 (2026-07-17 회의) — 사장님이 예약 큐에서 확인
     const partySize = Math.floor(Number(reservation?.partySize) || 0);
@@ -117,14 +118,15 @@ export async function POST(req: NextRequest) {
   }
 
   // 취소 후 동일 캠페인 재신청 제한 12시간 — 장기 점유 후 취소·재발급 악용 방지.
-  // 예약 제안 거절로 인한 취소(cancelledVia)는 일정 불일치일 뿐이므로 제한하지 않는다 (2026-07-16 v2).
+  // cancelledVia가 있는 취소(제안 거절·사장님 거절/취소·운영자 취소·무응답 자동 취소)는
+  // 체험자 귀책이 아니므로 제한하지 않는다 — 즉시 재신청 가능 (2026-07-22 §5-1·§5-3).
   const now0 = Date.now();
   const recentCancel = db.passes.find(
     (p) =>
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
       p.status === "cancelled" &&
-      p.cancelledVia !== "proposal_declined" &&
+      !p.cancelledVia &&
       typeof p.cancelledAt === "number" &&
       now0 - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
   );
