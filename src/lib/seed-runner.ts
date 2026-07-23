@@ -505,13 +505,24 @@ export function runSeed(db: DBShape) {
         : ([`${s.area} ${s.category}`, menuNames[0]].filter(Boolean) as string[]),
       createdAt,
       useCode: DEMO_USE_CODE,
-      // 방문 전 예약 필수 (예약형, 2026-07-12 · 안내 문구 2026-07-16) — 미용·의료·웰니스 등 예약 기반 업종
+      // 예약형 (2026-07-22 §2 — 운영 스케줄 포함) — 미용·의료·웰니스 등 예약 기반 업종.
+      // 화~일 오전 11시~오후 8시 · 브레이크 오후 3~4시 · 같은 시간 2팀 (12시간제 표기 §7-2).
+      // 피부과는 예약 가능 시작일(D+3) 데모 — 캘린더에서 앞 3일만 비활성 (신청은 즉시 가능 — 2026-07-23 정정).
       ...(["미용실", "네일아트", "피부과", "치과", "한의원", "PT", "필라테스", "마사지", "애견미용", "동물병원"].includes(
         s.category,
       )
         ? {
             reservationRequired: true,
-            reservationNote: STORYBOARD ? SB.reserveNote : "화~일 11:00~20:00 예약 가능 · 월요일 휴무",
+            reservationNote: STORYBOARD ? SB.reserveNote : "주차는 매장 안내를 따라주세요",
+            reservationSchedule: {
+              days: [0, 2, 3, 4, 5, 6], // 월요일 휴무
+              open: "11:00",
+              close: "20:00",
+              breakStart: "15:00",
+              breakEnd: "16:00",
+              slotCapacity: 2,
+              ...(s.category === "피부과" ? { opensAt: now + 3 * 24 * 60 * 60 * 1000 } : {}),
+            },
           }
         : {}),
     };
@@ -594,6 +605,9 @@ export function runSeed(db: DBShape) {
     id: detId("rv", "demo@reviewer.com"),
     email: "demo@reviewer.com",
     passwordHash: hash("demo1234"),
+    // 휴대폰 = 체험자 PK (2026-07-23 — 가입 인증 도입, 데모 계정은 인증 완료 상태로 시드)
+    phone: "01011112222",
+    phoneVerifiedAt: now - 1000 * 60 * 60 * 24 * 45,
     nickname: STORYBOARD ? SB.nickname : "북촌리뷰어",
     sns: demoSns,
     channelGrades: demoChannelGrades,
@@ -616,6 +630,8 @@ export function runSeed(db: DBShape) {
     id: detId("rv", "demo-a@reviewer.com"),
     email: "demo-a@reviewer.com",
     passwordHash: hash("demo1234"),
+    phone: "01022223333",
+    phoneVerifiedAt: now - 1000 * 60 * 60 * 24 * 60,
     nickname: STORYBOARD ? SB.nickname : "성수러버",
     sns: reviewerASns,
     channelGrades: reviewerAGrades,
@@ -632,6 +648,8 @@ export function runSeed(db: DBShape) {
     id: detId("rv", "demo-c@reviewer.com"),
     email: "demo-c@reviewer.com",
     passwordHash: hash("demo1234"),
+    phone: "01033334444",
+    phoneVerifiedAt: now - 1000 * 60 * 60 * 24 * 40,
     nickname: STORYBOARD ? SB.nickname : "신규유저",
     sns: reviewerCSns,
     channelGrades: reviewerCGrades,
@@ -1187,11 +1205,12 @@ export function runSeed(db: DBShape) {
         highlightKeywords: STORYBOARD ? [SB.keyword] : [`${g} ${shop.category}`, shop.menus[0]],
         createdAt: regionCreatedAt,
         useCode: DEMO_USE_CODE,
-        // 예약형 (2026-07-16 리뷰노트 벤치마크) — 예약 안내(가능 요일·시간대) 포함
+        // 예약형 (2026-07-22 §2 — 운영 스케줄 포함: 화~일 오전 11시~오후 8시 · 월요일 휴무)
         ...(shop.reserve
           ? {
               reservationRequired: true,
-              reservationNote: STORYBOARD ? SB.reserveNote : "화~일 11:00~20:00 예약 가능 · 월요일 휴무",
+              reservationNote: STORYBOARD ? SB.reserveNote : "주차는 매장 안내를 따라주세요",
+              reservationSchedule: { days: [0, 2, 3, 4, 5, 6], open: "11:00", close: "20:00", slotCapacity: 2 },
             }
           : {}),
       });
@@ -1434,7 +1453,12 @@ export function runSeed(db: DBShape) {
     const rsvCamps = db.campaigns.filter(
       (c) => c.kind === "visit" && c.reservationRequired && ownerStoreIds.has(c.storeId) && c.endAt > now,
     );
-    const dstr = (days: number) => kstTodayStr(now + days * day);
+    // 월요일 휴무(시드 스케줄) 회피 — 월요일에 걸리면 하루 미룬다 (데모 데이터 정합)
+    const dstr = (days: number) => {
+      let t = now + days * day;
+      if (new Date(t + 9 * hour).getUTCDay() === 1) t += day;
+      return kstTodayStr(t);
+    };
     const proposalNote = STORYBOARD
       ? "안내사항"
       : "저녁 시간대는 예약이 몰려 있어요. 제안드린 시간이 어려우면 평일 낮으로 기타 요청 부탁드려요!";
@@ -1505,6 +1529,14 @@ export function runSeed(db: DBShape) {
       };
       sp.camp.used[sp.grade] += 1;
       db.passes.push(p);
+    }
+    // 일정 차단 데모 (§6) — 첫 예약형 캠페인에 날짜 차단 1건 + 시간 차단 1건.
+    // 체험자 신청 화면(비활성 표시)과 사장님 캠페인 관리(차단 목록·해제)를 바로 시연한다.
+    if (rsvCamps[0]) {
+      rsvCamps[0].reservationBlocks = {
+        dates: [dstr(6)],
+        slots: [{ date: dstr(2), time: "13:00" }],
+      };
     }
   }
 

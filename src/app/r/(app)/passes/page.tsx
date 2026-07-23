@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
-import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
+import { REVIEW_DEADLINE_MS, reviewDeadline } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { supportForGrade } from "@/lib/grade";
 import { passDisplayStatus, DISPLAY_BADGE } from "@/lib/pass-display";
-import { fmtReservationLabel } from "@/lib/reservation";
+import { fmtReservationLabel, fmtExpiryLabel, reservationStatusLabel, cancelledCopy } from "@/lib/reservation";
 import GradeBadge from "@/components/GradeBadge";
 import PassesView, { type VisitPassItem } from "./PassesView";
 import PassPendingBanner from "./PassPendingBanner";
@@ -102,20 +102,25 @@ export default async function MyPasses({
       grade: p.reviewerGrade,
       support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
       expiresAt: p.expiresAt,
+      expiryLabel: fmtExpiryLabel(p.expiresAt, !!p.reservation),
       usedAt: p.usedAt ?? null,
-      // 리뷰 마감 — used는 이용 후 7일, rejected는 반려 후 7일(재제출 기한)
+      // 리뷰 마감 (§8-2) — used: 예약형은 확정 방문일 기준 +7일(reviewDeadline), 그 외 이용 후 7일 /
+      // rejected: 반려 후 7일(재제출 기한)
       reviewDeadline:
         p.status === "rejected" && p.rejectedAt
           ? p.rejectedAt + REVIEW_DEADLINE_MS
-          : p.usedAt
-            ? p.usedAt + REVIEW_DEADLINE_MS
-            : null,
+          : reviewDeadline(p),
       deadlineKind: p.status === "rejected" ? ("resubmit" as const) : p.usedAt ? ("review" as const) : null,
       rejectReason: p.rejectReason ?? null,
       highlight: p.id === justIssued,
-      // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — active 카드에 예약 일시·확인 상태
+      // 예약형 방문 — active 카드에 예약 일시(12시간제)·상태 강조 (§8-1)
       reservationLabel: p.reservation ? fmtReservationLabel(p.reservation.date, p.reservation.time) : null,
       reservationStatus: p.reservation?.status ?? null,
+      reservationStatusLabel: p.reservation ? reservationStatusLabel(p.reservation) : null,
+      // 취소 서브 문구 (§15-3) — 주체·원인 구분 (상태명은 '취소'로 통일)
+      cancelledNote: p.status === "cancelled" ? cancelledCopy(p.cancelledVia, p.cancelReason) : null,
+      // 매장·운영 귀책 취소 — 안내 박스 연보라 강조 (2026-07-23 시안)
+      cancelledByOwner: ["owner_declined", "owner_cancelled", "admin_cancelled"].includes(p.cancelledVia ?? ""),
     };
   });
 

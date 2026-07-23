@@ -22,6 +22,11 @@ function getSecret(): Uint8Array {
   return _secret;
 }
 
+// 세션 외 단기 증빙 토큰(휴대폰 인증·소셜 가입 등)도 같은 키·규율로 서명한다
+export function authSecret(): Uint8Array {
+  return getSecret();
+}
+
 export type Role = "reviewer" | "owner" | "admin";
 export interface SessionClaims {
   userId: string;

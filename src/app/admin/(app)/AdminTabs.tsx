@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/admin/reviews", label: "검수" },
+  { href: "/admin/reservations", label: "예약" }, // 예약 로그·수동 취소 (2026-07-22 §13)
   { href: "/admin/members", label: "회원" },
   { href: "/admin/campaigns", label: "캠페인" },
   { href: "/admin/owners", label: "사장님" },

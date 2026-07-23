@@ -6,6 +6,7 @@ import { getDBAsync } from "@/lib/db";
 import { photosForCampaign } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
 import { campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
+import { buildReservationPicker } from "@/lib/reservation";
 import { CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { effectiveChannelState } from "@/lib/sns-cookie";
@@ -40,6 +41,9 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
 
   const ended = c.endAt <= now;
   const remain = campaignRemain(c);
+  // 날짜/시간 선택지 — 스케줄·차단·시간대 정원 반영 (§3-2·§7-1).
+  // 예약 가능 시작일(opensAt)은 신청 게이트가 아니라 피커의 방문 날짜 하한 — 오픈 전 날짜만 비활성 (2026-07-23 정정).
+  const rsvPicker = isReserve ? buildReservationPicker(c, db.passes) : { dates: [], slotsByDate: {} };
   // 노출 상태 재사용 (재구현 금지) — issued_out = 잔여 0이지만 살아있는 체험권이 남아
   // 만료·취소 시 슬롯이 복구될 수 있는 상태 (완전 종료 아님, 2026-07-10 §1-2)
   const exposure = campaignExposure(c, db.passes, now);
@@ -52,7 +56,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
       p.status === "cancelled" &&
-      p.cancelledVia !== "proposal_declined" &&
+      !p.cancelledVia && // 사장님 거절·취소/제안 거절/운영자 취소는 제한 없음 (§5-1·§5-3)
       typeof p.cancelledAt === "number" &&
       now - p.cancelledAt < CANCEL_REAPPLY_COOLDOWN_MS,
   );
@@ -113,7 +117,10 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
           <div className="py-3.5 px-2 text-center border-l border-r border-hairlineSoft">
             <div className="text-[12px] text-muted">리뷰 마감 기한</div>
-            <div className="mt-1 text-[14px] font-semibold text-ink">{isDelivery ? "발송 후 7일 이내" : "이용 후 7일 이내"}</div>
+            {/* 예약형 리뷰 기한은 확정 방문일 기준 +7일 (§8-2) */}
+            <div className="mt-1 text-[14px] font-semibold text-ink">
+              {isDelivery ? "발송 후 7일 이내" : isReserve ? "방문 후 7일 이내" : "이용 후 7일 이내"}
+            </div>
           </div>
           <div className="py-3.5 px-2 text-center">
             <div className="text-[12px] text-brand font-semibold">🎫 잔여</div>
@@ -141,32 +148,30 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {/* 방문 전 예약 필수 — 예약 플로우 (2026-07-16 리뷰노트 벤치마크: 신청 시 일시 선택 → 사장님 확인) */}
-        {isReserve && (
-          <div className="mt-3 rounded-md bg-infoSoft px-3.5 py-3">
-            <div className="flex items-center gap-2">
-              <span aria-hidden>📅</span>
-              <span className="text-[13px] font-semibold text-info">
-                예약 방문 체험이에요 · 신청할 때 희망 방문 일시를 선택하면 사장님이 예약을 확인해드려요.
-              </span>
-            </div>
-            {c.reservationNote && (
-              <p className="mt-1.5 pl-6 text-[12px] text-ink2">📌 {c.reservationNote}</p>
-            )}
-          </div>
-        )}
-
-        {/* notice-banner — 사용 기한 고지 (방문형: 72시간 / 예약형: 예약일까지 / 배송형: 발송 후 리뷰 7일) */}
+        {/* notice-banner — 사용 기한 고지 (방문형: 72시간 / 예약형: 예약 방문일까지 / 배송형: 발송 후 리뷰 7일) */}
         <div className="mt-3 rounded-md bg-brandSoft px-3.5 py-3 flex items-center gap-2">
           <span aria-hidden>{isDelivery ? "📦" : "💬"}</span>
           <span className="text-[13px] font-semibold text-brand">
             {isDelivery
               ? "신청하면 사장님이 상품을 발송해요 · 발송 후 7일 이내 리뷰를 등록해주세요."
               : isReserve
-                ? "체험권은 예약한 방문일까지 사용할 수 있어요 · 방문하지 않으면 만료돼요."
+                ? "체험권은 예약한 방문일까지 사용할 수 있어요."
                 : "체험권 발급 후 72시간 내로 사용하지 않으면 사라져요."}
           </span>
         </div>
+
+        {/* 예약형 — 예약 확정 플로우 안내 (2026-07-23 시안: 기한 배너 아래 오렌지 안내) */}
+        {isReserve && (
+          <div className="mt-2 rounded-md bg-warningSoft px-3.5 py-3">
+            <div className="flex items-center gap-2">
+              <span aria-hidden>🔒</span>
+              <span className="text-[13px] font-semibold text-ink2">
+                희망 방문 일시를 선택하면 사장님이 예약 확인 후 확정할 수 있어요.
+              </span>
+            </div>
+            {c.reservationNote && <p className="mt-1.5 pl-6 text-[12px] text-ink2">📌 {c.reservationNote}</p>}
+          </div>
+        )}
       </section>
 
       {/* 채널 선택(라디오) + 정적 섹션 + 리뷰 조건 + CTA — StoreParticipate가 순서 관리 */}
@@ -180,8 +185,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         myActivePassId={myActivePass?.id ?? null}
         remain={remain}
         reservationRequired={isReserve}
-        reservationNote={c.reservationNote ?? ""}
-        endAt={c.endAt}
+        rsvPicker={rsvPicker}
         productOptions={c.productOptions ?? []}
         ended={ended}
         exposure={exposure}
@@ -254,8 +258,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
                 ]
               : isReserve
                 ? [
-                    { t: "희망 방문 일시 선택하고 발급받기", d: "예약이 함께 접수돼요 · 체험권 QR은 예약이 확정된 뒤에 열려요." },
-                    { t: "예약 확인 알림 받기", d: "사장님이 예약을 확인하면 QR이 열려요 · 다른 시간을 제안받으면 체험권에서 선택해 확정하면 돼요." },
+                    { t: "희망 방문 일시 선택하여 예약 신청하기", d: "예약 확정이 아니에요 · 사장님이 예약 확정 후 QR이 발급돼요." },
+                    { t: "예약 확정 알림 받기", d: "사장님이 예약을 확정하면 내 체험권에 QR이 발급됩니다 · 다른 시간을 제안받으면 체험권에서 선택해 확정하세요." },
                     { t: "예약 시간에 방문해 QR 제시", d: "결제 전, 사장님께 발급받은 QR을 보여주세요." },
                     { t: "리뷰 작성", d: "평소처럼 후기를 남기고 URL을 제출하면 완료!" },
                   ]
@@ -295,13 +299,16 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
               </>
             ) : isReserve ? (
               <>
-                <li>체험권(QR)은 예약한 방문일 다음날까지 사용할 수 있어요 · 기한이 지나면 연장·복구되지 않아요.</li>
-                <li>예약은 사장님 확인 후 확정되며, 확정 전에는 체험권 QR이 열리지 않아요 · 일정이 바뀌면 방문 전까지 예약을 변경할 수 있어요.</li>
+                <li>체험권은 예약한 방문일 다음날까지 사용할 수 있어요 · 기한이 지나면 연장·복구되지 않아요.</li>
+                <li>예약은 사장님 확인 후 확정되며, 확정 전에는 체험권 QR이 열리지 않아요.</li>
+                <li>일정이 바뀌면 확정 전 예약을 1회 변경할 수 있어요.</li>
                 <li>사장님이 다른 시간을 제안하면 수락(확정)하거나 다른 시간을 다시 요청할 수 있고, 모두 안 맞으면 취소해도 패널티·재신청 제한이 없어요.</li>
-                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요 · 취소한 캠페인은 12시간 뒤부터 재신청할 수 있어요.</li>
-                <li>리뷰는 이용 후 7일 이내 제출해야 해요.</li>
+                <li>방문이 어려워지면 사용 전 언제든 취소할 수 있어요 · 확정된 예약은 방문 전날까지 취소할 수 있어요.</li>
+                <li>취소한 캠페인은 12시간 뒤부터 재신청할 수 있어요. (사장님 거절·취소는 제한 없음)</li>
+                <li>리뷰는 방문일 후 7일 이내 제출해야 해요.</li>
                 <li>제출한 리뷰는 등록일로부터 90일 이상 게시를 유지해야 해요. (제출 시 별도 동의)</li>
                 <li>미방문 만료(노쇼)·리뷰 기한 초과는 월간 등급 재평가에 감점으로 반영돼요.</li>
+                <li>체험권은 동시에 5개까지 보유할 수 있어요 · 보유한 체험권을 사용하거나 취소한 뒤 발급받으세요.</li>
               </>
             ) : (
               <>

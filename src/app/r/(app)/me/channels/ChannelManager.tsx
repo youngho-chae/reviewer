@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG, CHANNEL_URL_PLACEHOLDER } from "@/lib/channels";
+import { CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import { SNS_PROVIDER_LOGIN_LABEL } from "@/lib/sns-oauth-labels";
 import type { Grade, SnsKind } from "@/lib/types";
 
@@ -23,6 +23,28 @@ const METRIC: Record<SnsKind, string> = {
   tiktok: "팔로워",
 };
 
+// 연결 가이드 (2026-07-23 시안 — 레퍼런스: 블로그 연결 모달). 마지막 어뷰징 항목은 강조.
+const CONNECT_GUIDE: Record<SnsKind, string[]> = {
+  naver_blog: [
+    "등록 및 변경하고자 하는 블로그 URL 혹은 RSS를 입력해 주세요.",
+    "블로그에 전체 공개, 검색 허용이 체크된 포스팅이 1개 이상 있어야 합니다.",
+    "연결 시 네이버 로그인으로 본인 계정인지 확인하고, 입력한 블로그 주소를 계정에 귀속해요.",
+    "방문자 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
+  ],
+  instagram: [
+    "프로필 주소(instagram.com/아이디)를 입력해 주세요.",
+    "전체 공개 계정이어야 하고, 게시물이 1개 이상 있어야 합니다.",
+    "연결 시 페이스북 로그인으로 본인 계정인지 확인해요.",
+    "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
+  ],
+  tiktok: [
+    "프로필 주소(tiktok.com/@아이디)를 입력해 주세요.",
+    "전체 공개 계정이어야 하고, 게시물이 1개 이상 있어야 합니다.",
+    "연결 시 틱톡 로그인으로 본인 계정인지 확인해요.",
+    "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
+  ],
+};
+
 // 검증 상태 칩 — ✓ 본인 인증(oauth) / 데모 인증(demo) / 미인증(자기신고)
 function VerifyChip({ verified, via }: { verified: boolean; via: "oauth" | "demo" | null }) {
   if (verified && via === "oauth") {
@@ -31,10 +53,11 @@ function VerifyChip({ verified, via }: { verified: boolean; via: "oauth" | "demo
   if (verified && via === "demo") {
     return <span className="inline-flex items-center px-2 py-0.5 rounded-pill bg-brandSoft text-brand text-[11px] font-semibold">✓ 데모 인증</span>;
   }
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-pill bg-sunken text-muted text-[11px] font-semibold">미인증 · 자기신고</span>;
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-pill bg-sunken text-muted text-[11px] font-semibold">미인증</span>;
 }
 
-// 채널 연동/해제 매니저 — 연동 시 /api/sns/{kind}/start로 전체 페이지 이동(OAuth 리다이렉트).
+// SNS 채널 연결 (2026-07-23 시안 개편) — 레퍼런스형 리스트 행("{채널} 연결하기 ›") +
+// 연결 바텀시트(URL 입력·연결 가이드·1:1 문의·[연결하기]) → 프로바이더 본인 인증(OAuth/데모)으로 이동.
 export default function ChannelManager({
   rows,
   connected,
@@ -47,18 +70,22 @@ export default function ChannelManager({
   overallGrade: Grade;
 }) {
   const router = useRouter();
-  // 미연동 카드 입력값 (채널별)
-  const [inputs, setInputs] = useState<Record<string, { url: string; influence: string }>>({});
+  const [sheetKind, setSheetKind] = useState<SnsKind | null>(null); // 연결 시트 열린 채널
+  const [url, setUrl] = useState("");
+  const [influence, setInfluence] = useState("");
   const [confirmKind, setConfirmKind] = useState<SnsKind | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const getInput = (kind: SnsKind) => inputs[kind] ?? { url: "", influence: "" };
-  const setInput = (kind: SnsKind, patch: Partial<{ url: string; influence: string }>) =>
-    setInputs((prev) => ({ ...prev, [kind]: { ...getInput(kind), ...patch } }));
+  function openSheet(row: ChannelRow) {
+    setSheetKind(row.kind);
+    setUrl(row.url);
+    setInfluence(row.influence ? String(row.influence) : "");
+    setErr(null);
+  }
 
-  function startVerify(kind: SnsKind, url: string, influence: string | number) {
-    const q = new URLSearchParams({ url, influence: String(influence || 0) });
+  function startVerify(kind: SnsKind, u: string, inf: string | number) {
+    const q = new URLSearchParams({ url: u, influence: String(inf || 0) });
     // OAuth 리다이렉트(외부 프로바이더) — 전체 페이지 내비게이션 필요
     window.location.href = `/api/sns/${kind}/start?${q}`;
   }
@@ -87,121 +114,142 @@ export default function ChannelManager({
     }
   }
 
-  return (
-    <div className="px-5 space-y-3">
-      {/* 결과 배너 — OAuth/데모 검증 복귀 시 */}
-      {connected && (
-        <div className="rounded-md bg-successSoft px-3.5 py-3 text-[13px] font-semibold text-successStrong">
-          ✓ {CHANNEL_LABEL[connected as SnsKind] ?? connected} 채널이 본인 인증과 함께 연동되었어요.
-        </div>
-      )}
-      {error && (
-        <div className="rounded-md bg-errorSoft px-3.5 py-3 text-[13px] text-error leading-[1.5]">
-          {error === "state"
-            ? "인증 세션이 만료되었거나 요청이 유효하지 않아요. 다시 시도해주세요."
-            : "본인 인증에 실패했어요. 잠시 후 다시 시도해주세요. (기존 연동 상태는 그대로예요)"}
-        </div>
-      )}
+  const sheetRow = sheetKind ? rows.find((r) => r.kind === sheetKind) : null;
 
-      {rows.map((row) => {
-        const input = getInput(row.kind);
-        return (
-          <div key={row.kind} className="rounded-lg border border-hairline bg-canvas p-4">
-            <div className="flex items-center gap-2.5">
-              <span className={`w-8 h-8 rounded-md grid place-items-center text-[13px] font-bold ${CHANNEL_BADGE_BG[row.kind]}`}>
+  return (
+    <div>
+      {/* 결과 배너 — OAuth/데모 검증 복귀 시 */}
+      <div className="px-5 space-y-2">
+        {connected && (
+          <div className="rounded-md bg-successSoft px-3.5 py-3 text-[13px] font-semibold text-successStrong">
+            ✓ {CHANNEL_LABEL[connected as SnsKind] ?? connected} 채널이 본인 인증과 함께 연결되었어요.
+          </div>
+        )}
+        {error && (
+          <div className="rounded-md bg-errorSoft px-3.5 py-3 text-[13px] text-error leading-[1.5]">
+            {error === "state"
+              ? "인증 세션이 만료되었거나 요청이 유효하지 않아요. 다시 시도해주세요."
+              : "본인 인증에 실패했어요. 잠시 후 다시 시도해주세요. (기존 연결 상태는 그대로예요)"}
+          </div>
+        )}
+      </div>
+
+      {/* 채널 리스트 — 레퍼런스형 행 (원형 아이콘 + "{채널} 연결하기 ›" + 안내) */}
+      <div>
+        {rows.map((row, i) => (
+          <div key={row.kind} className={`px-5 py-7 ${i < rows.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
+            <button type="button" onClick={() => openSheet(row)} className="cp-action w-full flex items-center gap-4 text-left">
+              <span className={`w-12 h-12 rounded-full grid place-items-center text-[15px] font-bold shrink-0 ${CHANNEL_BADGE_BG[row.kind]}`}>
                 {CHANNEL_SHORT[row.kind]}
               </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-bold text-ink">{CHANNEL_LABEL[row.kind]}</span>
-                  {row.connected && <VerifyChip verified={row.verified} via={row.verifiedVia} />}
-                </div>
-                {row.connected ? (
-                  <div className="text-[12px] text-muted mt-0.5 truncate">
-                    {row.accountName ? `${row.accountName} · ` : ""}
-                    {METRIC[row.kind]} {row.influence.toLocaleString()}명
-                    {row.grade ? ` · ${row.grade}등급` : ""}
-                  </div>
-                ) : (
-                  <div className="text-[12px] text-muted mt-0.5">연동 안 됨 — 이 채널 캠페인에 참여하려면 연동이 필요해요</div>
-                )}
-              </div>
-            </div>
+              <span className="flex-1 min-w-0">
+                <span className="flex items-center gap-2">
+                  <span className="text-[17px] font-bold text-ink tracking-title">
+                    {CHANNEL_LABEL[row.kind]} {row.connected ? "" : "연결하기"}
+                  </span>
+                  {row.connected ? <VerifyChip verified={row.verified} via={row.verifiedVia} /> : <span className="text-[15px] text-muted">›</span>}
+                </span>
+                <span className="block mt-1 text-[13px] text-muted truncate">
+                  {row.connected
+                    ? `${row.accountName ? `${row.accountName} · ` : ""}${METRIC[row.kind]} ${row.influence.toLocaleString()}명${row.grade ? ` · ${row.grade}등급` : ""}`
+                    : `${CHANNEL_LABEL[row.kind]}을 연결하고 더 많은 캠페인을 체험해보세요.`}
+                </span>
+              </span>
+            </button>
 
-            {row.connected ? (
-              <>
-                {row.url && <div className="mt-2.5 text-[12px] text-info truncate">{row.url}</div>}
-                <div className="mt-3 flex gap-2">
-                  {row.verified ? (
-                    /* 재연동(재인증) — 계정 교체·정보 갱신용. OAuth(키 설정 시) 또는 데모 승인 화면 재실행,
-                       applySnsConnect가 kind 기준 upsert라 해제 없이 갱신된다 (2026-07-10) */
-                    <button
-                      type="button"
-                      onClick={() => startVerify(row.kind, row.url, row.influence)}
-                      className="cp-action flex-1 h-11 rounded-md border border-brand text-brand text-[14px] font-bold bg-canvas"
-                    >
-                      다시 인증 (재연동)
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startVerify(row.kind, row.url, row.influence)}
-                      className="cp-action flex-1 h-11 rounded-md bg-brand text-white text-[14px] font-bold"
-                    >
-                      {SNS_PROVIDER_LOGIN_LABEL[row.kind]}으로 본인 인증
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setConfirmKind(row.kind)}
-                    className="cp-action flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
-                  >
-                    연동 해제
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="mt-3 space-y-2">
-                <input
-                  value={input.url}
-                  onChange={(e) => setInput(row.kind, { url: e.target.value })}
-                  placeholder={CHANNEL_URL_PLACEHOLDER[row.kind]}
-                  className="w-full h-11 px-3.5 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px]"
-                />
-                {row.kind === "naver_blog" && (
-                  <p className="text-[11px] text-muted">네이버는 로그인으로 계정을 인증하고, 입력한 블로그 주소를 계정에 귀속해요.</p>
-                )}
-                <input
-                  value={input.influence}
-                  onChange={(e) => setInput(row.kind, { influence: e.target.value.replace(/\D/g, "") })}
-                  inputMode="numeric"
-                  placeholder={`${METRIC[row.kind]} 수 (인증에서 확인되면 자동 반영)`}
-                  className="w-full h-11 px-3.5 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] tabular-nums"
-                />
-                <button
-                  type="button"
-                  onClick={() => startVerify(row.kind, input.url, input.influence)}
-                  disabled={row.kind === "naver_blog" && !input.url}
-                  className="cp-action w-full h-11 rounded-md bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
-                >
-                  {SNS_PROVIDER_LOGIN_LABEL[row.kind]}으로 본인 인증하고 연동
+            {/* 연결된 채널 — 관리 액션 (재인증·해제) */}
+            {row.connected && (
+              <div className="mt-3 pl-16 flex gap-3 text-[13px]">
+                <button type="button" onClick={() => openSheet(row)} className="cp-action font-semibold text-brand">
+                  {row.verified ? "다시 인증" : "본인 인증하기"}
                 </button>
-                {!row.oauthReady && (
-                  <p className="text-[11px] text-mutedSoft">
-                    지금은 데모 검증 모드예요 — 실제 {SNS_PROVIDER_LOGIN_LABEL[row.kind]}은 OAuth 키 설정 시 자동 활성화돼요.
-                  </p>
-                )}
+                <button type="button" onClick={() => setConfirmKind(row.kind)} className="cp-action font-semibold text-muted">
+                  연결 해제
+                </button>
               </div>
             )}
           </div>
-        );
-      })}
+        ))}
+      </div>
 
-      <p className="pt-1 text-[12px] text-muted leading-[1.55]">
-        등급은 <span className="font-semibold text-ink2">채널별로 각각 평가</span>돼요. 마이페이지에는 연동 채널 중
-        가장 높은 등급(현재 <span className="font-semibold text-ink">{overallGrade}</span>)이 표기되며, 연동·해제 시
+      <p className="px-5 pt-4 text-[12px] text-muted leading-[1.55]">
+        등급은 <span className="font-semibold text-ink2">채널별로 각각 평가</span>돼요. 마이페이지에는 연결 채널 중
+        가장 높은 등급(현재 <span className="font-semibold text-ink">{overallGrade}</span>)이 표기되며, 연결·해제 시
         다시 계산돼요.
       </p>
+
+      {/* 연결 바텀시트 (2026-07-23 시안 — 레퍼런스: 블로그 연결) */}
+      {sheetRow && (
+        <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setSheetKind(null)}>
+          <div
+            className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl px-6 pt-3 pb-8 max-h-[88dvh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pb-3">
+              <span className="w-9 h-1 rounded-pill bg-borderStrong" />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={`w-10 h-10 rounded-full grid place-items-center text-[14px] font-bold ${CHANNEL_BADGE_BG[sheetRow.kind]}`}>
+                  {CHANNEL_SHORT[sheetRow.kind]}
+                </span>
+                <h2 className="text-[18px] font-bold text-ink tracking-title">{CHANNEL_LABEL[sheetRow.kind]} 연결</h2>
+              </div>
+              <button type="button" onClick={() => setSheetKind(null)} aria-label="닫기" className="cp-action w-10 h-10 rounded-full text-[18px] text-ink">
+                ✕
+              </button>
+            </div>
+
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              inputMode="url"
+              placeholder="http:// 또는 https://를 포함한 정확한 미디어 주소를 입력해주세요."
+              className="mt-5 w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px]"
+            />
+            <input
+              value={influence}
+              onChange={(e) => setInfluence(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              placeholder={`${METRIC[sheetRow.kind]} 수 (본인 인증에서 확인되면 자동 반영)`}
+              className="mt-2 w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] tabular-nums"
+            />
+
+            {/* 연결 가이드 */}
+            <div className="mt-6">
+              <div className="text-[14px] font-bold text-ink">연결 가이드</div>
+              <ul className="mt-3 space-y-2">
+                {CONNECT_GUIDE[sheetRow.kind].map((g, i, arr) => (
+                  <li key={i} className={`flex gap-2 text-[13px] leading-[1.55] ${i === arr.length - 1 ? "text-ink font-semibold" : "text-muted"}`}>
+                    <span className="shrink-0">·</span>
+                    <span>{g}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <a href="mailto:help@catchrank.co.kr?subject=[CATCHPASS] 채널 연결 문의" className="cp-action mt-5 inline-flex items-center gap-1 text-[13px] font-semibold text-ink">
+              1:1 문의하기 <span className="text-muted">›</span>
+            </a>
+
+            {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
+            <div className="mt-5 pt-4 border-t border-hairlineSoft">
+              <button
+                type="button"
+                onClick={() => startVerify(sheetRow.kind, url, influence)}
+                disabled={sheetRow.kind === "naver_blog" && !url.trim()}
+                className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+              >
+                {sheetRow.connected && sheetRow.verified ? "다시 인증하고 연결 갱신" : "연결하기"}
+              </button>
+              <p className="mt-2 text-[11px] text-muted text-center">
+                [연결하기]를 누르면 {SNS_PROVIDER_LOGIN_LABEL[sheetRow.kind]}으로 본인 계정인지 확인해요.
+                {!sheetRow.oauthReady && " (지금은 데모 검증 모드 — OAuth 키 설정 시 실제 로그인으로 전환)"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 해제 확인 — 중앙 모달 */}
       {confirmKind && (
@@ -210,10 +258,10 @@ export default function ChannelManager({
             className="w-full max-w-[400px] bg-canvas rounded-xl px-6 pt-7 pb-6 text-center"
             onClick={(e) => e.stopPropagation()}
             role="alertdialog"
-            aria-label="채널 연동 해제 확인"
+            aria-label="채널 연결 해제 확인"
           >
             <h2 className="text-[17px] font-bold text-ink tracking-title">
-              {CHANNEL_LABEL[confirmKind]} 연동을 해제할까요?
+              {CHANNEL_LABEL[confirmKind]} 연결을 해제할까요?
             </h2>
             <p className="mt-3 text-[14px] text-ink2 leading-[1.65]">
               해제하면 이 채널 캠페인에 새로 참여할 수 없고,

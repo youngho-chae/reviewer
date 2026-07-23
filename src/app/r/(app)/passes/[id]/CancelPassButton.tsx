@@ -8,9 +8,13 @@ import { useRouter } from "next/navigation";
 export default function CancelPassButton({
   passId,
   variant = "link",
+  noCooldown = false,
 }: {
   passId: string;
   variant?: "link" | "row";
+  // 사장님 제안 응답 대기(proposed) 중 취소 (2026-07-23 3분안) — 제안 거절과 동일 처리로
+  // 12h 재신청 제한 미적용, 모달 안내 문구 분기
+  noCooldown?: boolean;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -74,12 +78,14 @@ export default function CancelPassButton({
           role="alertdialog"
           aria-label="방문 취소 확인"
         >
-          {/* [2026-07-12 회의 §8-2] 알럿 간소화 — 핵심 결과 + 12h 재신청 제한만 안내 */}
+          {/* [2026-07-12 회의 §8-2] 알럿 간소화 — 핵심 결과 + 재신청 조건만 안내 */}
           <h2 className="text-[17px] font-bold text-ink tracking-title">방문을 취소하시겠어요?</h2>
           <p className="mt-3 text-[14px] text-ink2 leading-[1.65]">
             취소하면 체험권은 즉시 회수돼요.
             <br />
-            같은 캠페인 재신청은 12시간 뒤부터 가능해요.
+            {noCooldown
+              ? "제안된 시간이 맞지 않은 취소라 재신청 제한이 없어요."
+              : "같은 캠페인 재신청은 12시간 뒤부터 가능해요."}
           </p>
           {err && <div className="mt-3 text-[12px] text-error">{err}</div>}
           <div className="mt-6 grid grid-cols-2 gap-2">

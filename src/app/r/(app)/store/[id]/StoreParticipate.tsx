@@ -13,12 +13,8 @@ import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { fmtKoDateTime } from "@/lib/dates";
 import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
-import {
-  RESERVATION_TIME_SLOTS,
-  reservationDateOptions,
-  fmtReservationDateLabel,
-  fmtReservationLabel,
-} from "@/lib/reservation";
+import type { ReservationPicker } from "@/lib/reservation";
+import ReserveSheet from "./ReserveSheet";
 
 interface Props {
   campaignId: string;
@@ -30,10 +26,11 @@ interface Props {
   myChannelGrades: Partial<Record<SnsKind, Grade>>;
   myActivePassId: string | null;
   remain: number;
-  // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — 신청 시 희망 방문 일시 선택
+  // 예약형 (2026-07-23 시안 — "언제 방문할까요?" 시트에서 캘린더·시간 칩·인원 선택)
   reservationRequired?: boolean;
-  reservationNote?: string; // 캠페인 예약 안내 (가능 요일·시간대)
-  endAt?: number; // 캠페인 종료일 — 예약 가능 날짜 한도
+  // 날짜/시간 선택지 — 서버가 스케줄·차단·시간대 정원 기준으로 계산 (§3-2·§7-1).
+  // 예약 가능 시작일(opensAt)은 캘린더에서 이전 날짜만 비활성 — 신청 게이트가 아니다 (2026-07-23 정정).
+  rsvPicker?: ReservationPicker;
   // 배송형 상품 옵션 (2026-07-16) — 설정 시 신청에서 택1 필수
   productOptions?: string[];
   ended?: boolean; // 캠페인 기간 종료 — 상세는 열람 가능하되 신청 차단 (관심 목록 경유)
@@ -60,8 +57,7 @@ export default function StoreParticipate({
   myActivePassId,
   remain,
   reservationRequired = false,
-  reservationNote = "",
-  endAt = 0,
+  rsvPicker = { dates: [], slotsByDate: {} },
   productOptions = [],
   ended = false,
   exposure = "open",
@@ -90,14 +86,9 @@ export default function StoreParticipate({
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [option, setOption] = useState(""); // 상품 옵션 (옵션 캠페인 택1 필수)
-  // 예약형 — 희망 방문 일시 + 인원수 (신청 필수, 사장님이 확인 후 확정)
-  const [rsvDate, setRsvDate] = useState("");
-  const [rsvTime, setRsvTime] = useState("");
-  const [rsvParty, setRsvParty] = useState(""); // 방문 인원수 (2026-07-17 필수)
 
   const isDelivery = kind === "delivery";
   const isReserve = !isDelivery && reservationRequired;
-  const rsvDates = useMemo(() => (isReserve && endAt > 0 ? reservationDateOptions(endAt) : []), [isReserve, endAt]);
   const myGrade: Grade | undefined = selected ? myChannelGrades[selected] : undefined;
   const connected = !!myGrade;
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
@@ -108,7 +99,6 @@ export default function StoreParticipate({
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
   const shippingValid =
     !isDelivery || (recipient.trim() && phone.trim() && address.trim() && (productOptions.length === 0 || !!option));
-  const reservationValid = !isReserve || (!!rsvDate && !!rsvTime && !!rsvParty);
 
   async function copyNotice() {
     if (!selected) return;
@@ -121,7 +111,7 @@ export default function StoreParticipate({
     }
   }
 
-  async function go() {
+  async function go(reservation?: { date: string; time: string; partySize: number }) {
     setBusy(true);
     setErr(null);
     const res = await fetch("/api/passes", {
@@ -140,7 +130,7 @@ export default function StoreParticipate({
               },
             }
           : {}),
-        ...(isReserve ? { reservation: { date: rsvDate, time: rsvTime, partySize: Number(rsvParty) } } : {}),
+        ...(reservation ? { reservation } : {}),
       }),
     });
     if (!res.ok) {
@@ -325,14 +315,31 @@ export default function StoreParticipate({
               disabled={!connected}
               className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
             >
-              {isDelivery ? "배송 체험 신청하기" : isReserve ? "예약하고 체험권 받기" : "체험권 발급받기"}
+              {isDelivery ? "배송 체험 신청하기" : isReserve ? "예약 요청하기" : "체험권 발급받기"}
             </button>
           )}
         </div>
       </div>
 
-      {/* 참여 확인 모달 — 하단 시트 (2026-07-08 레퍼런스: 결제 기한 강조 + 꼭 확인해주세요) */}
-      {open && selected && (
+      {/* 예약형 — "언제 방문할까요?" 시트 (2026-07-23 시안: 캘린더·시간 칩·인원 스테퍼) */}
+      {open && selected && isReserve && (
+        <ReserveSheet
+          channelLabel={CHANNEL_LABEL[selected]}
+          gradeLabel={`${myGrade}등급`}
+          supportText={sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) as string}
+          picker={rsvPicker}
+          busy={busy}
+          err={err}
+          onClose={() => {
+            setOpen(false);
+            setErr(null);
+          }}
+          onSubmit={(date, time, partySize) => go({ date, time, partySize })}
+        />
+      )}
+
+      {/* 참여 확인 모달 — 하단 시트 (방문형·배송형) */}
+      {open && selected && !isReserve && (
         <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setOpen(false)}>
           <div className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl p-6 pb-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-center pb-3">
@@ -349,14 +356,6 @@ export default function StoreParticipate({
                   <div className="text-[13px] text-ink2">신청하면 사장님이 상품을 발송해요</div>
                   <div className="mt-1 text-[17px] font-bold text-brand">발송 후 7일 이내 리뷰 제출</div>
                   <div className="mt-1.5 text-[12px] text-muted">발송되면 알림으로 운송장을 알려드려요</div>
-                </>
-              ) : isReserve ? (
-                <>
-                  <div className="text-[13px] text-ink2">희망 방문 일시를 선택하면</div>
-                  <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
-                    {rsvDate && rsvTime ? sbNum(SBUI.dateTime, fmtReservationLabel(rsvDate, rsvTime)) : "선택한 방문 일시"}에 방문
-                  </div>
-                  <div className="mt-1.5 text-[12px] text-muted">사장님이 예약을 확인하면 체험권 QR이 열려요 · 체험권은 방문일 다음날까지 유효해요</div>
                 </>
               ) : (
                 <>
@@ -398,59 +397,6 @@ export default function StoreParticipate({
                 </div>
               )}
             </div>
-
-            {/* 희망 방문 일시 — 예약형 필수 (2026-07-16 리뷰노트 벤치마크). 사장님이 확인 후 확정 */}
-            {isReserve && (
-              <div className="mt-5">
-                <div className="text-[13px] font-bold text-ink">희망 방문 일시</div>
-                {reservationNote && <p className="mt-1 text-[12px] text-muted">📌 {reservationNote}</p>}
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <select
-                    value={rsvDate}
-                    onChange={(e) => setRsvDate(e.target.value)}
-                    aria-label="방문 날짜"
-                    className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvDate ? "text-ink" : "text-mutedSoft"}`}
-                  >
-                    <option value="">날짜 선택</option>
-                    {rsvDates.map((d) => (
-                      <option key={d} value={d}>
-                        {fmtReservationDateLabel(d)}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={rsvTime}
-                    onChange={(e) => setRsvTime(e.target.value)}
-                    aria-label="방문 시간"
-                    className={`h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvTime ? "text-ink" : "text-mutedSoft"}`}
-                  >
-                    <option value="">시간 선택</option>
-                    {RESERVATION_TIME_SLOTS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* 방문 인원수 — 필수 (2026-07-17) · 사장님 예약 큐에 표시 */}
-                <select
-                  value={rsvParty}
-                  onChange={(e) => setRsvParty(e.target.value)}
-                  aria-label="방문 인원수"
-                  className={`mt-2 w-full h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] ${rsvParty ? "text-ink" : "text-mutedSoft"}`}
-                >
-                  <option value="">방문 인원수 선택 (필수)</option>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>
-                      {n}명
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1.5 text-[11px] text-muted">
-                  발급과 함께 예약이 접수되고, 사장님이 확인하면 알림을 드려요 · 방문 전까지 예약 변경이 가능해요.
-                </p>
-              </div>
-            )}
 
             {/* 배송지 입력 — 배송형 필수 (발송 목적 한정으로 사장님에게 노출) */}
             {isDelivery && (
@@ -508,8 +454,8 @@ export default function StoreParticipate({
                 취소
               </button>
               <button
-                onClick={go}
-                disabled={busy || !shippingValid || !reservationValid}
+                onClick={() => go()}
+                disabled={busy || !shippingValid}
                 className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:opacity-60"
               >
                 {busy ? (isDelivery ? "신청 중..." : "발급 중...") : isDelivery ? "신청하고 체험권 보기" : "발급받고 체험권 보기"}

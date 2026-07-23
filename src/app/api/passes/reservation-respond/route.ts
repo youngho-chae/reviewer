@@ -5,11 +5,16 @@ import { rid } from "@/lib/ids";
 import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
 import {
   validateReservation,
+  validateReservationForCampaign,
   reservationDayEnd,
   reservationEpoch,
   fmtReservationLabel,
   reservationHistory,
   reviewerCounterUsed,
+  isDateBlocked,
+  isSlotBlocked,
+  reservationTakenCount,
+  slotCapacityOf,
 } from "@/lib/reservation";
 
 export const runtime = "nodejs";
@@ -43,10 +48,21 @@ export async function POST(req: NextRequest) {
     if (reservationEpoch(rd, rt) <= now) {
       return NextResponse.json({ error: "지난 시간이에요 — 기타 입력으로 새 시간을 요청해주세요" }, { status: 400 });
     }
+    // 수락 시점 차단·정원 재확인 — 제안 이후 사장님 차단이나 다른 예약으로 찼을 수 있다 (§13-A).
+    // (요일·브레이크·14일 윈도우는 제안 시점에 이미 필터됨 — 여기선 시점 의존 조건만)
+    if (c) {
+      if (isDateBlocked(c.reservationBlocks, rd, now) || isSlotBlocked(c.reservationBlocks, rd, rt)) {
+        return NextResponse.json({ error: "매장 사정으로 마감된 시간이에요 — 기타 입력으로 새 시간을 요청해주세요" }, { status: 400 });
+      }
+      if (reservationTakenCount(db.passes, c.id, rd, rt, pass.id) >= slotCapacityOf(c)) {
+        return NextResponse.json({ error: "해당 시간대 예약이 마감되었어요 — 기타 입력으로 새 시간을 요청해주세요" }, { status: 400 });
+      }
+    }
     pass.reservation = {
       date: rd,
       time: rt,
       partySize: pass.reservation.partySize, // 인원수 유지 (2026-07-17)
+      changeUsed: pass.reservation.changeUsed,
       status: "confirmed", // 수락 = 즉시 확정 — 체험권(QR) 활성화
       requestedAt: pass.reservation.requestedAt,
       confirmedAt: now,
@@ -78,13 +94,17 @@ export async function POST(req: NextRequest) {
     }
     const rd = String(date || "");
     const rt = String(time || "");
-    const rerr = validateReservation(rd, rt, c?.endAt ?? pass.expiresAt);
+    // 재제안도 스케줄·차단·정원 검증을 통과해야 한다 (§3-2 — 본인 기존 슬롯은 제외)
+    const rerr = c
+      ? validateReservationForCampaign(c, db.passes, c.id, rd, rt, { excludePassId: pass.id })
+      : validateReservation(rd, rt, pass.expiresAt);
     if (rerr) return NextResponse.json({ error: rerr }, { status: 400 });
     const prevLabel = fmtReservationLabel(pass.reservation.date, pass.reservation.time);
     pass.reservation = {
       date: rd,
       time: rt,
       partySize: pass.reservation.partySize, // 인원수 유지 (2026-07-17)
+      changeUsed: pass.reservation.changeUsed, // 변경 1회 소진 여부 유지 (§3-3 — counter와 별개 카운트)
       status: "requested",
       requestedAt: now,
       history: [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "counter", date: rd, time: rt }],

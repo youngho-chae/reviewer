@@ -31,6 +31,8 @@ export interface VisitPassItem {
   grade: string;
   support: number; // 이 체험권으로 받는 지원금 (등급 적용액)
   expiresAt: number;
+  // 유효기간 표기 (2026-07-23 시안) — 예약형 "0월 00일 (0)" / 그 외 "0월 00일 (0) 오후 0시" (12시간제)
+  expiryLabel?: string;
   usedAt: number | null;
   reviewDeadline: number | null; // used=이용 후 7일 / rejected=반려 후 7일(재제출 기한)
   deadlineKind: "review" | "resubmit" | null; // 날짜 라벨 — "리뷰마감" vs "재제출 기한"
@@ -39,9 +41,14 @@ export interface VisitPassItem {
   // 배송형 (2026-07-12 레뷰 벤치마크) — active="발송 대기", 혜택 표기 = 제품(+포인트)
   isDelivery?: boolean;
   pointReward?: number; // 등급 배율 적용된 내 적립 예정 포인트
-  // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — active 카드에 예약 일시·확인 상태 표기
-  reservationLabel?: string | null; // "7월 18일 (토) 14:00"
+  // 예약형 방문 — active 카드에 예약 일시(12시간제)·상태 강조 표기 (§8-1)
+  reservationLabel?: string | null; // "7월 18일 (토) 오후 2시"
   reservationStatus?: "requested" | "proposed" | "confirmed" | null;
+  reservationStatusLabel?: string | null; // 예약 대기 / 일정 제안 확인 필요 / 일정 재요청 / 예약 확정 (§15-1)
+  // 취소 서브 문구 (§15-3) — 주체·원인 구분 (사용자/사장님 거절·취소/운영자)
+  cancelledNote?: string | null;
+  // 매장·운영 귀책 취소 (사장님 거절/취소·운영자) — 안내 박스를 연보라로 강조 (2026-07-23 시안)
+  cancelledByOwner?: boolean;
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -50,7 +57,8 @@ const REVIEW_STATUSES = ["used", "review_submitted", "completed", "rejected"] as
 
 const ISSUED_CHIPS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
-  { key: "active", label: "사용가능" },
+  { key: "active", label: "사용 가능" },
+  { key: "reserved_wait", label: "예약 대기" }, // 예약형 미확정 (2026-07-23 시안)
   { key: "cancelled", label: "취소" },
   { key: "expired", label: "만료" },
 ];
@@ -100,14 +108,21 @@ export default function PassesView({
     const statuses = tab === "issued" ? ISSUED_STATUSES : REVIEW_STATUSES;
     return base.filter((it) => (statuses as readonly string[]).includes(it.status));
   }, [visitItems, deliveryItems, segment, tab]);
-  // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다
+  // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다.
+  // 예약형 미확정(예약 대기)은 '사용 가능'과 분리된 별도 칩 (2026-07-23 시안 — QR 미발급 상태)
+  const isReserveWait = (it: VisitPassItem) =>
+    it.displayStatus === "active" && !!it.reservationStatus && it.reservationStatus !== "confirmed";
   const filtered =
     chip === "all"
       ? tabItems
       : tabItems.filter((it) =>
           chip === "overdue_any"
             ? it.displayStatus === "overdue" || it.displayStatus === "resubmit_expired"
-            : it.displayStatus === chip,
+            : chip === "reserved_wait"
+              ? isReserveWait(it)
+              : chip === "active"
+                ? it.displayStatus === "active" && !isReserveWait(it)
+                : it.displayStatus === chip,
         );
   const chips = tab === "issued" ? (segment === "delivery" ? DELIVERY_ISSUED_CHIPS : ISSUED_CHIPS) : REVIEW_CHIPS;
 
@@ -222,28 +237,29 @@ export default function PassesView({
               <PassCard key={it.id} it={it} tab={tab} />
             ))}
             {filtered.length === 0 && (
-              <div className="py-16 text-center">
-                <p className="text-[15px] text-muted">
-                  {segment === "delivery"
-                    ? tab === "issued"
-                      ? "해당하는 배송 체험 신청이 없어요."
-                      : "리뷰 단계의 배송 체험이 없어요."
-                    : tab === "issued"
-                      ? "해당하는 체험권이 없어요."
-                      : "리뷰 단계의 체험이 없어요."}
+              /* 빈 상태 (2026-07-23 시안) — 티켓 아이콘 원 + 타이틀 + 안내 + [체험 둘러보기] */
+              <div className="py-20 text-center">
+                <span className="mx-auto w-[104px] h-[104px] rounded-full bg-sunken grid place-items-center text-mutedSoft">
+                  <Icon name="ticket" variant="border" size={44} />
+                </span>
+                <h3 className="mt-7 text-[19px] font-bold text-ink tracking-title">
+                  {tab === "issued"
+                    ? segment === "delivery"
+                      ? "신청한 배송 체험이 없어요!"
+                      : "발급받은 체험권이 없어요!"
+                    : "리뷰 단계의 체험이 없어요!"}
+                </h3>
+                <p className="mt-3 text-[15px] text-ink2 leading-[1.6]">
+                  이용할 수 있는 체험이 생각보다 가까이에 있어요
+                  <br />
+                  한번 둘러볼까요?
                 </p>
-                {segment === "delivery" ? (
-                  <Link
-                    href="/r/explore?mode=list&tab=delivery"
-                    className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand"
-                  >
-                    배송 체험 둘러보기 →
-                  </Link>
-                ) : (
-                  <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
-                    홈에서 체험권 받기 →
-                  </Link>
-                )}
+                <Link
+                  href={segment === "delivery" ? "/r/explore?mode=list&tab=delivery" : "/r/explore"}
+                  className="cp-action inline-flex mt-7 h-12 px-6 items-center justify-center rounded-lg bg-brand text-white text-[15px] font-bold"
+                >
+                  체험 둘러보기
+                </Link>
               </div>
             )}
           </div>
@@ -254,14 +270,18 @@ export default function PassesView({
 }
 
 function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
+  const isActive = it.displayStatus === "active";
+  // 예약형 미확정 — QR 미발급 상태: 뱃지 '예약 대기', 보더 강조 없음 (2026-07-23 시안)
+  const reserveWait = isActive && !!it.reservationStatus && it.reservationStatus !== "confirmed";
   // 배송형 active = 발송 대기 (QR 사용 개념이 없음 — 파생 라벨만 교체, 실상태는 동일)
   const badge =
     it.isDelivery && it.displayStatus === "active"
       ? { label: "발송 대기", cls: "bg-brandSoft text-brand" }
-      : DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
-  const isActive = it.displayStatus === "active";
-  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기 — 기한 초과 제외)
-  const emphasized = isActive || it.displayStatus === "used" || it.highlight;
+      : reserveWait
+        ? { label: "예약 대기", cls: "bg-sunken text-muted" }
+        : DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
+  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용 가능·작성 대기) — 예약 대기는 확정 전이라 제외
+  const emphasized = (isActive && !reserveWait) || it.displayStatus === "used" || it.highlight;
 
   return (
     <div
@@ -269,6 +289,21 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
         emphasized ? "border-[1.5px] border-brand" : "border border-hairline"
       }`}
     >
+      {/* 방문예약 배너 — 카드 최상단 오렌지 (2026-07-23 시안: 확정·대기 공통, 상태는 우측 뱃지) */}
+      {isActive && it.reservationLabel && (
+        <div className="mb-3 rounded-md bg-warningSoft px-3 py-2.5 flex items-center justify-between gap-2 text-[13px]">
+          <span className="font-bold text-[#FF6B00] tabular-nums">
+            🗓 방문예약 <span className="ml-1">{sbNum(SBUI.dateTime, it.reservationLabel)}</span>
+          </span>
+          {/* 사장님 시간 제안 도착 — 안내 문장 대신 심플 뱃지 (2026-07-23) */}
+          {it.reservationStatus === "proposed" && (
+            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill bg-canvas text-brand text-[11px] font-semibold">
+              제안 도착
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 헤더 행 — 썸네일 + 가게명·채널/등급·지원금 + 상태 뱃지 */}
       <div className="flex gap-3">
         {/* 88×66(4:3) — 2026-07-17 썸네일 규격 통일 */}
@@ -310,41 +345,23 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       {/* 상태별 하단 영역 */}
       {isActive && (
         <>
-          {/* 예약 방문 (2026-07-16) — 예약 일시 + 확인 상태 */}
-          {it.reservationLabel && (
-            <div className="mt-3 flex items-center gap-2 text-[13px]">
-              <span className="font-semibold text-ink tabular-nums">📅 {sbNum(SBUI.dateTime, it.reservationLabel)} 방문</span>
-              <span
-                className={`inline-flex items-center px-1.5 py-0.5 rounded-pill text-[11px] font-semibold ${
-                  it.reservationStatus === "confirmed"
-                    ? "bg-successSoft text-successStrong"
-                    : it.reservationStatus === "proposed"
-                      ? "bg-brandSoft text-brand"
-                      : "bg-sunken text-muted"
-                }`}
-              >
-                {it.reservationStatus === "confirmed"
-                  ? "예약 확정"
-                  : it.reservationStatus === "proposed"
-                    ? "시간 제안 도착"
-                    : "예약 확인 대기"}
-              </span>
-            </div>
-          )}
           <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
             <span className="text-muted">{it.isDelivery ? "신청 유효" : "유효기간"}</span>
+            {/* 예약형은 날짜만("0월 00일 (0)까지" — 방문일 +1일 말), 그 외 날짜+12시간제 시각 */}
             <span className="font-semibold text-ink tabular-nums">
-              {sbNum(SBUI.dateTime, fmtKoDateTime(it.expiresAt))}까지
+              {sbNum(SBUI.dateTime, it.expiryLabel ?? fmtKoDateTime(it.expiresAt))}까지
             </span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <CancelPassButton passId={it.id} variant="row" />
+            {/* 제안 응답 대기 중 취소 = 제안 거절과 동일 처리 — 12h 미적용 (2026-07-23 3분안) */}
+            <CancelPassButton passId={it.id} variant="row" noCooldown={it.reservationStatus === "proposed"} />
             <StoreInfoButton it={it} />
           </div>
           <Link
             href={`/r/passes/${it.id}`}
             className="cp-action mt-2 flex h-11 items-center justify-center rounded-md bg-brand text-white text-[14px] font-bold"
           >
+            {/* 예약 미확정도 [체험권 보기]로 통일 (2026-07-23 시안) — 상세가 예약 현황 화면을 렌더 */}
             체험권 보기
           </Link>
         </>
@@ -355,8 +372,13 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
           <div className="mt-3.5 flex">
             <StoreInfoButton it={it} />
           </div>
-          <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
-            같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요.
+          {/* 취소 서브 문구 (§15-3) — 매장·운영 귀책 취소는 연보라 강조 박스 (2026-07-23 시안) */}
+          <div
+            className={`mt-2.5 rounded-md px-3.5 py-2.5 text-[12px] leading-[1.5] ${
+              it.cancelledByOwner ? "bg-brandSoft text-ink2 text-center" : "bg-sunken text-muted"
+            }`}
+          >
+            {it.cancelledNote ?? "같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요."}
           </div>
         </>
       )}

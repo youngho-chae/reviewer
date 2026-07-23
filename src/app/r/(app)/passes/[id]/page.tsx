@@ -6,7 +6,7 @@ import { supportForGrade } from "@/lib/grade";
 import { passDisplayStatus } from "@/lib/pass-display";
 import { CHANNEL_LABEL, defaultChannel } from "@/lib/channels";
 import { findSupportBoost, boostedLimit } from "@/lib/referral";
-import { REVIEW_DEADLINE_MS, SHIP_DELAY_NOTICE_MS } from "@/lib/pass-lifecycle";
+import { REVIEW_DEADLINE_MS, SHIP_DELAY_NOTICE_MS, reviewDeadline } from "@/lib/pass-lifecycle";
 import { readRecentPasses } from "@/lib/recent-passes-cookie";
 import { courierLabel, trackingUrl } from "@/lib/couriers";
 import { STORYBOARD } from "@/lib/storyboard";
@@ -20,7 +20,23 @@ import PassTicket from "./PassTicket";
 import CancelPassButton from "./CancelPassButton";
 import ReservationPanel from "./ReservationPanel";
 import ReservationRespond from "./ReservationRespond";
-import { fmtReservationLabel, reservationHistoryLines, reviewerCounterUsed } from "@/lib/reservation";
+import {
+  fmtReservationLabel,
+  fmtExpiryLabel,
+  reservationHistoryCards,
+  reviewerCounterUsed,
+  reservationStatusLabel,
+  buildReservationPicker,
+  cancelledCopy,
+  type ReservationPicker,
+} from "@/lib/reservation";
+import type { Campaign, Pass } from "@/lib/types";
+
+// 예약 변경·재제안용 날짜/시간 선택지 — 캠페인 스케줄·차단·시간대 정원 기준 (§3-2)
+function buildRsvPicker(campaign: Campaign | undefined, passes: Pass[], selfPassId: string): ReservationPicker {
+  if (!campaign) return { dates: [], slotsByDate: {} };
+  return buildReservationPicker(campaign, passes, selfPassId);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -128,8 +144,8 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
     );
   }
 
-  // 예약형 — 예약 확정 전에는 QR·코드를 노출하지 않는다 (2026-07-16 v2 회의).
-  // requested = 사장님 확인 대기(예약 변경 가능) / proposed = 사장님 시간 제안 응답 대기(수락·기타·거절).
+  // 예약형 — 예약 확정 전에는 QR·코드를 노출하지 않는다 (2026-07-16 v2 회의 · 2026-07-23 시안).
+  // requested = 사장님 확인 대기(예약 변경 1회 — 제안 전에만) / proposed = 제안 응답 대기(수락·기타·취소).
   if (pass.status === "active" && pass.reservation && pass.reservation.status !== "confirmed") {
     const rsv = pass.reservation;
     const proposalSlots = (rsv.proposal?.slots ?? []).map((sl) => ({
@@ -137,66 +153,78 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
       time: sl.time,
       label: fmtReservationLabel(sl.date, sl.time),
     }));
-    // 협상 히스토리 (v3) — 양측 동일 타임라인
-    const rsvHistory = reservationHistoryLines(rsv).map((h) => ({
-      prefix: h.prefix,
-      timeLabel: h.timeLabel,
-      ...(h.note ? { note: h.note } : {}),
-    }));
+    const rsvPicker = buildRsvPicker(campaign, db.passes, pass.id);
+    const historyCards = reservationHistoryCards(rsv);
     return (
       <div className="pb-24 bg-canvas min-h-[100dvh]">
         <div className="sticky top-0 z-10 bg-canvas">
-          <div className="h-[52px] px-3 flex items-center gap-1">
+          <div className="h-[52px] px-3 grid grid-cols-[40px_1fr_40px] items-center">
             <Link href="/r/passes" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="내 체험권으로">
               <Icon name="chevron-left" variant="border" size={22} />
             </Link>
-            <div className="text-[18px] font-bold text-ink tracking-title">예약 방문</div>
+            <h1 className="text-[16px] font-bold text-ink tracking-title text-center">체험권</h1>
+            <span />
           </div>
         </div>
 
-        <section className="px-5 pt-6 text-center">
-          <div className="flex justify-center mb-3">
-            <GradeBadge grade={pass.reviewerGrade} size="lg" />
+        {/* 예약 대기 헤더 (2026-07-23 시안) — 상태 칩 + 가게명 + 신청 일정/인원 */}
+        <section className="px-5 pt-3">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-pill bg-sunken text-muted text-[12px] font-semibold">
+            {reservationStatusLabel(rsv)}
+          </span>
+          <h2 className="mt-3 text-[20px] font-bold text-ink tracking-title leading-[1.3] line-clamp-2">{store?.name}</h2>
+          <div className="mt-4 space-y-2 text-[15px]">
+            <div className="flex gap-4">
+              <span className="text-muted shrink-0">신청 일정</span>
+              <span className="font-semibold text-ink tabular-nums">{sbNum(SBUI.dateTime, fmtReservationLabel(rsv.date, rsv.time))}</span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-muted shrink-0">신청 인원</span>
+              <span className="font-semibold text-ink tabular-nums">{rsv.partySize ?? 1}명</span>
+            </div>
           </div>
-          <h1 className="text-[20px] font-bold text-ink tracking-title leading-[1.3]">{store?.name}</h1>
-          <p className="mt-1.5 text-[14px] text-ink2">{store?.area} · {store?.category}</p>
+
+          {rsv.status === "proposed" ? (
+            <ReservationRespond
+              passId={pass.id}
+              slots={proposalSlots}
+              note={rsv.proposal?.note}
+              picker={rsvPicker}
+              counterUsed={reviewerCounterUsed(rsv)}
+            />
+          ) : (
+            <ReservationPanel
+              passId={pass.id}
+              date={rsv.date}
+              time={rsv.time}
+              changeUsed={!!rsv.changeUsed}
+              counterUsed={reviewerCounterUsed(rsv)}
+              picker={rsvPicker}
+            />
+          )}
         </section>
 
-        <div className="mx-5 mt-6 rounded-md bg-brandSoft px-4 py-4 text-center">
-          <div className="text-[15px] font-bold text-brand">
-            {rsv.status === "proposed" ? "📅 사장님이 다른 시간을 제안했어요" : "📅 예약 확인 대기 중"}
+        {/* 예약 내역 (2026-07-23 시안) — 신청·제안·재요청 타임라인 (actor 퍼플 강조) */}
+        <div className="mt-8 h-2 bg-sunken" />
+        <section className="px-5 pt-6">
+          <h3 className="text-[17px] font-bold text-ink tracking-title">예약 내역</h3>
+          <div className="mt-3 space-y-2.5 pb-8">
+            {historyCards.map((c, i) => (
+              <div key={i} className="rounded-lg bg-sunken px-4 py-3.5">
+                <div className="text-[15px] font-semibold text-ink">
+                  <span className="text-brand">{c.actor}</span>
+                  {c.title}
+                </div>
+                {c.rows.map((r, j) => (
+                  <div key={j} className="mt-1 flex gap-3 text-[14px] text-mutedSoft tabular-nums">
+                    <span className="shrink-0 w-[58px]">{r.label}</span>
+                    <span>{sbNum(SBUI.dateTime, r.value)}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-          <p className="mt-1.5 text-[13px] text-ink2 leading-[1.55]">
-            {rsv.status === "proposed"
-              ? "아래에서 시간을 선택해 예약을 확정해주세요."
-              : "사장님이 예약을 확인하면 알림을 드리고, 체험권 QR이 열려요."}
-          </p>
-        </div>
-
-        {rsv.status === "proposed" ? (
-          <ReservationRespond
-            passId={pass.id}
-            slots={proposalSlots}
-            note={rsv.proposal?.note}
-            endAt={campaign?.endAt ?? pass.expiresAt}
-            historyLines={rsvHistory}
-            counterUsed={reviewerCounterUsed(rsv)}
-          />
-        ) : (
-          <ReservationPanel
-            passId={pass.id}
-            date={rsv.date}
-            time={rsv.time}
-            status={rsv.status}
-            endAt={campaign?.endAt ?? pass.expiresAt}
-            historyLines={rsvHistory}
-          />
-        )}
-
-        {/* 확정 전에는 취소 접근 유지 (QR 인증 화면 아님 — §8-1과 충돌 없음) */}
-        <div className="mt-8 pb-12 text-center">
-          <CancelPassButton passId={pass.id} />
-        </div>
+        </section>
       </div>
     );
   }
@@ -220,6 +248,8 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
+        {/* 예약 확정 체험권 (2026-07-23 시안) — 요약 카드(지원금·유효 기간) + 예약 정보 오렌지 카드 + QR.
+            QR 화면은 최종 확정 일정·인증 중심 (§9-2 — 조율 이력은 사장님·운영자 화면에 유지) */}
         <PassTicket
           passId={pass.id}
           code={pass.code}
@@ -228,23 +258,16 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           grade={pass.reviewerGrade}
           support={displaySupport}
           expiresAt={pass.expiresAt}
+          expiryLabel={fmtExpiryLabel(pass.expiresAt, !!pass.reservation)}
+          reservation={
+            pass.reservation
+              ? {
+                  label: fmtReservationLabel(pass.reservation.date, pass.reservation.time),
+                  partySize: pass.reservation.partySize,
+                }
+              : undefined
+          }
         />
-
-        {/* 예약 방문 패널 (2026-07-16 리뷰노트 벤치마크) — 예약 일시·상태 + 예약 변경 + 협상 히스토리 */}
-        {pass.reservation && (
-          <ReservationPanel
-            passId={pass.id}
-            date={pass.reservation.date}
-            time={pass.reservation.time}
-            status={pass.reservation.status}
-            endAt={campaign?.endAt ?? pass.expiresAt}
-            historyLines={reservationHistoryLines(pass.reservation).map((h) => ({
-              prefix: h.prefix,
-              timeLabel: h.timeLabel,
-              ...(h.note ? { note: h.note } : {}),
-            }))}
-          />
-        )}
 
         {/* [2026-07-12 회의 §8-1] QR 인증 화면에서 참여 취소 제거 — 매장 직원과 함께 쓰는
             인증 중심 화면으로 단순화. 방문 취소는 내 체험권 리스트의 [참여 취소]에서. */}
@@ -265,9 +288,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
       tiktok: { label: "틱톡", box: "bg-snsTiktokBg", strong: "text-snsTiktokText" },
     }[channel];
     // 마감 기산점 — used: 이용 후 7일 / rejected: 반려 후 7일 (1회 재제출)
+    // 리뷰 마감 (§8-2) — 예약형은 확정 방문일 기준 +7일 (reviewDeadline), 그 외 이용 후 7일
     const deadline = isRejected
       ? (pass.rejectedAt ?? Date.now()) + REVIEW_DEADLINE_MS
-      : (pass.usedAt ?? Date.now()) + REVIEW_DEADLINE_MS;
+      : (reviewDeadline(pass) ?? Date.now() + REVIEW_DEADLINE_MS);
     const display = passDisplayStatus(pass);
     const closed = display === "overdue" || display === "resubmit_expired"; // 기한 초과·재제출 소진 — 폼 미노출
     const myPoint = isDelivery && campaign?.pointReward ? supportForGrade(campaign.pointReward, pass.reviewerGrade) : 0;
@@ -430,14 +454,16 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           <div className="mt-6 rounded-md bg-sunken p-5 text-[15px] text-muted">
             {isDelivery
               ? "캠페인이 종료될 때까지 발송이 진행되지 않아 만료된 신청입니다. 모집 자리는 다른 체험자에게 돌아갔어요."
-              : "사용 기한(발급 후 72시간)이 지나 만료된 체험권입니다. 만료된 체험권은 연장·복구되지 않으며, 모집 자리는 다른 체험자에게 돌아갔어요."}
+              : pass.reservation
+                ? "예약 방문일이 지나 만료된 체험권입니다. 만료된 체험권은 연장·복구되지 않으며, 모집 자리는 다른 체험자에게 돌아갔어요." // §10-4 — 문구로만 구분, 추가 패널티 없음
+                : "사용 기한(발급 후 72시간)이 지나 만료된 체험권입니다. 만료된 체험권은 연장·복구되지 않으며, 모집 자리는 다른 체험자에게 돌아갔어요."}
           </div>
         )}
         {pass.status === "cancelled" && (
-          <div className="mt-6 rounded-md bg-sunken p-5 text-[15px] text-muted">
-            {pass.cancelledVia === "proposal_declined"
-              ? "예약 일정이 맞지 않아 취소된 신청입니다. 패널티나 재신청 제한 없이 언제든 다시 신청할 수 있어요."
-              : "직접 취소한 체험권입니다. 같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요."}
+          <div className="mt-6 rounded-md bg-sunken p-5">
+            {/* 상태명은 '취소'로 통일, 주체·원인은 서브 문구로 구분 (§15-3·§10-3) */}
+            <div className="text-[15px] font-semibold text-ink">취소된 체험권입니다</div>
+            <p className="mt-1.5 text-[14px] text-muted leading-[1.6]">{cancelledCopy(pass.cancelledVia, pass.cancelReason)}</p>
           </div>
         )}
         {pass.status === "rejected" && (() => {
