@@ -39,6 +39,13 @@ export interface Reviewer {
   id: string;
   email: string;
   passwordHash: string;
+  // ── 휴대폰 번호 (2026-07-23 — 체험자 계정 PK) ──
+  // 가입 시 인증번호 검증 필수(src/lib/phone-verify.ts), 번호당 계정 1개(중복 가입 차단).
+  // 알림톡 발송 기반(운영정책서 §15.7). 구버전(도입 전 가입) 계정은 undefined 허용.
+  phone?: string; // 숫자만 "01012345678"
+  phoneVerifiedAt?: number;
+  // 간편로그인 프로바이더 고유 ID (2026-07-23 — src/lib/social-login.ts, 토큰 미저장)
+  social?: { naver?: string; kakao?: string };
   nickname: string;
   sns: SnsAccount[];
   // 표기용 대표 등급 — '종합 등급'이라는 별도 평가 기준은 존재하지 않는다 (2026-07-10 정정).

@@ -14,10 +14,10 @@ export const dynamic = "force-dynamic";
 export default async function ChannelsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; error?: string }>;
+  searchParams: Promise<{ connected?: string; error?: string; welcome?: string }>;
 }) {
   const me = await getCurrentReviewer();
-  const { connected, error } = await searchParams;
+  const { connected, error, welcome } = await searchParams;
   // 인스턴스 불일치 스톱갭 — 연동/해제 직후 본인 시점 최신 상태로 렌더 (sns-cookie.ts)
   const eff = await effectiveChannelState(me);
 
@@ -48,6 +48,19 @@ export default async function ChannelsPage({
         </div>
       </div>
 
+      {/* 가입 직후 온보딩 (2026-07-23) — 이메일·네이버·카카오 어느 경로로 가입해도 여기로 유도 */}
+      {welcome === "1" && (
+        <div className="mx-5 mb-3 rounded-md bg-brandSoft px-4 py-3.5">
+          <div className="text-[14px] font-bold text-brand">🎉 가입을 환영해요!</div>
+          <p className="mt-1 text-[13px] text-ink2 leading-[1.55]">
+            SNS 채널을 연동하고 본인 인증하면 <b>등급이 산정</b>되고 지원 금액이 올라가요. 지금 바로 연동해보세요 —
+            나중에 해도 괜찮아요.{" "}
+            <Link href="/r/home" className="font-semibold text-brand underline">
+              둘러보기부터 →
+            </Link>
+          </p>
+        </div>
+      )}
       <p className="px-5 pt-1 pb-4 text-[13px] text-muted leading-[1.55]">
         채널을 연동하면 해당 채널 캠페인에 참여할 수 있어요. 연동 시 프로바이더 로그인으로{" "}
         <span className="font-semibold text-ink2">본인 채널인지 검증</span>해요.
