@@ -47,6 +47,8 @@ export interface VisitPassItem {
   reservationStatusLabel?: string | null; // 예약 대기 / 일정 제안 확인 필요 / 일정 재요청 / 예약 확정 (§15-1)
   // 취소 서브 문구 (§15-3) — 주체·원인 구분 (사용자/사장님 거절·취소/운영자)
   cancelledNote?: string | null;
+  // 매장·운영 귀책 취소 (사장님 거절/취소·운영자) — 안내 박스를 연보라로 강조 (2026-07-23 시안)
+  cancelledByOwner?: boolean;
 }
 
 // 체험권 탭(발급·사용 전 라이프사이클) vs 리뷰작성 탭(이용 후 리뷰 라이프사이클)
@@ -288,13 +290,15 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
     >
       {/* 방문예약 배너 — 카드 최상단 오렌지 (2026-07-23 시안: 확정·대기 공통, 상태는 우측 뱃지) */}
       {isActive && it.reservationLabel && (
-        <div className="mb-3 rounded-md bg-warningSoft px-3 py-2.5 text-[13px]">
+        <div className="mb-3 rounded-md bg-warningSoft px-3 py-2.5 flex items-center justify-between gap-2 text-[13px]">
           <span className="font-bold text-[#FF6B00] tabular-nums">
             🗓 방문예약 <span className="ml-1">{sbNum(SBUI.dateTime, it.reservationLabel)}</span>
           </span>
-          {/* 사장님 시간 제안 도착 — 응답이 필요한 상태만 한 줄 안내 */}
+          {/* 사장님 시간 제안 도착 — 안내 문장 대신 심플 뱃지 (2026-07-23) */}
           {it.reservationStatus === "proposed" && (
-            <div className="mt-1 text-[12px] text-ink2">사장님이 다른 시간을 제안했어요 — 체험권에서 확인해주세요.</div>
+            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill bg-canvas text-brand text-[11px] font-semibold">
+              제안 도착
+            </span>
           )}
         </div>
       )}
@@ -367,8 +371,12 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
           <div className="mt-3.5 flex">
             <StoreInfoButton it={it} />
           </div>
-          {/* 취소 서브 문구 (§15-3) — 사용자 취소만 12h 재신청 안내, 사장님 거절·취소는 미노출 (§10-3) */}
-          <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
+          {/* 취소 서브 문구 (§15-3) — 매장·운영 귀책 취소는 연보라 강조 박스 (2026-07-23 시안) */}
+          <div
+            className={`mt-2.5 rounded-md px-3.5 py-2.5 text-[12px] leading-[1.5] ${
+              it.cancelledByOwner ? "bg-brandSoft text-ink2 text-center" : "bg-sunken text-muted"
+            }`}
+          >
             {it.cancelledNote ?? "같은 캠페인이 모집 중이면 취소 12시간 뒤부터 다시 참여할 수 있어요."}
           </div>
         </>

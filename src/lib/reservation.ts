@@ -345,7 +345,8 @@ export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string):
     case "proposal_declined":
       return "제안된 시간이 맞지 않아 취소했어요. 재신청 제한은 없어요.";
     case "owner_declined":
-      return "매장 사정으로 예약이 확정되지 않았어요.";
+      // 2026-07-23 시안 — 원인(시간 조율 실패)을 구체적으로 안내 (무응답 자동 취소도 동일 경위·동일 문구)
+      return "예약 가능한 시간이 없어 사장님이 요청을 취소했어요.";
     case "owner_cancelled":
       return cancelReason
         ? `매장 사정으로 확정된 예약이 취소됐어요. (사유: ${cancelReason})`
