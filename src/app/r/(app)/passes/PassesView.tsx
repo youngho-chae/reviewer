@@ -348,7 +348,8 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             </span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <CancelPassButton passId={it.id} variant="row" />
+            {/* 제안 응답 대기 중 취소 = 제안 거절과 동일 처리 — 12h 미적용 (2026-07-23 3분안) */}
+            <CancelPassButton passId={it.id} variant="row" noCooldown={it.reservationStatus === "proposed"} />
             <StoreInfoButton it={it} />
           </div>
           <Link

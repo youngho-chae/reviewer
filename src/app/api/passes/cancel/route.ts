@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
   pass.status = "cancelled";
   pass.cancelledAt = now;
   if (pass.reservation) {
+    // 제안 응답 대기(proposed) 중 직접 취소 = 제안 거절과 동일 의미 (2026-07-23 3분안 §15.4 비고) —
+    // 제안된 시간이 맞지 않은 조율 실패이므로 12h 재신청 제한을 물리지 않는다.
+    // 제안 전(requested)·확정 후(confirmed) 직접 취소는 기존대로 12h (변심 — 방문형과 동일 잣대).
+    if (pass.reservation.status === "proposed") pass.cancelledVia = "proposal_declined";
     pass.reservation.history = [...reservationHistory(pass.reservation), { at: now, by: "reviewer", kind: "decline" }];
   }
   restoreQuotaSlot(db, pass);

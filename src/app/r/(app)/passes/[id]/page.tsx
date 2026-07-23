@@ -213,9 +213,10 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           />
         )}
 
-        {/* 확정 전에는 취소 접근 유지 (QR 인증 화면 아님 — §8-1과 충돌 없음) */}
+        {/* 확정 전에는 취소 접근 유지 (QR 인증 화면 아님 — §8-1과 충돌 없음).
+            제안 응답 대기 중 취소 = 제안 거절과 동일 처리 — 12h 미적용 (2026-07-23 3분안) */}
         <div className="mt-8 pb-12 text-center">
-          <CancelPassButton passId={pass.id} />
+          <CancelPassButton passId={pass.id} noCooldown={rsv.status === "proposed"} />
         </div>
       </div>
     );
