@@ -38,7 +38,8 @@ export default async function ChannelsPage({
   });
 
   return (
-    <div className="pb-24 bg-canvas min-h-[100dvh]">
+    // 하단 시작 CTA(연결 1개 이상)와 겹치지 않게 여유 패딩
+    <div className="pb-44 bg-canvas min-h-[100dvh]">
       <div className="sticky top-0 z-10 bg-canvas">
         <div className="h-[52px] px-3 flex items-center gap-1">
           <Link href="/r/me" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="MY로">
@@ -70,6 +71,20 @@ export default async function ChannelsPage({
         </div>
       )}
       <ChannelManager rows={rows} connected={connected ?? null} error={error ?? null} overallGrade={eff.grade} />
+
+      {/* 하나 이상 연결되면 시작 CTA (2026-07-23) — 온보딩을 여기서 마치고 홈으로 */}
+      {rows.some((r) => r.connected) && (
+        <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] bg-canvas border-t border-hairlineSoft z-20">
+          <div className="px-5 py-3">
+            <Link
+              href="/r/home"
+              className="cp-action flex w-full h-[52px] items-center justify-center rounded-md bg-brand text-white text-[16px] font-bold"
+            >
+              이대로 시작하기
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
