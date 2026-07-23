@@ -38,18 +38,14 @@
 | R-13 | **현위치 설정 바텀시트** (홈 내 시트 — 안내 배너·최근 선택·시도 1차→시군구 2차 · 현위치로 설정. `/r/location` 라우트는 홈 redirect 안전망) | 홈 내 `LocationSheet` |
 | R-14 | **검색** (퍼플 pill input "어디로 가볼까요?" · 최근 검색어 칩 → 탐색 `?q=`) | `/r/search` |
 | R-07a | 알림함 | `/r/notifications` |
-| R-08a | 기자단 브리프 — **MVP 제외**(`PRESS_ENABLED=false` 시 `/r/home` redirect) | `/r/press/[id]` |
-| R-09 | 기자단 작성 — 기존 발급 건 마무리용으로만 유지 | `/r/press/[id]/write?pass=<id>` |
 | R-10 | 친구에게 쏘기 (매트릭스 + 공유 시트) | `/r/invite/new` |
 | R-11 | 피추천자 랜딩 (비회원 진입) | `/r/i/[token]` |
 | W-01 | 환영 박스 (가입 직후 슬롯 박스) — reviewer/owner 공용 | `/welcome/box?token=<token>` |
 | L-01 | 이용약관 (비로그인 접근) | `/legal/terms` |
 | L-02 | 개인정보처리방침 (비로그인 접근) | `/legal/privacy` |
 
-> **[MVP 범위 — 2026-07-07 회의]** 1차 출시는 **방문형 체험단만** 제공한다. 기자단은 `src/lib/flags.ts`의 `PRESS_ENABLED=false`로
-> 게이트되어 탐색 세그먼트·신규 신청·발급 API가 비활성이며(기존 발급 건의 작성·검수만 허용), 예약형 체험단은 추후 버전에서 확장한다.
->
-> **기자단 보관소(구 R-08)는 별도 화면이 아니다.** 기자단 신청·작성·검수·정산 현황은 모두 `/r/passes`의 **기자단 탭**에서 본다.
+> **[MVP 범위 — 2026-07-07 회의 · 2026-07-23 개정]** 1차 출시는 **방문형(예약형 포함) 체험단**을 제공한다.
+> 기자단(press)은 릴리스 브랜치에서 **코드째 제거**되었다 (`/r/press/*` 라우트·CampaignKind·시드 삭제 — dev 브랜치에서만 유지).
 > (재설계 전 잔재였던 독립 `/r/press` 인덱스 화면은 도달 경로가 없어 VER.1에서 제거됨 — `/r/press/[id]`(브리프)·`/r/press/[id]/write`(작성)만 존재.)
 
 **체험자 BottomNav (5탭, 하단 고정 72px):** **홈** `/r/home` · **탐색** `/r/explore` · **체험권** `/r/passes` · **혜택** `/r/rewards` · **MY** `/r/me`.

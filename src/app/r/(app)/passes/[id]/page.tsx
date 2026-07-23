@@ -276,9 +276,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
     );
   }
 
-  // 리뷰 제출 화면 (2026-07-17 시안 개편) — used(작성)·rejected(재제출, 기자단 제외) 공용 레이아웃:
+  // 리뷰 제출 화면 (2026-07-17 시안 개편) — used(작성)·rejected(재제출) 공용 레이아웃:
   // 히어로(매장명·혜택·마감 카드) → [반려 시] 반려 사유 카드 → 파스텔 채널 배너 → URL·최종 확인 폼.
-  if (pass.status === "used" || (pass.status === "rejected" && campaign?.kind !== "press")) {
+  if (pass.status === "used" || pass.status === "rejected") {
     const isRejected = pass.status === "rejected";
     const channel = pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog";
     // 파스텔 채널 배너 — 디자인 시스템 SNS 토큰 재사용 (블로그 그린 / 인스타 핑크 / 틱톡 틸)
@@ -466,45 +466,6 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
             <p className="mt-1.5 text-[14px] text-muted leading-[1.6]">{cancelledCopy(pass.cancelledVia, pass.cancelReason)}</p>
           </div>
         )}
-        {pass.status === "rejected" && (() => {
-          const isPress = campaign?.kind === "press";
-          const resubmitDeadline = isPress
-            ? (campaign?.endAt ?? 0)
-            : (pass.rejectedAt ?? 0) + REVIEW_DEADLINE_MS;
-          const canResubmit = (pass.resubmitCount ?? 0) < 1 && Date.now() < resubmitDeadline;
-          return (
-            <div className="mt-6">
-              <div className="rounded-md bg-errorSoft border border-error/20 p-5">
-                <div className="text-[15px] font-bold text-error">리뷰가 반려되었습니다</div>
-                <div className="mt-2 text-[14px] text-ink2 leading-[1.5]">
-                  사유: {pass.rejectReason ?? "작성 조건 미충족 (자세한 내용은 고객센터 문의)"}
-                </div>
-                {canResubmit ? (
-                  <div className="mt-2 text-[13px] text-muted">
-                    사유를 반영해 수정한 뒤 아래에서 1회 재제출할 수 있어요
-                    {!isPress && pass.rejectedAt ? " (반려 후 7일 이내)" : ""}.
-                  </div>
-                ) : (
-                  <div className="mt-2 text-[13px] text-muted">
-                    재제출 기한(반려 후 7일)이 지나 다시 제출할 수 없어요.
-                  </div>
-                )}
-              </div>
-              {canResubmit && (
-                isPress ? (
-                  <Link
-                    href={`/r/press/${campaign?.id}/write?pass=${encodeURIComponent(pass.id)}`}
-                    className="cp-action mt-4 flex h-[52px] items-center justify-center rounded-md bg-brand text-white text-[16px] font-bold"
-                  >
-                    수정해서 재제출하기 →
-                  </Link>
-                ) : (
-                  <ReviewForm passId={pass.id} storeId={pass.storeId} channel={pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog"} />
-                )
-              )}
-            </div>
-          );
-        })()}
       </div>
     </div>
   );

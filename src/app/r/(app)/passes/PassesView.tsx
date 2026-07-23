@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Icon from "@/components/Icon";
@@ -13,7 +13,7 @@ import CancelPassButton from "./[id]/CancelPassButton";
 
 /**
  * 체험권 목록 (2026-07-08 레퍼런스 개편)
- *  - 헤더: [방문형 | 기자단] 세그먼트 타이틀 + 검색·알림
+ *  - 헤더: [방문형 (| 배송형)] 세그먼트 타이틀 + 검색·알림
  *  - 서브 탭: 체험권(active/취소/만료) / 리뷰작성(작성 대기/검수 중/완료/반려) — 퍼플 언더라인
  *  - 상태 필터 칩(검정 활성 pill) + 썸네일 카드(상태별 액션 버튼)
  */
@@ -81,20 +81,14 @@ const REVIEW_CHIPS: { key: string; label: string }[] = [
 export default function PassesView({
   items,
   showDelivery,
-  showPress,
-  pressCount,
-  pressView,
   unread,
 }: {
   items: VisitPassItem[];
   // 배송형 세그먼트 노출 여부 (2026-07-12 분리 — 배송 패스는 방문형 대카테고리에 섞지 않는다)
   showDelivery: boolean;
-  showPress: boolean;
-  pressCount: number;
-  pressView: ReactNode;
   unread: number;
 }) {
-  const [segment, setSegment] = useState<"visit" | "delivery" | "press">("visit");
+  const [segment, setSegment] = useState<"visit" | "delivery">("visit");
   const [tab, setTab] = useState<"issued" | "review">("issued");
   const [chip, setChip] = useState("all");
 
@@ -155,16 +149,6 @@ export default function PassesView({
                 배송형{deliveryCount > 0 ? ` ${deliveryCount}` : ""}
               </button>
             )}
-            {/* 기자단은 MVP 제외 — 과거 발급분이 있을 때만 전환 가능, 없으면 비활성 표기 */}
-            <button
-              type="button"
-              onClick={() => showPress && setSegment("press")}
-              disabled={!showPress}
-              className={`cp-action text-[20px] tracking-title ${segment === "press" ? "font-bold text-ink" : "font-semibold text-mutedSoft"} disabled:cursor-default`}
-              aria-disabled={!showPress}
-            >
-              기자단{showPress && pressCount > 0 ? ` ${pressCount}` : ""}
-            </button>
           </div>
           <div className="flex items-center gap-1">
             <Link href="/r/search" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
@@ -177,10 +161,8 @@ export default function PassesView({
           </div>
         </div>
 
-        {segment !== "press" && (
-          <>
-            {/* 서브 탭 — 체험권(배송형은 신청 내역) / 리뷰작성 (퍼플 언더라인) */}
-            <div className="grid grid-cols-2 border-b border-hairlineSoft">
+        {/* 서브 탭 — 체험권(배송형은 신청 내역) / 리뷰작성 (퍼플 언더라인) */}
+        <div className="grid grid-cols-2 border-b border-hairlineSoft">
               {(
                 [
                   { key: "issued", label: segment === "delivery" ? "신청 내역" : "체험권" },
@@ -203,17 +185,12 @@ export default function PassesView({
                     {t.label}
                   </button>
                 );
-              })}
-            </div>
-          </>
-        )}
+          })}
+        </div>
       </div>
 
-      {segment === "press" ? (
-        pressView
-      ) : (
-        <>
-          {/* 상태 필터 칩 — 검정 활성 pill */}
+      <>
+        {/* 상태 필터 칩 — 검정 활성 pill */}
           <div className="px-5 pt-4 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
             {chips.map((c) => {
               const active = chip === c.key;
@@ -263,8 +240,7 @@ export default function PassesView({
               </div>
             )}
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }

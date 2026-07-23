@@ -117,7 +117,8 @@ export interface Store {
 
 // delivery(배송형)는 레뷰 벤치마크 반영(2026-07-12, docs/벤치마크-레뷰.md) —
 // 상품을 택배로 수령해 체험 후 리뷰. 지역 무관 전국 참여, 발송 처리 후 리뷰 7일.
-export type CampaignKind = "visit" | "press" | "delivery";
+// press(기자단)는 이 릴리스 브랜치에서 제거 (2026-07-23 — dev 브랜치에서만 유지)
+export type CampaignKind = "visit" | "delivery";
 
 export interface CampaignGradeQuota {
   S: number;
@@ -140,7 +141,7 @@ export interface Campaign {
   title: string;
   startAt: number;
   endAt: number;
-  supportAmount: number; // 방문형 지원금 한도 (기자단의 경우 정산 예정금)
+  supportAmount: number; // 방문형 지원금 한도
   quota: CampaignGradeQuota;
   used: { S: number; A: number; B: number; C: number };
   requiredChannels: SnsKind[];
@@ -152,10 +153,6 @@ export interface Campaign {
   // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드 (체험권 인증용 비밀번호).
   // 체험자 화면에는 노출되지 않는다 — 사장님이 체험자의 체험권 화면 입력란에 직접 입력해 사용 처리.
   useCode: string; // "0000" ~ "9999"
-  // 기자단 전용
-  pressKeywords?: string[];
-  pressMaterials?: string[]; // 자료팩 — 파일명/요약 텍스트
-  pressMinChars?: number; // 최소 본문자 수
   // ── 배송형(delivery) 전용 (2026-07-12 레뷰 벤치마크) ──
   // 리뷰 검수 승인 시 지급하는 체험 포인트(1P=1원). 실제 지급액은 참여 채널 등급 배율 적용
   // (P1: 등급은 혜택 크기) — src/lib/points.ts pointsForGrade. 0/미설정 = 제품만 제공.

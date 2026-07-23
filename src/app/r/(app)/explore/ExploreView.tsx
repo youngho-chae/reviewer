@@ -57,27 +57,10 @@ export interface ExploreDeliveryCard {
   photos?: string[]; // 카드 캐러셀 (2026-07-17)
 }
 
-export interface ExplorePressCard {
-  campaignId: string;
-  storeId: string;
-  storeName: string;
-  area: string;
-  category: string;
-  coverEmoji: string;
-  payout: number;
-  slotsLeft: number;
-  slotsTotal: number;
-  kitPhotos: number;
-  daysLeft: number;
-  endAt: number;
-  createdAt: number;
-}
-
 type SortKey = "recommended" | "distance" | "new" | "topSupport" | "closing";
 
 interface Props {
   cards: ExploreStoreCard[];
-  pressCards: ExplorePressCard[];
   deliveryCards?: ExploreDeliveryCard[];
   mapClientId: string;
   unread: number;
@@ -93,12 +76,10 @@ interface Props {
   initialLoc?: string | null;
   // [§6-4] 전국 진입(scope=all — 홈 '전체 리스트' 더 둘러보기): 지도를 대한민국 전체 축소로 시작
   initialNationwide?: boolean;
-  // [MVP] 기자단 제외 — false면 세그먼트·리스트를 렌더하지 않는다 (src/lib/flags.ts)
-  pressEnabled?: boolean;
   // 배송형 (2026-07-12 레뷰 벤치마크) — 리스트 전용 세그먼트 (flags.ts DELIVERY_ENABLED)
   deliveryEnabled?: boolean;
   // ?tab= 진입 세그먼트 복원 (예: 포인트 화면 → 배송 체험 둘러보기)
-  initialTab?: "visit" | "press" | "delivery";
+  initialTab?: "visit" | "delivery";
   // ?v= 참여 방식 복원 (방문형 — 전체/바로 방문/예약 필수, 2026-07-12)
   initialVisitMode?: VisitMode;
   // ?dcat= 배송형 상품 카테고리 복원 (콤마 다중 — 플레이스 카테고리와 별도 상태)
@@ -130,7 +111,6 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 export default function ExploreView({
   cards,
-  pressCards,
   deliveryCards = [],
   mapClientId,
   unread,
@@ -142,7 +122,6 @@ export default function ExploreView({
   initialArea = null,
   initialLoc = null,
   initialNationwide = false,
-  pressEnabled = false,
   deliveryEnabled = false,
   initialTab = "visit",
   initialVisitMode = "all",
@@ -151,8 +130,8 @@ export default function ExploreView({
   const router = useRouter();
   // 배송 세그먼트는 리스트 전용 — 배송 탭 진입 시 목록 보기로 시작 (지도는 방문형 전용)
   const [mode, setMode] = useState<"list" | "map">(initialTab === "delivery" ? "list" : initialMode);
-  const [tab, setTab] = useState<"visit" | "press" | "delivery">(
-    (initialTab === "press" && pressEnabled) || (initialTab === "delivery" && deliveryEnabled) ? initialTab : "visit",
+  const [tab, setTab] = useState<"visit" | "delivery">(
+    initialTab === "delivery" && deliveryEnabled ? initialTab : "visit",
   );
   // [통합 필터] 카테고리·SNS 채널 모두 다중 선택. 빈 Set = 전체. (?cat= 콤마 다중 복원)
   const [cats, setCats] = useState<Set<string>>(
@@ -307,13 +286,6 @@ export default function ExploreView({
     return list;
   }, [cards, matchCat, visitMode, channels, search, sort, distanceOf]);
 
-  const filteredPress = useMemo(() => {
-    return pressCards.filter((p) => {
-      if (!matchCat(p.category)) return false;
-      return matchesSearch(`${p.storeName} ${p.area} ${p.category}`, search);
-    });
-  }, [pressCards, matchCat, search]);
-
   // 배송형 — 지역 무관(전국)이라 지역·현위치 필터는 적용하지 않는다.
   // 카테고리는 플레이스 분류(cats)가 아닌 **상품 카테고리(dvCats)** 로 필터 (2026-07-12 정정).
   const filteredDelivery = useMemo(() => {
@@ -330,7 +302,7 @@ export default function ExploreView({
       .sort(compareRecommended);
   }, [deliveryCards, dvCats, channels, search]);
 
-  const resultCount = tab === "visit" ? filtered.length : tab === "delivery" ? filteredDelivery.length : filteredPress.length;
+  const resultCount = tab === "visit" ? filtered.length : filteredDelivery.length;
 
   // 상단 카테고리 칩은 즉시 반영 유지 — 필터 시트는 draft 후 [적용하기] (2026-07-10 §8)
   function toggleCat(key: string) {
@@ -392,7 +364,7 @@ export default function ExploreView({
   const header = (
     <div className="sticky top-0 z-30 bg-canvas">
       <div className="h-[52px] px-5 flex items-center justify-between">
-        {/* segment-title — 방문형 (/ 기자단은 MVP 제외 · pressEnabled 시에만) */}
+        {/* segment-title — 방문형 / 배송형(플래그) */}
         <div className="flex items-baseline gap-3">
           <button
             onClick={() => setTab("visit")}
@@ -407,14 +379,6 @@ export default function ExploreView({
               className={`text-[20px] font-bold tracking-title ${tab === "delivery" ? "text-ink" : "text-mutedSoft"}`}
             >
               배송형
-            </button>
-          )}
-          {pressEnabled && (
-            <button
-              onClick={() => setTab("press")}
-              className={`text-[20px] font-bold tracking-title ${tab === "press" ? "text-ink" : "text-mutedSoft"}`}
-            >
-              기자단
             </button>
           )}
         </div>
@@ -545,7 +509,7 @@ export default function ExploreView({
 
   // [2026-07-12 회의 §2-2] 추천순처럼 기준 설명이 필요한 정렬은 하단 안내 문구 제공
   const sortHintRow =
-    sort === "recommended" && tab !== "press" ? (
+    sort === "recommended" ? (
       <p className="px-5 mt-1.5 text-[11px] text-mutedSoft">
         추천순은 캠페인을 만든 사장님의 멤버십 등급(프리미엄→스탠다드→베이직→프리)과 최근 등록순 기준이에요.
       </p>
@@ -582,19 +546,6 @@ export default function ExploreView({
     </div>
   );
 
-  const pressList = (
-    <div className="px-5 mt-4 space-y-4 pb-32">
-      {filteredPress.map((p) => (
-        <PressRow key={p.campaignId} card={p} />
-      ))}
-      {filteredPress.length === 0 && (
-        <div className="py-16 text-center text-muted text-[14px]">
-          {search ? `"${search}"에 일치하는 기자단이 없어요` : "모집 중인 기자단이 없어요"}
-        </div>
-      )}
-    </div>
-  );
-
   const deliveryList = (
     <div className="px-5 mt-4 space-y-4 pb-32">
       {filteredDelivery.map((p) => (
@@ -617,7 +568,7 @@ export default function ExploreView({
           {refineSearchRow}
           {countSortRow}
           {sortHintRow}
-          {tab === "visit" ? visitList : tab === "delivery" ? deliveryList : pressList}
+          {tab === "visit" ? visitList : deliveryList}
         </div>
       ) : (
         // ── 지도 모드 (기본, 2026-07-07 회의) — 풀맵 + 바텀시트(리스트) / 핀 선택 시 스와이프 카드 캐러셀 ──
@@ -822,31 +773,6 @@ function DeliveryRow({ card }: { card: ExploreDeliveryCard }) {
       </div>
       <div className="mt-1.5">
         <ChannelIcons channels={card.requiredChannels} size={12} />
-      </div>
-    </Link>
-  );
-}
-
-/* 기자단 행 — 동일 문법, 금액 = 정산 예정금 */
-function PressRow({ card }: { card: ExplorePressCard }) {
-  return (
-    <Link href={`/r/press/${card.campaignId}`} className="cp-action flex gap-3">
-      <div className="relative w-[100px] h-[75px] shrink-0 rounded-md overflow-hidden bg-sunken">
-        <Image src={photoForStore(card.storeId, card.category)} alt={card.storeName} fill sizes="100px" className="object-cover" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <span className="inline-flex items-center rounded-xs bg-brandSoft text-brand px-1.5 py-1 text-[12px] font-semibold">기자단</span>
-          <div className="shrink-0 text-[12px] font-semibold text-ink2 flex items-center gap-1">
-            <span aria-hidden>🎫</span>
-            <span className="tabular-nums">{SBUI.remain}</span> 남음
-          </div>
-        </div>
-        <div className="mt-1 text-[15px] font-semibold text-ink leading-[1.4] line-clamp-2">{card.storeName}</div>
-        <div className="mt-0.5 text-[13px] text-muted">
-          {card.category} · 자료팩 {SBUI.count2}
-        </div>
-        <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">정산 {SBUI.payout}</div>
       </div>
     </Link>
   );

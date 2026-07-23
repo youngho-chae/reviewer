@@ -51,7 +51,7 @@ export default async function AdminCampaigns() {
                 <div className="min-w-0">
                   <div className="text-[14px] font-semibold text-ink truncate">{c.title}</div>
                   <div className="text-[11px] text-muted truncate">
-                    {store?.name} · {owner?.email ?? "사장님 미상"} · {c.kind === "press" ? "기자단" : "방문형"}
+                    {store?.name} · {owner?.email ?? "사장님 미상"} · {c.kind === "delivery" ? "배송형" : "방문형"}
                   </div>
                 </div>
                 <span className={`text-[11px] px-2 py-0.5 rounded-pill font-semibold shrink-0 ${ex.cls}`}>{ex.label}</span>

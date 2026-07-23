@@ -6,7 +6,7 @@ import { Pass, PassReservation, Grade, SnsKind, ShippingInfo } from "@/lib/types
 import { CHANNEL_LABEL } from "@/lib/channels";
 import { PASS_VALIDITY_MS, CANCEL_REAPPLY_COOLDOWN_MS } from "@/lib/pass-lifecycle";
 import { validateReservationForCampaign, reservationDayEnd, fmtReservationLabel } from "@/lib/reservation";
-import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 
@@ -25,14 +25,8 @@ export async function POST(req: NextRequest) {
   const c = db.campaigns.find((x) => x.id === campaignId);
   if (!me || !c) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
 
-  // 참여 채널 / 자격 등급 결정.
-  //  - 방문형(visit): 참여 시점에 채널 확정. 선택 채널의 내 등급으로 자격·지원금 결정.
-  //  - 기자단(press): 작성 시점에 채널 선택. 표기 등급(연동 채널 중 최고)으로 자격 판정. (MVP 제외)
-  const isPress = c.kind === "press";
-  // [MVP] 기자단은 1차 출시 범위에서 제외 — 발급 차단 (src/lib/flags.ts)
-  if (isPress && !PRESS_ENABLED) {
-    return NextResponse.json({ error: "기자단 캠페인은 준비 중입니다" }, { status: 403 });
-  }
+  // 참여 채널 / 자격 등급 결정 — 방문형(visit)은 참여 시점에 채널 확정.
+  // 선택 채널의 내 등급으로 자격·지원금 결정.
   // 배송형(2026-07-12 레뷰 벤치마크) — 신청 시 배송지 필수, 발송 처리 후 리뷰 7일
   const isDelivery = c.kind === "delivery";
   if (isDelivery && !DELIVERY_ENABLED) {
@@ -60,7 +54,7 @@ export async function POST(req: NextRequest) {
   // 예약형 방문 (2026-07-16 리뷰노트 벤치마크) — 신청 시 희망 방문 일시 필수.
   // 예약은 선정이 아니라 일정 조율(P1) — 발급은 즉시, 사장님은 확인만 한다.
   let reservationInfo: PassReservation | undefined;
-  if (!isPress && !isDelivery && c.reservationRequired) {
+  if (!isDelivery && c.reservationRequired) {
     const rd = String(reservation?.date || "");
     const rt = String(reservation?.time || "");
     // 종합 검증 (2026-07-22 §3-2) — 오픈일·요일·브레이크·차단·시간대 정원·과거·종료일
@@ -82,23 +76,15 @@ export async function POST(req: NextRequest) {
       history: [{ at, by: "reviewer", kind: "request", date: rd, time: rt }],
     };
   }
-  const selectedChannel: SnsKind | undefined = isPress
-    ? undefined
-    : (channel as SnsKind | undefined);
+  const selectedChannel: SnsKind | undefined = channel as SnsKind | undefined;
   // 인스턴스 불일치 스톱갭 — 연동 직후 다른 인스턴스에서도 최신 연동 상태로 참여 판정 (sns-cookie.ts)
   const eff = await effectiveChannelState(me);
-  let channelGrade: Grade;
-  if (isPress) {
-    channelGrade = eff.grade;
-  } else {
-    if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
-      return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
-    }
-    const cg = eff.channelGrades[selectedChannel];
-    if (!cg) {
-      return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
-    }
-    channelGrade = cg;
+  if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
+    return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
+  }
+  const channelGrade: Grade | undefined = eff.channelGrades[selectedChannel];
+  if (!channelGrade) {
+    return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
   }
 
   // 기간 종료 캠페인 — 상세는 열람 가능(관심 목록 경유)하지만 발급은 차단
@@ -147,8 +133,7 @@ export async function POST(req: NextRequest) {
         pass: dup,
         campaign: {
           id: c.id, title: c.title, kind: c.kind, supportAmount: c.supportAmount,
-          requiredChannels: c.requiredChannels, pressMaterials: c.pressMaterials,
-          pressKeywords: c.pressKeywords, pressMinChars: c.pressMinChars, description: c.description,
+          requiredChannels: c.requiredChannels, description: c.description,
         },
         store: {
           id: dupStore.id, name: dupStore.name, area: dupStore.area, category: dupStore.category,
@@ -195,14 +180,13 @@ export async function POST(req: NextRequest) {
     reviewChannel: selectedChannel,
     issuedAt: now,
     // 방문형은 발급 후 72시간 사용 기한(연장·복구 없음).
-    // 기자단은 캠페인 종료까지 작성, 배송형은 캠페인 종료까지 발송 대기(발송 후 리뷰 7일).
+    // 배송형은 캠페인 종료까지 발송 대기(발송 후 리뷰 7일).
     // 예약형 방문은 예약일 당일 말(KST)까지 — 72h 고정 기한의 명시적 예외 (운영정책서 §15).
-    expiresAt:
-      isPress || isDelivery
-        ? c.endAt
-        : reservationInfo
-          ? reservationDayEnd(reservationInfo.date)
-          : now + PASS_VALIDITY_MS,
+    expiresAt: isDelivery
+      ? c.endAt
+      : reservationInfo
+        ? reservationDayEnd(reservationInfo.date)
+        : now + PASS_VALIDITY_MS,
     ...(shippingInfo ? { shipping: shippingInfo } : {}),
     ...(reservationInfo ? { reservation: reservationInfo } : {}),
     status: "active",
@@ -213,7 +197,7 @@ export async function POST(req: NextRequest) {
     id: rid("nt"),
     userId: pass.ownerId,
     role: "owner",
-    title: isPress ? "기자단 신청" : isDelivery ? "배송형 신청 (발송 대기)" : reservationInfo ? "예약 방문 신청" : "체험권 발급",
+    title: isDelivery ? "배송형 신청 (발송 대기)" : reservationInfo ? "예약 방문 신청" : "체험권 발급",
     // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 비노출 — 익명·채널만 전달
     // (배송형 수령인 정보는 알림이 아니라 발송 처리 화면에서만 — 목적 제한 노출)
     body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${
@@ -237,8 +221,7 @@ export async function POST(req: NextRequest) {
       pass,
       campaign: {
         id: c.id, title: c.title, kind: c.kind, supportAmount: c.supportAmount,
-        requiredChannels: c.requiredChannels, pressMaterials: c.pressMaterials,
-        pressKeywords: c.pressKeywords, pressMinChars: c.pressMinChars, description: c.description,
+        requiredChannels: c.requiredChannels, description: c.description,
       },
       store: {
         id: sForCookie.id, name: sForCookie.name, area: sForCookie.area, category: sForCookie.category,

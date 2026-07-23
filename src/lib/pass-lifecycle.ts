@@ -236,7 +236,7 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
       !p.expiringSoonNotified &&
       p.expiresAt - now > 0 &&
       p.expiresAt - now <= EXPIRY_REMINDER_MS &&
-      p.expiresAt - p.issuedAt <= PASS_VALIDITY_MS + 60 * 60 * 1000 // 기자단(캠페인 종료 기한) 제외
+      p.expiresAt - p.issuedAt <= PASS_VALIDITY_MS + 60 * 60 * 1000 // 캠페인 종료 기한형(배송형) 제외
     ) {
       p.expiringSoonNotified = true;
       const store = db.stores.find((s) => s.id === p.storeId);

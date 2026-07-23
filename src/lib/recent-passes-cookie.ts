@@ -15,7 +15,7 @@ const MAX_AGE_SEC = 60 * 60; // 1시간
 // 쿠키 사이즈 절약을 위해 카드 렌더링/QR 표시에 필요한 필드만 직렬화
 type RecentCampaign = Pick<
   Campaign,
-  "id" | "title" | "kind" | "supportAmount" | "requiredChannels" | "pressMaterials" | "pressKeywords" | "pressMinChars" | "description"
+  "id" | "title" | "kind" | "supportAmount" | "requiredChannels" | "description"
 >;
 type RecentStore = Pick<
   Store,

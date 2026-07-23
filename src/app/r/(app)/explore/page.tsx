@@ -2,12 +2,12 @@ import { after } from "next/server";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
-import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignExposure, campaignRemain } from "@/lib/campaign-visibility";
 import { PLAN_RANK } from "@/lib/plan-policy";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import type { SnsKind } from "@/lib/types";
-import ExploreView, { ExploreStoreCard, ExplorePressCard, ExploreDeliveryCard } from "./ExploreView";
+import ExploreView, { ExploreStoreCard, ExploreDeliveryCard } from "./ExploreView";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -86,30 +86,6 @@ export default async function ReviewerExplore({
     (validChannels as string[]).includes(c),
   );
 
-  // [MVP] 기자단 제외 — 플래그가 꺼져 있으면 기자단 카드를 만들지 않는다
-  const pressCards: ExplorePressCard[] = db.campaigns
-    .filter((c) => PRESS_ENABLED && c.kind === "press" && c.endAt > now)
-    .map((c) => {
-      const store = db.stores.find((s) => s.id === c.storeId)!;
-      const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
-      const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
-      return {
-        campaignId: c.id,
-        storeId: store.id,
-        storeName: store.name,
-        area: store.area,
-        category: store.category,
-        coverEmoji: store.coverEmoji,
-        payout: c.supportAmount,
-        slotsLeft: totalQ - usedQ,
-        slotsTotal: totalQ,
-        kitPhotos: c.pressMaterials?.length || 8,
-        daysLeft: Math.max(0, Math.ceil((c.endAt - now) / 86400000)),
-        endAt: c.endAt,
-        createdAt: c.createdAt,
-      };
-    });
-
   // 배송형 (2026-07-12 레뷰 벤치마크) — 지역 무관 전국 참여, 리스트 전용 세그먼트
   const deliveryCards: ExploreDeliveryCard[] = db.campaigns
     .filter((c) => DELIVERY_ENABLED && c.kind === "delivery" && isCampaignVisible(c, db.passes, now))
@@ -159,7 +135,6 @@ export default async function ReviewerExplore({
   return (
     <ExploreView
       cards={cards}
-      pressCards={pressCards}
       mapClientId={mapClientId}
       unread={unread}
       // 방문형 탐색의 기본 화면은 지도 보기 (2026-07-07 회의)
@@ -171,10 +146,9 @@ export default async function ReviewerExplore({
       initialArea={initialArea}
       initialLoc={initialLoc}
       initialNationwide={nationwide}
-      pressEnabled={PRESS_ENABLED}
       deliveryCards={deliveryCards}
       deliveryEnabled={DELIVERY_ENABLED}
-      initialTab={sp.tab === "delivery" || sp.tab === "press" ? sp.tab : "visit"}
+      initialTab={sp.tab === "delivery" ? sp.tab : "visit"}
       // 참여 방식(?v=) · 배송형 상품 카테고리(?dcat=) 복원 (2026-07-12)
       initialVisitMode={sp.v === "walkin" || sp.v === "reserve" ? sp.v : "all"}
       initialDvCats={sp.dcat ? sp.dcat.split(",") : []}
