@@ -163,7 +163,8 @@ export default function ReserveSheet({
 
 const KO_WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
-// 날짜 선택 캘린더 모달 (시안) — 선택 가능일만 활성, 과거·오픈 전·휴무·차단·범위 밖은 흐림
+// 날짜 선택 캘린더 — 바텀 시트 (2026-07-23 v2: 중앙 모달 → 바텀 시트).
+// 선택 가능일만 활성, 과거·오픈 전·휴무·차단·범위 밖은 흐림
 function CalendarModal({
   dates,
   value,
@@ -202,10 +203,16 @@ function CalendarModal({
   }, [month]);
 
   return (
-    <div className="fixed inset-0 bg-ink/45 z-[60] flex items-center px-6" onClick={onClose}>
-      <div className="bg-canvas w-full max-w-[400px] mx-auto rounded-xl p-5" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/45 z-[60] flex items-end" onClick={onClose}>
+      <div
+        className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl px-6 pt-3 pb-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-center pb-3">
+          <span className="w-9 h-1 rounded-pill bg-borderStrong" />
+        </div>
         <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold text-ink">날짜 선택</h3>
+          <h3 className="text-[17px] font-bold text-ink tracking-title">날짜 선택</h3>
           <button type="button" onClick={onClose} aria-label="닫기" className="cp-action w-9 h-9 rounded-full text-[16px] text-ink">
             ✕
           </button>
@@ -284,7 +291,8 @@ function CalendarModal({
   );
 }
 
-// 시간 선택 모달 (시안) — 오전/오후 그룹 칩. 브레이크·차단·정원 마감·과거는 비활성(흐림)
+// 시간 선택 — 바텀 시트 (2026-07-23 v2: 중앙 모달 → 바텀 시트).
+// 오전/오후 그룹 칩 — 브레이크·차단·정원 마감·과거는 비활성(흐림)
 function TimeModal({
   slots,
   value,
@@ -337,13 +345,16 @@ function TimeModal({
     );
 
   return (
-    <div className="fixed inset-0 bg-ink/45 z-[60] flex items-center px-6" onClick={onClose}>
+    <div className="fixed inset-0 bg-ink/45 z-[60] flex items-end" onClick={onClose}>
       <div
-        className="bg-canvas w-full max-w-[400px] mx-auto rounded-xl p-5 max-h-[80dvh] overflow-y-auto"
+        className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl px-6 pt-3 pb-8 max-h-[80dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="flex justify-center pb-3">
+          <span className="w-9 h-1 rounded-pill bg-borderStrong" />
+        </div>
         <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold text-ink">시간 선택</h3>
+          <h3 className="text-[17px] font-bold text-ink tracking-title">시간 선택</h3>
           <button type="button" onClick={onClose} aria-label="닫기" className="cp-action w-9 h-9 rounded-full text-[16px] text-ink">
             ✕
           </button>
