@@ -31,6 +31,8 @@ export interface VisitPassItem {
   grade: string;
   support: number; // 이 체험권으로 받는 지원금 (등급 적용액)
   expiresAt: number;
+  // 유효기간 표기 (2026-07-23 시안) — 예약형 "0월 00일 (0)" / 그 외 "0월 00일 (0) 오후 0시" (12시간제)
+  expiryLabel?: string;
   usedAt: number | null;
   reviewDeadline: number | null; // used=이용 후 7일 / rejected=반려 후 7일(재제출 기한)
   deadlineKind: "review" | "resubmit" | null; // 날짜 라벨 — "리뷰마감" vs "재제출 기한"
@@ -53,7 +55,8 @@ const REVIEW_STATUSES = ["used", "review_submitted", "completed", "rejected"] as
 
 const ISSUED_CHIPS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
-  { key: "active", label: "사용가능" },
+  { key: "active", label: "사용 가능" },
+  { key: "reserved_wait", label: "예약 대기" }, // 예약형 미확정 (2026-07-23 시안)
   { key: "cancelled", label: "취소" },
   { key: "expired", label: "만료" },
 ];
@@ -103,14 +106,21 @@ export default function PassesView({
     const statuses = tab === "issued" ? ISSUED_STATUSES : REVIEW_STATUSES;
     return base.filter((it) => (statuses as readonly string[]).includes(it.status));
   }, [visitItems, deliveryItems, segment, tab]);
-  // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다
+  // 칩 필터는 파생 표시 상태 기준 — "작성 대기중"은 기한 초과(overdue)를 제외한다.
+  // 예약형 미확정(예약 대기)은 '사용 가능'과 분리된 별도 칩 (2026-07-23 시안 — QR 미발급 상태)
+  const isReserveWait = (it: VisitPassItem) =>
+    it.displayStatus === "active" && !!it.reservationStatus && it.reservationStatus !== "confirmed";
   const filtered =
     chip === "all"
       ? tabItems
       : tabItems.filter((it) =>
           chip === "overdue_any"
             ? it.displayStatus === "overdue" || it.displayStatus === "resubmit_expired"
-            : it.displayStatus === chip,
+            : chip === "reserved_wait"
+              ? isReserveWait(it)
+              : chip === "active"
+                ? it.displayStatus === "active" && !isReserveWait(it)
+                : it.displayStatus === chip,
         );
   const chips = tab === "issued" ? (segment === "delivery" ? DELIVERY_ISSUED_CHIPS : ISSUED_CHIPS) : REVIEW_CHIPS;
 
@@ -257,14 +267,18 @@ export default function PassesView({
 }
 
 function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) {
+  const isActive = it.displayStatus === "active";
+  // 예약형 미확정 — QR 미발급 상태: 뱃지 '예약 대기', 보더 강조 없음 (2026-07-23 시안)
+  const reserveWait = isActive && !!it.reservationStatus && it.reservationStatus !== "confirmed";
   // 배송형 active = 발송 대기 (QR 사용 개념이 없음 — 파생 라벨만 교체, 실상태는 동일)
   const badge =
     it.isDelivery && it.displayStatus === "active"
       ? { label: "발송 대기", cls: "bg-brandSoft text-brand" }
-      : DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
-  const isActive = it.displayStatus === "active";
-  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용가능·작성 대기 — 기한 초과 제외)
-  const emphasized = isActive || it.displayStatus === "used" || it.highlight;
+      : reserveWait
+        ? { label: "예약 대기", cls: "bg-sunken text-muted" }
+        : DISPLAY_BADGE[it.displayStatus] ?? { label: it.displayStatus, cls: "bg-sunken text-muted" };
+  // 다음 행동이 있는 카드는 퍼플 보더 강조 (사용 가능·작성 대기) — 예약 대기는 확정 전이라 제외
+  const emphasized = (isActive && !reserveWait) || it.displayStatus === "used" || it.highlight;
 
   return (
     <div
@@ -272,6 +286,19 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
         emphasized ? "border-[1.5px] border-brand" : "border border-hairline"
       }`}
     >
+      {/* 방문예약 배너 — 카드 최상단 오렌지 (2026-07-23 시안: 확정·대기 공통, 상태는 우측 뱃지) */}
+      {isActive && it.reservationLabel && (
+        <div className="mb-3 rounded-md bg-warningSoft px-3 py-2.5 text-[13px]">
+          <span className="font-bold text-[#FF6B00] tabular-nums">
+            🗓 방문예약 <span className="ml-1">{sbNum(SBUI.dateTime, it.reservationLabel)}</span>
+          </span>
+          {/* 사장님 시간 제안 도착 — 응답이 필요한 상태만 한 줄 안내 */}
+          {it.reservationStatus === "proposed" && (
+            <div className="mt-1 text-[12px] text-ink2">사장님이 다른 시간을 제안했어요 — 체험권에서 확인해주세요.</div>
+          )}
+        </div>
+      )}
+
       {/* 헤더 행 — 썸네일 + 가게명·채널/등급·지원금 + 상태 뱃지 */}
       <div className="flex gap-3">
         {/* 88×66(4:3) — 2026-07-17 썸네일 규격 통일 */}
@@ -313,32 +340,11 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       {/* 상태별 하단 영역 */}
       {isActive && (
         <>
-          {/* 예약 방문 (§8-1) — 예약 일정을 한눈에 확인할 수 있도록 강조 */}
-          {it.reservationLabel && (
-            <div className="mt-3 rounded-md bg-brandSoft px-3 py-2.5 flex items-center justify-between gap-2 text-[13px]">
-              <span className="font-bold text-ink tabular-nums">📅 {sbNum(SBUI.dateTime, it.reservationLabel)} 방문</span>
-              <span
-                className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-pill text-[11px] font-semibold ${
-                  it.reservationStatus === "confirmed"
-                    ? "bg-successSoft text-successStrong"
-                    : it.reservationStatus === "proposed"
-                      ? "bg-canvas text-brand"
-                      : "bg-canvas text-muted"
-                }`}
-              >
-                {it.reservationStatusLabel ??
-                  (it.reservationStatus === "confirmed"
-                    ? "예약 확정"
-                    : it.reservationStatus === "proposed"
-                      ? "일정 제안 확인 필요"
-                      : "예약 대기")}
-              </span>
-            </div>
-          )}
           <div className="mt-3.5 pt-3.5 border-t border-dashed border-hairline flex items-center gap-3 text-[13px]">
             <span className="text-muted">{it.isDelivery ? "신청 유효" : "유효기간"}</span>
+            {/* 예약형은 날짜만("0월 00일 (0)까지" — 방문일 +1일 말), 그 외 날짜+12시간제 시각 */}
             <span className="font-semibold text-ink tabular-nums">
-              {sbNum(SBUI.dateTime, fmtKoDateTime(it.expiresAt))}까지
+              {sbNum(SBUI.dateTime, it.expiryLabel ?? fmtKoDateTime(it.expiresAt))}까지
             </span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -349,8 +355,8 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             href={`/r/passes/${it.id}`}
             className="cp-action mt-2 flex h-11 items-center justify-center rounded-md bg-brand text-white text-[14px] font-bold"
           >
-            {/* 예약 미확정은 QR 대신 예약 현황 화면으로 이어진다 (§10-1) */}
-            {it.reservationLabel && it.reservationStatus !== "confirmed" ? "예약 현황 보기" : "체험권 보기"}
+            {/* 예약 미확정도 [체험권 보기]로 통일 (2026-07-23 시안) — 상세가 예약 현황 화면을 렌더 */}
+            체험권 보기
           </Link>
         </>
       )}
