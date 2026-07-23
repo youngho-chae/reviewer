@@ -61,7 +61,6 @@ export default async function OwnerHome() {
       const schedule = c ? scheduleOf(c) : undefined;
       return {
         passId: p.id,
-        campaignId: p.campaignId,
         masked: `#${p.reviewerId.slice(-4)}`,
         campaignTitle: c?.title ?? "캠페인",
         label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),

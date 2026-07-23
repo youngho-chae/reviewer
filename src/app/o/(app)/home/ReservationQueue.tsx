@@ -1,13 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { PROPOSAL_MAX_SLOTS, PROPOSAL_NOTE_MAX } from "@/lib/reservation";
 
 export interface ReservationQueueItem {
   passId: string;
-  campaignId: string;
   masked: string; // 익명 #last4 — 등급·실명 비노출 원칙 유지 (확정 정책 8)
   campaignTitle: string;
   label: string; // "7월 18일 (토) 오후 2시" — 체험자 희망(또는 확정) 일시 (12시간제 — §7-2)
@@ -86,13 +84,8 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
           <div key={it.passId} className="rounded-md border border-hairline p-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[14px] font-semibold text-ink">익명 {it.masked}</span>
-              {/* 캠페인 상세 관리로 진입 (§12-1) — 예약 목록·일정 차단·확정 취소 */}
-              <Link
-                href={`/o/campaign/${it.campaignId}`}
-                className="cp-action text-[11px] text-muted truncate max-w-[160px]"
-              >
-                {it.campaignTitle} →
-              </Link>
+              {/* 캠페인명은 표기만 — 캠페인 관리(2depth) 진입은 '내 캠페인' 카드 단일 경로 (2026-07-23) */}
+              <span className="text-[11px] text-muted truncate max-w-[160px]">{it.campaignTitle}</span>
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold text-ink tabular-nums">
