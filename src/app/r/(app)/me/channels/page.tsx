@@ -44,8 +44,16 @@ export default async function ChannelsPage({
           <Link href="/r/me" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="MY로">
             <Icon name="chevron-left" variant="border" size={22} />
           </Link>
-          <h1 className="text-[18px] font-bold text-ink tracking-title">채널 관리</h1>
         </div>
+      </div>
+
+      {/* 타이틀 (2026-07-23 시안 — 레퍼런스: 미디어 연결) */}
+      <div className="px-5 pb-6">
+        <h1 className="text-[24px] font-bold text-ink tracking-title">SNS 채널 연결</h1>
+        <p className="mt-4 text-[16px] text-ink leading-[1.5]">
+          {me.nickname}님, <b>SNS를 연결</b>해주세요.
+        </p>
+        <p className="mt-1.5 text-[14px] text-muted leading-[1.5]">지금 연결하고 더 많은 체험과 우리 동네 발견을 시작해 볼까요?</p>
       </div>
 
       {/* 가입 직후 온보딩 (2026-07-23) — 이메일·네이버·카카오 어느 경로로 가입해도 여기로 유도 */}
@@ -61,11 +69,6 @@ export default async function ChannelsPage({
           </p>
         </div>
       )}
-      <p className="px-5 pt-1 pb-4 text-[13px] text-muted leading-[1.55]">
-        채널을 연동하면 해당 채널 캠페인에 참여할 수 있어요. 연동 시 프로바이더 로그인으로{" "}
-        <span className="font-semibold text-ink2">본인 채널인지 검증</span>해요.
-      </p>
-
       <ChannelManager rows={rows} connected={connected ?? null} error={error ?? null} overallGrade={eff.grade} />
     </div>
   );
