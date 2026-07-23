@@ -83,9 +83,9 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
         {items.map((it) => (
           <div key={it.passId} className="rounded-md border border-hairline p-3.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[14px] font-semibold text-ink">익명 {it.masked}</span>
-              {/* 캠페인명은 표기만 — 캠페인 관리(2depth) 진입은 '내 캠페인' 카드 단일 경로 (2026-07-23) */}
-              <span className="text-[11px] text-muted truncate max-w-[160px]">{it.campaignTitle}</span>
+              {/* 캠페인명이 주 표기, 익명 #last4는 보조 (2026-07-23 시안) — 캠페인 관리(2depth) 진입은 '내 캠페인' 카드 단일 경로 */}
+              <span className="text-[14px] font-semibold text-ink truncate">{it.campaignTitle}</span>
+              <span className="text-[11px] text-muted shrink-0">익명 {it.masked}</span>
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold text-ink tabular-nums">
