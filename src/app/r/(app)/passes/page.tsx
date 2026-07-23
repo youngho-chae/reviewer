@@ -7,25 +7,7 @@ import { REVIEW_DEADLINE_MS, reviewDeadline } from "@/lib/pass-lifecycle";
 import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
 import { supportForGrade } from "@/lib/grade";
 import { passDisplayStatus, DISPLAY_BADGE } from "@/lib/pass-display";
-import {
-  fmtReservationLabel,
-  fmtReservationDateLabel,
-  fmtTime12,
-  kstTodayStr,
-  reservationStatusLabel,
-  cancelledCopy,
-} from "@/lib/reservation";
-
-// 유효기간 카드 표기 (2026-07-23 시안) — 예약형은 날짜만(방문일 +1일 말이라 시각 생략),
-// 그 외는 "0월 00일 (0) 오후 0시 00분" 12시간제 (§7-2 — 24시간제 표기 금지)
-function expiryLabelOf(expiresAt: number, hasReservation: boolean): string {
-  const dateStr = kstTodayStr(expiresAt);
-  const base = fmtReservationDateLabel(dateStr);
-  if (hasReservation) return base;
-  const d = new Date(expiresAt + 9 * 60 * 60 * 1000);
-  const hhmm = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-  return `${base} ${fmtTime12(hhmm)}`;
-}
+import { fmtReservationLabel, fmtExpiryLabel, reservationStatusLabel, cancelledCopy } from "@/lib/reservation";
 import GradeBadge from "@/components/GradeBadge";
 import PassesView, { type VisitPassItem } from "./PassesView";
 import PassPendingBanner from "./PassPendingBanner";
@@ -120,7 +102,7 @@ export default async function MyPasses({
       grade: p.reviewerGrade,
       support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
       expiresAt: p.expiresAt,
-      expiryLabel: expiryLabelOf(p.expiresAt, !!p.reservation),
+      expiryLabel: fmtExpiryLabel(p.expiresAt, !!p.reservation),
       usedAt: p.usedAt ?? null,
       // 리뷰 마감 (§8-2) — used: 예약형은 확정 방문일 기준 +7일(reviewDeadline), 그 외 이용 후 7일 /
       // rejected: 반려 후 7일(재제출 기한)
