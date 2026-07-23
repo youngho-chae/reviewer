@@ -35,6 +35,8 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
   const [err, setErr] = useState<string | null>(null);
   const [proposingId, setProposingId] = useState<string | null>(null); // 제안 폼 열린 항목
   const [decliningId, setDecliningId] = useState<string | null>(null); // 거절 확인 열린 항목
+  const [cancellingId, setCancellingId] = useState<string | null>(null); // 확정 취소 열린 항목 (§5-3)
+  const [cancelReason, setCancelReason] = useState("");
   const [slots, setSlots] = useState<SlotDraft[]>([{ date: "", time: "" }]);
   const [note, setNote] = useState("");
 
@@ -96,9 +98,23 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
               <span className="text-[14px] font-bold text-ink tabular-nums">
                 {sbNum(SBUI.dateTime, it.label)}{it.partySize ? ` · ${it.partySize}명` : ""} {it.counterUsed && it.status === "requested" ? "재제안" : "방문 희망"}
               </span>
-              {it.status === "confirmed" && (
-                <span className="inline-flex items-center px-2 py-1 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">
-                  확정됨
+              {it.status === "confirmed" && cancellingId !== it.passId && (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">
+                    확정됨
+                  </span>
+                  {/* 확정 예약 취소 (§5-3) — 매장 사정 예외 처리, 사유 필수·체험자 원문 안내 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancellingId(it.passId);
+                      setCancelReason("");
+                      setErr(null);
+                    }}
+                    className="cp-action text-[12px] font-semibold text-muted underline"
+                  >
+                    예약 취소
+                  </button>
                 </span>
               )}
               {it.status === "proposed" && (
@@ -150,6 +166,42 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                 >
                   거절
                 </button>
+              </div>
+            )}
+
+            {/* 확정 예약 취소 폼 (§5-3) — 사유 필수, 체험자에게 그대로 안내·QR 즉시 무효 */}
+            {it.status === "confirmed" && cancellingId === it.passId && (
+              <div className="mt-2.5 rounded-sm bg-sunken px-3 py-2.5">
+                <p className="text-[12px] text-ink2 leading-[1.5]">
+                  확정된 예약을 취소해요 — 사유는 체험자에게 그대로 안내되고, QR은 즉시 사용할 수 없게 돼요. 체험자
+                  패널티·재신청 제한은 없어요.
+                </p>
+                <input
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value.slice(0, 100))}
+                  placeholder="취소 사유 (필수) — 예: 매장 사정으로 휴무예요"
+                  className="mt-2 w-full h-9 px-3 rounded-sm border border-hairline bg-canvas text-[13px] text-ink placeholder:text-mutedSoft"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCancellingId(null)}
+                    className="cp-action h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold text-ink"
+                  >
+                    돌아가기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await post("/api/owner/reserve-cancel", { passId: it.passId, reason: cancelReason.trim() }, it.passId);
+                      if (ok) setCancellingId(null);
+                    }}
+                    disabled={busyId === it.passId || !cancelReason.trim()}
+                    className="cp-action h-8 px-3.5 rounded-sm bg-errorSoft text-error text-[12px] font-bold disabled:opacity-60"
+                  >
+                    {busyId === it.passId ? "취소 중..." : "예약 취소하기"}
+                  </button>
+                </div>
               </div>
             )}
 
