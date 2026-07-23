@@ -445,3 +445,54 @@ export function reservationHistoryLines(rsv: PassReservation): ReservationHistor
 export function reservationHistoryLinesForReviewer(rsv: PassReservation): ReservationHistoryLine[] {
   return reservationHistoryLines(rsv).filter((l) => l.kind !== "propose");
 }
+
+// 유효기간 카드 표기 (2026-07-23 시안) — 예약형은 날짜만("0월 00일 (0)" — 방문일 +1일 말이라
+// 시각 생략), 그 외 "0월 00일 (0) 오후 0시 00분" 12시간제 (§7-2)
+export function fmtExpiryLabel(expiresAt: number, hasReservation: boolean): string {
+  const dateStr = kstTodayStr(expiresAt);
+  const base = fmtReservationDateLabel(dateStr);
+  if (hasReservation) return base;
+  const d = new Date(expiresAt + 9 * 60 * 60 * 1000);
+  const hhmm = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return `${base} ${fmtTime12(hhmm)}`;
+}
+
+// ── 예약 내역 카드 (2026-07-23 시안 — 체험권 상세 하단 "예약 내역" 섹션) ──
+// "체험자가 예약 신청했어요" 형태: actor(퍼플 강조) + 문장 + 일정 행(제안은 슬롯 전부).
+export interface ReservationHistoryCard {
+  actor: "체험자" | "사장님";
+  title: string; // actor 뒤에 이어지는 문장 — "가 예약 신청했어요" 등
+  rows: Array<{ label: string; value: string }>; // 신청 일정 / 제안 일정 등 (제안 2번째부터 label 공백)
+}
+
+export function reservationHistoryCards(rsv: PassReservation): ReservationHistoryCard[] {
+  return reservationHistory(rsv).map((ev): ReservationHistoryCard => {
+    const actor = ev.by === "owner" ? "사장님" : "체험자";
+    const t = ev.date && ev.time ? fmtReservationLabel(ev.date, ev.time) : "";
+    switch (ev.kind) {
+      case "request":
+        return { actor, title: "가 예약 신청했어요", rows: t ? [{ label: "신청 일정", value: t }] : [] };
+      case "counter":
+        return { actor, title: "가 다른 방문 시간을 요청했어요", rows: t ? [{ label: "요청 일정", value: t }] : [] };
+      case "propose":
+        return {
+          actor,
+          title: "이 다른 방문 시간을 제안했어요",
+          rows: (ev.slots ?? []).map((sl, i) => ({
+            label: i === 0 ? "제안 일정" : "",
+            value: fmtReservationLabel(sl.date, sl.time),
+          })),
+        };
+      case "confirm":
+        return { actor, title: "이 예약을 확정했어요", rows: t ? [{ label: "확정 일정", value: t }] : [] };
+      case "accept":
+        return { actor, title: "가 제안된 시간을 수락했어요", rows: t ? [{ label: "확정 일정", value: t }] : [] };
+      case "decline":
+        return {
+          actor,
+          title: actor === "사장님" ? "이 예약 요청을 취소했어요" : "가 예약을 취소했어요",
+          rows: [],
+        };
+    }
+  });
+}

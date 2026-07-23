@@ -19,6 +19,8 @@ export default function PassTicket({
   grade,
   support,
   expiresAt,
+  expiryLabel,
+  reservation,
 }: {
   passId: string;
   code: string;
@@ -27,6 +29,10 @@ export default function PassTicket({
   grade: string;
   support: number;
   expiresAt: number;
+  // 유효 기간 표기 (2026-07-23 시안) — 예약형 "0월 00일 (0)" / 그 외 날짜+12시간제
+  expiryLabel?: string;
+  // 예약 확정 체험권 (2026-07-23 시안) — 예약 정보 오렌지 카드 (신청 일정·인원)
+  reservation?: { label: string; partySize?: number };
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"qr" | "code">("qr");
@@ -95,28 +101,55 @@ export default function PassTicket({
         </button>
       </div>
 
-      {/* 요약 카드 — 가게명 · 채널/등급 · 지원금 */}
-      <div className="mt-3 rounded-md bg-sunken px-4 py-3.5 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[15px] font-bold text-ink truncate">{storeName}</div>
-          <div className="text-[12px] text-muted mt-0.5 truncate">
-            {channelLabel} · {grade}등급 적용
-          </div>
-          {/* '초대 보상 부스트 포함' 라벨 제거 (2026-07-17 지시) — 부스트 금액은 지원금 수치에만 반영 */}
+      {/* 요약 카드 (2026-07-23 시안) — 가게명(중앙)·채널/등급 · 지원금|유효 기간 2열 */}
+      <div className="mt-3 rounded-lg bg-sunken px-4 pt-5 pb-4 text-center">
+        <div className="text-[17px] font-bold text-ink tracking-title leading-[1.35] line-clamp-2">{storeName}</div>
+        <div className="mt-1 text-[13px] text-muted">
+          {channelLabel} · {grade}등급 적용
         </div>
-        <div className="shrink-0 text-right">
-          <span className="text-[17px] font-bold text-brand tabular-nums">{sbNum(SBUI.support, `${support.toLocaleString()}원`)}</span>{" "}
-          <span className="text-[12px] text-muted">지원</span>
+        {/* '초대 보상 부스트 포함' 라벨 제거 (2026-07-17 지시) — 부스트 금액은 지원금 수치에만 반영 */}
+        <div className="mt-4 pt-4 border-t border-hairline grid grid-cols-2">
+          <div>
+            <div className="text-[13px] text-muted">지원금</div>
+            <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
+              {sbNum(SBUI.support, `${support.toLocaleString()}원`)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[13px] text-muted">유효 기간</div>
+            <div className="mt-1 text-[17px] font-bold text-brand tabular-nums">
+              {sbNum(SBUI.dateTime, expiryLabel ?? "")}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 남은시간 pill — 발급 후 72h 카운트다운 */}
-      <div className="mt-4 flex justify-center">
-        <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-pill bg-brandSoft text-brand text-[13px] font-bold">
-          <span aria-hidden>🕐</span> 남은시간
-          <Countdown expiresAt={expiresAt} mode="hms" className="!text-[13px] !text-brand font-bold tabular-nums" />
-        </span>
-      </div>
+      {/* 예약 정보 — 확정 예약 오렌지 카드 (2026-07-23 시안) */}
+      {reservation && (
+        <div className="mt-3 rounded-lg bg-warningSoft px-4 py-4">
+          <div className="text-[14px] font-bold text-[#FF6B00]">🗓 예약 정보</div>
+          <div className="mt-2.5 space-y-1.5 text-[14px]">
+            <div className="flex gap-4">
+              <span className="text-muted shrink-0">신청 일정</span>
+              <span className="font-semibold text-ink tabular-nums">{sbNum(SBUI.dateTime, reservation.label)}</span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-muted shrink-0">신청 인원</span>
+              <span className="font-semibold text-ink tabular-nums">{reservation.partySize ?? 1}명</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 남은시간 pill — 발급 후 72h 카운트다운 (예약형은 유효 기간이 방문일 기준이라 미노출) */}
+      {!reservation && (
+        <div className="mt-4 flex justify-center">
+          <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-pill bg-brandSoft text-brand text-[13px] font-bold">
+            <span aria-hidden>🕐</span> 남은시간
+            <Countdown expiresAt={expiresAt} mode="hms" className="!text-[13px] !text-brand font-bold tabular-nums" />
+          </span>
+        </div>
+      )}
 
       {done ? (
         <div className="mt-10 pb-10 text-center">

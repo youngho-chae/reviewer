@@ -237,28 +237,29 @@ export default function PassesView({
               <PassCard key={it.id} it={it} tab={tab} />
             ))}
             {filtered.length === 0 && (
-              <div className="py-16 text-center">
-                <p className="text-[15px] text-muted">
-                  {segment === "delivery"
-                    ? tab === "issued"
-                      ? "해당하는 배송 체험 신청이 없어요."
-                      : "리뷰 단계의 배송 체험이 없어요."
-                    : tab === "issued"
-                      ? "해당하는 체험권이 없어요."
-                      : "리뷰 단계의 체험이 없어요."}
+              /* 빈 상태 (2026-07-23 시안) — 티켓 아이콘 원 + 타이틀 + 안내 + [체험 둘러보기] */
+              <div className="py-20 text-center">
+                <span className="mx-auto w-[104px] h-[104px] rounded-full bg-sunken grid place-items-center text-mutedSoft">
+                  <Icon name="ticket" variant="border" size={44} />
+                </span>
+                <h3 className="mt-7 text-[19px] font-bold text-ink tracking-title">
+                  {tab === "issued"
+                    ? segment === "delivery"
+                      ? "신청한 배송 체험이 없어요!"
+                      : "발급받은 체험권이 없어요!"
+                    : "리뷰 단계의 체험이 없어요!"}
+                </h3>
+                <p className="mt-3 text-[15px] text-ink2 leading-[1.6]">
+                  이용할 수 있는 체험이 생각보다 가까이에 있어요
+                  <br />
+                  한번 둘러볼까요?
                 </p>
-                {segment === "delivery" ? (
-                  <Link
-                    href="/r/explore?mode=list&tab=delivery"
-                    className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand"
-                  >
-                    배송 체험 둘러보기 →
-                  </Link>
-                ) : (
-                  <Link href="/r/home" className="cp-action inline-block mt-4 text-[14px] font-semibold text-brand">
-                    홈에서 체험권 받기 →
-                  </Link>
-                )}
+                <Link
+                  href={segment === "delivery" ? "/r/explore?mode=list&tab=delivery" : "/r/explore"}
+                  className="cp-action inline-flex mt-7 h-12 px-6 items-center justify-center rounded-lg bg-brand text-white text-[15px] font-bold"
+                >
+                  체험 둘러보기
+                </Link>
               </div>
             )}
           </div>
