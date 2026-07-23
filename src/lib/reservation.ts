@@ -104,30 +104,41 @@ export function reservationTakenCount(passes: Pass[], campaignId: string, date: 
   ).length;
 }
 
-// 예약 오픈 시점 (2-5) — 캠페인 공개일과 예약 가능일을 구분.
-// opensAt 이전에는 상세 열람만 가능하고 예약 CTA는 비활성("예약 오픈 예정").
-export function reservationOpenState(c: ScheduleSource, now: number = Date.now()): { open: boolean; opensAt?: number } {
+// 예약 가능 시작일 (2-5 · 2026-07-23 정정) — 신청 시도 가능 시점이 아니라 **방문 날짜의 하한**이다.
+// 예: 캠페인 오픈 7/23·예약 시작일 7/25 → 지금 바로 신청할 수 있고, 날짜 피커에서 23·24일만 비활성.
+// 반환: 하한 날짜 문자열("YYYY-MM-DD") 또는 null(제한 없음).
+export function reservationOpenDate(c: ScheduleSource): string | null {
   const opensAt = c.reservationSchedule?.opensAt;
-  if (opensAt && now < opensAt) return { open: false, opensAt };
-  return { open: true, opensAt };
+  return opensAt ? kstTodayStr(opensAt) : null;
 }
 
 export interface ReservationDateOption {
   date: string;
   label: string; // "7월 18일 (토)"
   disabled: boolean;
-  reason?: "day_off" | "blocked";
+  reason?: "day_off" | "blocked" | "not_open";
 }
 
-// 캠페인 스케줄 기준 날짜 선택지 — 오늘부터 min(14일, 종료일)까지, 휴무 요일·차단 날짜는 비활성 표시
+// 캠페인 스케줄 기준 날짜 선택지 — 오늘부터 min(14일, 종료일)까지.
+// 휴무 요일·차단 날짜·오픈 전 날짜(opensAt 이전 — not_open)는 비활성 표시.
+// opensAt이 미래면 14일 윈도우의 기준점을 오픈일로 옮겨, 오픈일부터 14일까지 선택할 수 있게 한다.
 export function campaignDateOptions(
   c: Pick<Campaign, "endAt" | "reservationSchedule" | "reservationBlocks">,
   now: number = Date.now(),
 ): ReservationDateOption[] {
   const schedule = scheduleOf(c);
+  const openDate = reservationOpenDate(c);
+  const anchor = openDate && Date.parse(`${openDate}T00:00:00+09:00`) > now ? Date.parse(`${openDate}T00:00:00+09:00`) : now;
   const out: ReservationDateOption[] = [];
-  for (const date of reservationDateOptions(c.endAt, now)) {
-    if (!isDayAllowed(schedule, date)) {
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(now + 9 * 60 * 60 * 1000 + i * 24 * 60 * 60 * 1000);
+    const date = d.toISOString().slice(0, 10);
+    const dayStart = Date.parse(`${date}T00:00:00+09:00`);
+    if (dayStart > c.endAt) break;
+    if (dayStart - anchor > RESERVATION_AHEAD_MAX_DAYS * 24 * 60 * 60 * 1000) break;
+    if (openDate && date < openDate) {
+      out.push({ date, label: fmtReservationDateLabel(date), disabled: true, reason: "not_open" });
+    } else if (!isDayAllowed(schedule, date)) {
       out.push({ date, label: fmtReservationDateLabel(date), disabled: true, reason: "day_off" });
     } else if (isDateBlocked(c.reservationBlocks, date, now)) {
       out.push({ date, label: fmtReservationDateLabel(date), disabled: true, reason: "blocked" });
@@ -175,11 +186,15 @@ export function validateReservationForCampaign(
   opts: { now?: number; excludePassId?: string; skipCapacity?: boolean } = {},
 ): string | null {
   const now = opts.now ?? Date.now();
-  const base = validateReservation(date, time, c.endAt, now, scheduleOf(c));
+  // 오픈일이 미래면 14일 윈도우 기준점도 오픈일로 (campaignDateOptions와 동일 앵커)
+  const openDate = reservationOpenDate(c);
+  const windowAnchor =
+    openDate && Date.parse(`${openDate}T00:00:00+09:00`) > now ? Date.parse(`${openDate}T00:00:00+09:00`) : now;
+  const base = validateReservation(date, time, c.endAt, now, scheduleOf(c), windowAnchor);
   if (base) return base;
-  const openState = reservationOpenState(c, now);
-  if (!openState.open) {
-    return `아직 예약 오픈 전이에요 — ${fmtReservationDateLabel(kstTodayStr(openState.opensAt!))}부터 예약할 수 있어요`;
+  // 예약 가능 시작일 = 방문 날짜 하한 (2026-07-23 정정 — 신청 시도는 즉시 가능)
+  if (openDate && date < openDate) {
+    return `${fmtReservationDateLabel(openDate)}부터 방문 예약을 받아요 — 날짜를 다시 선택해주세요`;
   }
   const schedule = scheduleOf(c);
   if (!isDayAllowed(schedule, date)) return "예약을 받지 않는 요일이에요 — 다른 날짜를 선택해주세요";
@@ -199,7 +214,7 @@ export const RESERVATION_TIME_SLOTS: string[] = campaignTimeSlots(DEFAULT_RESERV
 
 // ── 날짜/시간 선택지 (클라이언트 전달용) — 서버가 스케줄·차단·정원을 계산해 직렬화 ──
 export interface ReservationPicker {
-  dates: Array<{ date: string; label: string; disabled: boolean }>;
+  dates: Array<{ date: string; label: string; disabled: boolean; reason?: ReservationDateOption["reason"] }>;
   slotsByDate: Record<string, Array<{ time: string; label: string; disabled: boolean; reason?: ReservationSlotStatus["reason"] }>>;
 }
 
@@ -211,7 +226,12 @@ export function buildReservationPicker(
   excludePassId?: string,
   now: number = Date.now(),
 ): ReservationPicker {
-  const dates = campaignDateOptions(c, now).map((d) => ({ date: d.date, label: d.label, disabled: d.disabled }));
+  const dates = campaignDateOptions(c, now).map((d) => ({
+    date: d.date,
+    label: d.label,
+    disabled: d.disabled,
+    ...(d.reason ? { reason: d.reason } : {}),
+  }));
   const slotsByDate: ReservationPicker["slotsByDate"] = {};
   for (const d of dates) {
     if (d.disabled) continue;
@@ -276,6 +296,7 @@ export function validateReservation(
   endAt: number,
   now: number = Date.now(),
   schedule: ReservationSchedule = DEFAULT_RESERVATION_SCHEDULE,
+  windowAnchor: number = now, // 14일 윈도우 기준점 — 예약 오픈일이 미래면 오픈일 (2026-07-23)
 ): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !campaignTimeSlots(schedule).includes(time)) {
     return "방문 예정 일시를 선택해주세요";
@@ -284,7 +305,7 @@ export function validateReservation(
   if (!Number.isFinite(epoch)) return "방문 예정 일시를 선택해주세요";
   if (epoch <= now) return "지난 시간이에요 — 방문 예정 일시를 다시 선택해주세요";
   if (epoch > endAt) return "캠페인 종료일 이후로는 예약할 수 없어요";
-  if (reservationEpoch(date, "00:00") - now > RESERVATION_AHEAD_MAX_DAYS * 24 * 60 * 60 * 1000) {
+  if (reservationEpoch(date, "00:00") - windowAnchor > RESERVATION_AHEAD_MAX_DAYS * 24 * 60 * 60 * 1000) {
     return `방문 예약은 ${RESERVATION_AHEAD_MAX_DAYS}일 이내로 선택할 수 있어요`;
   }
   return null;
