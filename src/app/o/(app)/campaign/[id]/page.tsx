@@ -213,8 +213,14 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         </div>
       </section>
 
-      {/* [예약 관리 | 후기 관리] 탭 (2026-07-23) — 방문형·배송형은 후기 관리 단독 */}
-      <ManageTabs showReserve={isReserve} reviewCount={reviewRows.length} reserveView={reserveView} reviewView={reviewView} />
+      {/* [예약 관리 | 후기 관리] 탭 (2026-07-23) — 방문형·배송형·종료 캠페인은 후기 관리 단독
+          (종료 후에는 받을 예약이 없어 일정 차단이 무의미) */}
+      <ManageTabs
+        showReserve={isReserve && c.endAt > now}
+        reviewCount={reviewRows.length}
+        reserveView={reserveView}
+        reviewView={reviewView}
+      />
     </div>
   );
 }
