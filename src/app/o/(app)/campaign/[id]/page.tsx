@@ -18,6 +18,7 @@ import {
 } from "@/lib/reservation";
 import ManageTabs from "./ManageTabs";
 import BlocksManager from "./BlocksManager";
+import CloseCampaign from "./CloseCampaign";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,13 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
   const now = Date.now();
   const isReserve = c.kind === "visit" && !!c.reservationRequired;
   const isDelivery = c.kind === "delivery";
+  const ended = c.endAt <= now;
   const passes = db.passes.filter((p) => p.campaignId === c.id);
+  // 조기 종료 확인 패널용 집계 (§조기 종료 2026-07-24)
+  const activePasses = passes.filter((p) => p.status === "active");
+  const closePendingRsv = activePasses.filter((p) => p.reservation && p.reservation.status !== "confirmed").length;
+  const closeConfirmedRsv = activePasses.filter((p) => p.reservation?.status === "confirmed").length;
+  const closeActiveQr = activePasses.length - closePendingRsv - closeConfirmedRsv;
   const totalQuota = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
   const pendingCnt = passes.filter((p) => p.status === "active").length;
   const visitedCnt = passes.filter((p) => ["used", "review_submitted", "completed"].includes(p.status)).length;
@@ -180,8 +187,14 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
             <span className="text-[16px] font-bold text-ink truncate">{c.title}</span>
           </div>
           <div className="mt-1 text-[12px] text-muted">
-            {store.name} · {sbNum(SBUI.dateTime, fmtKoDateTime(c.endAt))} 종료 (D-
-            {Math.max(0, Math.floor((c.endAt - now) / 86400000))})
+            {store.name} · {sbNum(SBUI.dateTime, fmtKoDateTime(c.endAt))} 종료{" "}
+            {ended ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-sunken text-muted text-[11px] font-semibold">
+                {c.closedAt ? "조기 종료됨" : "종료"}
+              </span>
+            ) : (
+              <>(D-{Math.max(0, Math.floor((c.endAt - now) / 86400000))})</>
+            )}
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div className="rounded-sm py-2.5 bg-sunken">
@@ -212,6 +225,22 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
           )}
         </div>
       </section>
+
+      {/* 캠페인 조기 종료 (2026-07-24) — 진행 중일 때만. 발급·확정 건 유지, 미확정 예약 자동 취소 */}
+      {!ended && (
+        <CloseCampaign
+          campaignId={c.id}
+          activeQr={closeActiveQr}
+          confirmedRsv={closeConfirmedRsv}
+          pendingRsv={closePendingRsv}
+        />
+      )}
+      {ended && c.closedAt && (
+        <p className="px-5 mt-3 text-[12px] text-muted leading-[1.55]">
+          {c.closedBy === "admin" ? "운영팀이" : "사장님이"} 캠페인을 조기 종료했어요. 종료 전에 발급·확정된 체험 건은
+          유효 기한까지 진행되며, 체험자가 참여하지 않으면 그 인원만큼 모집 현황이 자동 복원돼요.
+        </p>
+      )}
 
       {/* [예약 관리 | 후기 관리] 탭 (2026-07-23) — 방문형·배송형·종료 캠페인은 후기 관리 단독
           (종료 후에는 받을 예약이 없어 일정 차단이 무의미) */}

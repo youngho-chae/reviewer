@@ -1,6 +1,7 @@
 import { getCurrentAdmin } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { campaignExposure } from "@/lib/campaign-visibility";
+import AdminCampaignClose from "./AdminCampaignClose";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,14 @@ export default async function AdminCampaigns() {
                     {store?.name} · {owner?.email ?? "사장님 미상"} · {c.kind === "delivery" ? "배송형" : "방문형"}
                   </div>
                 </div>
-                <span className={`text-[11px] px-2 py-0.5 rounded-pill font-semibold shrink-0 ${ex.cls}`}>{ex.label}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-pill font-semibold ${ex.cls}`}>
+                    {ex.label}
+                    {c.closedAt ? " (조기)" : ""}
+                  </span>
+                  {/* 운영자 조기 종료 (2026-07-24) — 진행 중(endAt 미도래)일 때만 */}
+                  {c.endAt > now && <AdminCampaignClose campaignId={c.id} title={c.title} />}
+                </div>
               </div>
               <div className="mt-2 flex items-center gap-3 text-[12px] text-ink2 tabular-nums">
                 <span>모집 {usedQ}/{totalQ}명</span>

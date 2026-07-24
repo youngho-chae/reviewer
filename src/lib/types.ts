@@ -153,6 +153,10 @@ export interface Campaign {
   // 사장님이 후기에 강조해주길 원하는 키워드 — 체험 매장 상세에 노출 (v2.16)
   highlightKeywords?: string[];
   createdAt: number;
+  // 조기 종료 (2026-07-24) — 사장님/운영자가 종료 시각을 앞당긴 기록.
+  // 종료 판정은 언제나 endAt 기준 (조기 종료 = endAt을 현재로 당김) — 이 필드는 표기·감사용.
+  closedAt?: number;
+  closedBy?: "owner" | "admin";
   // 사장님이 캠페인 생성 시 지정하는 사용처리 4자리 숫자 코드 (체험권 인증용 비밀번호).
   // 체험자 화면에는 노출되지 않는다 — 사장님이 체험자의 체험권 화면 입력란에 직접 입력해 사용 처리.
   useCode: string; // "0000" ~ "9999"
@@ -288,7 +292,7 @@ export interface Pass {
   //  - "owner_cancelled"    : 사장님이 확정된 예약을 취소 (5-3 — cancelReason 필수)
   //  - "admin_cancelled"    : 운영자 수동 취소 (13-1)
   // undefined 외 모든 경위는 패널티·12h 재신청 제한을 적용하지 않는다 (체험자 귀책 아님).
-  cancelledVia?: "proposal_declined" | "owner_declined" | "owner_cancelled" | "admin_cancelled";
+  cancelledVia?: "proposal_declined" | "owner_declined" | "owner_cancelled" | "admin_cancelled" | "campaign_closed";
   // 사장님(확정 취소)·운영자 취소 사유 — 체험자 화면에 그대로 노출 (5-3)
   cancelReason?: string;
   paidAmount?: number;
