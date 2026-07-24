@@ -122,12 +122,26 @@ export function regionLabel(sido: string, gugun: string): string {
   return isDupGugunName(gugun) ? `${sido} ${gugun}` : gugun;
 }
 
+// 행정구역 공식 명칭 → REGIONS 축약 시도명 (2026-07-24 플레이스 스크랩 주소 대응).
+// 네이버 플레이스 주소는 "서울특별시 강남구 …"처럼 공식 명칭으로 내려온다.
+const SIDO_ALIAS: Record<string, string> = {
+  서울특별시: "서울", 부산광역시: "부산", 대구광역시: "대구", 인천광역시: "인천",
+  광주광역시: "광주", 대전광역시: "대전", 울산광역시: "울산", 세종특별자치시: "세종",
+  경기도: "경기", 강원도: "강원", 강원특별자치도: "강원",
+  충청북도: "충북", 충청남도: "충남", 전라북도: "전북", 전북특별자치도: "전북",
+  전라남도: "전남", 경상북도: "경북", 경상남도: "경남", 제주특별자치도: "제주", 제주도: "제주",
+};
+export function normalizeSido(token: string): string {
+  return SIDO_ALIAS[token] ?? token;
+}
+
 // 카드 지역 정보 (2026-07-12 회의 §6-2) — 주소에서 "1차 2차" 행정구역을 추출해
 // "서울 강남구" 형태로 노출한다 (동일 상호 지점 구분·전국 리스트 지역 식별).
-// 주소 첫 토큰이 시도명일 때만 신뢰하고, 아니면 매장 area(동네 라벨)로 폴백.
+// 주소 첫 토큰이 시도명(공식 명칭 포함)일 때만 신뢰하고, 아니면 매장 area(동네 라벨)로 폴백.
 export function regionFromAddress(address?: string | null, fallback?: string): string {
   if (address) {
-    const [t0, t1] = address.trim().split(/\s+/);
+    const [raw0, t1] = address.trim().split(/\s+/);
+    const t0 = raw0 ? normalizeSido(raw0) : raw0;
     if (t0 && t1 && REGIONS.some((r) => r.sido === t0)) return `${t0} ${t1}`;
   }
   if (fallback) {

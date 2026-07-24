@@ -113,6 +113,9 @@ export interface Store {
   lng?: number;
   address?: string;
   naverPlaceId?: string; // m.place.naver.com/place/<id> 의 id
+  // 플레이스 첫 썸네일 (2026-07-24 — URL 매장 등록 시 수집). 캠페인 생성 폼의
+  // 대표 사진([0]) 프리필과 사진 미등록 캠페인 카드 폴백에 사용.
+  thumbnailUrl?: string;
 }
 
 // delivery(배송형)는 레뷰 벤치마크 반영(2026-07-12, docs/벤치마크-레뷰.md) —
