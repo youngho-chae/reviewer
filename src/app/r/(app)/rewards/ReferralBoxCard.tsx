@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { BoxGrade, InviteStats } from "@/lib/types";
-import { SBUI } from "@/lib/storyboard";
+import { SBUI, sbNum } from "@/lib/storyboard";
 
 interface Props {
   stats: InviteStats;
@@ -31,7 +31,7 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
           <span className="text-[#FDE047]">{cur.label}</span>
         </div>
         <div className="text-[12px] opacity-90 mt-1.5">
-          누적 성공 초대 <strong>{SBUI.count}</strong> · 박스가 클수록 지원금 부스트 UP
+          누적 성공 초대 <strong>{sbNum(SBUI.count, `${stats.accepted}건`)}</strong> · 박스가 클수록 지원금 부스트 UP
         </div>
 
         {/* 진행 바 */}
@@ -43,8 +43,8 @@ export default function ReferralBoxCard({ stats, myKind }: Props) {
             />
           </div>
           <div className="flex justify-between text-[11px] mt-1.5 opacity-85">
-            <span>발송 {SBUI.count} · 클릭 {SBUI.count}</span>
-            <span>{next ? `다음 박스까지 친구 ${SBUI.quota}` : "최고 등급 달성"}</span>
+            <span>발송 {sbNum(SBUI.count, `${stats.sent}건`)} · 클릭 {sbNum(SBUI.count, `${stats.clicked}건`)}</span>
+            <span>{next ? `다음 박스까지 친구 ${sbNum(SBUI.quota, `${next.at - stats.accepted}명`)}` : "최고 등급 달성"}</span>
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useState } from "react";
+import { REALTEST } from "@/lib/flags";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -14,8 +15,9 @@ export default function ReviewerLoginPage() {
 function ReviewerLogin() {
   const router = useRouter();
   const sp = useSearchParams();
-  const [email, setEmail] = useState("demo@reviewer.com");
-  const [password, setPassword] = useState("demo1234");
+  // realtest: 데모 프리필 없음 — 내부 인원 실계정 로그인 (flags.ts REALTEST)
+  const [email, setEmail] = useState(REALTEST ? "" : "demo@reviewer.com");
+  const [password, setPassword] = useState(REALTEST ? "" : "demo1234");
   // 소셜 콜백 실패 시 ?error= 로 복귀 (2026-07-23 간편로그인)
   const [err, setErr] = useState<string | null>(sp.get("error"));
   const [loading, setLoading] = useState(false);

@@ -86,7 +86,7 @@ export default async function SearchPage({
             ? c.pointReward
               ? `제품 제공 + ${sbNum(SBUI.point, `${c.pointReward.toLocaleString()}P`)}`
               : "제품 제공"
-            : `최대 ${SBUI.support} 지원`,
+            : `최대 ${sbNum(SBUI.support, `${c.supportAmount.toLocaleString()}원`)} 지원`,
           isDelivery,
           remain: campaignRemain(c),
           soldOut: campaignExposure(c, db.passes, now) === "issued_out",

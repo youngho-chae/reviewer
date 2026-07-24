@@ -429,9 +429,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         <p className="mt-1.5 text-[14px] text-ink2">{store?.area} · {store?.category}</p>
         <p className="mt-1 text-[13px] text-muted">
           {isDelivery ? (
-            <>제품 제공{campaign?.pointReward ? <> + 포인트 <span className="font-bold text-ink tabular-nums">{SBUI.point}</span></> : null}</>
+            <>제품 제공{campaign?.pointReward ? <> + 포인트 <span className="font-bold text-ink tabular-nums">{sbNum(SBUI.point, `${supportForGrade(campaign.pointReward, pass.reviewerGrade).toLocaleString()}P`)}</span></> : null}</>
           ) : (
-            <>지원금 <span className="font-bold text-ink tabular-nums">{SBUI.support}</span></>
+            <>지원금 <span className="font-bold text-ink tabular-nums">{sbNum(SBUI.support, `${(pass.supportApplied ?? entitledSupport).toLocaleString()}원`)}</span></>
           )}
           {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
         </p>

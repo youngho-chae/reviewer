@@ -362,7 +362,7 @@ function ExperienceCard({ card, info = "remain" }: { card: HomeCard; info?: "rem
           </div>
         )}
         <div className="mt-0.5 text-[15px] font-semibold text-ink truncate">{card.name}</div>
-        <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+        <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
       </div>
     </Link>
   );

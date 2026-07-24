@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
+import { REALTEST } from "@/lib/flags";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function OwnerLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState("demo@store.com");
-  const [password, setPassword] = useState("demo1234");
+  // realtest: 데모 프리필 없음 — 내부 인원 실계정 로그인 (flags.ts REALTEST)
+  const [email, setEmail] = useState(REALTEST ? "" : "demo@store.com");
+  const [password, setPassword] = useState(REALTEST ? "" : "demo1234");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

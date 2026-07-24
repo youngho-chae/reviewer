@@ -7,7 +7,7 @@ import { selfCheckConditions, defaultChannel } from "./channels";
 import { REGIONS } from "./regions";
 import { regionCenter } from "./geo";
 import { STORYBOARD } from "./storyboard";
-import { DELIVERY_ENABLED } from "./flags";
+import { DELIVERY_ENABLED, REALTEST } from "./flags";
 import { kstTodayStr, reservationDayEnd } from "./reservation";
 
 // ─────────────────────────────────────────────────────────────
@@ -418,6 +418,20 @@ export function runSeed(db: DBShape) {
 
   const hash = (p: string) => bcrypt.hashSync(p, 8);
   const now = Date.now();
+
+  // [realtest] 내부 인원 실사용 테스트 — 데모 매장·캠페인·계정을 시드하지 않는다.
+  // 운영팀 계정만 시드 (후기 검수(P3)·사장님 사업자 인증·예약 콘솔에 필요).
+  if (REALTEST) {
+    db.admins = [
+      {
+        id: detId("ad", "admin@catchrank.co.kr"),
+        email: "admin@catchrank.co.kr",
+        passwordHash: hash("demo1234"),
+        name: "운영팀",
+      },
+    ];
+    return;
+  }
 
   // 단일 데모 사장님이 모든 매장을 소유 (테스트 편의)
   const owner: Owner = {

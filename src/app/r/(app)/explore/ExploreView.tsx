@@ -729,7 +729,7 @@ function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?
           </span>
         )}
       </div>
-      <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+      <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
       <div className="mt-1.5">
         <ChannelIcons channels={card.requiredChannels} size={12} />
       </div>

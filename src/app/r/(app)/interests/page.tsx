@@ -126,7 +126,7 @@ export default async function ReviewerInterests({
               <div className="mt-0.5 text-[13px] text-muted">
                 {p.category} · {sbNum(SBUI.distance, formatDistance(mockDistanceM(p.storeId)))}
               </div>
-              <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {SBUI.support} 지원</div>
+              <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${p.supportAmount.toLocaleString()}원`)} 지원</div>
             </div>
           </Link>
         ))}

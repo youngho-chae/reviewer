@@ -87,6 +87,12 @@ export default async function ReviewerGrade() {
 
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
 
+  // 3-stat 실값 — 진행 중(사용 전~리뷰 검수 중) · 내 최대 지원금(연동 채널 최고 등급 배율) · 사용 가능(active)
+  const myPasses = db.passes.filter((p) => p.reviewerId === me.id);
+  const inProgressCnt = myPasses.filter((p) => ["active", "used", "review_submitted"].includes(p.status)).length;
+  const usableCnt = myPasses.filter((p) => p.status === "active").length;
+  const maxSupportPct = SUPPORT_MULTIPLIER[eff.grade];
+
   return (
     <div className="pb-24 bg-canvas">
       {/* top-app-bar — 화이트 52px */}
@@ -287,15 +293,15 @@ export default async function ReviewerGrade() {
         <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
           <div className="py-4 px-2 text-center">
             <div className="text-[12px] text-muted">진행 중인 체험</div>
-            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{SBUI.count}</div>
+            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.count, `${inProgressCnt}건`)}</div>
           </div>
           <div className="py-4 px-2 text-center border-l border-r border-hairlineSoft">
             <div className="text-[12px] text-muted">내 최대 지원금</div>
-            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{SBUI.support}</div>
+            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.support, `기준의 ${Math.round(maxSupportPct * 100)}%`)}</div>
           </div>
           <div className="py-4 px-2 text-center">
             <div className="text-[12px] text-brand font-semibold">🎫 사용 가능</div>
-            <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{SBUI.count}</div>
+            <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{sbNum(SBUI.count, `${usableCnt}건`)}</div>
           </div>
         </div>
       </section>
@@ -311,7 +317,7 @@ export default async function ReviewerGrade() {
           </span>
           <div className="flex-1">
             <div className="text-[14px] font-semibold text-ink">내 체험권</div>
-            <div className="text-[11px] text-muted mt-0.5">사용 가능 {SBUI.count} · 작성 대기/완료 포함</div>
+            <div className="text-[11px] text-muted mt-0.5">사용 가능 {sbNum(SBUI.count, `${usableCnt}건`)} · 작성 대기/완료 포함</div>
           </div>
           <Icon name="chevron-right" variant="border" size={14} className="text-muted" />
         </Link>

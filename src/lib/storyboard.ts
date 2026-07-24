@@ -14,7 +14,7 @@
 // STORYBOARD=false 로 두면 (또는 backup/real-mockdata 브랜치) 실데이터 렌더로 원복.
 // ─────────────────────────────────────────────────────────────
 
-export const STORYBOARD = true;
+export const STORYBOARD = false;
 
 export const SBUI = {
   // 금액 — 원 단위, 천 단위 콤마

@@ -4,8 +4,14 @@ import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
 import LiveCounter from "./LiveCounter";
 import ReferralBoxCard from "./ReferralBoxCard";
-import { snapshotCounter, defaultInviteStats, rewardEmoji } from "@/lib/referral";
-import { SBUI } from "@/lib/storyboard";
+import { snapshotCounter, defaultInviteStats, rewardEmoji, rewardLabel, refereePreview, matrixOf } from "@/lib/referral";
+import { SBUI, sbNum } from "@/lib/storyboard";
+
+// 날짜 표기 (SBUI.date 마스크 "0000.00.00"과 동일 형식)
+const fmtKoDate = (ts: number) => {
+  const d = new Date(ts + 9 * 3600000);
+  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(d.getUTCDate()).padStart(2, "0")}`;
+};
 import type { Invite } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +55,7 @@ export default async function RewardsPage() {
         {counter.todayBoxCount > 0 ? (
           <>
             <h2 className="text-[20px] font-bold text-ink tracking-title leading-[1.3] mt-1">
-              오늘 박스 <span className="text-brand">{SBUI.liveCount}</span>개가 열렸어요
+              오늘 박스 <span className="text-brand">{sbNum(SBUI.liveCount, counter.todayBoxCount.toLocaleString())}</span>개가 열렸어요
             </h2>
             <p className="text-[13px] text-muted mt-1">내 박스는 안 와요?</p>
           </>
@@ -80,7 +86,7 @@ export default async function RewardsPage() {
         <div className="flex items-end justify-between mb-3">
           <div>
             <h2 className="text-[18px] font-bold text-ink tracking-title">내 보상</h2>
-            <div className="text-[12px] text-muted mt-0.5">미사용 {SBUI.count} · 사용 {SBUI.count}</div>
+            <div className="text-[12px] text-muted mt-0.5">미사용 {sbNum(SBUI.count, `${myRewards.filter((r) => !r.usedAt).length}건`)} · 사용 {sbNum(SBUI.count, `${myRewards.filter((r) => !!r.usedAt).length}건`)}</div>
           </div>
         </div>
 
@@ -101,11 +107,11 @@ export default async function RewardsPage() {
                   {rewardEmoji(r)}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-ink truncate">{SBUI.reward}</div>
+                  <div className="text-[13px] font-medium text-ink truncate">{sbNum(SBUI.reward, rewardLabel(r))}</div>
                   <div className="text-[11px] text-muted mt-0.5">
                     {r.source === "referee_welcome" ? "환영 박스" : r.source === "referrer_box" ? "행운 박스" : "마일스톤"}
-                    <span className="opacity-70"> · {SBUI.matrix}</span>
-                    <span className="opacity-70"> · {SBUI.date}</span>
+                    {r.meta?.matrix && <span className="opacity-70"> · {sbNum(SBUI.matrix, r.meta.matrix)}</span>}
+                    <span className="opacity-70"> · {sbNum(SBUI.date, fmtKoDate(r.issuedAt))}</span>
                   </div>
                 </div>
                 <span
@@ -127,7 +133,7 @@ export default async function RewardsPage() {
           <div>
             <h2 className="text-[18px] font-bold text-ink tracking-title">보낸 초대</h2>
             <div className="text-[12px] text-muted mt-0.5">
-              발송 {SBUI.count} · 클릭 {SBUI.count} · 가입 {SBUI.count}
+              발송 {sbNum(SBUI.count, `${inviteStats.sent}건`)} · 클릭 {sbNum(SBUI.count, `${inviteStats.clicked}건`)} · 가입 {sbNum(SBUI.count, `${inviteStats.accepted}건`)}
             </div>
           </div>
           <Link href="/r/invite/new" className="cp-action h-9 px-3.5 rounded-md border border-hairline bg-canvas text-ink text-[13px] font-semibold inline-flex items-center">
@@ -178,11 +184,11 @@ function InviteRow({ inv, divider }: { inv: Invite; divider: boolean }) {
   const status = statusLabel[inv.status];
   return (
     <div className={`flex items-center gap-3 px-3 py-3 ${divider ? "border-t border-hairlineSoft" : ""}`}>
-      <span className="w-9 text-[11px] font-semibold text-muted text-center">{SBUI.matrix}</span>
+      <span className="w-9 text-[11px] font-semibold text-muted text-center">{sbNum(SBUI.matrix, `${inv.referrerKind === "reviewer" ? "R" : "O"}→${inv.targetKind === "reviewer" ? "R" : "O"}`)}</span>
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-mono text-ink truncate">{SBUI.token}</div>
+        <div className="text-[12px] font-mono text-ink truncate">{sbNum(SBUI.token, inv.token)}</div>
         <div className="text-[11px] text-muted mt-0.5">
-          {SBUI.reward} · {SBUI.date}
+          {sbNum(SBUI.reward, refereePreview(matrixOf(inv.referrerKind, inv.targetKind)))} · {sbNum(SBUI.date, fmtKoDate(inv.createdAt))}
         </div>
       </div>
       <span

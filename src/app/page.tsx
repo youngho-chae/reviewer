@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { REALTEST } from "@/lib/flags";
 
 // 루트 랜딩 — 역할 선택 (DESIGN.md v2: 화이트 캔버스, 20px 볼드 타이틀,
 // 헤어라인 보더 rounded-md 선택 카드 2장, 퍼플 CTA 액센트)
@@ -56,15 +57,28 @@ export default function Landing() {
         </Link>
       </div>
 
-      {/* 데모 계정 — footer 톤 */}
+      {/* 계정 안내 — realtest는 데모 계정 없이 내부 인원이 직접 가입한다 (flags.ts REALTEST) */}
       <div className="mt-auto pt-10">
         <div className="rounded-md bg-parchment px-4 py-4">
-          <div className="text-[13px] font-semibold text-ink mb-2">데모 계정</div>
-          <div className="space-y-1 text-[13px] text-ink2">
-            <div>체험자 · <span className="font-mono text-[12px]">demo@reviewer.com</span> / demo1234</div>
-            <div>사장님 · <span className="font-mono text-[12px]">demo@store.com</span> / demo1234</div>
-            <div>관리자 · <span className="font-mono text-[12px]">admin@catchrank.co.kr</span> / demo1234</div>
-          </div>
+          {REALTEST ? (
+            <>
+              <div className="text-[13px] font-semibold text-ink mb-2">내부 테스트 안내</div>
+              <div className="space-y-1 text-[13px] text-ink2">
+                <div>데모 데이터 없이 시작합니다 — 체험자·사장님 모두 직접 가입해주세요.</div>
+                <div>사장님은 가입 후 관리자의 사업자 인증 승인이 필요해요.</div>
+                <div>관리자 · <span className="font-mono text-[12px]">admin@catchrank.co.kr</span></div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[13px] font-semibold text-ink mb-2">데모 계정</div>
+              <div className="space-y-1 text-[13px] text-ink2">
+                <div>체험자 · <span className="font-mono text-[12px]">demo@reviewer.com</span> / demo1234</div>
+                <div>사장님 · <span className="font-mono text-[12px]">demo@store.com</span> / demo1234</div>
+                <div>관리자 · <span className="font-mono text-[12px]">admin@catchrank.co.kr</span> / demo1234</div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </main>
