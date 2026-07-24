@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { getCurrentReviewer } from "@/lib/server-helpers";
+import { getReviewerOrNull } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import { DELIVERY_ENABLED } from "@/lib/flags";
@@ -17,9 +17,10 @@ export default async function ReviewerExplore({
 }: {
   searchParams: Promise<{ mode?: string; cat?: string; sort?: string; q?: string; ch?: string; area?: string; scope?: string; loc?: string; tab?: string; v?: string; dcat?: string }>;
 }) {
-  const me = await getCurrentReviewer();
+  // 게스트 브라우징 (2026-07-24) — 미로그인도 탐색 허용. 금액은 카드에서 마스크.
+  const me = await getReviewerOrNull();
   // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
-  const eff = await effectiveChannelState(me);
+  const eff = me ? await effectiveChannelState(me) : { sns: [], channelGrades: {}, grade: "N" as const };
   const db = await getDBAsync();
   if (!db.naverDataFetched) {
     after(async () => {
@@ -130,10 +131,11 @@ export default async function ReviewerExplore({
       "[map] Naver map client ID missing at runtime — set NAVER_MAP_CLIENT_ID (or NEXT_PUBLIC_NAVER_MAP_CLIENT_ID) in the deployment env and redeploy.",
     );
   }
-  const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
+  const unread = me ? db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length : 0;
 
   return (
     <ExploreView
+      guest={!me}
       cards={cards}
       mapClientId={mapClientId}
       unread={unread}

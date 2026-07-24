@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getCurrentReviewer } from "@/lib/server-helpers";
+import { getReviewerOrNull } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
@@ -43,7 +43,8 @@ export default async function SearchPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  await getCurrentReviewer();
+  // 게스트 브라우징 (2026-07-24) — 미로그인도 통합 검색 허용, 금액은 마스크
+  const me = await getReviewerOrNull();
   const { q } = await searchParams;
   const query = (q ?? "").trim();
   const db = await getDBAsync();
@@ -82,11 +83,15 @@ export default async function SearchPage({
           category: isDelivery ? (c.productCategory ?? store.category) : store.category,
           region: isDelivery ? "전국 택배" : regionFromAddress(store.address, store.area),
           requiredChannels: c.requiredChannels,
-          benefit: isDelivery
-            ? c.pointReward
-              ? `제품 제공 + ${sbNum(SBUI.point, `${c.pointReward.toLocaleString()}P`)}`
-              : "제품 제공"
-            : `최대 ${SBUI.support} 지원`,
+          benefit: !me
+            ? isDelivery
+              ? "제품 제공 · 포인트 로그인 후 확인"
+              : "지원 금액 로그인 후 확인"
+            : isDelivery
+              ? c.pointReward
+                ? `제품 제공 + ${sbNum(SBUI.point, `${c.pointReward.toLocaleString()}P`)}`
+                : "제품 제공"
+              : `최대 ${SBUI.support} 지원`,
           isDelivery,
           remain: campaignRemain(c),
           soldOut: campaignExposure(c, db.passes, now) === "issued_out",

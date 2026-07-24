@@ -18,6 +18,9 @@ function ReviewerLogin() {
   const [password, setPassword] = useState("demo1234");
   // 소셜 콜백 실패 시 ?error= 로 복귀 (2026-07-23 간편로그인)
   const [err, setErr] = useState<string | null>(sp.get("error"));
+  // 게스트 브라우징 (2026-07-24) — 로그인 후 보던 화면 복귀 (내부 /r/ 경로만 — open redirect 방지)
+  const rawNext = sp.get("next");
+  const next = rawNext && rawNext.startsWith("/r/") && !rawNext.startsWith("//") ? rawNext : "/r/home";
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -34,7 +37,7 @@ function ReviewerLogin() {
       setLoading(false);
       return;
     }
-    router.push("/r/home");
+    router.push(next);
     router.refresh();
   }
 
@@ -58,10 +61,10 @@ function ReviewerLogin() {
         <span className="flex-1 h-px bg-hairline" />
       </div>
       <div className="mt-4 space-y-2">
-        <a href="/api/auth/social/naver/start" className="cp-action flex w-full h-[52px] items-center justify-center rounded-md bg-[#03C75A] text-white text-[16px] font-bold">
+        <a href={`/api/auth/social/naver/start${next !== "/r/home" ? `?next=${encodeURIComponent(next)}` : ""}`} className="cp-action flex w-full h-[52px] items-center justify-center rounded-md bg-[#03C75A] text-white text-[16px] font-bold">
           네이버로 시작하기
         </a>
-        <a href="/api/auth/social/kakao/start" className="cp-action flex w-full h-[52px] items-center justify-center rounded-md bg-[#FEE500] text-[#191919] text-[16px] font-bold">
+        <a href={`/api/auth/social/kakao/start${next !== "/r/home" ? `?next=${encodeURIComponent(next)}` : ""}`} className="cp-action flex w-full h-[52px] items-center justify-center rounded-md bg-[#FEE500] text-[#191919] text-[16px] font-bold">
           카카오로 시작하기
         </a>
       </div>

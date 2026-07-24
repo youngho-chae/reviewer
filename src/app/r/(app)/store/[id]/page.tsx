@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getCurrentReviewer } from "@/lib/server-helpers";
+import { getReviewerOrNull } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { photosForCampaign } from "@/lib/store-photo";
 import { SBUI, STORYBOARD, sbNum } from "@/lib/storyboard";
@@ -19,9 +19,11 @@ import AddressCopy from "./AddressCopy";
 export const dynamic = "force-dynamic";
 
 export default async function StoreDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ campaign?: string }> }) {
-  const me = await getCurrentReviewer();
+  // 게스트 브라우징 (2026-07-24) — 미로그인도 상세 열람 허용. 금액·메뉴 가격은 마스크,
+  // 하단 CTA는 [로그인 하러가기]로 로그인 유도 (시안).
+  const me = await getReviewerOrNull();
   // 인스턴스 불일치 스톱갭 — 연동 직후 라디오/CTA가 최신 연동 상태로 (sns-cookie.ts)
-  const eff = await effectiveChannelState(me);
+  const eff = me ? await effectiveChannelState(me) : { sns: [], channelGrades: {}, grade: "N" as const };
   const { id } = await params;
   const { campaign: campaignId } = await searchParams;
   const db = await getDBAsync();
@@ -47,11 +49,13 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   // 노출 상태 재사용 (재구현 금지) — issued_out = 잔여 0이지만 살아있는 체험권이 남아
   // 만료·취소 시 슬롯이 복구될 수 있는 상태 (완전 종료 아님, 2026-07-10 §1-2)
   const exposure = campaignExposure(c, db.passes, now);
-  const interested = (db.interests ?? []).some((i) => i.reviewerId === me.id && i.campaignId === c.id);
-  const myActivePass = db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"));
+  const interested = !!me && (db.interests ?? []).some((i) => i.reviewerId === me.id && i.campaignId === c.id);
+  const myActivePass = me
+    ? db.passes.find((p) => p.reviewerId === me.id && p.campaignId === c.id && (p.status === "active" || p.status === "used" || p.status === "review_submitted"))
+    : undefined;
   // 취소 후 12h 재신청 쿨다운 — 발급 API와 동일 판정을 서버에서 미리 계산해 CTA에 반영 (§1-1).
   // 예약 제안 거절 취소(cancelledVia)는 제한 없음 (2026-07-16 v2 — 발급 API와 동일 예외)
-  const recentCancel = db.passes.find(
+  const recentCancel = me && db.passes.find(
     (p) =>
       p.reviewerId === me.id &&
       p.campaignId === c.id &&
@@ -63,6 +67,10 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
   const cooldownLeftH = recentCancel
     ? Math.max(1, Math.ceil((CANCEL_REAPPLY_COOLDOWN_MS - (now - (recentCancel.cancelledAt as number))) / 3600000))
     : null;
+
+  // 게스트 로그인 유도 — 로그인 후 이 상세로 복귀 (open-redirect 방지: /r/ 내부 경로만)
+  const loginNext = `/r/store/${store.id}?campaign=${c.id}`;
+  const loginHref = `/r/login?next=${encodeURIComponent(loginNext)}`;
 
   const endDate = new Date(c.endAt);
   // 체험 마감일 표기 형식: "00월 00일 까지" (SBUI.endDate 마스크와 동일)
@@ -79,7 +87,7 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
             <Icon name="chevron-left" variant="border" size={22} />
           </Link>
           {/* 관심 목록 — 캠페인 단위 저장 (2026-07-07 회의) */}
-          <InterestToggle campaignId={c.id} initialSaved={interested} />
+          <InterestToggle campaignId={c.id} initialSaved={interested} guest={!me} loginHref={loginHref} />
         </div>
       </div>
 
@@ -190,6 +198,8 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         ended={ended}
         exposure={exposure}
         cooldownLeftH={cooldownLeftH}
+        guest={!me}
+        loginHref={loginHref}
       >
         {/* 필수 주문 메뉴 */}
         {c.requiredMenus.length > 0 && (
@@ -203,7 +213,11 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
                 <div key={`${m.name}-${i}`} className="rounded-sm bg-brandSoft px-3.5 py-3 flex items-center justify-between">
                   <span className="text-[15px] font-semibold text-brand">{m.name}</span>
                   {typeof m.price === "number" && m.price > 0 && (
-                    <span className="text-[14px] font-semibold text-ink tabular-nums">{sbNum(SBUI.price, `${m.price.toLocaleString()}원`)}</span>
+                    me ? (
+                      <span className="text-[14px] font-semibold text-ink tabular-nums">{sbNum(SBUI.price, `${m.price.toLocaleString()}원`)}</span>
+                    ) : (
+                      <span className="text-[13px] font-semibold text-muted">로그인 후 확인</span>
+                    )
                   )}
                 </div>
               ))}
