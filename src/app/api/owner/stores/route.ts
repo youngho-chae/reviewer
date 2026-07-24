@@ -42,12 +42,35 @@ export async function POST(req: NextRequest) {
 
   const db = await getDBAsync();
   const dup = db.stores.find((st) => st.ownerId === s.userId && st.naverPlaceId === placeId);
-  if (dup) {
-    return NextResponse.json({ ok: true, store: dup, duplicated: true });
-  }
 
   // 플레이스 정보 조회 — 실패(차단·비공개) 시 매장명 수동 입력 폴백
   const scraped = await scrapePlace(placeId).catch(() => null);
+
+  // 이미 등록된 플레이스 — 재수집 값으로 메타를 갱신해 준다 (자가 복구 2026-07-24:
+  // 과거 스크랩이 부실해 업종 "기타"/지역 "미지정"으로 남은 매장을 같은 URL 재등록으로 교정).
+  if (dup) {
+    if (scraped) {
+      const dupAddress = scraped.roadAddress || scraped.address;
+      const dupRegion = regionFromAddress(scraped.address || dupAddress);
+      const dupCenter = dupRegion ? regionCenter(dupRegion) : null;
+      if (scraped.name) dup.name = scraped.name;
+      if (scraped.category) dup.category = scraped.category;
+      if (dupRegion) dup.area = dupRegion;
+      if (dupAddress) dup.address = dupAddress;
+      const lat = scraped.lat ?? dupCenter?.lat;
+      const lng = scraped.lng ?? dupCenter?.lng;
+      if (lat !== undefined && lng !== undefined) {
+        dup.lat = lat;
+        dup.lng = lng;
+      }
+      if (scraped.imageUrl) dup.thumbnailUrl = scraped.imageUrl;
+      if (scraped.rating !== undefined) dup.rating = scraped.rating;
+      if (scraped.reviewCount !== undefined) dup.reviewCount = scraped.reviewCount;
+      await saveDBAsync();
+    }
+    return NextResponse.json({ ok: true, store: dup, duplicated: true, refreshed: !!scraped });
+  }
+
   const name = scraped?.name || manualName;
   if (!name) {
     return NextResponse.json(
