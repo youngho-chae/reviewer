@@ -3,6 +3,8 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { scrapePlace } from "@/lib/naver-scraper";
+import { regionFromAddress } from "@/lib/regions";
+import { regionCenter } from "@/lib/geo";
 import type { Store } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -40,12 +42,35 @@ export async function POST(req: NextRequest) {
 
   const db = await getDBAsync();
   const dup = db.stores.find((st) => st.ownerId === s.userId && st.naverPlaceId === placeId);
-  if (dup) {
-    return NextResponse.json({ ok: true, store: dup, duplicated: true });
-  }
 
   // 플레이스 정보 조회 — 실패(차단·비공개) 시 매장명 수동 입력 폴백
   const scraped = await scrapePlace(placeId).catch(() => null);
+
+  // 이미 등록된 플레이스 — 재수집 값으로 메타를 갱신해 준다 (자가 복구 2026-07-24:
+  // 과거 스크랩이 부실해 업종 "기타"/지역 "미지정"으로 남은 매장을 같은 URL 재등록으로 교정).
+  if (dup) {
+    if (scraped) {
+      const dupAddress = scraped.roadAddress || scraped.address;
+      const dupRegion = regionFromAddress(scraped.address || dupAddress);
+      const dupCenter = dupRegion ? regionCenter(dupRegion) : null;
+      if (scraped.name) dup.name = scraped.name;
+      if (scraped.category) dup.category = scraped.category;
+      if (dupRegion) dup.area = dupRegion;
+      if (dupAddress) dup.address = dupAddress;
+      const lat = scraped.lat ?? dupCenter?.lat;
+      const lng = scraped.lng ?? dupCenter?.lng;
+      if (lat !== undefined && lng !== undefined) {
+        dup.lat = lat;
+        dup.lng = lng;
+      }
+      if (scraped.imageUrl) dup.thumbnailUrl = scraped.imageUrl;
+      if (scraped.rating !== undefined) dup.rating = scraped.rating;
+      if (scraped.reviewCount !== undefined) dup.reviewCount = scraped.reviewCount;
+      await saveDBAsync();
+    }
+    return NextResponse.json({ ok: true, store: dup, duplicated: true, refreshed: !!scraped });
+  }
+
   const name = scraped?.name || manualName;
   if (!name) {
     return NextResponse.json(
@@ -54,20 +79,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 지역 매핑 (2026-07-24) — 플레이스 주소("서울특별시 강남구 …")를 REGIONS 기준
+  // "서울 강남구" 라벨로 정규화해 지도 재검색·지역 필터·카드 지역 표기에 그대로 쓴다.
+  // 좌표가 안 내려오면 시군구 행정 기준점(regionCenter)으로 폴백해 지도에서 빠지지 않게 한다.
+  const fullAddress = scraped?.roadAddress || scraped?.address;
+  const region = regionFromAddress(scraped?.address || fullAddress);
+  const fallbackCenter = region ? regionCenter(region) : null;
   const store: Store = {
     id: rid("st"),
     ownerId: s.userId,
     name,
     category: scraped?.category || "기타",
-    area: scraped?.address?.split(" ").slice(1, 3).join(" ") || "미지정",
+    area: region || "미지정",
     coverEmoji: "🏪",
     rating: scraped?.rating ?? 0,
     reviewCount: scraped?.reviewCount ?? 0,
     hours: scraped?.hours || "영업시간 미등록",
-    lat: scraped?.lat,
-    lng: scraped?.lng,
-    address: scraped?.roadAddress || scraped?.address,
+    lat: scraped?.lat ?? fallbackCenter?.lat,
+    lng: scraped?.lng ?? fallbackCenter?.lng,
+    address: fullAddress,
     naverPlaceId: placeId,
+    // 플레이스 첫 썸네일 — 캠페인 대표 사진 프리필·카드 폴백에 사용
+    ...(scraped?.imageUrl ? { thumbnailUrl: scraped.imageUrl } : {}),
   };
   db.stores.push(store);
   await saveDBAsync();
