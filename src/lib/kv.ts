@@ -5,7 +5,14 @@
 // MVP 규모(수십 명, 수백 패스)에선 충분히 작동하며,
 // 추후 사용자가 늘면 키별 정규화로 마이그레이션 권장.
 
-const KEY = "catchpass:db:v1";
+// 배포(브랜치)별 네임스페이스 — 같은 Vercel 프로젝트의 여러 브랜치 배포가 하나의 KV를
+// 공유해도 서로의 DB를 덮어쓰지 않도록 키를 분리한다 (2026-07-24 실사고: realtest 배포의
+// 시드 없는 2000계열 재시드가 공유 키를 덮어써 default 배포의 데모 계정 로그인이 깨짐).
+// 우선순위: CATCHPASS_DB_NS(수동 지정) > VERCEL_GIT_COMMIT_REF(배포 브랜치) > "local".
+const NS = (process.env.CATCHPASS_DB_NS || process.env.VERCEL_GIT_COMMIT_REF || "local").replace(/[^a-zA-Z0-9_-]/g, "_");
+const KEY = `catchpass:db:v1:${NS}`;
+// 네임스페이스 도입 전 공용 키 — 최초 1회 같은 시드 계열이면 승계(마이그레이션)용으로만 읽는다
+const LEGACY_KEY = "catchpass:db:v1";
 
 function endpoint() {
   const url = process.env.KV_REST_API_URL;
@@ -19,10 +26,19 @@ export function kvAvailable(): boolean {
 }
 
 export async function kvLoad<T>(): Promise<T | null> {
+  return kvLoadKey<T>(KEY);
+}
+
+// 레거시(비네임스페이스) 키 조회 — db.ts 부트스트랩의 1회 승계 전용
+export async function kvLoadLegacy<T>(): Promise<T | null> {
+  return kvLoadKey<T>(LEGACY_KEY);
+}
+
+async function kvLoadKey<T>(key: string): Promise<T | null> {
   const e = endpoint();
   if (!e) return null;
   try {
-    const r = await fetch(`${e.url}/get/${encodeURIComponent(KEY)}`, {
+    const r = await fetch(`${e.url}/get/${encodeURIComponent(key)}`, {
       headers: { Authorization: `Bearer ${e.token}` },
       cache: "no-store",
     });

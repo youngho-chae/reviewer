@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DBShape } from "./types";
-import { kvAvailable, kvLoad, kvSave } from "./kv";
+import { kvAvailable, kvLoad, kvLoadLegacy, kvSave } from "./kv";
 import { sweepPassLifecycle } from "./pass-lifecycle";
 import { sweepMonthlyRegrade } from "./grade-regrade";
 
@@ -109,12 +109,19 @@ export async function getDBAsync(): Promise<DBShape> {
       await maybeAutoRefresh(fresh);
       return fresh;
     } else {
-      // KV 비어있음 — 부트스트랩
-      const db: DBShape = { ...empty };
+      // KV(네임스페이스 키) 비어있음 — 레거시 공용 키에서 1회 승계 시도 후 부트스트랩.
+      // 승계는 같은 시드 계열(천 단위 — 데모 1000대/realtest 2000대)일 때만: 다른 계열
+      // 데이터를 승계하면 seedVersion이 더 높아 재시드가 막히고 이 배포의 시드가 사라진다
+      // (2026-07-24 실사고의 재발 방지 — 계열 불일치면 무시하고 새로 시드).
+      const legacy = await kvLoadLegacy<DBShape>();
+      const sameSeries =
+        !!legacy && Math.floor((legacy.seedVersion ?? 0) / 1000) === Math.floor(SEED_VERSION / 1000);
+      const db: DBShape = sameSeries ? (legacy as DBShape) : { ...empty };
       ensureSeeded(db);
       sweepPassLifecycle(db);
       sweepMonthlyRegrade(db);
       await kvSave(db);
+      persist(db);
       globalThis.__catchpass_db = db;
       await maybeAutoRefresh(db);
       return db;
