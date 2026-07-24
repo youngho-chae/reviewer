@@ -16,13 +16,13 @@ export default function Landing() {
 
       {/* 역할 선택 카드 */}
       <div className="mt-8 space-y-3">
-        <Link href="/r/login" className="cp-action block rounded-md border border-hairline bg-canvas p-5">
+        <Link href="/r/home" className="cp-action block rounded-md border border-hairline bg-canvas p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[16px] font-bold text-ink">체험자로 시작</div>
-              <div className="mt-1 text-[13px] text-muted leading-[1.4]">동네 체험권 받고 평소처럼 리뷰로 인증해요</div>
+              <div className="mt-1 text-[13px] text-muted leading-[1.4]">동네 체험권 받고 평소처럼 리뷰로 인증해요 · 로그인 없이 둘러볼 수 있어요</div>
             </div>
-            <span className="shrink-0 text-[14px] font-semibold text-brand">시작하기 →</span>
+            <span className="shrink-0 text-[14px] font-semibold text-brand">둘러보기 →</span>
           </div>
         </Link>
         <Link href="/o/login" className="cp-action block rounded-md border border-hairline bg-canvas p-5">

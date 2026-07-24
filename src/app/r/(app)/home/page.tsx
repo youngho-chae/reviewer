@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import Link from "next/link";
 import Image from "next/image";
-import { getCurrentReviewer } from "@/lib/server-helpers";
+import { getReviewerOrNull } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import type { SnsKind } from "@/lib/types";
@@ -47,9 +47,10 @@ export default async function ReviewerHome({
 }: {
   searchParams: Promise<{ area?: string }>;
 }) {
-  const me = await getCurrentReviewer();
+  // 게스트 브라우징 (2026-07-24) — 미로그인도 홈 열람 허용. 개인화 값은 마스크.
+  const me = await getReviewerOrNull();
   // 인스턴스 불일치 스톱갭 — 연동 직후 금액 개인화가 최신 채널 등급 기준으로 (sns-cookie.ts)
-  const eff = await effectiveChannelState(me);
+  const eff = me ? await effectiveChannelState(me) : { sns: [], channelGrades: {}, grade: "N" as const };
   const { area: areaParam } = await searchParams;
   const db = await getDBAsync();
   if (!db.naverDataFetched) {
@@ -95,7 +96,7 @@ export default async function ReviewerHome({
 
   // stat-strip — 내 활동 3종 (전부 실데이터 집계 — P4)
   const monthStart = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime();
-  const myPasses = db.passes.filter((p) => p.reviewerId === me.id);
+  const myPasses = me ? db.passes.filter((p) => p.reviewerId === me.id) : [];
   const savedThisMonth = myPasses
     .filter((p) => p.usedAt && p.usedAt >= monthStart && typeof p.supportApplied === "number")
     .reduce((s, p) => s + (p.supportApplied || 0), 0);
@@ -154,7 +155,7 @@ export default async function ReviewerHome({
   const walkTitleArea = selectedArea ? selectedArea.trim().split(/\s+/).pop() : null;
 
   const repArea = cards[0] ? cards[0].area : "내 동네";
-  const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
+  const unread = me ? db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length : 0;
 
   return (
     <div className="pb-24 bg-canvas">
@@ -189,20 +190,27 @@ export default async function ReviewerHome({
         </div>
       </section>
 
-      {/* stat-strip — 이번 달 아낀 금액 / 밀린 리뷰 / 참여 예정 (확정 정책 1-1 · 라벨 2026-07-17) */}
+      {/* stat-strip — 이번 달 아낀 금액 / 밀린 리뷰 / 참여 예정 (확정 정책 1-1 · 라벨 2026-07-17)
+          게스트는 3종 공통 "회원 전용" 표기 (2026-07-24 게스트 브라우징) */}
       <section className="px-5 mt-3">
         <div className="rounded-lg border border-hairline bg-canvas grid grid-cols-3">
           <div className="py-4 px-3 text-center">
             <div className="text-[12px] text-muted">이번 달 아낀 금액</div>
-            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.saved, `${savedThisMonth.toLocaleString()}원`)}</div>
+            <div className={`mt-1 text-[16px] font-bold tabular-nums ${me ? "text-ink" : "text-mutedSoft"}`}>
+              {me ? sbNum(SBUI.saved, `${savedThisMonth.toLocaleString()}원`) : "회원 전용"}
+            </div>
           </div>
           <div className="py-4 px-3 text-center border-l border-r border-hairlineSoft">
             <div className="text-[12px] text-muted">밀린 리뷰</div>
-            <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.count, `${pendingReviews}건`)}</div>
+            <div className={`mt-1 text-[16px] font-bold tabular-nums ${me ? "text-ink" : "text-mutedSoft"}`}>
+              {me ? sbNum(SBUI.count, `${pendingReviews}건`) : "회원 전용"}
+            </div>
           </div>
-          <Link href="/r/passes" className="cp-action py-4 px-3 text-center block">
+          <Link href={me ? "/r/passes" : "/r/login?next=%2Fr%2Fhome"} className="cp-action py-4 px-3 text-center block">
             <div className="text-[12px] text-brand font-semibold">🎫 참여 예정</div>
-            <div className="mt-1 text-[16px] font-bold text-brand tabular-nums">{sbNum(SBUI.count, `${upcoming}건`)}</div>
+            <div className={`mt-1 text-[16px] font-bold tabular-nums ${me ? "text-brand" : "text-mutedSoft"}`}>
+              {me ? sbNum(SBUI.count, `${upcoming}건`) : "회원 전용"}
+            </div>
           </Link>
         </div>
       </section>
@@ -230,7 +238,7 @@ export default async function ReviewerHome({
         <div className="flex gap-3 px-5">
           {nearby.map((p) => (
             <div key={p.storeId} className="w-[168px] shrink-0 snap-start">
-              <ExperienceCard card={p} />
+              <ExperienceCard card={p} guest={!me} />
             </div>
           ))}
           {nearby.length === 0 && (
@@ -290,7 +298,11 @@ export default async function ReviewerHome({
                       )}
                       <div className="mt-0.5 text-[15px] font-semibold text-ink truncate">{p.name}</div>
                       <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">
-                        제품{p.pointReward > 0 ? <> + {sbNum(SBUI.point, `${p.pointReward.toLocaleString()}P`)}</> : " 제공"}
+                        {me ? (
+                          <>제품{p.pointReward > 0 ? <> + {sbNum(SBUI.point, `${p.pointReward.toLocaleString()}P`)}</> : " 제공"}</>
+                        ) : (
+                          <span className="text-[14px] font-semibold text-muted">제품 제공 · 포인트 로그인 후 확인</span>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -318,7 +330,7 @@ export default async function ReviewerHome({
       </section>
       <section className="px-5 grid grid-cols-2 gap-x-3 gap-y-6">
         {all.map((p) => (
-          <ExperienceCard key={`all-${p.storeId}`} card={p} info="region" />
+          <ExperienceCard key={`all-${p.storeId}`} card={p} info="region" guest={!me} />
         ))}
         {all.length === 0 && (
           <div className="col-span-2 py-12 text-center text-muted text-[13px]">지금은 동네가 잠깐 쉬는 중</div>
@@ -329,7 +341,7 @@ export default async function ReviewerHome({
 }
 
 /* experience-card — 4:3 사진 + SNS 배지 + 🎫 남음 + 가게명 + 최대 ₩N 지원 (DESIGN.md v2) */
-function ExperienceCard({ card, info = "remain" }: { card: HomeCard; info?: "remain" | "region" }) {
+function ExperienceCard({ card, info = "remain", guest = false }: { card: HomeCard; info?: "remain" | "region"; guest?: boolean }) {
   return (
     <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action block">
       <div className="aspect-[4/3] bg-sunken relative overflow-hidden rounded-md">
@@ -362,7 +374,12 @@ function ExperienceCard({ card, info = "remain" }: { card: HomeCard; info?: "rem
           </div>
         )}
         <div className="mt-0.5 text-[15px] font-semibold text-ink truncate">{card.name}</div>
-        <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
+        {/* 게스트는 SNS 미연동이라 금액 산정 불가 — 마스크 (2026-07-24) */}
+        {guest ? (
+          <div className="mt-0.5 text-[14px] font-semibold text-muted">지원 금액 로그인 후 확인</div>
+        ) : (
+          <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
+        )}
       </div>
     </Link>
   );

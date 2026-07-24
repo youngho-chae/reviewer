@@ -11,6 +11,15 @@ export async function getCurrentReviewer(): Promise<Reviewer> {
   if (!r) redirect("/r/login");
   return r;
 }
+// 게스트 브라우징 (2026-07-24) — 공개 화면(홈·탐색·검색·매장 상세) 전용.
+// 미로그인이면 redirect 대신 null을 반환한다. 개인화 값(금액·통계·관심)은
+// 호출부가 null 분기로 마스크("로그인 후 확인"/"회원 전용")하고 로그인 CTA를 노출한다.
+export async function getReviewerOrNull(): Promise<Reviewer | null> {
+  const s = await readSession();
+  if (!s || s.role !== "reviewer") return null;
+  const db = await getDBAsync();
+  return db.reviewers.find((x) => x.id === s.userId) ?? null;
+}
 export async function getCurrentOwner(): Promise<Owner> {
   const s = await readSession();
   if (!s || s.role !== "owner") redirect("/o/login");

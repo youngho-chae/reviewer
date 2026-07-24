@@ -38,6 +38,9 @@ interface Props {
   exposure?: "open" | "issued_out" | "closed";
   // 취소 후 12h 재신청 쿨다운 잔여 시간 — 서버(/api/passes)와 동일 판정을 CTA에 사전 반영
   cooldownLeftH?: number | null;
+  // 게스트 브라우징 (2026-07-24) — 미로그인이면 금액 마스크 + CTA [로그인 하러가기]
+  guest?: boolean;
+  loginHref?: string; // /r/login?next=... (로그인 후 이 상세로 복귀)
   children?: ReactNode; // 라디오 섹션과 리뷰 조건 사이의 정적 섹션들 (서버 렌더)
 }
 
@@ -62,6 +65,8 @@ export default function StoreParticipate({
   ended = false,
   exposure = "open",
   cooldownLeftH = null,
+  guest = false,
+  loginHref = "/r/login",
   children,
 }: Props) {
   const router = useRouter();
@@ -171,8 +176,9 @@ export default function StoreParticipate({
                     <span className="text-[15px] font-semibold text-mutedSoft truncate">{CHANNEL_LABEL[ch]}</span>
                     <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill border border-hairline text-[11px] text-muted">연동 필요</span>
                   </span>
-                  {/* 미연동 채널은 선택 불가 유지 — 채널 관리에서 본인 인증 연동 후 참여 (2026-07-10) */}
-                  <Link href="/r/me/channels" className="cp-action text-[12px] font-semibold text-brand shrink-0">
+                  {/* 미연동 채널은 선택 불가 유지 — 채널 관리에서 본인 인증 연동 후 참여 (2026-07-10).
+                      게스트는 로그인 후 이 상세로 복귀해 연동을 이어간다 (2026-07-24) */}
+                  <Link href={guest ? loginHref : "/r/me/channels"} className="cp-action text-[12px] font-semibold text-brand shrink-0">
                     연동하기 →
                   </Link>
                 </div>
@@ -265,6 +271,37 @@ export default function StoreParticipate({
               </div>
             </div>
           </>
+        ) : guest ? (
+          <>
+            {/* 게스트 — 채널 선택 전이라 필수 채널별 조건을 모두 공개 (2026-07-24 시안) */}
+            <p className="mt-1 text-[13px] text-muted">
+              리뷰를 작성하기 <span className="font-semibold text-ink2">전에</span> 아래 조건을 미리 확인해주세요. 제출 화면에서는 자가 점검만 진행해요.
+            </p>
+            {ordered.map((ch) => (
+              <div key={ch} className="mt-3">
+                {ordered.length > 1 && <div className="text-[13px] font-semibold text-ink2 mb-1.5">{CHANNEL_LABEL[ch]}</div>}
+                <div className="rounded-md border border-hairline overflow-hidden">
+                  {CHANNEL_REVIEW_CONDITIONS[ch].filter((cnd) => !cnd.keep).map((cnd, i, arr) => (
+                    <div key={cnd.key} className={`px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
+                      <div className="text-[15px] font-semibold text-ink">{cnd.label}</div>
+                      {cnd.hint && <div className="text-[12px] text-muted mt-0.5">{cnd.hint}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {ordered[0] && (
+              <div className="mt-3 rounded-md border border-brand bg-brandSoft p-4">
+                <div className="text-[14px] font-semibold text-ink">광고 표시 문구 (필수 포함)</div>
+                <div className="mt-2 p-3 bg-canvas rounded-sm text-[14px] text-ink leading-[1.5] break-keep">
+                  {CHANNEL_AD_NOTICE[ordered[0]]}
+                </div>
+                <div className="text-[11px] text-ink2 mt-3 pt-3 border-t border-dashed border-hairline leading-[1.5]">
+                  공정거래위원회 추천·보증 광고 안내에 따라 경제적 이해관계는 명확히 표시되어야 합니다.
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <p className="mt-3 text-[14px] text-muted">채널을 연동하면 작성 조건이 표시돼요.</p>
         )}
@@ -275,8 +312,10 @@ export default function StoreParticipate({
         <div className="px-5 py-3 flex items-center gap-4">
           <div className="shrink-0">
             <div className="text-[12px] text-muted">{isDelivery ? "적립 포인트" : "지원 금액"}</div>
-            <div className="text-[18px] font-bold text-ink tabular-nums leading-tight">
-              {!connected
+            <div className={`font-bold tabular-nums leading-tight ${guest ? "text-[14px] text-muted" : "text-[18px] text-ink"}`}>
+              {guest
+                ? "로그인 후 확인"
+                : !connected
                 ? "—"
                 : isDelivery
                   ? pointReward > 0
@@ -285,8 +324,16 @@ export default function StoreParticipate({
                   : sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}
             </div>
           </div>
-          {/* CTA 우선순위 (2026-07-10 §1): 종료 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
-          {ended || (remain <= 0 && exposure === "closed") ? (
+          {/* CTA 우선순위 (2026-07-10 §1): [게스트 로그인 유도(2026-07-24 시안 — 최우선)] >
+              종료 > 신청 완료 > 12h 쿨다운 > 일시 소진 > 채널 미연동 > 발급 */}
+          {guest ? (
+            <Link
+              href={loginHref}
+              className="cp-action flex-1 h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold"
+            >
+              로그인 하러가기
+            </Link>
+          ) : ended || (remain <= 0 && exposure === "closed") ? (
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
               종료된 체험입니다
             </button>

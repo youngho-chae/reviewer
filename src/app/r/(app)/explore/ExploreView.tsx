@@ -60,6 +60,8 @@ export interface ExploreDeliveryCard {
 type SortKey = "recommended" | "distance" | "new" | "topSupport" | "closing";
 
 interface Props {
+  // 게스트 브라우징 (2026-07-24) — SNS 미연동이라 금액 산정 불가, 카드 금액 마스크
+  guest?: boolean;
   cards: ExploreStoreCard[];
   deliveryCards?: ExploreDeliveryCard[];
   mapClientId: string;
@@ -110,6 +112,7 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 
 export default function ExploreView({
+  guest = false,
   cards,
   deliveryCards = [],
   mapClientId,
@@ -524,7 +527,7 @@ export default function ExploreView({
   const visitList = (
     <div className="px-5 mt-4 space-y-4 pb-32">
       {filtered.map((p) => (
-        <ExperienceRow key={p.campaignId} card={p} distanceM={distanceOf(p)} />
+        <ExperienceRow key={p.campaignId} card={p} distanceM={distanceOf(p)} guest={guest} />
       ))}
       {filtered.length === 0 && (
         <div className="py-10">
@@ -536,7 +539,7 @@ export default function ExploreView({
               <h3 className="text-[16px] font-bold text-ink tracking-title">이런 체험은 어때요?</h3>
               <div className="mt-4 space-y-4">
                 {fallbackRecommended.map((p) => (
-                  <ExperienceRow key={p.campaignId} card={p} distanceM={distanceOf(p)} />
+                  <ExperienceRow key={p.campaignId} card={p} distanceM={distanceOf(p)} guest={guest} />
                 ))}
               </div>
             </div>
@@ -549,7 +552,7 @@ export default function ExploreView({
   const deliveryList = (
     <div className="px-5 mt-4 space-y-4 pb-32">
       {filteredDelivery.map((p) => (
-        <DeliveryRow key={p.campaignId} card={p} />
+        <DeliveryRow key={p.campaignId} card={p} guest={guest} />
       ))}
       {filteredDelivery.length === 0 && (
         <div className="py-16 text-center text-muted text-[14px]">
@@ -688,7 +691,7 @@ export default function ExploreView({
  *   좌 96px 정사각 썸네일 · SNS 배지 · 가게명 · 카테고리·거리 · 최대 ₩N 지원
  *   우상단 🎫 N 남음(발급 소진 시 '발급 마감'). [P1] 등급 게이트 없음.
  * ─────────────────────────────────────────────────────────────*/
-function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?: number }) {
+function ExperienceRow({ card, distanceM, guest = false }: { card: ExploreStoreCard; distanceM?: number; guest?: boolean }) {
   const dist = distanceM ?? mockDistanceM(card.storeId);
   // [2026-07-12 회의 §1-3] '참여 중'·'마감 임박' 배지 삭제 — 상태는 상세 CTA로 구분,
   // 마감 임박 필터는 정렬(곧 마감)로만 반영. 카드 상태 정보 과다 노출 방지.
@@ -729,7 +732,12 @@ function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?
           </span>
         )}
       </div>
-      <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
+      {/* 게스트 — 금액 마스크 (2026-07-24) */}
+      {guest ? (
+        <div className="mt-1 text-[14px] font-semibold text-muted">지원 금액 로그인 후 확인</div>
+      ) : (
+        <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
+      )}
       <div className="mt-1.5">
         <ChannelIcons channels={card.requiredChannels} size={12} />
       </div>
@@ -739,7 +747,7 @@ function ExperienceRow({ card, distanceM }: { card: ExploreStoreCard; distanceM?
 
 /* 배송형 행 (2026-07-12 레뷰 벤치마크) — 동일 문법. 거리 대신 지역, 금액 = 제공 상품가 + 적립 포인트.
    포인트 표기는 기준 포인트(등급 배율 전) — 실제 적립액은 상세에서 채널 등급 기준으로 확인. */
-function DeliveryRow({ card }: { card: ExploreDeliveryCard }) {
+function DeliveryRow({ card, guest = false }: { card: ExploreDeliveryCard; guest?: boolean }) {
   // [2026-07-12 회의 §1-3] '참여 중'·'마감 임박' 배지 삭제 (방문형 행과 동일 원칙)
   const photos = photosForCampaign(card.photos, card.storeId, card.category);
   return (
@@ -769,7 +777,11 @@ function DeliveryRow({ card }: { card: ExploreDeliveryCard }) {
       </div>
       <div className="mt-0.5 text-[13px] text-muted">{card.category} · 전국 택배</div>
       <div className="mt-1 text-[16px] font-bold text-ink tabular-nums">
-        제품 제공{card.pointReward > 0 && <> + {sbNum(SBUI.point, `${card.pointReward.toLocaleString()}P`)} 적립</>}
+        {guest ? (
+          <span className="text-[14px] font-semibold text-muted">제품 제공 · 포인트 로그인 후 확인</span>
+        ) : (
+          <>제품 제공{card.pointReward > 0 && <> + {sbNum(SBUI.point, `${card.pointReward.toLocaleString()}P`)} 적립</>}</>
+        )}
       </div>
       <div className="mt-1.5">
         <ChannelIcons channels={card.requiredChannels} size={12} />

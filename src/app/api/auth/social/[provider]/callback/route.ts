@@ -13,6 +13,7 @@ import {
 export const runtime = "nodejs";
 
 const STATE_COOKIE = "cp_social_state_v1";
+const NEXT_COOKIE = "cp_login_next_v1";
 
 // 간편로그인 콜백 (2026-07-23) — 프로바이더 고유 ID로 기존 계정이면 로그인,
 // 미가입이면 신원을 서명 쿠키에 담아 가입 플로우(휴대폰 인증 필수)로 보낸다.
@@ -53,8 +54,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: s
   const existing = db.reviewers.find((r) => r.social?.[provider] === identity.id);
   if (existing) {
     await createSession({ userId: existing.id, role: "reviewer" });
-    const res = NextResponse.redirect(`${origin}/r/home`);
+    // 게스트 브라우징 (2026-07-24) — start에서 심은 복귀 경로가 있으면 그리로 (내부 경로 재검증)
+    const rawNext = req.cookies.get(NEXT_COOKIE)?.value;
+    const next = rawNext && rawNext.startsWith("/r/") && !rawNext.startsWith("//") ? rawNext : "/r/home";
+    const res = NextResponse.redirect(`${origin}${next}`);
     res.cookies.delete(STATE_COOKIE);
+    res.cookies.delete(NEXT_COOKIE);
     return res;
   }
 
