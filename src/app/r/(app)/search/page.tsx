@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { PRESS_ENABLED, DELIVERY_ENABLED } from "@/lib/flags";
+import { DELIVERY_ENABLED } from "@/lib/flags";
 import { isCampaignVisible, campaignRemain, campaignExposure } from "@/lib/campaign-visibility";
 import { PLAN_RANK } from "@/lib/plan-policy";
 import { compareRecommended } from "@/lib/recommend";
@@ -55,7 +55,6 @@ export default async function SearchPage({
     const ql = query.toLowerCase();
     results = db.campaigns
       .filter((c) => {
-        if (c.kind === "press" && !PRESS_ENABLED) return false;
         if (c.kind === "delivery" && !DELIVERY_ENABLED) return false;
         return isCampaignVisible(c, db.passes, now);
       })

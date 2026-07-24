@@ -23,14 +23,11 @@ const SB = {
   hours: "영업시간",
   address: "주소",
   visitTitle: "캠페인명",
-  pressTitle: "기자단명",
   visitDesc: "캠페인설명",
-  pressDesc: "기자단설명",
   menu: "메뉴명",
   nickname: "닉네임",
   ownerStore: "매장명",
   keyword: "키워드",
-  material: "자료명",
   reserveNote: "예약안내",
   productOption: "옵션명",
 };
@@ -529,71 +526,6 @@ export function runSeed(db: DBShape) {
     db.campaigns.push(campaign);
   }
 
-  // ── 기자단 캠페인 ──
-  // 1) 첫 음식점 (한남 코너 다이닝)
-  const pressStore = db.stores[0];
-  if (pressStore) {
-    db.campaigns.push({
-      id: detId("cp", `${pressStore.id}-press`),
-      storeId: pressStore.id,
-      kind: "press",
-      title: STORYBOARD ? SB.pressTitle : `${pressStore.name} 기자단 모집`,
-      startAt: now - 1000 * 60 * 60 * 24,
-      endAt: now + 1000 * 60 * 60 * 24 * 21,
-      supportAmount: 150000,
-      quota: { S: 1, A: 2, B: 3, C: 0 },
-      used: { S: 0, A: 0, B: 0, C: 0 },
-      requiredChannels: ["naver_blog", "instagram"],
-      requiredMenus: [],
-      description: STORYBOARD
-        ? SB.pressDesc
-        : `${pressStore.name}의 신메뉴 출시 보도용 콘텐츠를 작성해주세요. 자료팩(제품 사진/매장 사진/브랜드 스토리)을 참고하여 자연스러운 후기 형태로 작성해주시면 됩니다.`,
-      createdAt: now - 1000 * 60 * 60 * 24 * 35,
-      pressKeywords: STORYBOARD ? [SB.keyword, SB.keyword, SB.keyword] : ["가을 신메뉴", "프리미엄 다이닝", "한남 맛집"],
-      pressMaterials: STORYBOARD
-        ? [SB.material, SB.material, SB.material, SB.material]
-        : [
-            "신메뉴 상세 사진 8장 (.zip)",
-            "브랜드 스토리 텍스트 (2,400자)",
-            "사장님 인터뷰 영상 (3분)",
-            "로고/심볼 가이드 (PDF)",
-          ],
-      pressMinChars: 1500,
-      useCode: DEMO_USE_CODE,
-    });
-  }
-  // 2) 두 번째 매장 기자단 — 스토리보드에서는 카테고리가 모두 "카테고리"이므로 인덱스로 선택
-  const nailStore = STORYBOARD ? db.stores[2] : db.stores.find((s) => s.category === "네일아트");
-  if (nailStore) {
-    db.campaigns.push({
-      id: detId("cp", `${nailStore.id}-press`),
-      storeId: nailStore.id,
-      kind: "press",
-      title: STORYBOARD ? SB.pressTitle : `${nailStore.name} 시즌 컬렉션 기자단`,
-      startAt: now - 1000 * 60 * 60 * 24 * 2,
-      endAt: now + 1000 * 60 * 60 * 24 * 14,
-      supportAmount: 120000,
-      quota: { S: 1, A: 1, B: 2, C: 0 },
-      used: { S: 0, A: 0, B: 0, C: 0 },
-      requiredChannels: ["instagram", "tiktok"],
-      requiredMenus: [],
-      description: STORYBOARD
-        ? SB.pressDesc
-        : `시즌 한정 컬렉션의 화보 컷을 활용해 SNS 콘텐츠를 작성합니다. 자료팩에서 디자인 14종 고해상도 사진과 브랜드 톤매뉴얼을 받아보실 수 있습니다.`,
-      createdAt: now - 1000 * 60 * 60 * 24 * 35,
-      pressKeywords: STORYBOARD ? [SB.keyword, SB.keyword, SB.keyword] : ["압구정 네일", "시즌 컬렉션", "프리미엄 네일아트"],
-      pressMaterials: STORYBOARD
-        ? [SB.material, SB.material, SB.material]
-        : [
-            "디자인 14종 화보 (.zip)",
-            "브랜드 톤매뉴얼 (PDF)",
-            "인플루언서 게시 가이드 (1.2k자)",
-          ],
-      pressMinChars: 1200,
-      useCode: DEMO_USE_CODE,
-    });
-  }
-
   // ── 데모 체험자 ──
   // 채널별 등급 데모: 블로그 A(영향력 큼) / 인스타 C(작음) → 표기 등급 A(최고 채널)
   const demoSns = [
@@ -926,79 +858,6 @@ export function runSeed(db: DBShape) {
         status: "cancelled",
       };
       db.passes.push(cancelledPass);
-    }
-  }
-
-  // ── 기자단 데모 패스 — 모든 상태 커버 ──
-  const pressCampaigns = db.campaigns.filter((c) => c.kind === "press");
-  if (pressCampaigns.length > 0) {
-    // 1) 한남 기자단 active (자료 수령 후 작성 중)
-    const p1 = pressCampaigns[0];
-    if (p1) {
-      const ps: Pass = {
-        id: detId("ps", "demo-press-active"),
-        code: detPassCode("demo-press-active"),
-        reviewerId: reviewer.id,
-        campaignId: p1.id,
-        storeId: p1.storeId,
-        ownerId: db.stores.find((s) => s.id === p1.storeId)!.ownerId,
-        reviewerGrade: "B",
-        consumedSlot: "B",
-        issuedAt: now - 2 * day,
-        expiresAt: now + 19 * day, // 기자단은 캠페인 종료까지 사용 가능
-        status: "active",
-      };
-      p1.used.B += 1;
-      db.passes.push(ps);
-    }
-    // 2) 네일 기자단 review_submitted (작성 후 검수 대기)
-    const p2 = pressCampaigns[1];
-    if (p2) {
-      const ps: Pass = {
-        id: detId("ps", "demo-press-submitted"),
-        code: detPassCode("demo-press-submitted"),
-        reviewerId: reviewer.id,
-        campaignId: p2.id,
-        storeId: p2.storeId,
-        ownerId: db.stores.find((s) => s.id === p2.storeId)!.ownerId,
-        reviewerGrade: "B",
-        consumedSlot: "B",
-        issuedAt: now - 5 * day,
-        expiresAt: now + 9 * day,
-        status: "review_submitted",
-        adNoticeConfirmed: true,
-        reviewUrl: "https://www.instagram.com/p/demo-nail-press",
-        reviewBody: "압구정 네일 아틀리에의 시즌 한정 컬렉션을 미리 만나봤다. 시즌 컬렉션의 14종 디자인 중 가장 시즌감을 잘 표현한 두 디자인을 골랐다. 압구정 네일이 보여줄 수 있는 디테일의 깊이가 정말 매력적이었다...".padEnd(1300, "·"),
-        reviewChannel: "instagram",
-        reviewSubmittedAt: now - 12 * hour,
-        reviewStatus: "pending",
-      };
-      p2.used.B += 1;
-      db.passes.push(ps);
-    }
-    // 3) 한남 기자단 completed (다른 reviewer A로) — 정산 완료
-    if (p1) {
-      const ps: Pass = {
-        id: detId("ps", "demo-press-completed"),
-        code: detPassCode("demo-press-completed"),
-        reviewerId: reviewerA.id,
-        campaignId: p1.id,
-        storeId: p1.storeId,
-        ownerId: db.stores.find((s) => s.id === p1.storeId)!.ownerId,
-        reviewerGrade: "A",
-        consumedSlot: "A",
-        issuedAt: now - 12 * day,
-        expiresAt: now + 9 * day,
-        status: "completed",
-        adNoticeConfirmed: true,
-        reviewUrl: "https://blog.naver.com/sub/hannam-press",
-        reviewBody: "한남 코너 다이닝의 가을 신메뉴 5종을 미리 즐겨봤다. 자료팩에서 제공한 사진과 브랜드 스토리를 참고해 자연스러운 후기로 풀어냈고, 트러플과 가을 채소가 어우러진 메인 코스가 특히 인상적이었다...".padEnd(1600, "·"),
-        reviewChannel: "naver_blog",
-        reviewSubmittedAt: now - 9 * day,
-        reviewStatus: "approved",
-      };
-      p1.used.A += 1;
-      db.passes.push(ps);
     }
   }
 

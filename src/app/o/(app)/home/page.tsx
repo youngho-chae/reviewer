@@ -3,7 +3,7 @@ import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
 import type { Campaign } from "@/lib/types";
-import CampaignTabs from "./CampaignTabs";
+import CampaignFilter from "./CampaignFilter";
 import ShipQueue, { type ShipQueueItem } from "./ShipQueue";
 import ReservationQueue, { type ReservationQueueItem } from "./ReservationQueue";
 import HomeQueues from "./HomeQueues";
@@ -60,7 +60,6 @@ export default async function OwnerHome() {
       const schedule = c ? scheduleOf(c) : undefined;
       return {
         passId: p.id,
-        campaignId: p.campaignId,
         masked: `#${p.reviewerId.slice(-4)}`,
         campaignTitle: c?.title ?? "캠페인",
         label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),
@@ -131,9 +130,9 @@ export default async function OwnerHome() {
         shipView={<ShipQueue items={shipQueue} />}
       />
 
-      {/* 진행 중 캠페인 */}
-      <div className="px-5 mt-8 flex items-end justify-between">
-        <h2 className="text-[18px] font-bold text-ink tracking-title">진행 중 캠페인</h2>
+      {/* 내 캠페인 — 전체/진행중/종료 필터 (2026-07-23), 카드 = 캠페인 관리(예약·후기) 진입점 */}
+      <div className="px-5 mt-8 mb-3 flex items-end justify-between">
+        <h2 className="text-[18px] font-bold text-ink tracking-title">내 캠페인</h2>
         <Link href="/o/campaign/new" className="cp-action text-[13px] text-brand font-semibold">+ 새 캠페인</Link>
       </div>
       {(() => {
@@ -146,12 +145,12 @@ export default async function OwnerHome() {
           const visitedCnt = campaignPasses.filter((p) =>
             ["used", "review_submitted", "completed"].includes(p.status),
           ).length;
-          const isPress = c.kind === "press";
           const isDelivery = c.kind === "delivery";
-          const pendingLabel = isPress ? "작성 중" : isDelivery ? "발송 대기" : "방문 예정";
-          const completedLabel = isPress ? "작성 완료" : isDelivery ? "발송 완료" : "방문 완료";
+          const ended = c.endAt <= Date.now();
+          const pendingLabel = isDelivery ? "발송 대기" : "방문 예정";
+          const completedLabel = isDelivery ? "발송 완료" : "방문 완료";
           return (
-            // 카드 전체가 캠페인 상세 관리로 진입 (§12-1) — 모집 현황·예약 관리·일정 차단·후기
+            // 카드 전체가 캠페인 관리(예약 관리·후기 관리)로 진입 — 종료 캠페인도 후기 조회 가능
             <Link href={`/o/campaign/${c.id}`} key={c.id} className="cp-action block rounded-lg border border-hairline bg-canvas p-4">
               <div className="flex items-start justify-between">
                 <div>
@@ -161,7 +160,7 @@ export default async function OwnerHome() {
                         📦 배송
                       </span>
                     )}
-                    {!isDelivery && !isPress && c.reservationRequired && (
+                    {!isDelivery && c.reservationRequired && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold shrink-0">
                         📅 예약형
                       </span>
@@ -171,7 +170,12 @@ export default async function OwnerHome() {
                   <div className="text-[12px] text-muted mt-0.5">{store?.name}</div>
                 </div>
                 <div className="text-[12px] text-muted tabular-nums">
-                  D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))} <span className="text-brand font-semibold">관리 →</span>
+                  {ended ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-sunken text-muted font-semibold">종료</span>
+                  ) : (
+                    <>D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</>
+                  )}{" "}
+                  <span className="text-brand font-semibold">관리 →</span>
                 </div>
               </div>
               {/* [확정 정책 8] 캠페인 진행 현황은 방문 예정/방문 완료/총 모집 3종만 —
@@ -194,37 +198,33 @@ export default async function OwnerHome() {
           );
         };
 
-        // 배송형은 방문형 탭에 함께 노출 (카드 라벨만 발송 대기/완료로 분기 — 별도 탭 없이 관리)
-        const visitCampaigns = myCampaigns.filter((c) => c.kind !== "press");
-        const pressCampaigns = myCampaigns.filter((c) => c.kind === "press");
+        // 배송형은 방문형 리스트에 함께 노출 (카드 라벨만 발송 대기/완료로 분기 — 별도 탭 없이 관리)
+        const visitCampaigns = myCampaigns;
 
-        const visitView = (
+        // 상태 필터 (2026-07-23) — 지금까지 오픈한 전체 / 진행중 / 종료
+        const openCampaigns = visitCampaigns.filter((c) => c.endAt > Date.now());
+        const closedCampaigns = visitCampaigns.filter((c) => c.endAt <= Date.now());
+        const listOf = (list: Campaign[], empty: string) => (
           <div className="px-5 space-y-3">
-            {visitCampaigns.map(renderCard)}
-            {visitCampaigns.length === 0 && (
-              <Link href="/o/campaign/new" className="block rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
-                + 첫 체험단 캠페인 만들기
-              </Link>
-            )}
+            {list.map(renderCard)}
+            {list.length === 0 &&
+              (visitCampaigns.length === 0 ? (
+                <Link href="/o/campaign/new" className="block rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
+                  + 첫 체험단 캠페인 만들기
+                </Link>
+              ) : (
+                <div className="rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">{empty}</div>
+              ))}
           </div>
         );
-        const pressView = (
-          <div className="px-5 space-y-3">
-            {pressCampaigns.map(renderCard)}
-            {pressCampaigns.length === 0 && (
-              <div className="rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
-                진행 중인 기자단 캠페인이 없습니다.
-              </div>
-            )}
-          </div>
-        );
-
         return (
-          <CampaignTabs
-            visitCount={visitCampaigns.length}
-            pressCount={pressCampaigns.length}
-            visitView={visitView}
-            pressView={pressView}
+          <CampaignFilter
+            allCount={visitCampaigns.length}
+            openCount={openCampaigns.length}
+            closedCount={closedCampaigns.length}
+            allView={listOf(visitCampaigns, "캠페인이 없어요.")}
+            openView={listOf(openCampaigns, "진행 중인 캠페인이 없어요.")}
+            closedView={listOf(closedCampaigns, "종료된 캠페인이 없어요.")}
           />
         );
       })()}

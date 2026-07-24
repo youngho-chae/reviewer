@@ -1,13 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { PROPOSAL_MAX_SLOTS, PROPOSAL_NOTE_MAX } from "@/lib/reservation";
 
 export interface ReservationQueueItem {
   passId: string;
-  campaignId: string;
   masked: string; // 익명 #last4 — 등급·실명 비노출 원칙 유지 (확정 정책 8)
   campaignTitle: string;
   label: string; // "7월 18일 (토) 오후 2시" — 체험자 희망(또는 확정) 일시 (12시간제 — §7-2)
@@ -35,6 +33,8 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
   const [err, setErr] = useState<string | null>(null);
   const [proposingId, setProposingId] = useState<string | null>(null); // 제안 폼 열린 항목
   const [decliningId, setDecliningId] = useState<string | null>(null); // 거절 확인 열린 항목
+  const [cancellingId, setCancellingId] = useState<string | null>(null); // 확정 취소 열린 항목 (§5-3)
+  const [cancelReason, setCancelReason] = useState("");
   const [slots, setSlots] = useState<SlotDraft[]>([{ date: "", time: "" }]);
   const [note, setNote] = useState("");
 
@@ -83,22 +83,31 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
         {items.map((it) => (
           <div key={it.passId} className="rounded-md border border-hairline p-3.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[14px] font-semibold text-ink">익명 {it.masked}</span>
-              {/* 캠페인 상세 관리로 진입 (§12-1) — 예약 목록·일정 차단·확정 취소 */}
-              <Link
-                href={`/o/campaign/${it.campaignId}`}
-                className="cp-action text-[11px] text-muted truncate max-w-[160px]"
-              >
-                {it.campaignTitle} →
-              </Link>
+              {/* 캠페인명이 주 표기, 익명 #last4는 보조 (2026-07-23 시안) — 캠페인 관리(2depth) 진입은 '내 캠페인' 카드 단일 경로 */}
+              <span className="text-[14px] font-semibold text-ink truncate">{it.campaignTitle}</span>
+              <span className="text-[11px] text-muted shrink-0">익명 {it.masked}</span>
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[14px] font-bold text-ink tabular-nums">
                 {sbNum(SBUI.dateTime, it.label)}{it.partySize ? ` · ${it.partySize}명` : ""} {it.counterUsed && it.status === "requested" ? "재제안" : "방문 희망"}
               </span>
-              {it.status === "confirmed" && (
-                <span className="inline-flex items-center px-2 py-1 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">
-                  확정됨
+              {it.status === "confirmed" && cancellingId !== it.passId && (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">
+                    확정됨
+                  </span>
+                  {/* 확정 예약 취소 (§5-3) — 매장 사정 예외 처리, 사유 필수·체험자 원문 안내 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancellingId(it.passId);
+                      setCancelReason("");
+                      setErr(null);
+                    }}
+                    className="cp-action text-[12px] font-semibold text-muted underline"
+                  >
+                    예약 취소
+                  </button>
                 </span>
               )}
               {it.status === "proposed" && (
@@ -150,6 +159,42 @@ export default function ReservationQueue({ items }: { items: ReservationQueueIte
                 >
                   거절
                 </button>
+              </div>
+            )}
+
+            {/* 확정 예약 취소 폼 (§5-3) — 사유 필수, 체험자에게 그대로 안내·QR 즉시 무효 */}
+            {it.status === "confirmed" && cancellingId === it.passId && (
+              <div className="mt-2.5 rounded-sm bg-sunken px-3 py-2.5">
+                <p className="text-[12px] text-ink2 leading-[1.5]">
+                  확정된 예약을 취소해요 — 사유는 체험자에게 그대로 안내되고, QR은 즉시 사용할 수 없게 돼요. 체험자
+                  패널티·재신청 제한은 없어요.
+                </p>
+                <input
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value.slice(0, 100))}
+                  placeholder="취소 사유 (필수) — 예: 매장 사정으로 휴무예요"
+                  className="mt-2 w-full h-9 px-3 rounded-sm border border-hairline bg-canvas text-[13px] text-ink placeholder:text-mutedSoft"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCancellingId(null)}
+                    className="cp-action h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold text-ink"
+                  >
+                    돌아가기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await post("/api/owner/reserve-cancel", { passId: it.passId, reason: cancelReason.trim() }, it.passId);
+                      if (ok) setCancellingId(null);
+                    }}
+                    disabled={busyId === it.passId || !cancelReason.trim()}
+                    className="cp-action h-8 px-3.5 rounded-sm bg-errorSoft text-error text-[12px] font-bold disabled:opacity-60"
+                  >
+                    {busyId === it.passId ? "취소 중..." : "예약 취소하기"}
+                  </button>
+                </div>
               </div>
             )}
 

@@ -89,8 +89,7 @@ export async function POST(req: NextRequest) {
       pass,
       campaign: {
         id: c.id, title: c.title, kind: c.kind, supportAmount: c.supportAmount,
-        requiredChannels: c.requiredChannels, pressMaterials: c.pressMaterials,
-        pressKeywords: c.pressKeywords, pressMinChars: c.pressMinChars, description: c.description,
+        requiredChannels: c.requiredChannels, description: c.description,
       },
       store: {
         id: store.id, name: store.name, area: store.area, category: store.category,

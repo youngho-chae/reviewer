@@ -55,7 +55,7 @@ export default async function AdminReviews() {
                 <span className="text-[12px] text-muted">익명 #{p.reviewerId.slice(-4)} · {p.reviewerGrade}등급</span>
               </div>
               <span className="text-[11px] text-muted">
-                {campaign?.kind === "press" ? "기자단" : "방문형"}
+                {campaign?.kind === "delivery" ? "배송형" : "방문형"}
               </span>
             </div>
 

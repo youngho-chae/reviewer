@@ -16,7 +16,7 @@ export default async function OwnerMe() {
   const unreadNotifications = db.notifications.filter((n) => n.role === "owner" && n.userId === me.id && !n.read).length;
 
   const MENU: { href: string; icon: string; label: string; sub?: string; badge?: number }[] = [
-    { href: "/o/campaign/new", icon: "🎯", label: "새 캠페인", sub: "방문형/기자단 모집" },
+    { href: "/o/campaign/new", icon: "🎯", label: "새 캠페인", sub: "방문형·예약형 모집" },
     { href: "/o/membership", icon: "💎", label: "멤버십 / 구독", sub: `${me.plan} 플랜` },
     { href: "/o/logs", icon: "📋", label: "체험권 사용 로그", sub: `${passes.length}건` },
     { href: "/o/report", icon: "📊", label: "성과 리포트", sub: "최근 30일" },

@@ -89,7 +89,7 @@ export function collectMonthlyActivity(db: DBShape, reviewerId: string, month: s
       const at = p.completedAt ?? p.reviewSubmittedAt ?? p.usedAt; // 구버전 폴백
       if (at && kstMonthKey(at) === month) {
         act.completed += 1;
-        // 상생 집계는 결제 기록이 있는 방문형 건만 — 기자단 등 결제 개념이 없는 완료 건은
+        // 상생 집계는 결제 기록이 있는 방문형 건만 — 배송형 등 결제 개념이 없는 완료 건은
         // W 분모에 넣지 않는다 (0으로 끌어내리면 비율 원칙 훼손). F(성실 이행)에는 포함.
         if (p.paidAmount != null && p.supportApplied != null) {
           const over = Math.max(0, p.paidAmount - p.supportApplied) / Math.max(p.supportApplied, 1);

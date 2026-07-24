@@ -26,7 +26,7 @@ export function passDisplayStatus(
 }
 
 // 목록 카드 상태 뱃지 — 라벨 + *Soft 토큰 배경 문법 (v2).
-// PassesView(방문형)·pressView(기자단)·상세가 이 단일 정의를 공유한다.
+// PassesView(방문형·배송형)·상세가 이 단일 정의를 공유한다.
 export const DISPLAY_BADGE: Record<PassDisplayStatus, { label: string; cls: string }> = {
   active: { label: "사용가능", cls: "bg-successSoft text-successStrong" },
   cancelled: { label: "취소", cls: "bg-sunken text-mutedSoft" },
