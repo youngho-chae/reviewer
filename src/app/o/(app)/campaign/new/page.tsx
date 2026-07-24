@@ -16,6 +16,7 @@ interface OwnerStore {
   name: string;
   area?: string;
   category?: string;
+  thumbnailUrl?: string; // 플레이스 첫 썸네일 (URL 매장 등록 시 수집)
 }
 
 interface MenuRow {
@@ -118,6 +119,20 @@ export default function NewCampaign() {
 
   const policy = PLAN_POLICY[plan];
   const selectedStore = stores.find((s) => s.id === storeId);
+
+  // 플레이스 첫 썸네일 → 대표 사진([0]) 프리필 (2026-07-24) — 업로드 사진(dataURL)은 건드리지
+  // 않고, 다른 매장의 썸네일(http URL)이 자리에 있으면 현재 매장 것으로 교체한다. 삭제도 가능.
+  useEffect(() => {
+    const thumb = selectedStore?.thumbnailUrl;
+    if (!thumb) return;
+    setPhotos((arr) => {
+      if (arr.includes(thumb)) return arr;
+      const otherThumbs = stores.map((st) => st.thumbnailUrl).filter(Boolean) as string[];
+      const rest = arr.filter((p) => !otherThumbs.includes(p));
+      return [thumb, ...rest].slice(0, 20);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStore?.thumbnailUrl]);
   const remaining = monthlyLimit === null ? null : Math.max(0, monthlyLimit - monthlyUsed);
   const totalQuotaNum = Math.max(0, Number(totalQuota.replace(/\D/g, "")) || 0);
   const overLimit = remaining !== null && totalQuotaNum > remaining;
@@ -792,7 +807,9 @@ export default function NewCampaign() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
                 {i === 0 && (
-                  <span className="absolute left-1 top-1 px-1 py-0.5 rounded-xs bg-ink/70 text-white text-[10px] font-semibold">대표</span>
+                  <span className="absolute left-1 top-1 px-1 py-0.5 rounded-xs bg-ink/70 text-white text-[10px] font-semibold">
+                    {src === selectedStore?.thumbnailUrl ? "대표 · 플레이스" : "대표"}
+                  </span>
                 )}
                 <button
                   type="button"
