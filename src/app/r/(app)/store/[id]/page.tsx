@@ -112,8 +112,14 @@ export default async function StoreDetail({ params, searchParams }: { params: Pr
         <ChannelIcons channels={c.requiredChannels} />
         <h1 className="mt-2 text-[20px] font-bold text-ink tracking-title">{store.name}</h1>
         {placeUrl && (
-          <a href={STORYBOARD ? undefined : placeUrl} className="mt-1 block text-[13px] text-info truncate">
-            {sbNum("매장 플레이스 URL", placeUrl)}
+          // 플레이스 링크는 URL 원문 대신 공통 텍스트 "매장 둘러보기"에 하이퍼링크 (2026-07-24)
+          <a
+            href={STORYBOARD ? undefined : placeUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-[13px] font-semibold text-info"
+          >
+            매장 둘러보기 →
           </a>
         )}
 
