@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { effectiveChannelState } from "@/lib/sns-cookie";
-import { oauthConfigured } from "@/lib/sns-oauth";
 import { CHANNEL_ORDER } from "@/lib/channels";
 import Icon from "@/components/Icon";
 import ChannelManager, { type ChannelRow } from "./ChannelManager";
@@ -32,8 +31,6 @@ export default async function ChannelsPage({
       verifiedVia: linked?.verifiedVia ?? null,
       accountName: linked?.accountName ?? null,
       grade: eff.channelGrades[kind] ?? null,
-      // 프로바이더 OAuth 키 설정 여부 — false면 start가 데모 검증 화면으로 폴백 (서버 env만 접근)
-      oauthReady: oauthConfigured(kind),
     };
   });
 
