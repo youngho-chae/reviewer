@@ -44,13 +44,13 @@ const CONNECT_GUIDE: Record<SnsKind, string[]> = {
   instagram: [
     "발급된 계정 인증코드를 복사해 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
     "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
-    "전체 공개 계정이어야 소개글을 확인할 수 있어요. 인증 후 코드는 지워도 돼요.",
+    "전체 공개 계정이어야 해요. 인증되면 계정 분석으로 등급과 팔로워 수가 자동 산정돼요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
   tiktok: [
     "발급된 계정 인증코드를 복사해 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
     "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
-    "전체 공개 계정이어야 소개글을 확인할 수 있어요. 인증 후 코드는 지워도 돼요.",
+    "전체 공개 계정이어야 해요. 인증되면 계정 분석으로 등급과 팔로워 수가 자동 산정돼요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
 };
@@ -87,7 +87,6 @@ export default function ChannelManager({
   const [armedUntil, setArmedUntil] = useState<number | null>(null); // 인증하기 후 만료 시각
   const [nowTick, setNowTick] = useState(Date.now()); // 카운트다운 1초 틱
   const [url, setUrl] = useState("");
-  const [influence, setInfluence] = useState("");
   const [confirmKind, setConfirmKind] = useState<SnsKind | null>(null); // 해제 확인 모달
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false); // 인증완료 실패 → [재시도] 라벨
@@ -108,7 +107,6 @@ export default function ChannelManager({
   async function openSheet(row: ChannelRow) {
     setSheetKind(row.kind);
     setUrl(row.url);
-    setInfluence(row.influence ? String(row.influence) : "");
     setCode(null);
     setCopied(false);
     setArmedUntil(null);
@@ -173,7 +171,7 @@ export default function ChannelManager({
       const res = await fetch("/api/sns/bio-verify/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind, url, influence }),
+        body: JSON.stringify({ kind, url }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -360,17 +358,6 @@ export default function ChannelManager({
                 className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] disabled:bg-sunken disabled:text-mutedSoft"
               />
             </div>
-            {/* 팔로워 수 — 인스타그램·틱톡만 (네이버 블로그는 등급평가 API가 자동 산정 §5) */}
-            {sheetRow.kind !== "naver_blog" && (
-              <input
-                value={influence}
-                onChange={(e) => setInfluence(e.target.value.replace(/\D/g, ""))}
-                inputMode="numeric"
-                disabled={!armed}
-                placeholder={`${METRIC[sheetRow.kind]} 수 (선택 — 등급 산정에 사용돼요)`}
-                className="mt-2 w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] tabular-nums disabled:bg-sunken disabled:text-mutedSoft"
-              />
-            )}
 
             {/* 연결 가이드 */}
             <div className="mt-6">
@@ -400,8 +387,8 @@ export default function ChannelManager({
                 {busy ? "소개글 확인 중..." : failed ? "재시도" : "인증완료"}
               </button>
               <p className="mt-2 text-[11px] text-muted text-center">
-                [인증완료]를 누르면 채널 소개글을 즉시 확인해 인증코드 일치 여부를 검증해요.
-                {sheetRow.kind === "naver_blog" && " 인증되면 블로그 분석으로 등급·방문자 수가 자동 반영돼요."}
+                [인증완료]를 누르면 채널 소개글을 즉시 확인해 인증코드 일치 여부를 검증해요. 인증되면 계정
+                분석으로 등급·{METRIC[sheetRow.kind]} 수가 자동 반영돼요.
               </p>
             </div>
           </div>

@@ -10,6 +10,7 @@ import {
   parseSnsAccount,
   crawlBioHasCode,
   analyzeNaverBlog,
+  analyzeSnsIndex,
 } from "@/lib/sns-bio-verify";
 
 export const runtime = "nodejs";
@@ -17,15 +18,15 @@ export const runtime = "nodejs";
 // [인증완료] (2026-07-25 연결 개편 §2~§7) — 입력된 채널 주소의 프로필을 즉시 크롤링해
 // 소개글에 발급 코드가 있는지 확인하고, 있으면 연결을 완료한다.
 //  - 실패(코드 미검출): "계정 인증 코드를 확인할 수 없습니다." — 쿠키는 유지해 [재시도] 허용
-//  - 네이버 블로그 한정: 자체 등급평가 API(grade·total_visitors)로 등급 산정.
+//  - 등급 산정 (전 채널 자동): 네이버 블로그 = blog-analyzer(grade·total_visitors),
+//    인스타그램·틱톡 = insta-index(POST, followers·score → score 밴드 S88/A78/B66/C52/N).
 //    분석 API 장애 시에도 인증 자체는 완료(연결 유지)하고 등급은 추후 [다시 인증]으로 갱신.
-//  - 인스타그램·틱톡: 팔로워 수(선택 입력) 기반 기존 공식 유지.
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") {
     return NextResponse.json({ error: "체험자 로그인 필요" }, { status: 401 });
   }
-  const { kind, url, influence } = await req.json().catch(() => ({}));
+  const { kind, url } = await req.json().catch(() => ({}));
   if (typeof kind !== "string" || !isSnsKind(kind)) {
     return NextResponse.json({ error: "지원하지 않는 채널입니다" }, { status: 400 });
   }
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 네이버 블로그 한정 등급 산정 (§5~§7) — grade·total_visitors 반영
+  // 등급 산정 — 채널별 분석 API 자동 반영 (수동 입력 없음)
   let analyzed = false;
   let apiGrade: Grade | undefined;
   let inf = 0;
@@ -70,7 +71,12 @@ export async function POST(req: NextRequest) {
       inf = analysis.totalVisitors;
     }
   } else {
-    inf = Math.max(0, Math.floor(Number(influence) || 0));
+    const analysis = await analyzeSnsIndex(kind, parsed.id);
+    if (analysis) {
+      analyzed = true;
+      apiGrade = analysis.grade;
+      inf = analysis.followers;
+    }
   }
 
   const db = await getDBAsync();

@@ -160,6 +160,9 @@ export async function crawlBioHasCode(kind: SnsKind, id: string, code: string): 
 // ── 네이버 블로그 등급평가 API (2026-07-25 §5~7) ────────────────────────────
 // GET {BLOG_ANALYZER_BASE}/api/analyze?url={블로그ID} → { grade, total_visitors }
 const ANALYZER_BASE = process.env.BLOG_ANALYZER_BASE || "https://blog-analyzer-ten.vercel.app";
+// 인스타그램·틱톡 지수 API (2026-07-25 확장) — POST 전용, body { username } →
+// { followers, score }. 별도 grade 평가가 없어 score 밴드로 등급을 매긴다.
+const INSTA_INDEX_BASE = process.env.INSTA_INDEX_BASE || "https://insta-index.vercel.app";
 
 export interface BlogAnalysis {
   grade: Grade;
@@ -169,6 +172,50 @@ export interface BlogAnalysis {
 function normalizeGrade(v: unknown): Grade | null {
   const g = String(v ?? "").trim().toUpperCase().charAt(0);
   return g === "S" || g === "A" || g === "B" || g === "C" || g === "N" ? (g as Grade) : null;
+}
+
+// score → 등급 밴드 (2026-07-25 스펙): S 88+ · A 78+ · B 66+ · C 52+ · 미만 N.
+// 스펙의 "D: 38+"는 서비스 등급 체계가 5단계(S/A/B/C/N — D 없음)라 N으로 흡수한다.
+export function gradeFromScore(score: number): Grade {
+  if (score >= 88) return "S";
+  if (score >= 78) return "A";
+  if (score >= 66) return "B";
+  if (score >= 52) return "C";
+  return "N";
+}
+
+export interface SnsIndexAnalysis {
+  grade: Grade;
+  followers: number;
+  score: number;
+}
+
+// 인스타그램·틱톡 지수 분석 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok
+export async function analyzeSnsIndex(
+  kind: "instagram" | "tiktok",
+  username: string,
+): Promise<SnsIndexAnalysis | null> {
+  try {
+    const path = kind === "instagram" ? "/api/analyze" : "/api/tiktok";
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 15_000);
+    const r = await fetch(`${INSTA_INDEX_BASE}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ username }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const j = (await r.json()) as { followers?: unknown; score?: unknown };
+    const followers = Number(j.followers);
+    const score = Number(j.score);
+    if (!Number.isFinite(followers) || followers < 0 || !Number.isFinite(score)) return null;
+    return { grade: gradeFromScore(score), followers: Math.floor(followers), score };
+  } catch {
+    return null;
+  }
 }
 
 export async function analyzeNaverBlog(blogId: string): Promise<BlogAnalysis | null> {
