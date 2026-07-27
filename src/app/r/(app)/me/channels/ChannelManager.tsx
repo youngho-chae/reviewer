@@ -1,8 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
-import { SNS_PROVIDER_LOGIN_LABEL } from "@/lib/sns-oauth-labels";
 import type { Grade, SnsKind } from "@/lib/types";
 
 export interface ChannelRow {
@@ -11,10 +10,9 @@ export interface ChannelRow {
   url: string;
   influence: number;
   verified: boolean;
-  verifiedVia: "oauth" | "demo" | null;
+  verifiedVia: "oauth" | "demo" | "bio" | null;
   accountName: string | null;
   grade: Grade | null;
-  oauthReady: boolean; // 프로바이더 OAuth 키 설정 여부 (false = 데모 검증 모드)
 }
 
 const METRIC: Record<SnsKind, string> = {
@@ -23,31 +21,43 @@ const METRIC: Record<SnsKind, string> = {
   tiktok: "팔로워",
 };
 
-// 연결 가이드 (2026-07-23 시안 — 레퍼런스: 블로그 연결 모달). 마지막 어뷰징 항목은 강조.
+const BIO_LABEL: Record<SnsKind, string> = {
+  naver_blog: "블로그 소개글",
+  instagram: "프로필 소개(bio)",
+  tiktok: "프로필 소개(bio)",
+};
+
+const URL_PLACEHOLDER: Record<SnsKind, string> = {
+  naver_blog: "blog.naver.com/아이디 또는 아이디",
+  instagram: "instagram.com/아이디 또는 @아이디",
+  tiktok: "tiktok.com/@아이디 또는 @아이디",
+};
+
+// 연결 가이드 (2026-07-25 소개글 인증코드 개편). 마지막 어뷰징 항목은 강조.
 const CONNECT_GUIDE: Record<SnsKind, string[]> = {
   naver_blog: [
-    "등록 및 변경하고자 하는 블로그 URL 혹은 RSS를 입력해 주세요.",
-    "블로그에 전체 공개, 검색 허용이 체크된 포스팅이 1개 이상 있어야 합니다.",
-    "연결 시 네이버 로그인으로 본인 계정인지 확인하고, 입력한 블로그 주소를 계정에 귀속해요.",
+    "발급된 계정 인증코드를 복사해 블로그 소개글 맨 앞에 붙여넣고 저장해 주세요.",
+    "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
+    "인증이 완료되면 소개글의 코드는 지워도 돼요. 등급과 방문자 수는 블로그 분석으로 자동 산정돼요.",
     "방문자 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
   instagram: [
-    "프로필 주소(instagram.com/아이디)를 입력해 주세요.",
-    "전체 공개 계정이어야 하고, 게시물이 1개 이상 있어야 합니다.",
-    "연결 시 페이스북 로그인으로 본인 계정인지 확인해요.",
+    "발급된 계정 인증코드를 복사해 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
+    "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
+    "전체 공개 계정이어야 소개글을 확인할 수 있어요. 인증 후 코드는 지워도 돼요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
   tiktok: [
-    "프로필 주소(tiktok.com/@아이디)를 입력해 주세요.",
-    "전체 공개 계정이어야 하고, 게시물이 1개 이상 있어야 합니다.",
-    "연결 시 틱톡 로그인으로 본인 계정인지 확인해요.",
+    "발급된 계정 인증코드를 복사해 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
+    "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
+    "전체 공개 계정이어야 소개글을 확인할 수 있어요. 인증 후 코드는 지워도 돼요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
 };
 
-// 검증 상태 칩 — ✓ 본인 인증(oauth) / 데모 인증(demo) / 미인증(자기신고)
-function VerifyChip({ verified, via }: { verified: boolean; via: "oauth" | "demo" | null }) {
-  if (verified && via === "oauth") {
+// 검증 상태 칩 — ✓ 본인 인증(bio/oauth) / 데모 인증(demo) / 미인증(자기신고)
+function VerifyChip({ verified, via }: { verified: boolean; via: "oauth" | "demo" | "bio" | null }) {
+  if (verified && (via === "bio" || via === "oauth")) {
     return <span className="inline-flex items-center px-2 py-0.5 rounded-pill bg-successSoft text-successStrong text-[11px] font-semibold">✓ 본인 인증</span>;
   }
   if (verified && via === "demo") {
@@ -56,8 +66,9 @@ function VerifyChip({ verified, via }: { verified: boolean; via: "oauth" | "demo
   return <span className="inline-flex items-center px-2 py-0.5 rounded-pill bg-sunken text-muted text-[11px] font-semibold">미인증</span>;
 }
 
-// SNS 채널 연결 (2026-07-23 시안 개편) — 레퍼런스형 리스트 행("{채널} 연결하기 ›") +
-// 연결 바텀시트(URL 입력·연결 가이드·1:1 문의·[연결하기]) → 프로바이더 본인 인증(OAuth/데모)으로 이동.
+// SNS 채널 연결 (2026-07-25 소개글 인증코드 개편) — 레퍼런스형 리스트 행 +
+// 연결 바텀시트: 계정 인증코드(8자리·1회성) → [인증하기](30분 유효 시작·주소 입력 활성화)
+// → 소개글 맨 앞에 코드 삽입 → 주소 입력 → [인증완료] = 즉시 크롤링 검증.
 export default function ChannelManager({
   rows,
   connected,
@@ -71,23 +82,121 @@ export default function ChannelManager({
 }) {
   const router = useRouter();
   const [sheetKind, setSheetKind] = useState<SnsKind | null>(null); // 연결 시트 열린 채널
+  const [code, setCode] = useState<string | null>(null); // 발급된 계정 인증코드
+  const [copied, setCopied] = useState(false);
+  const [armedUntil, setArmedUntil] = useState<number | null>(null); // 인증하기 후 만료 시각
+  const [nowTick, setNowTick] = useState(Date.now()); // 카운트다운 1초 틱
   const [url, setUrl] = useState("");
   const [influence, setInfluence] = useState("");
-  const [confirmKind, setConfirmKind] = useState<SnsKind | null>(null);
+  const [confirmKind, setConfirmKind] = useState<SnsKind | null>(null); // 해제 확인 모달
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false); // 인증완료 실패 → [재시도] 라벨
   const [err, setErr] = useState<string | null>(null);
+  const [justConnected, setJustConnected] = useState<SnsKind | null>(null);
 
-  function openSheet(row: ChannelRow) {
+  const armed = armedUntil !== null && armedUntil > nowTick;
+  const leftMs = armedUntil ? Math.max(0, armedUntil - nowTick) : 0;
+  const leftLabel = `${String(Math.floor(leftMs / 60000)).padStart(2, "0")}:${String(Math.floor((leftMs % 60000) / 1000)).padStart(2, "0")}`;
+
+  // 카운트다운 틱 — 무장 상태에서만
+  useEffect(() => {
+    if (armedUntil === null) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [armedUntil]);
+
+  async function openSheet(row: ChannelRow) {
     setSheetKind(row.kind);
     setUrl(row.url);
     setInfluence(row.influence ? String(row.influence) : "");
+    setCode(null);
+    setCopied(false);
+    setArmedUntil(null);
+    setFailed(false);
     setErr(null);
+    // 계정 인증코드 발급 (§1 — 시트 오픈 시 생성, 유효 시간은 [인증하기]부터)
+    try {
+      const res = await fetch("/api/sns/bio-verify/issue", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: row.kind }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.code) setCode(j.code);
+      else setErr(j.error || "인증코드 발급에 실패했어요 — 시트를 다시 열어주세요.");
+    } catch {
+      setErr("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
+    }
   }
 
-  function startVerify(kind: SnsKind, u: string, inf: string | number) {
-    const q = new URLSearchParams({ url: u, influence: String(inf || 0) });
-    // OAuth 리다이렉트(외부 프로바이더) — 전체 페이지 내비게이션 필요
-    window.location.href = `/api/sns/${kind}/start?${q}`;
+  async function copyCode() {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+
+  // [인증하기] — 30분 카운팅 시작 + SNS 주소 입력 활성화 (§1)
+  async function arm(kind: SnsKind) {
+    if (!code) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/sns/bio-verify/arm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind, code }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(j.error || "인증 시작에 실패했어요.");
+        setBusy(false);
+        return;
+      }
+      setArmedUntil(j.expiresAt);
+      setNowTick(Date.now());
+      setFailed(false);
+      setBusy(false);
+    } catch {
+      setErr("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
+      setBusy(false);
+    }
+  }
+
+  // [인증완료]/[재시도] — 즉시 크롤링 검증 (§2~§4) + 네이버 블로그 등급 산정 (§5~§7)
+  async function confirm(kind: SnsKind) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/sns/bio-verify/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind, url, influence }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(j.error || "인증에 실패했어요.");
+        if (j.expired) {
+          // 유효 시간 만료 — [인증하기]부터 다시
+          setArmedUntil(null);
+          setFailed(false);
+        } else {
+          setFailed(true); // §3 — [재시도]로 전환
+        }
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      setSheetKind(null);
+      setJustConnected(kind);
+      router.refresh();
+    } catch {
+      setErr("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
+      setFailed(true);
+      setBusy(false);
+    }
   }
 
   async function disconnect(kind: SnsKind) {
@@ -118,11 +227,11 @@ export default function ChannelManager({
 
   return (
     <div>
-      {/* 결과 배너 — OAuth/데모 검증 복귀 시 */}
+      {/* 결과 배너 */}
       <div className="px-5 space-y-2">
-        {connected && (
+        {(justConnected || connected) && (
           <div className="rounded-md bg-successSoft px-3.5 py-3 text-[13px] font-semibold text-successStrong">
-            ✓ {CHANNEL_LABEL[connected as SnsKind] ?? connected} 채널이 본인 인증과 함께 연결되었어요.
+            ✓ {CHANNEL_LABEL[(justConnected ?? connected) as SnsKind] ?? connected} 채널이 본인 인증과 함께 연결되었어요.
           </div>
         )}
         {error && (
@@ -178,9 +287,9 @@ export default function ChannelManager({
         다시 계산돼요.
       </p>
 
-      {/* 연결 바텀시트 (2026-07-23 시안 — 레퍼런스: 블로그 연결) */}
+      {/* 연결 바텀시트 (2026-07-25 소개글 인증코드 개편) */}
       {sheetRow && (
-        <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setSheetKind(null)}>
+        <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => !busy && setSheetKind(null)}>
           <div
             className="bg-canvas w-full max-w-[480px] mx-auto rounded-t-xl px-6 pt-3 pb-8 max-h-[88dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -200,20 +309,68 @@ export default function ChannelManager({
               </button>
             </div>
 
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              inputMode="url"
-              placeholder="http:// 또는 https://를 포함한 정확한 미디어 주소를 입력해주세요."
-              className="mt-5 w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px]"
-            />
-            <input
-              value={influence}
-              onChange={(e) => setInfluence(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              placeholder={`${METRIC[sheetRow.kind]} 수 (본인 인증에서 확인되면 자동 반영)`}
-              className="mt-2 w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] tabular-nums"
-            />
+            {/* 계정 인증코드 (§1) — 8자리 1회성, [인증하기]부터 30분 유효 */}
+            <div className="mt-5 rounded-md border border-hairline p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-[13px] font-semibold text-ink">계정 인증코드</div>
+                {armed && (
+                  <span className="text-[12px] font-semibold text-brand tabular-nums">{leftLabel} 남음</span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="flex-1 text-[22px] font-bold tracking-[0.2em] text-ink font-mono tabular-nums">
+                  {code ?? "········"}
+                </span>
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  disabled={!code}
+                  className="cp-action h-9 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold disabled:opacity-50"
+                >
+                  {copied ? "복사됨" : "복사"}
+                </button>
+              </div>
+              <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+                이 코드를 {BIO_LABEL[sheetRow.kind]} <b className="text-ink2">맨 앞</b>에 붙여넣고 저장한 뒤 돌아와주세요.
+              </p>
+              {!armed && (
+                <button
+                  type="button"
+                  onClick={() => arm(sheetRow.kind)}
+                  disabled={!code || busy}
+                  className="cp-action mt-3 w-full h-11 rounded-md bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+                >
+                  {busy ? "처리 중..." : "인증하기"}
+                </button>
+              )}
+              {armedUntil !== null && !armed && (
+                <p className="mt-2 text-[12px] text-error">인증 시간이 만료되었어요 — [인증하기]를 다시 눌러주세요.</p>
+              )}
+            </div>
+
+            {/* SNS 주소 — [인증하기] 전에는 비활성 (§1) */}
+            <div className="mt-4">
+              <div className="text-[13px] font-semibold text-ink mb-1.5">SNS 주소</div>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                inputMode="url"
+                disabled={!armed}
+                placeholder={armed ? URL_PLACEHOLDER[sheetRow.kind] : "[인증하기]를 누르면 입력할 수 있어요"}
+                className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] disabled:bg-sunken disabled:text-mutedSoft"
+              />
+            </div>
+            {/* 팔로워 수 — 인스타그램·틱톡만 (네이버 블로그는 등급평가 API가 자동 산정 §5) */}
+            {sheetRow.kind !== "naver_blog" && (
+              <input
+                value={influence}
+                onChange={(e) => setInfluence(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                disabled={!armed}
+                placeholder={`${METRIC[sheetRow.kind]} 수 (선택 — 등급 산정에 사용돼요)`}
+                className="mt-2 w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] tabular-nums disabled:bg-sunken disabled:text-mutedSoft"
+              />
+            )}
 
             {/* 연결 가이드 */}
             <div className="mt-6">
@@ -236,15 +393,15 @@ export default function ChannelManager({
             <div className="mt-5 pt-4 border-t border-hairlineSoft">
               <button
                 type="button"
-                onClick={() => startVerify(sheetRow.kind, url, influence)}
-                disabled={sheetRow.kind === "naver_blog" && !url.trim()}
+                onClick={() => confirm(sheetRow.kind)}
+                disabled={!armed || !url.trim() || busy}
                 className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
               >
-                {sheetRow.connected && sheetRow.verified ? "다시 인증하고 연결 갱신" : "연결하기"}
+                {busy ? "소개글 확인 중..." : failed ? "재시도" : "인증완료"}
               </button>
               <p className="mt-2 text-[11px] text-muted text-center">
-                [연결하기]를 누르면 {SNS_PROVIDER_LOGIN_LABEL[sheetRow.kind]}으로 본인 계정인지 확인해요.
-                {!sheetRow.oauthReady && " (지금은 데모 검증 모드 — OAuth 키 설정 시 실제 로그인으로 전환)"}
+                [인증완료]를 누르면 채널 소개글을 즉시 확인해 인증코드 일치 여부를 검증해요.
+                {sheetRow.kind === "naver_blog" && " 인증되면 블로그 분석으로 등급·방문자 수가 자동 반영돼요."}
               </p>
             </div>
           </div>

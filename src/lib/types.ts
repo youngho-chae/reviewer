@@ -13,7 +13,10 @@ export interface SnsAccount {
   // OAuth 액세스 토큰은 저장하지 않는다 — 검증 직후 폐기 (개인정보 최소 수집).
   verified?: boolean;
   verifiedAt?: number;
-  verifiedVia?: "oauth" | "demo";
+  verifiedVia?: "oauth" | "demo" | "bio"; // bio = 소개글 인증코드 검증 (2026-07-25 개편)
+  // 네이버 블로그 한정 — 자체 등급평가 API(blog-analyzer)가 산정한 등급 (2026-07-25).
+  // 설정 시 channelGradesFromSns가 영향력 공식 대신 이 값을 사용한다. total_visitors는 influence에 저장.
+  apiGrade?: Grade;
   providerAccountId?: string; // 프로바이더 계정 고유 ID (네이버 id / FB user id / 틱톡 open_id)
   accountName?: string; // 프로바이더 표시명 또는 username
 }
