@@ -116,6 +116,10 @@ const CRAWL_BASE: Record<SnsKind, string> = {
 
 const UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+const DESKTOP_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+// 인스타그램 웹앱 공개 app id — 비로그인 프로필 JSON API(web_profile_info) 호출용
+const IG_APP_ID = "936619743392459";
 
 function profileUrls(kind: SnsKind, id: string): string[] {
   if (kind === "naver_blog") {
@@ -126,12 +130,12 @@ function profileUrls(kind: SnsKind, id: string): string[] {
   return [`${CRAWL_BASE.tiktok}/@${id}`];
 }
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchText(url: string, headers: Record<string, string>): Promise<string | null> {
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 12_000);
     const r = await fetch(url, {
-      headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml", "Accept-Language": "ko-KR,ko;q=0.9" },
+      headers,
       cache: "no-store",
       redirect: "follow",
       signal: controller.signal,
@@ -144,15 +148,44 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
+const HTML_HEADERS = {
+  "User-Agent": UA,
+  Accept: "text/html,application/xhtml+xml",
+  "Accept-Language": "ko-KR,ko;q=0.9",
+};
+
 export type BioCrawlResult = { ok: true } | { ok: false; reason: "unreachable" | "code_not_found" };
 
+// 소개글 코드 검출 — 다층 크롤 (2026-07-27 실 QA: 인스타그램은 비로그인 서버 크롤에
+// 로그인 벽 HTML을 반환해 프로필 페이지에 소개글이 없다 → 층을 나눠 순서대로 검사한다).
+//  인스타그램: ① 웹 프로필 JSON API(web_profile_info — 비로그인 공개, biography 포함)
+//              ② 프로필 HTML ③ insta-index 분석 응답 원문
+//  틱톡: ① 프로필 HTML(SSR에 소개글 포함) ② insta-index 분석 응답 원문
+//  네이버 블로그: 모바일 홈 → PC 프롤로그 HTML
 export async function crawlBioHasCode(kind: SnsKind, id: string, code: string): Promise<BioCrawlResult> {
   let reached = false;
+  if (kind === "instagram") {
+    const j = await fetchText(
+      `${CRAWL_BASE.instagram}/api/v1/users/web_profile_info/?username=${encodeURIComponent(id)}`,
+      { "User-Agent": DESKTOP_UA, "x-ig-app-id": IG_APP_ID, Accept: "application/json" },
+    );
+    if (j) {
+      reached = true;
+      if (j.includes(code)) return { ok: true };
+    }
+  }
   for (const url of profileUrls(kind, id)) {
-    const html = await fetchHtml(url);
+    const html = await fetchText(url, HTML_HEADERS);
     if (!html) continue;
     reached = true;
     if (html.includes(code)) return { ok: true };
+  }
+  if (kind === "instagram" || kind === "tiktok") {
+    const raw = await fetchSnsIndexRaw(kind, id);
+    if (raw) {
+      reached = true;
+      if (raw.includes(code)) return { ok: true };
+    }
   }
   return { ok: false, reason: reached ? "code_not_found" : "unreachable" };
 }
@@ -190,11 +223,9 @@ export interface SnsIndexAnalysis {
   score: number;
 }
 
-// 인스타그램·틱톡 지수 분석 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok
-export async function analyzeSnsIndex(
-  kind: "instagram" | "tiktok",
-  username: string,
-): Promise<SnsIndexAnalysis | null> {
+// 지수 API 원문 호출 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok, body { username }.
+// 응답 원문은 소개글 코드 폴백 스캔(crawlBioHasCode 최후 층)과 분석 파싱이 공유한다.
+async function fetchSnsIndexRaw(kind: "instagram" | "tiktok", username: string): Promise<string | null> {
   try {
     const path = kind === "instagram" ? "/api/analyze" : "/api/tiktok";
     const controller = new AbortController();
@@ -208,7 +239,21 @@ export async function analyzeSnsIndex(
     });
     clearTimeout(t);
     if (!r.ok) return null;
-    const j = (await r.json()) as { followers?: unknown; score?: unknown };
+    return await r.text();
+  } catch {
+    return null;
+  }
+}
+
+// 인스타그램·틱톡 지수 분석 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok
+export async function analyzeSnsIndex(
+  kind: "instagram" | "tiktok",
+  username: string,
+): Promise<SnsIndexAnalysis | null> {
+  const raw = await fetchSnsIndexRaw(kind, username);
+  if (!raw) return null;
+  try {
+    const j = JSON.parse(raw) as { followers?: unknown; score?: unknown };
     const followers = Number(j.followers);
     const score = Number(j.score);
     if (!Number.isFinite(followers) || followers < 0 || !Number.isFinite(score)) return null;
