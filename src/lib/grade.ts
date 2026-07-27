@@ -57,7 +57,9 @@ export function gradeForChannel(kind: SnsKind, influence: number): Grade {
 export function channelGradesFromSns(sns: SnsAccount[]): Partial<Record<SnsKind, Grade>> {
   const out: Partial<Record<SnsKind, Grade>> = {};
   for (const s of sns) {
-    out[s.kind] = gradeForChannel(s.kind, s.influence);
+    // apiGrade = 자체 등급평가 API 산정 등급 (네이버 블로그 소개글 인증, 2026-07-25) —
+    // 있으면 영향력 공식 대신 사용. 월간 재평가(§10)는 기존 로직대로 이후 등급을 관리한다.
+    out[s.kind] = s.apiGrade ?? gradeForChannel(s.kind, s.influence);
   }
   return out;
 }
