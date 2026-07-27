@@ -7,14 +7,17 @@
 //   BLOG_ANALYZER_BASE=http://127.0.0.1:4700 npx next dev
 //
 // 제어: POST /__bio {"id":"...","text":"..."} — 해당 계정의 소개글 설정
-//       POST /__analysis {"id":"...","grade":"A","total_visitors":55000} — 분석 응답 설정
+//       POST /__analysis {"id":"...","grade":"A","total_visitors":55000} — 블로그 분석 응답 설정
+//       POST /__index {"id":"...","followers":12000,"score":80} — 인스타/틱톡 지수 응답 설정
 // 조회: GET /{blogId} · /ig/{user}/ · /tt/@{user} → 소개글 포함 HTML
-//       GET /api/analyze?url={id} → {"grade":..., "total_visitors":...}
+//       GET  /api/analyze?url={id} → {"grade":..., "total_visitors":...} (네이버 블로그)
+//       POST /api/analyze·/api/tiktok {"username":...} → {"followers":..., "score":...} (인스타/틱톡)
 import http from "node:http";
 
 const PORT = Number(process.env.SNS_BIO_STUB_PORT || 4700);
 const bios = new Map(); // id -> 소개글 텍스트
-const analyses = new Map(); // id -> {grade, total_visitors}
+const analyses = new Map(); // id -> {grade, total_visitors} (네이버 블로그)
+const indexes = new Map(); // username -> {followers, score} (인스타/틱톡)
 
 function page(id) {
   const bio = bios.get(id) ?? "";
@@ -40,6 +43,18 @@ http
         const j = JSON.parse(raw || "{}");
         analyses.set(String(j.id), { grade: j.grade, total_visitors: j.total_visitors });
         return json(200, { ok: true });
+      }
+      if (req.method === "POST" && u.pathname === "/__index") {
+        const j = JSON.parse(raw || "{}");
+        indexes.set(String(j.id), { followers: j.followers, score: j.score });
+        return json(200, { ok: true });
+      }
+      // 인스타/틱톡 지수 API — POST 전용, body { username }
+      if (req.method === "POST" && (u.pathname === "/api/analyze" || u.pathname === "/api/tiktok")) {
+        const j = JSON.parse(raw || "{}");
+        const idx = indexes.get(String(j.username || ""));
+        if (!idx) return json(404, { error: "unknown account" });
+        return json(200, idx);
       }
       if (u.pathname === "/api/analyze") {
         const id = u.searchParams.get("url") || "";
