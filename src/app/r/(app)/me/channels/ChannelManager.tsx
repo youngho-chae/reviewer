@@ -91,6 +91,7 @@ export default function ChannelManager({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false); // 인증완료 실패 → [재시도] 라벨
   const [err, setErr] = useState<string | null>(null);
+  const [errTrace, setErrTrace] = useState<string[]>([]); // 검증 실패 층별 진단 (내부 QA)
   const [justConnected, setJustConnected] = useState<SnsKind | null>(null);
 
   const armed = armedUntil !== null && armedUntil > nowTick;
@@ -112,6 +113,7 @@ export default function ChannelManager({
     setArmedUntil(null);
     setFailed(false);
     setErr(null);
+    setErrTrace([]);
     // 계정 인증코드 발급 (§1 — 시트 오픈 시 생성, 유효 시간은 [인증하기]부터)
     try {
       const res = await fetch("/api/sns/bio-verify/issue", {
@@ -167,6 +169,7 @@ export default function ChannelManager({
   async function confirm(kind: SnsKind) {
     setBusy(true);
     setErr(null);
+    setErrTrace([]);
     try {
       const res = await fetch("/api/sns/bio-verify/confirm", {
         method: "POST",
@@ -176,6 +179,7 @@ export default function ChannelManager({
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErr(j.error || "인증에 실패했어요.");
+        setErrTrace(Array.isArray(j.trace) ? j.trace : []);
         if (j.expired) {
           // 유효 시간 만료 — [인증하기]부터 다시
           setArmedUntil(null);
@@ -377,6 +381,16 @@ export default function ChannelManager({
             </a>
 
             {err && <p className="mt-3 text-[13px] text-error">{err}</p>}
+            {/* 층별 검증 진단 — 내부 QA용 (실패 시에만 서버가 내려줌) */}
+            {errTrace.length > 0 && (
+              <div className="mt-1.5 space-y-0.5">
+                {errTrace.map((t, i) => (
+                  <p key={i} className="text-[11px] text-muted leading-[1.5]">
+                    · {t}
+                  </p>
+                ))}
+              </div>
+            )}
             <div className="mt-5 pt-4 border-t border-hairlineSoft">
               <button
                 type="button"

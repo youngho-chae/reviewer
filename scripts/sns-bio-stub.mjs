@@ -3,6 +3,7 @@
 // 사용: node scripts/sns-bio-stub.mjs &
 //   NAVER_BLOG_CRAWL_BASE=http://127.0.0.1:4700 \
 //   INSTAGRAM_CRAWL_BASE=http://127.0.0.1:4700/ig \
+//   INSTAGRAM_APP_API_BASE=http://127.0.0.1:4700/igapp \
 //   TIKTOK_CRAWL_BASE=http://127.0.0.1:4700/tt \
 //   BLOG_ANALYZER_BASE=http://127.0.0.1:4700 npx next dev
 //
@@ -18,6 +19,7 @@
 import http from "node:http";
 
 const PORT = Number(process.env.SNS_BIO_STUB_PORT || 4700);
+let igAppBlocked = false; // 앱 API 호스트 차단 시뮬레이션 (POST /__igappblock)
 const bios = new Map(); // id -> 소개글 텍스트
 const analyses = new Map(); // id -> {grade, total_visitors} (네이버 블로그)
 const indexes = new Map(); // username -> {followers, score} (인스타/틱톡)
@@ -70,8 +72,15 @@ http
         if (!a) return json(404, { error: "unknown blog" });
         return json(200, a);
       }
-      // 인스타 웹 프로필 JSON API — 비로그인 공개 경로 (x-ig-app-id 필수, 실API 재현)
-      if (u.pathname === "/ig/api/v1/users/web_profile_info/") {
+      // 앱 API 호스트(i.instagram.com 재현) 차단 토글 — 층 폴백 검증용
+      if (req.method === "POST" && u.pathname === "/__igappblock") {
+        igAppBlocked = Boolean(JSON.parse(raw || "{}").blocked);
+        return json(200, { ok: true, igAppBlocked });
+      }
+      // 인스타 프로필 JSON API — /ig(웹 호스트)·/igapp(앱 API 호스트) 공용 (x-ig-app-id 필수)
+      const wpi = u.pathname.match(/^\/(ig|igapp)\/api\/v1\/users\/web_profile_info\/$/);
+      if (wpi) {
+        if (wpi[1] === "igapp" && igAppBlocked) return json(403, { error: "blocked" });
         if (!req.headers["x-ig-app-id"]) return json(400, { error: "missing x-ig-app-id" });
         const user = u.searchParams.get("username") || "";
         if (!bios.has(user)) return json(404, { error: "user not found" });
