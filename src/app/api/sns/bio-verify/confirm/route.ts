@@ -14,6 +14,8 @@ import {
 } from "@/lib/sns-bio-verify";
 
 export const runtime = "nodejs";
+// 인스타는 크롤 층이 4개까지 순차 시도 + 지수 분석 — 기본 함수 시간 제한을 넘지 않도록 확보
+export const maxDuration = 60;
 
 // [인증완료] (2026-07-25 연결 개편 §2~§7) — 입력된 채널 주소의 프로필을 즉시 크롤링해
 // 소개글에 발급 코드가 있는지 확인하고, 있으면 연결을 완료한다.
@@ -47,6 +49,8 @@ export async function POST(req: NextRequest) {
   // 즉시 크롤링 — 소개글에 인증코드가 있는지 확인 (§2·§3)
   const crawl = await crawlBioHasCode(kind, parsed.id, code);
   if (!crawl.ok) {
+    // 층별 진단 — 서버 로그 + 응답(내부 QA가 화면에서 원인 확인)
+    console.log(`[sns-bio] ${kind} @${parsed.id} 검증 실패(${crawl.reason})`, crawl.trace);
     return NextResponse.json(
       {
         error:
@@ -54,6 +58,7 @@ export async function POST(req: NextRequest) {
             ? "채널 페이지를 불러오지 못했어요 — 주소가 정확한지, 계정이 전체 공개인지 확인해주세요"
             : "계정 인증 코드를 확인할 수 없습니다.",
         retry: true, // 쿠키 유지 — 유효 시간 내 [재시도] 가능
+        trace: crawl.trace,
       },
       { status: 422 },
     );

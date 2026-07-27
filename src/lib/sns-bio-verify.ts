@@ -120,6 +120,10 @@ const DESKTOP_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 // 인스타그램 웹앱 공개 app id — 비로그인 프로필 JSON API(web_profile_info) 호출용
 const IG_APP_ID = "936619743392459";
+// 인스타 모바일 앱 API 호스트 — www보다 데이터센터 IP에 관대한 것으로 알려진 경로 (2026-07-27 2차 QA)
+const IG_APP_API_BASE = process.env.INSTAGRAM_APP_API_BASE || "https://i.instagram.com";
+const IG_APP_UA =
+  "Instagram 275.0.0.27.98 (iPhone13,2; iOS 16_3; ko_KR; ko-KR; scale=3.00; 1170x2532; 458229237) AppleWebKit/420+";
 
 function profileUrls(kind: SnsKind, id: string): string[] {
   if (kind === "naver_blog") {
@@ -130,10 +134,16 @@ function profileUrls(kind: SnsKind, id: string): string[] {
   return [`${CRAWL_BASE.tiktok}/@${id}`];
 }
 
-async function fetchText(url: string, headers: Record<string, string>): Promise<string | null> {
+interface FetchedText {
+  status: number;
+  text: string; // 200일 때만 본문 (그 외 "")
+}
+
+async function fetchText(url: string, headers: Record<string, string>): Promise<FetchedText | null> {
   try {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 12_000);
+    // 인스타는 층이 4개까지 순차 시도되므로 층당 8초 — 라우트 전체 예산(60초) 내 유지
+    const t = setTimeout(() => controller.abort(), 8_000);
     const r = await fetch(url, {
       headers,
       cache: "no-store",
@@ -141,10 +151,9 @@ async function fetchText(url: string, headers: Record<string, string>): Promise<
       signal: controller.signal,
     });
     clearTimeout(t);
-    if (!r.ok) return null;
-    return await r.text();
+    return { status: r.status, text: r.ok ? await r.text() : "" };
   } catch {
-    return null;
+    return null; // 차단·타임아웃·네트워크 오류
   }
 }
 
@@ -154,40 +163,64 @@ const HTML_HEADERS = {
   "Accept-Language": "ko-KR,ko;q=0.9",
 };
 
-export type BioCrawlResult = { ok: true } | { ok: false; reason: "unreachable" | "code_not_found" };
+export type BioCrawlResult =
+  | { ok: true }
+  | { ok: false; reason: "unreachable" | "code_not_found"; trace: string[] };
 
 // 소개글 코드 검출 — 다층 크롤 (2026-07-27 실 QA: 인스타그램은 비로그인 서버 크롤에
 // 로그인 벽 HTML을 반환해 프로필 페이지에 소개글이 없다 → 층을 나눠 순서대로 검사한다).
-//  인스타그램: ① 웹 프로필 JSON API(web_profile_info — 비로그인 공개, biography 포함)
-//              ② 프로필 HTML ③ insta-index 분석 응답 원문
+//  인스타그램: ① 앱 API 호스트 web_profile_info ② 웹 호스트 web_profile_info
+//              ③ 프로필 HTML ④ insta-index 분석 응답 원문
 //  틱톡: ① 프로필 HTML(SSR에 소개글 포함) ② insta-index 분석 응답 원문
 //  네이버 블로그: 모바일 홈 → PC 프롤로그 HTML
+// 실패 시 층별 진단(trace)을 함께 돌려준다 — 내부 QA가 어느 층이 어떻게 막혔는지
+// 화면·로그에서 바로 확인할 수 있도록 (2차 QA: 인스타만 계속 미검출).
 export async function crawlBioHasCode(kind: SnsKind, id: string, code: string): Promise<BioCrawlResult> {
   let reached = false;
-  if (kind === "instagram") {
-    const j = await fetchText(
-      `${CRAWL_BASE.instagram}/api/v1/users/web_profile_info/?username=${encodeURIComponent(id)}`,
-      { "User-Agent": DESKTOP_UA, "x-ig-app-id": IG_APP_ID, Accept: "application/json" },
-    );
-    if (j) {
-      reached = true;
-      if (j.includes(code)) return { ok: true };
+  const trace: string[] = [];
+  // 층 하나 검사 — 검출이면 true, 아니면 trace에 진단 한 줄 남기고 false
+  const inspect = (label: string, out: FetchedText | null, jsonApi = false): boolean => {
+    if (!out) {
+      trace.push(`${label}: 응답 없음 (차단·타임아웃)`);
+      return false;
     }
+    if (out.status !== 200 || !out.text) {
+      trace.push(`${label}: HTTP ${out.status}`);
+      return false;
+    }
+    reached = true;
+    if (out.text.includes(code)) return true;
+    const note = jsonApi
+      ? out.text.includes('"biography"')
+        ? "소개글 수신 — 코드 미검출"
+        : "응답에 소개글 필드 없음"
+      : `본문 ${out.text.length.toLocaleString()}자 — 코드 미검출`;
+    trace.push(`${label}: ${note}`);
+    return false;
+  };
+
+  if (kind === "instagram") {
+    const q = `/api/v1/users/web_profile_info/?username=${encodeURIComponent(id)}`;
+    const appOut = await fetchText(`${IG_APP_API_BASE}${q}`, {
+      "User-Agent": IG_APP_UA,
+      "x-ig-app-id": IG_APP_ID,
+      Accept: "application/json",
+    });
+    if (inspect("앱 프로필 API", appOut, true)) return { ok: true };
+    const webOut = await fetchText(`${CRAWL_BASE.instagram}${q}`, {
+      "User-Agent": DESKTOP_UA,
+      "x-ig-app-id": IG_APP_ID,
+      Accept: "application/json",
+    });
+    if (inspect("웹 프로필 API", webOut, true)) return { ok: true };
   }
   for (const url of profileUrls(kind, id)) {
-    const html = await fetchText(url, HTML_HEADERS);
-    if (!html) continue;
-    reached = true;
-    if (html.includes(code)) return { ok: true };
+    if (inspect("프로필 페이지", await fetchText(url, HTML_HEADERS))) return { ok: true };
   }
   if (kind === "instagram" || kind === "tiktok") {
-    const raw = await fetchSnsIndexRaw(kind, id);
-    if (raw) {
-      reached = true;
-      if (raw.includes(code)) return { ok: true };
-    }
+    if (inspect("지수 분석 응답", await fetchSnsIndexRaw(kind, id), true)) return { ok: true };
   }
-  return { ok: false, reason: reached ? "code_not_found" : "unreachable" };
+  return { ok: false, reason: reached ? "code_not_found" : "unreachable", trace };
 }
 
 // ── 네이버 블로그 등급평가 API (2026-07-25 §5~7) ────────────────────────────
@@ -225,7 +258,10 @@ export interface SnsIndexAnalysis {
 
 // 지수 API 원문 호출 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok, body { username }.
 // 응답 원문은 소개글 코드 폴백 스캔(crawlBioHasCode 최후 층)과 분석 파싱이 공유한다.
-async function fetchSnsIndexRaw(kind: "instagram" | "tiktok", username: string): Promise<string | null> {
+async function fetchSnsIndexRaw(
+  kind: "instagram" | "tiktok",
+  username: string,
+): Promise<FetchedText | null> {
   try {
     const path = kind === "instagram" ? "/api/analyze" : "/api/tiktok";
     const controller = new AbortController();
@@ -238,8 +274,7 @@ async function fetchSnsIndexRaw(kind: "instagram" | "tiktok", username: string):
       signal: controller.signal,
     });
     clearTimeout(t);
-    if (!r.ok) return null;
-    return await r.text();
+    return { status: r.status, text: r.ok ? await r.text() : "" };
   } catch {
     return null;
   }
@@ -250,10 +285,10 @@ export async function analyzeSnsIndex(
   kind: "instagram" | "tiktok",
   username: string,
 ): Promise<SnsIndexAnalysis | null> {
-  const raw = await fetchSnsIndexRaw(kind, username);
-  if (!raw) return null;
+  const out = await fetchSnsIndexRaw(kind, username);
+  if (!out || out.status !== 200 || !out.text) return null;
   try {
-    const j = JSON.parse(raw) as { followers?: unknown; score?: unknown };
+    const j = JSON.parse(out.text) as { followers?: unknown; score?: unknown };
     const followers = Number(j.followers);
     const score = Number(j.score);
     if (!Number.isFinite(followers) || followers < 0 || !Number.isFinite(score)) return null;
