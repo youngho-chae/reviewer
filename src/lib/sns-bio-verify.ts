@@ -272,9 +272,9 @@ export function gradeFromScore(score: number): Grade {
 }
 
 export interface SnsIndexAnalysis {
-  grade: Grade;
+  grade: Grade | null; // score 밴드 등급 — score 미검출 시 null(팔로워 공식 폴백)
   followers: number;
-  score: number;
+  score: number | null;
 }
 
 // 지수 API 원문 호출 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok, body { username }.
@@ -301,20 +301,42 @@ async function fetchSnsIndexRaw(
   }
 }
 
-// 인스타그램·틱톡 지수 분석 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok
+// 인스타그램·틱톡 지수 분석 — POST {INSTA_INDEX_BASE}/api/analyze | /api/tiktok.
+// 실 응답이 평평한 {followers, score}가 아닐 수 있어(블로그 4차 QA와 동일 패턴 —
+// 틱톡 팔로워 0 반영) 확정 키 우선 + 딥 서치 폴백으로 추출하고, 둘 다 실패하면
+// 응답 원문을 로그로 남긴다. following 계열 키는 팔로워로 오인하지 않도록 배제.
 export async function analyzeSnsIndex(
   kind: "instagram" | "tiktok",
   username: string,
 ): Promise<SnsIndexAnalysis | null> {
   const out = await fetchSnsIndexRaw(kind, username);
-  if (!out || out.status !== 200 || !out.text) return null;
+  if (!out || out.status !== 200 || !out.text) {
+    console.log(`[sns-bio] insta-index(${kind}) @${username} ${out ? `HTTP ${out.status}` : "응답 없음"}`);
+    return null;
+  }
   try {
-    const j = JSON.parse(out.text) as { followers?: unknown; score?: unknown };
-    const followers = Number(j.followers);
-    const score = Number(j.score);
-    if (!Number.isFinite(followers) || followers < 0 || !Number.isFinite(score)) return null;
-    return { grade: gradeFromScore(score), followers: Math.floor(followers), score };
+    const j: unknown = JSON.parse(out.text);
+    const flat = j as { followers?: unknown; score?: unknown };
+    const followers =
+      parseCount(flat.followers) ?? findNumberDeep(j, /follower/i, /following/i);
+    const score = parseNum(flat.score) ?? findNumberDeep(j, /score$/i, null, false);
+    if (followers === null && score === null) {
+      console.log(
+        `[sns-bio] insta-index(${kind}) @${username} followers·score 추출 실패 — 응답: ${out.text.slice(0, 400)}`,
+      );
+      return null;
+    }
+    if (followers === null) {
+      console.log(`[sns-bio] insta-index(${kind}) @${username} followers 미검출 — 응답: ${out.text.slice(0, 400)}`);
+    }
+    return {
+      // score 미검출 시 grade 없음 — apiGrade 대신 팔로워 영향력 공식(INDEX_BANDS)이 적용된다
+      grade: score !== null ? gradeFromScore(score) : null,
+      followers: followers ?? 0,
+      score,
+    };
   } catch {
+    console.log(`[sns-bio] insta-index(${kind}) @${username} JSON 파싱 실패 — 응답: ${out.text.slice(0, 400)}`);
     return null;
   }
 }
@@ -325,12 +347,42 @@ export async function analyzeSnsIndex(
 // 규모 기준이라 이 선택이 등급 체계와 정합). 확정 경로 우선, 스키마 변경 대비
 // 딥 서치 폴백(visitor_trend.current → daily_visitors 계열 키) 유지.
 
-// "12,345" · "12345명" · 공백 섞임 등 형식 문자열 수용
-function parseCount(v: unknown): number | null {
-  if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? Math.floor(v) : null;
+// 수치 파싱 — "12,345" · "12345명" 등 형식 문자열 수용, 실수 유지 (score용)
+function parseNum(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? v : null;
   if (typeof v === "string") {
     const n = Number(v.replace(/[,\s명회]/g, ""));
-    return Number.isFinite(n) && n >= 0 && v.trim() !== "" ? Math.floor(n) : null;
+    return Number.isFinite(n) && n >= 0 && v.trim() !== "" ? n : null;
+  }
+  return null;
+}
+
+// 개수 파싱 — parseNum + 내림 (방문자·팔로워 자연수)
+function parseCount(v: unknown): number | null {
+  const n = parseNum(v);
+  return n === null ? null : Math.floor(n);
+}
+
+// 키 패턴 매칭 수치 딥 서치 — includeRe에 맞고 excludeRe에 안 걸리는 첫 수치.
+// floor=true면 자연수(팔로워), false면 실수 유지(score).
+function findNumberDeep(
+  v: unknown,
+  includeRe: RegExp,
+  excludeRe: RegExp | null,
+  floor = true,
+  depth = 0,
+): number | null {
+  if (!v || typeof v !== "object" || depth > 4) return null;
+  const entries = Object.entries(v as Record<string, unknown>);
+  for (const [k, val] of entries) {
+    if (includeRe.test(k) && !(excludeRe && excludeRe.test(k))) {
+      const n = floor ? parseCount(val) : parseNum(val);
+      if (n !== null) return n;
+    }
+  }
+  for (const [, val] of entries) {
+    const n = findNumberDeep(val, includeRe, excludeRe, floor, depth + 1);
+    if (n !== null) return n;
   }
   return null;
 }
