@@ -218,6 +218,19 @@ export async function crawlBioHasCode(kind: SnsKind, id: string, code: string): 
   for (const url of profileUrls(kind, id)) {
     if (inspect("프로필 페이지", await fetchText(url, HTML_HEADERS))) return { ok: true };
   }
+  if (kind === "instagram") {
+    // 브라우저 렌더 층 (2026-07-28 QA) — 실브라우저에선 로그인 모달 뒤에 bio가
+    // 렌더되므로 headless Chromium으로 열어 (모달 닫고) DOM에서 검출한다.
+    const { crawlBioViaBrowser } = await import("./sns-bio-browser");
+    const b = await crawlBioViaBrowser(profileUrls(kind, id)[0], code);
+    if (b?.found) return { ok: true };
+    if (b) {
+      reached = true;
+      trace.push(`브라우저 렌더: ${b.note}`);
+    } else {
+      trace.push("브라우저 렌더: 실행 실패");
+    }
+  }
   if (kind === "instagram" || kind === "tiktok") {
     if (inspect("지수 분석 응답", await fetchSnsIndexRaw(kind, id), true)) return { ok: true };
   }
