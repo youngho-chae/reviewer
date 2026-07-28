@@ -7,7 +7,7 @@ import { isCampaignVisible, campaignRemain, campaignExposure } from "@/lib/campa
 import { PLAN_RANK } from "@/lib/plan-policy";
 import { compareRecommended } from "@/lib/recommend";
 import { regionFromAddress } from "@/lib/regions";
-import { photoForStore } from "@/lib/store-photo";
+import { coverForCampaign } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import ChannelIcons from "@/components/ChannelIcons";
 import SearchBox from "./SearchBox";
@@ -25,6 +25,7 @@ export const dynamic = "force-dynamic";
  */
 interface SearchResult {
   storeId: string;
+  photos?: string[]; // 캠페인 등록 사진 — 대표 [0] (2026-07-28 QA)
   campaignId: string;
   name: string;
   category: string;
@@ -78,6 +79,7 @@ export default async function SearchPage({
         const isDelivery = c.kind === "delivery";
         return {
           storeId: store.id,
+          photos: c.photos,
           campaignId: c.id,
           name: store.name,
           category: isDelivery ? (c.productCategory ?? store.category) : store.category,
@@ -123,7 +125,7 @@ export default async function SearchPage({
                 >
                   {/* 검색 결과 카드 (2026-07-17 시안) — 100×75(4:3) 썸네일 · 가게명 1줄 · 혜택 · 지역(오렌지) · 잔여 칩 */}
                   <div className="relative w-[100px] h-[75px] shrink-0 rounded-md overflow-hidden bg-sunken">
-                    <Image src={photoForStore(r.storeId, r.category)} alt={r.name} fill sizes="100px" className="object-cover" />
+                    <Image src={coverForCampaign(r.photos, r.storeId, r.category)} alt={r.name} fill sizes="100px" className="object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
