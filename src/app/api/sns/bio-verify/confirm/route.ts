@@ -14,8 +14,9 @@ import {
 } from "@/lib/sns-bio-verify";
 
 export const runtime = "nodejs";
-// 인스타는 크롤 층이 4개까지 순차 시도 + 지수 분석 — 기본 함수 시간 제한을 넘지 않도록 확보
-export const maxDuration = 60;
+// 인스타는 크롤 층 순차 시도(JSON API×2·HTML·브라우저 렌더) + 지수 분석 —
+// 브라우저 층(콜드 스타트 포함 ~25초)까지 감안해 함수 시간 제한 확보
+export const maxDuration = 90;
 
 // [인증완료] (2026-07-25 연결 개편 §2~§7) — 입력된 채널 주소의 프로필을 즉시 크롤링해
 // 소개글에 발급 코드가 있는지 확인하고, 있으면 연결을 완료한다.
