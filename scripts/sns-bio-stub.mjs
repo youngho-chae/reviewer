@@ -46,7 +46,8 @@ http
       }
       if (req.method === "POST" && u.pathname === "/__analysis") {
         const j = JSON.parse(raw || "{}");
-        analyses.set(String(j.id), { grade: j.grade, total_visitors: j.total_visitors });
+        // payload가 있으면 그대로 응답 — 실 API의 다양한 스키마(중첩·장식·쉼표 문자열) 재현용
+        analyses.set(String(j.id), j.payload ?? { grade: j.grade, total_visitors: j.total_visitors });
         return json(200, { ok: true });
       }
       if (req.method === "POST" && u.pathname === "/__index") {

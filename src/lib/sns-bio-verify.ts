@@ -236,8 +236,12 @@ export interface BlogAnalysis {
 }
 
 function normalizeGrade(v: unknown): Grade | null {
-  const g = String(v ?? "").trim().toUpperCase().charAt(0);
-  return g === "S" || g === "A" || g === "B" || g === "C" || g === "N" ? (g as Grade) : null;
+  const s = String(v ?? "").trim().toUpperCase();
+  if (!s) return null;
+  const first = s.charAt(0);
+  if ("SABCN".includes(first)) return first as Grade; // "C" · "C등급" · "b+"
+  const m = s.match(/[SABCN](?![A-Z])/); // 장식 섞인 값("일반(C)")에서 단독 등급 문자
+  return m ? (m[0] as Grade) : null;
 }
 
 // score → 등급 밴드 (2026-07-25 스펙): S 88+ · A 78+ · B 66+ · C 52+ · 미만 N.
@@ -298,23 +302,93 @@ export async function analyzeSnsIndex(
   }
 }
 
+// ── 블로그 분석 응답 견고 파싱 (2026-07-27 3차 QA) ─────────────────────────
+// 실 API에서 C등급 블로그가 N·방문자 0으로 떨어진 문제 — 응답이 우리가 가정한
+// 평평한 {grade, total_visitors}와 다르면(중첩 래퍼·"C등급" 장식·"12,345" 쉼표
+// 문자열) 파싱 전체가 소프트 실패해 등급 N/영향력 0이 됐다.
+// → 응답을 딥 서치해 grade와 **총 방문자(total)** 값을 추출한다.
+//   일 방문자(daily/today/average) 키는 명시적으로 배제 — 총 방문자만 채택.
+
+// "12,345" · "12345명" · 공백 섞임 등 형식 문자열 수용
+function parseCount(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? Math.floor(v) : null;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[,\s명회]/g, ""));
+    return Number.isFinite(n) && n >= 0 && v.trim() !== "" ? Math.floor(n) : null;
+  }
+  return null;
+}
+
+const GRADE_KEY_RE = /grade|등급/i;
+const TOTAL_VISIT_KEY_RE = /total.*(visit|방문)|(visit|방문).*total|총.?방문/i;
+const DAILY_KEY_RE = /daily|today|yesterday|avg|average|per_?day/i; // 일 방문자류 — 배제
+
+function findGradeDeep(v: unknown, depth = 0): Grade | null {
+  if (!v || typeof v !== "object" || depth > 4) return null;
+  const entries = Object.entries(v as Record<string, unknown>);
+  for (const [k, val] of entries) {
+    if (GRADE_KEY_RE.test(k)) {
+      const g = normalizeGrade(val);
+      if (g) return g;
+    }
+  }
+  for (const [, val] of entries) {
+    const g = findGradeDeep(val, depth + 1);
+    if (g) return g;
+  }
+  return null;
+}
+
+function findTotalVisitorsDeep(v: unknown, depth = 0): number | null {
+  if (!v || typeof v !== "object" || depth > 4) return null;
+  const entries = Object.entries(v as Record<string, unknown>);
+  for (const [k, val] of entries) {
+    if (TOTAL_VISIT_KEY_RE.test(k) && !DAILY_KEY_RE.test(k)) {
+      const n = parseCount(val);
+      if (n !== null) return n;
+    }
+  }
+  for (const [, val] of entries) {
+    const n = findTotalVisitorsDeep(val, depth + 1);
+    if (n !== null) return n;
+  }
+  return null;
+}
+
 export async function analyzeNaverBlog(blogId: string): Promise<BlogAnalysis | null> {
+  let raw = "";
   try {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 15_000);
+    // 분석 서버가 네이버를 실시간 크롤링해 15초를 넘길 수 있음 — 여유 확보 (confirm 예산 60초 내)
+    const t = setTimeout(() => controller.abort(), 30_000);
     const r = await fetch(`${ANALYZER_BASE}/api/analyze?url=${encodeURIComponent(blogId)}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
       signal: controller.signal,
     });
     clearTimeout(t);
-    if (!r.ok) return null;
-    const j = (await r.json()) as { grade?: unknown; total_visitors?: unknown };
-    const grade = normalizeGrade(j.grade);
-    const totalVisitors = Number(j.total_visitors);
-    if (!grade || !Number.isFinite(totalVisitors) || totalVisitors < 0) return null;
-    return { grade, totalVisitors: Math.floor(totalVisitors) };
-  } catch {
+    if (!r.ok) {
+      console.log(`[sns-bio] blog-analyzer @${blogId} HTTP ${r.status}`);
+      return null;
+    }
+    raw = await r.text();
+    const j: unknown = JSON.parse(raw);
+    const grade = findGradeDeep(j);
+    if (!grade) {
+      // 스키마 불일치 진단 — 실제 응답 형태를 로그로 남겨 파서를 정확히 맞출 수 있게
+      console.log(`[sns-bio] blog-analyzer @${blogId} grade 추출 실패 — 응답: ${raw.slice(0, 400)}`);
+      return null;
+    }
+    const totalVisitors = findTotalVisitorsDeep(j);
+    if (totalVisitors === null) {
+      console.log(`[sns-bio] blog-analyzer @${blogId} total_visitors 추출 실패 — 응답: ${raw.slice(0, 400)}`);
+    }
+    return { grade, totalVisitors: totalVisitors ?? 0 };
+  } catch (e) {
+    console.log(
+      `[sns-bio] blog-analyzer @${blogId} 호출 실패(${e instanceof Error ? e.name : "unknown"})` +
+        (raw ? ` — 응답: ${raw.slice(0, 400)}` : ""),
+    );
     return null;
   }
 }
