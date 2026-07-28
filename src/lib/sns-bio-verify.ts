@@ -171,7 +171,7 @@ export type BioCrawlResult =
 // 소개글 코드 검출 — 다층 크롤 (2026-07-27 실 QA: 인스타그램은 비로그인 서버 크롤에
 // 로그인 벽 HTML을 반환해 프로필 페이지에 소개글이 없다 → 층을 나눠 순서대로 검사한다).
 //  인스타그램: ① 앱 API 호스트 web_profile_info ② 웹 호스트 web_profile_info
-//              ③ 프로필 HTML ④ insta-index 분석 응답 원문
+//              ③ 프로필 HTML ④ insta-index 분석 응답 원문 ⑤ 브라우저 렌더(최후·고비용)
 //  틱톡: ① 프로필 HTML(SSR에 소개글 포함) ② insta-index 분석 응답 원문
 //  네이버 블로그: 모바일 홈 → PC 프롤로그 HTML
 // 실패 시 층별 진단(trace)을 함께 돌려준다 — 내부 QA가 어느 층이 어떻게 막혔는지
@@ -218,9 +218,15 @@ export async function crawlBioHasCode(kind: SnsKind, id: string, code: string): 
   for (const url of profileUrls(kind, id)) {
     if (inspect("프로필 페이지", await fetchText(url, HTML_HEADERS))) return { ok: true };
   }
+  if (kind === "instagram" || kind === "tiktok") {
+    // 지수 분석 응답 스캔 — 저비용이라 브라우저 층보다 먼저 (insta-index가 biography를
+    // 응답에 포함하면 여기서 즉시 검출된다)
+    if (inspect("지수 분석 응답", await fetchSnsIndexRaw(kind, id), true)) return { ok: true };
+  }
   if (kind === "instagram") {
     // 브라우저 렌더 층 (2026-07-28 QA) — 실브라우저에선 로그인 모달 뒤에 bio가
     // 렌더되므로 headless Chromium으로 열어 (모달 닫고) DOM에서 검출한다.
+    // 주의: 데이터센터 IP는 로그인 페이지로 리다이렉트될 수 있음 (트래픽 차단 — 실 QA).
     const { crawlBioViaBrowser } = await import("./sns-bio-browser");
     const b = await crawlBioViaBrowser(profileUrls(kind, id)[0], code);
     if (b?.found) return { ok: true };
@@ -230,9 +236,6 @@ export async function crawlBioHasCode(kind: SnsKind, id: string, code: string): 
     } else {
       trace.push("브라우저 렌더: 실행 실패");
     }
-  }
-  if (kind === "instagram" || kind === "tiktok") {
-    if (inspect("지수 분석 응답", await fetchSnsIndexRaw(kind, id), true)) return { ok: true };
   }
   return { ok: false, reason: reached ? "code_not_found" : "unreachable", trace };
 }
