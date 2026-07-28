@@ -34,7 +34,8 @@ export type IconName =
   | "filter"
   | "copy"
   | "heart"
-  | "crosshair";
+  | "crosshair"
+  | "calendar-check";
 
 export type IconVariant = "border" | "bold";
 
@@ -96,6 +97,9 @@ const PATHS: Record<IconName, string> = {
   // 크로스헤어(GPS) — 현 위치로 갱신
   crosshair:
     "M12 18.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M12 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z",
+  // 체크 달린 캘린더 — 사장님 [관리] 탭 (2026-07-28)
+  "calendar-check":
+    "M5 5.5h14A1.5 1.5 0 0 1 20.5 7v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V7A1.5 1.5 0 0 1 5 5.5ZM3.5 9.5h17M8 3.5v3.5M16 3.5v3.5M8.8 14.6l2.2 2.2 4.2-4.2",
 };
 
 // 아이콘 별로 bold 모드에서 fill을 쓸지(닫힌 형태) stroke만 굵게 쓸지(선형) 결정.
