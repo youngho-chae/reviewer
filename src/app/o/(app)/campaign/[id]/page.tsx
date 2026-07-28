@@ -19,6 +19,8 @@ import {
 import ManageTabs from "./ManageTabs";
 import BlocksManager from "./BlocksManager";
 import CloseCampaign from "./CloseCampaign";
+import ReservationManager from "../../manage/ReservationManager";
+import { buildManagedReservations } from "../../manage/reservation-items";
 
 export const dynamic = "force-dynamic";
 
@@ -96,15 +98,21 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
 
   const opensAt = c.reservationSchedule?.opensAt;
 
-  const reserveView = (
+  // 예약관리 탭 (2026-07-28) — [관리]-[예약관리]와 동일 기능을 이 캠페인 범위로 (매장 필터 없음)
+  const campaignReservations = buildManagedReservations(passes, [c], db.stores);
+
+  const reservationsView = (
+    <section className="pt-4">
+      <ReservationManager items={campaignReservations} stores={[]} />
+    </section>
+  );
+
+  const statusView = (
     <section className="px-5 pt-4">
-      {/* 접수 예약의 확인·확정·제안은 홈 큐 담당 — 이 탭은 "더 이상 받을 수 없는 일정 차단" 전용 */}
+      {/* 접수 예약의 확인·확정·제안은 [예약관리] 탭 — 상태관리는 "더 이상 받을 수 없는 일정 차단" 전용 */}
       <div className="rounded-md bg-brandSoft px-3.5 py-3 text-[13px] text-ink2 leading-[1.55]">
-        예약 요청 확인·확정·시간 제안은{" "}
-        <Link href="/o/home" className="font-semibold text-brand underline">
-          홈의 [방문 예약] 큐
-        </Link>
-        에서 해요. 여기서는 <b>더 이상 예약을 받을 수 없는 날짜·시간</b>을 막아둘 수 있어요.
+        예약 요청 확인·확정·시간 제안은 <b className="text-brand">[예약관리]</b> 탭에서 해요. 여기서는{" "}
+        <b>더 이상 예약을 받을 수 없는 날짜·시간</b>을 막아둘 수 있어요.
       </div>
       <BlocksManager
         campaignId={c.id}
@@ -242,12 +250,15 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         </p>
       )}
 
-      {/* [예약 관리 | 후기 관리] 탭 (2026-07-23) — 방문형·배송형·종료 캠페인은 후기 관리 단독
-          (종료 후에는 받을 예약이 없어 일정 차단이 무의미) */}
+      {/* [예약관리 | 상태관리 | 후기 관리] 탭 (2026-07-28 개편 — 구 '예약 관리'(일정 차단)는
+          예약관리 탭 신설로 네이밍이 겹쳐 '상태관리'로 변경) — 방문형·배송형·종료 캠페인은
+          후기 관리 단독 (종료 후에는 받을 예약이 없어 예약·차단 관리가 무의미) */}
       <ManageTabs
         showReserve={isReserve && c.endAt > now}
+        reservationCount={campaignReservations.filter((r) => r.state === "requested" || r.state === "counter").length}
         reviewCount={reviewRows.length}
-        reserveView={reserveView}
+        reservationsView={reservationsView}
+        statusView={statusView}
         reviewView={reviewView}
       />
     </div>
