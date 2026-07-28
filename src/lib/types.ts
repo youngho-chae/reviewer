@@ -6,7 +6,7 @@ export type SnsKind = "naver_blog" | "instagram" | "tiktok";
 export interface SnsAccount {
   kind: SnsKind;
   url: string;
-  influence: number; // 일방문자/팔로워/구독자 자연수
+  influence: number; // 총 방문자(블로그)/팔로워 자연수 — 2026-07-28: 일 방문자 아님
   // ── 본인 소유 검증 (2026-07-10 신설) ──
   // 가입 자기신고분은 미검증(undefined). OAuth(네이버/페이스북/틱톡 로그인) 또는
   // 데모 검증(키 미설정 환경 시연용)으로 검증되면 아래 필드가 채워진다.
