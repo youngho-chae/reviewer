@@ -17,7 +17,7 @@ const ch_label: any = {
   tiktok: "틱톡",
 };
 const ch_metric: any = {
-  naver_blog: "일방문자", // blog-analyzer visitor_trend.current (2026-07-28 확정)
+  naver_blog: "평균방문자", // blog-analyzer visitor_trend.current (표기 확정 2026-07-28)
   instagram: "팔로워",
   tiktok: "팔로워",
 };
