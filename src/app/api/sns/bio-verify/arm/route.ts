@@ -5,7 +5,8 @@ import { armBioCode, BIO_CODE_RE, BIO_CODE_TTL_SECONDS } from "@/lib/sns-bio-ver
 
 export const runtime = "nodejs";
 
-// [인증하기] (2026-07-25 연결 개편 §1) — 발급된 인증코드를 서명 쿠키로 무장.
+// 인증 무장 (2026-07-25 연결 개편 §1 · 2026-07-28 UI 트리거 = [복사]) — 발급된
+// 인증코드를 서명 쿠키로 무장.
 // 여기서부터 30분 카운팅이 시작되고, 화면의 SNS 주소 입력이 활성화된다.
 export async function POST(req: NextRequest) {
   const s = await readSession();

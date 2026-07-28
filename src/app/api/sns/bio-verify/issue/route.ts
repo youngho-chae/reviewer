@@ -6,7 +6,7 @@ import { newBioCode } from "@/lib/sns-bio-verify";
 export const runtime = "nodejs";
 
 // 계정 인증코드 발급 (2026-07-25 연결 개편 §1) — 연결 시트를 열 때 호출.
-// 8자리 1회성 난수를 표시용으로 반환만 하고, 30분 유효 시작은 [인증하기](arm)에서.
+// 8자리 1회성 난수를 표시용으로 반환만 하고, 30분 유효 시작은 [복사](arm)에서.
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") {
