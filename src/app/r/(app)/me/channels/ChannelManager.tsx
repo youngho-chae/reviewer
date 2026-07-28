@@ -33,23 +33,23 @@ const URL_PLACEHOLDER: Record<SnsKind, string> = {
   tiktok: "tiktok.com/@아이디 또는 @아이디",
 };
 
-// 연결 가이드 (2026-07-25 소개글 인증코드 개편). 마지막 어뷰징 항목은 강조.
+// 연결 가이드 (2026-07-28 [복사]=인증 시작 개편). 마지막 어뷰징 항목은 강조.
 const CONNECT_GUIDE: Record<SnsKind, string[]> = {
   naver_blog: [
-    "발급된 계정 인증코드를 복사해 블로그 소개글 맨 앞에 붙여넣고 저장해 주세요.",
-    "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
+    "[복사]를 누르면 코드가 복사되면서 30분 인증이 시작되고, SNS 주소를 입력할 수 있어요.",
+    "복사한 인증코드를 블로그 소개글 맨 앞에 붙여넣고 저장한 뒤 30분 안에 인증을 완료해 주세요.",
     "인증이 완료되면 소개글의 코드는 지워도 돼요. 등급과 방문자 수는 블로그 분석으로 자동 산정돼요.",
     "방문자 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
   instagram: [
-    "발급된 계정 인증코드를 복사해 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
-    "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
+    "[복사]를 누르면 코드가 복사되면서 30분 인증이 시작되고, SNS 주소를 입력할 수 있어요.",
+    "복사한 인증코드를 프로필 소개(bio) 맨 앞에 붙여넣고 저장한 뒤 30분 안에 인증을 완료해 주세요.",
     "전체 공개 계정이어야 해요. 인증되면 계정 분석으로 등급과 팔로워 수가 자동 산정돼요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
   tiktok: [
-    "발급된 계정 인증코드를 복사해 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
-    "[인증하기]를 누르면 30분 동안 유효하며, 그 안에 인증을 완료해 주세요.",
+    "[복사]를 누르면 코드가 복사되면서 30분 인증이 시작되고, SNS 주소를 입력할 수 있어요.",
+    "복사한 인증코드를 프로필 소개(bio) 맨 앞에 붙여넣고 저장한 뒤 30분 안에 인증을 완료해 주세요.",
     "전체 공개 계정이어야 해요. 인증되면 계정 분석으로 등급과 팔로워 수가 자동 산정돼요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
@@ -67,8 +67,9 @@ function VerifyChip({ verified, via }: { verified: boolean; via: "oauth" | "demo
 }
 
 // SNS 채널 연결 (2026-07-25 소개글 인증코드 개편) — 레퍼런스형 리스트 행 +
-// 연결 바텀시트: 계정 인증코드(8자리·1회성) → [인증하기](30분 유효 시작·주소 입력 활성화)
-// → 소개글 맨 앞에 코드 삽입 → 주소 입력 → [인증완료] = 즉시 크롤링 검증.
+// 연결 바텀시트: 계정 인증코드(8자리·1회성) → [복사](복사 + 30분 유효 시작·주소 입력
+// 활성화 — 2026-07-28 [인증하기] 버튼 흡수, 무장 중 재클릭은 복사만) → 소개글 맨 앞에
+// 코드 삽입 → 주소 입력 → [인증완료] = 즉시 크롤링 검증.
 export default function ChannelManager({
   rows,
   connected,
@@ -84,7 +85,7 @@ export default function ChannelManager({
   const [sheetKind, setSheetKind] = useState<SnsKind | null>(null); // 연결 시트 열린 채널
   const [code, setCode] = useState<string | null>(null); // 발급된 계정 인증코드
   const [copied, setCopied] = useState(false);
-  const [armedUntil, setArmedUntil] = useState<number | null>(null); // 인증하기 후 만료 시각
+  const [armedUntil, setArmedUntil] = useState<number | null>(null); // [복사](인증 시작) 후 만료 시각
   const [nowTick, setNowTick] = useState(Date.now()); // 카운트다운 1초 틱
   const [url, setUrl] = useState("");
   const [confirmKind, setConfirmKind] = useState<SnsKind | null>(null); // 해제 확인 모달
@@ -114,7 +115,7 @@ export default function ChannelManager({
     setFailed(false);
     setErr(null);
     setErrTrace([]);
-    // 계정 인증코드 발급 (§1 — 시트 오픈 시 생성, 유효 시간은 [인증하기]부터)
+    // 계정 인증코드 발급 (§1 — 시트 오픈 시 생성, 유효 시간은 [복사](인증 시작)부터)
     try {
       const res = await fetch("/api/sns/bio-verify/issue", {
         method: "POST",
@@ -129,16 +130,19 @@ export default function ChannelManager({
     }
   }
 
-  async function copyCode() {
+  // [복사] — 코드 복사 + 미무장 시 인증 시작 트리거 (2026-07-28: [인증하기] 버튼 흡수).
+  // 카운트다운 중(무장 상태)의 추가 클릭은 복사 기능만 제공. 만료 후 클릭은 재무장.
+  async function copyCode(kind: SnsKind) {
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {}
+    if (!armed && !busy) await arm(kind);
   }
 
-  // [인증하기] — 30분 카운팅 시작 + SNS 주소 입력 활성화 (§1)
+  // 인증 무장 — 30분 카운팅 시작 + SNS 주소 입력 활성화 (§1, [복사]가 트리거)
   async function arm(kind: SnsKind) {
     if (!code) return;
     setBusy(true);
@@ -181,7 +185,7 @@ export default function ChannelManager({
         setErr(j.error || "인증에 실패했어요.");
         setErrTrace(Array.isArray(j.trace) ? j.trace : []);
         if (j.expired) {
-          // 유효 시간 만료 — [인증하기]부터 다시
+          // 유효 시간 만료 — [복사](재무장)부터 다시
           setArmedUntil(null);
           setFailed(false);
         } else {
@@ -311,7 +315,7 @@ export default function ChannelManager({
               </button>
             </div>
 
-            {/* 계정 인증코드 (§1) — 8자리 1회성, [인증하기]부터 30분 유효 */}
+            {/* 계정 인증코드 (§1) — 8자리 1회성, [복사]가 인증 시작 트리거 (2026-07-28) */}
             <div className="mt-5 rounded-md border border-hairline p-4">
               <div className="flex items-center justify-between">
                 <div className="text-[13px] font-semibold text-ink">계정 인증코드</div>
@@ -325,32 +329,23 @@ export default function ChannelManager({
                 </span>
                 <button
                   type="button"
-                  onClick={copyCode}
-                  disabled={!code}
+                  onClick={() => copyCode(sheetRow.kind)}
+                  disabled={!code || busy}
                   className="cp-action h-9 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold disabled:opacity-50"
                 >
                   {copied ? "복사됨" : "복사"}
                 </button>
               </div>
               <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-                이 코드를 {BIO_LABEL[sheetRow.kind]} <b className="text-ink2">맨 앞</b>에 붙여넣고 저장한 뒤 돌아와주세요.
+                [복사]를 누르면 <b className="text-ink2">30분 인증이 시작</b>돼요. 코드를 {BIO_LABEL[sheetRow.kind]}{" "}
+                <b className="text-ink2">맨 앞</b>에 붙여넣고 저장한 뒤 돌아와주세요.
               </p>
-              {!armed && (
-                <button
-                  type="button"
-                  onClick={() => arm(sheetRow.kind)}
-                  disabled={!code || busy}
-                  className="cp-action mt-3 w-full h-11 rounded-md bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
-                >
-                  {busy ? "처리 중..." : "인증하기"}
-                </button>
-              )}
               {armedUntil !== null && !armed && (
-                <p className="mt-2 text-[12px] text-error">인증 시간이 만료되었어요 — [인증하기]를 다시 눌러주세요.</p>
+                <p className="mt-2 text-[12px] text-error">인증 시간이 만료되었어요 — [복사]를 다시 눌러주세요.</p>
               )}
             </div>
 
-            {/* SNS 주소 — [인증하기] 전에는 비활성 (§1) */}
+            {/* SNS 주소 — [복사](인증 시작) 전에는 비활성 (§1) */}
             <div className="mt-4">
               <div className="text-[13px] font-semibold text-ink mb-1.5">SNS 주소</div>
               <input
@@ -358,7 +353,7 @@ export default function ChannelManager({
                 onChange={(e) => setUrl(e.target.value)}
                 inputMode="url"
                 disabled={!armed}
-                placeholder={armed ? URL_PLACEHOLDER[sheetRow.kind] : "[인증하기]를 누르면 입력할 수 있어요"}
+                placeholder={armed ? URL_PLACEHOLDER[sheetRow.kind] : "[복사]를 누르면 입력할 수 있어요"}
                 className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] disabled:bg-sunken disabled:text-mutedSoft"
               />
             </div>

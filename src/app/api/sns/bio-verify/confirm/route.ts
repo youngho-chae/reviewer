@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const code = await readBioCode(kind);
   if (!code) {
     return NextResponse.json(
-      { error: "인증 시간이 만료되었어요 — [인증하기]를 다시 눌러 진행해주세요", expired: true },
+      { error: "인증 시간이 만료되었어요 — [복사]를 다시 눌러 진행해주세요", expired: true },
       { status: 400 },
     );
   }
