@@ -6,7 +6,7 @@ import { CHANNEL_URL_PLACEHOLDER } from "@/lib/channels";
 import type { SnsKind } from "@/lib/types";
 
 const METRIC: Record<SnsKind, string> = {
-  naver_blog: "총 방문자", // blog-analyzer total_visitors — 일 방문자 아님 (2026-07-28)
+  naver_blog: "일방문자", // blog-analyzer visitor_trend.current (2026-07-28 확정)
   instagram: "팔로워",
   tiktok: "팔로워",
 };

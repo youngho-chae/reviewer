@@ -11,8 +11,8 @@
 // 노출되어도 무해 — 소개글을 편집할 수 있는 본인만 통과할 수 있다.
 //
 // [네이버 블로그 한정 등급 산정] 인증 완료 시 자체 등급평가 API
-// (BLOG_ANALYZER_BASE /api/analyze?url={블로그ID})를 호출해 grade·total_visitors를
-// 반영한다. 인스타그램·틱톡은 미반영(기존 팔로워 수 기반 공식 유지).
+// (BLOG_ANALYZER_BASE /api/analyze?url={블로그ID})를 호출해 grade와 **일 방문자**
+// (blog.visitor_trend.current — 2026-07-28 확정)를 반영한다.
 //
 // 샌드박스는 외부 도메인이 차단되므로 크롤·분석 베이스를 env로 오버라이드해 스텁
 // (scripts/sns-bio-stub.mjs)으로 검증한다 — KFTC/플레이스 스텁과 동일 관례.
@@ -232,7 +232,7 @@ const INSTA_INDEX_BASE = process.env.INSTA_INDEX_BASE || "https://insta-index.ve
 
 export interface BlogAnalysis {
   grade: Grade;
-  totalVisitors: number;
+  dailyVisitors: number; // 일 방문자 (blog.visitor_trend.current — 2026-07-28 확정)
 }
 
 function normalizeGrade(v: unknown): Grade | null {
@@ -302,12 +302,11 @@ export async function analyzeSnsIndex(
   }
 }
 
-// ── 블로그 분석 응답 견고 파싱 (2026-07-27 3차 QA) ─────────────────────────
-// 실 API에서 C등급 블로그가 N·방문자 0으로 떨어진 문제 — 응답이 우리가 가정한
-// 평평한 {grade, total_visitors}와 다르면(중첩 래퍼·"C등급" 장식·"12,345" 쉼표
-// 문자열) 파싱 전체가 소프트 실패해 등급 N/영향력 0이 됐다.
-// → 응답을 딥 서치해 grade와 **총 방문자(total)** 값을 추출한다.
-//   일 방문자(daily/today/average) 키는 명시적으로 배제 — 총 방문자만 채택.
+// ── 블로그 분석 응답 견고 파싱 (2026-07-27 3차 QA · 2026-07-28 일 방문자 정정) ──
+// 등급 산정 기준 지표는 **일 방문자** — 정본 경로는 `blog.visitor_trend.current`
+// (2026-07-28 회의 확정: 총 방문자 아님. INDEX_BANDS·월간 재평가 지수도 일 방문자
+// 규모 기준이라 이 선택이 등급 체계와 정합). 확정 경로 우선, 스키마 변경 대비
+// 딥 서치 폴백(visitor_trend.current → daily_visitors 계열 키) 유지.
 
 // "12,345" · "12345명" · 공백 섞임 등 형식 문자열 수용
 function parseCount(v: unknown): number | null {
@@ -320,8 +319,7 @@ function parseCount(v: unknown): number | null {
 }
 
 const GRADE_KEY_RE = /grade|등급/i;
-const TOTAL_VISIT_KEY_RE = /total.*(visit|방문)|(visit|방문).*total|총.?방문/i;
-const DAILY_KEY_RE = /daily|today|yesterday|avg|average|per_?day/i; // 일 방문자류 — 배제
+const DAILY_VISIT_KEY_RE = /daily.*visit|visit.*daily|today.*visit|visit.*today|일.?방문/i;
 
 function findGradeDeep(v: unknown, depth = 0): Grade | null {
   if (!v || typeof v !== "object" || depth > 4) return null;
@@ -339,17 +337,35 @@ function findGradeDeep(v: unknown, depth = 0): Grade | null {
   return null;
 }
 
-function findTotalVisitorsDeep(v: unknown, depth = 0): number | null {
+// visitor_trend.current — 정본 경로의 딥 폴백 (래퍼가 바뀌어도 visitor_trend 객체를 탐색)
+function findVisitorTrendCurrentDeep(v: unknown, depth = 0): number | null {
   if (!v || typeof v !== "object" || depth > 4) return null;
   const entries = Object.entries(v as Record<string, unknown>);
   for (const [k, val] of entries) {
-    if (TOTAL_VISIT_KEY_RE.test(k) && !DAILY_KEY_RE.test(k)) {
+    if (/visitor.?trend/i.test(k) && val && typeof val === "object") {
+      const n = parseCount((val as Record<string, unknown>).current);
+      if (n !== null) return n;
+    }
+  }
+  for (const [, val] of entries) {
+    const n = findVisitorTrendCurrentDeep(val, depth + 1);
+    if (n !== null) return n;
+  }
+  return null;
+}
+
+// daily_visitors 계열 키 — visitor_trend가 아예 없을 때의 최후 폴백
+function findDailyVisitorsDeep(v: unknown, depth = 0): number | null {
+  if (!v || typeof v !== "object" || depth > 4) return null;
+  const entries = Object.entries(v as Record<string, unknown>);
+  for (const [k, val] of entries) {
+    if (DAILY_VISIT_KEY_RE.test(k)) {
       const n = parseCount(val);
       if (n !== null) return n;
     }
   }
   for (const [, val] of entries) {
-    const n = findTotalVisitorsDeep(val, depth + 1);
+    const n = findDailyVisitorsDeep(val, depth + 1);
     if (n !== null) return n;
   }
   return null;
@@ -373,13 +389,15 @@ export async function analyzeNaverBlog(blogId: string): Promise<BlogAnalysis | n
     }
     raw = await r.text();
     const j: unknown = JSON.parse(raw);
-    // 실 스키마 확정 (2026-07-28 실호출): grade = influence.grade · 총 방문자 =
-    // blog.profile.total_visitors. 확정 경로를 먼저 읽고, 스키마가 또 바뀌면 딥 서치 폴백.
-    // (주의 값: mate.grade="메이트 근접"(등급 아님) · profile.today_visitors=일 방문자 ·
-    //  metrics.daily_visitors_est · influence.subscores 내 total_visitors는 점수(98.7))
+    // 실 스키마 (2026-07-28 실호출 + 회의 확정): grade = influence.grade ·
+    // **일 방문자 = blog.visitor_trend.current** (폴백: metrics.daily_visitors_est).
+    // 확정 경로를 먼저 읽고, 스키마가 또 바뀌면 딥 서치 폴백.
+    // (배제 값: blog.profile.total_visitors=총 방문자(지표 아님) · mate.grade="메이트 근접" ·
+    //  influence.subscores 내 total_visitors/daily는 점수)
     const known = j as {
       influence?: { grade?: unknown };
-      blog?: { profile?: { total_visitors?: unknown } };
+      blog?: { visitor_trend?: { current?: unknown } };
+      metrics?: { daily_visitors_est?: unknown };
     };
     const grade = normalizeGrade(known.influence?.grade) ?? findGradeDeep(j);
     if (!grade) {
@@ -387,11 +405,15 @@ export async function analyzeNaverBlog(blogId: string): Promise<BlogAnalysis | n
       console.log(`[sns-bio] blog-analyzer @${blogId} grade 추출 실패 — 응답: ${raw.slice(0, 400)}`);
       return null;
     }
-    const totalVisitors = parseCount(known.blog?.profile?.total_visitors) ?? findTotalVisitorsDeep(j);
-    if (totalVisitors === null) {
-      console.log(`[sns-bio] blog-analyzer @${blogId} total_visitors 추출 실패 — 응답: ${raw.slice(0, 400)}`);
+    const dailyVisitors =
+      parseCount(known.blog?.visitor_trend?.current) ??
+      findVisitorTrendCurrentDeep(j) ??
+      parseCount(known.metrics?.daily_visitors_est) ??
+      findDailyVisitorsDeep(j);
+    if (dailyVisitors === null) {
+      console.log(`[sns-bio] blog-analyzer @${blogId} 일 방문자 추출 실패 — 응답: ${raw.slice(0, 400)}`);
     }
-    return { grade, totalVisitors: totalVisitors ?? 0 };
+    return { grade, dailyVisitors: dailyVisitors ?? 0 };
   } catch (e) {
     console.log(
       `[sns-bio] blog-analyzer @${blogId} 호출 실패(${e instanceof Error ? e.name : "unknown"})` +
