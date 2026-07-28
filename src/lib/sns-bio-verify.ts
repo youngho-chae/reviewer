@@ -1,7 +1,8 @@
 // SNS 소개글(bio) 인증코드 검증 (2026-07-25 연결 프로세스 개편).
 //
 // 흐름: [연결하기] 시트 오픈 → 8자리 1회성 계정 인증코드 발급(영대·영소·숫자) →
-// [인증하기] = 코드 서명 쿠키(30분) 무장 + SNS 주소 입력 활성화 → 유저가 채널 소개글
+// [복사] = 코드 복사 + 서명 쿠키(30분) 무장 + SNS 주소 입력 활성화 (2026-07-28:
+// [인증하기] 버튼을 [복사]에 흡수 — 무장 중 재클릭은 복사만) → 유저가 채널 소개글
 // 맨 앞에 코드 삽입 → 주소 입력 후 [인증완료] → 서버가 채널 프로필을 즉시 크롤링해
 // 소개글에 코드가 있는지 확인 → 있으면 인증 완료, 없으면 "계정 인증 코드를 확인할 수
 // 없습니다." + [재시도].
@@ -36,7 +37,7 @@ export function newBioCode(): string {
   return Array.from(buf, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
 }
 
-// [인증하기] — 코드를 서명 쿠키로 무장 (여기서부터 30분 카운팅)
+// 인증 무장 — 코드를 서명 쿠키로 저장 (여기서부터 30분 카운팅, UI 트리거는 [복사])
 export async function armBioCode(kind: SnsKind, code: string): Promise<number> {
   const expiresAt = Date.now() + BIO_CODE_TTL_SECONDS * 1000;
   const token = await new SignJWT({ kind, code })
