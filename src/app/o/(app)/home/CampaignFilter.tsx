@@ -13,6 +13,7 @@ export default function CampaignFilter({
   allView,
   openView,
   closedView,
+  defaultFilter = "open",
 }: {
   allCount: number;
   openCount: number;
@@ -20,8 +21,9 @@ export default function CampaignFilter({
   allView: ReactNode;
   openView: ReactNode;
   closedView: ReactNode;
+  defaultFilter?: "all" | "open" | "closed"; // [관리] 탭은 전체 기본 (2026-07-28 시안)
 }) {
-  const [filter, setFilter] = useState<"all" | "open" | "closed">("open");
+  const [filter, setFilter] = useState<"all" | "open" | "closed">(defaultFilter);
 
   const chips = [
     { key: "all" as const, label: `전체 ${allCount}` },
