@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Icon from "@/components/Icon";
-import { photoForStore } from "@/lib/store-photo";
+import { coverForCampaign } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { fmtKoDateTime } from "@/lib/dates";
 import { CHANNEL_LABEL } from "@/lib/channels";
@@ -20,6 +20,7 @@ import CancelPassButton from "./[id]/CancelPassButton";
 export interface VisitPassItem {
   id: string;
   storeId: string;
+  photos?: string[]; // 캠페인 등록 사진 — 대표 [0] (2026-07-28 QA)
   campaignId: string;
   storeName: string;
   category: string;
@@ -284,7 +285,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
       <div className="flex gap-3">
         {/* 88×66(4:3) — 2026-07-17 썸네일 규격 통일 */}
         <div className="relative w-[88px] h-[66px] shrink-0 rounded-md overflow-hidden bg-sunken">
-          <Image src={photoForStore(it.storeId, it.category)} alt={it.storeName} fill sizes="88px" className="object-cover" />
+          <Image src={coverForCampaign(it.photos, it.storeId, it.category)} alt={it.storeName} fill sizes="88px" className="object-cover" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">

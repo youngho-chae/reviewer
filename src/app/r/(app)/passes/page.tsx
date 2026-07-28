@@ -83,6 +83,7 @@ export default async function MyPasses({
       id: p.id,
       storeId: p.storeId,
       campaignId: p.campaignId,
+      photos: c?.photos,
       storeName: store?.name ?? "매장",
       category: store?.category ?? "",
       status: p.status,
