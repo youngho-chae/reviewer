@@ -48,6 +48,8 @@ const config: Config = {
         successSoft: "#F2FFF6",
         warning: "#EAB308",
         warningSoft: "#FEFCE8",
+        // 시안 오렌지 액센트 (2026-07-28 홈 카드 지역 표기 등 — 상태 컬러(warning)와 구분)
+        accentWarm: "#F97316",
         // SNS 배지 (시그니처 아이덴티티 — 상태/카테고리 재사용 금지)
         snsBlogBg: "#F2FFF6",
         snsBlogText: "#009632",
