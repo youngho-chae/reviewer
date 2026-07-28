@@ -79,7 +79,9 @@ export async function crawlBioViaBrowser(url: string, code: string): Promise<Bro
       await page.waitForTimeout(1_200);
       if (await hasCode()) return { found: true, note: "모달 닫기 후 코드 검출" };
     }
-    return { found: false, note: `렌더 완료(모달 ${closed ? "닫음" : "없음/닫기 실패"}) — 코드 미검출` };
+    // 최종 URL을 함께 남긴다 — 로그인 페이지로 리다이렉트됐는지(IP 차단) 즉시 판별용
+    const at = page.url().replace(/^https?:\/\//, "").slice(0, 60);
+    return { found: false, note: `렌더 완료(모달 ${closed ? "닫음" : "없음/닫기 실패"} · ${at}) — 코드 미검출` };
   } catch (e) {
     console.log(`[sns-bio] 브라우저 크롤 실패: ${e instanceof Error ? e.message.slice(0, 200) : "unknown"}`);
     return null;
