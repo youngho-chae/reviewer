@@ -101,20 +101,24 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
         <div className="mt-4 pt-3 border-t border-hairlineSoft">
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-semibold text-ink tabular-nums">
-              모집 한도 {monthLimit === null ? `${monthUsed} / 무제한` : `${monthUsed}/${monthLimit}`}
+              모집 한도 {monthLimit === null ? "무제한" : `${monthUsed}/${monthLimit}`}
             </span>
             <Link href="/o/membership" className="cp-action text-[13px] font-semibold text-ink">
               {me.plan} <span className="text-muted">›</span>
             </Link>
           </div>
-          {monthLimit !== null && (
-            <div className="mt-2 h-2 rounded-pill bg-canvas overflow-hidden">
-              <div
-                className="h-full rounded-pill bg-brand"
-                style={{ width: `${Math.min(100, Math.round((monthUsed / Math.max(monthLimit, 1)) * 100))}%` }}
-              />
-            </div>
-          )}
+          {/* 잔여 게이지 (2026-07-28) — 100%에서 시작해 사용할수록 줄어든다. 무제한은 항상 가득 */}
+          <div className="mt-2 h-2 rounded-pill bg-canvas overflow-hidden">
+            <div
+              className="h-full rounded-pill bg-brand"
+              style={{
+                width:
+                  monthLimit === null
+                    ? "100%"
+                    : `${Math.max(0, Math.round(((monthLimit - monthUsed) / Math.max(monthLimit, 1)) * 100))}%`,
+              }}
+            />
+          </div>
         </div>
       </div>
 
