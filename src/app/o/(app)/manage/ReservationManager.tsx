@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { SBUI, sbNum } from "@/lib/storyboard";
 
 /**
@@ -8,7 +9,8 @@ import { SBUI, sbNum } from "@/lib/storyboard";
  * 상태별 예약 카드. 카드 구성: 상태 칩 → 일시·인원(볼드) → 캠페인명(최대 2줄) → 매장명 →
  * [예약 정보] (+ 요청/재제안엔 [예약 확정]).
  *  - "체험자 재제안" 카드는 원래 요청 일시를 흐리게 + 오렌지 제안 일정 라인 (시안)
- *  - 일정 제안·거절·확정 취소 등 나머지 처리는 홈 [방문 예약] 큐 유지 — [예약 정보]에서 안내
+ *  - [예약 정보] = 다음 depth(/o/manage/reservation/[passId]) 이동 (2026-07-28 시안 —
+ *    아코디언 아님. 확정·거절·다른 일정 제안·예약 내역은 상세에서)
  *  - 익명 #last4만 노출 (확정 정책 8 — 등급·실명 비노출)
  */
 export interface ManagedReservation {
@@ -22,7 +24,6 @@ export interface ManagedReservation {
   state: "requested" | "proposed" | "counter" | "confirmed" | "cancelled";
   originalLabel?: string; // counter일 때 원래 요청 일시 (흐림 표기)
   epoch: number;
-  history: Array<{ prefix: string; timeLabel: string; note?: string }>;
 }
 
 const STATE_CHIP: Record<ManagedReservation["state"], { label: string; cls: string }> = {
@@ -52,7 +53,6 @@ export default function ReservationManager({
   const router = useRouter();
   const [storeId, setStoreId] = useState("all");
   const [filter, setFilter] = useState<Filter>("all");
-  const [openInfoId, setOpenInfoId] = useState<string | null>(null); // [예약 정보] 펼침
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -163,38 +163,14 @@ export default function ReservationManager({
               <div className="mt-2 text-[14px] font-semibold text-ink leading-[1.4] line-clamp-2">{it.campaignTitle}</div>
               <div className="mt-0.5 text-[12px] text-muted">{it.storeName}</div>
 
-              {/* [예약 정보] 펼침 — 상세 + 협상 히스토리 (처리 액션은 홈 방문 예약 큐 안내) */}
-              {openInfoId === it.passId && (
-                <div className="mt-3 rounded-sm bg-sunken px-3 py-2.5 space-y-1">
-                  <div className="text-[12px] text-ink2">
-                    체험자 <span className="font-semibold">익명 {it.masked}</span>
-                    {it.partySize ? ` · ${it.partySize}명 방문` : ""}
-                  </div>
-                  {it.history.map((h, i) => (
-                    <div key={i} className="text-[12px] text-ink2 leading-[1.5]">
-                      <span className={h.prefix.startsWith("사장님") ? "font-semibold text-brand" : "font-semibold text-ink"}>
-                        {h.prefix}
-                      </span>
-                      {h.timeLabel && <span className="tabular-nums"> · {sbNum(SBUI.dateTime, h.timeLabel)}</span>}
-                      {h.note && <div className="text-[11px] text-muted pl-2">💬 {h.note}</div>}
-                    </div>
-                  ))}
-                  {it.state !== "cancelled" && (
-                    <p className="text-[11px] text-muted leading-[1.5] pt-1">
-                      다른 일정 제안·거절{it.state === "confirmed" ? "·확정 취소" : ""}는 홈의 [방문 예약] 큐에서 할 수 있어요.
-                    </p>
-                  )}
-                </div>
-              )}
-
               <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOpenInfoId(openInfoId === it.passId ? null : it.passId)}
-                  className="cp-action flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
+                {/* [예약 정보] — 다음 depth 이동 (확정·거절·제안·예약 내역은 상세에서) */}
+                <Link
+                  href={`/o/manage/reservation/${it.passId}`}
+                  className="cp-action flex-1 h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink grid place-items-center"
                 >
                   예약 정보
-                </button>
+                </Link>
                 {confirmable && (
                   <button
                     type="button"
