@@ -343,7 +343,8 @@ export default async function ReviewerHome({
   );
 }
 
-/* experience-card — 4:3 사진 + SNS 배지 + 🎫 남음 + 가게명 + 최대 ₩N 지원 (DESIGN.md v2) */
+/* experience-card (2026-07-28 배치 개편 시안) — 4:3 사진 → 가게명(1줄) → 최대 ₩N 지원 →
+   [전체 리스트] 지역(오렌지) → SNS 배지 / ['걸어서'] SNS 배지 → 🎫 잔여 n(퍼플) */
 function ExperienceCard({ card, info = "remain", guest = false }: { card: HomeCard; info?: "remain" | "region"; guest?: boolean }) {
   return (
     <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action block">
@@ -357,32 +358,34 @@ function ExperienceCard({ card, info = "remain", guest = false }: { card: HomeCa
         />
       </div>
       <div className="mt-2">
-        <div className="flex items-center gap-1.5">
-          <ChannelIcons channels={card.requiredChannels} size={12} />
-          {/* [2026-07-12 회의 §1-3] '참여 중' 배지 삭제 — 신청 상태는 상세 CTA로 구분 */}
-        </div>
-        {/* [§4-3·§6-3] 전체 리스트(info="region")는 잔여 수 대신 지역(1차·2차) 정보 우선 —
-            '걸어서'(가까운 체험) 캐러셀은 잔여 체험권 수 유지 */}
-        {info === "region" && card.region ? (
-          <div className="mt-1.5 text-[13px] font-semibold text-ink2 flex items-center gap-1">
-            <span aria-hidden>📍</span>
-            <span className="truncate">{sbNum(SBUI.area, card.region)}</span>
-          </div>
-        ) : card.soldOut ? (
-          <div className="mt-1.5 text-[13px] font-semibold text-mutedSoft">발급 마감 · 체험 진행 중</div>
-        ) : (
-          <div className="mt-1.5 text-[13px] font-semibold text-ink2 flex items-center gap-1">
-            <span aria-hidden>🎫</span>
-            <span className="tabular-nums">{sbNum(SBUI.remain, `${card.remain}개`)}</span> 남음
-          </div>
-        )}
-        <div className="mt-0.5 text-[15px] font-semibold text-ink truncate">{card.name}</div>
+        <div className="text-[15px] font-semibold text-ink truncate">{card.name}</div>
         {/* 게스트는 SNS 미연동이라 금액 산정 불가 — 마스크 (2026-07-24) */}
         {guest ? (
           <div className="mt-0.5 text-[14px] font-semibold text-muted">지원 금액 로그인 후 확인</div>
         ) : (
           <div className="mt-0.5 text-[16px] font-bold text-ink tabular-nums">최대 {sbNum(SBUI.support, `${card.supportAmount.toLocaleString()}원`)} 지원</div>
         )}
+        {/* [§4-3·§6-3] 전체 리스트(info="region")는 지역(1차·2차) — 오렌지 액센트 (시안) */}
+        {info === "region" && card.region && (
+          <div className="mt-1.5 text-[13px] font-semibold text-accentWarm flex items-center gap-1">
+            <span aria-hidden>📍</span>
+            <span className="truncate">{sbNum(SBUI.area, card.region)}</span>
+          </div>
+        )}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <ChannelIcons channels={card.requiredChannels} size={12} />
+          {/* [2026-07-12 회의 §1-3] '참여 중' 배지 삭제 — 신청 상태는 상세 CTA로 구분 */}
+        </div>
+        {/* '걸어서' 캐러셀은 잔여 체험권 수 유지 — 🎫 잔여 n (퍼플, 시안) */}
+        {info !== "region" &&
+          (card.soldOut ? (
+            <div className="mt-1.5 text-[13px] font-semibold text-mutedSoft">발급 마감 · 체험 진행 중</div>
+          ) : (
+            <div className="mt-1.5 text-[13px] font-semibold text-brand flex items-center gap-1">
+              <span aria-hidden>🎫</span>
+              <span className="tabular-nums">잔여 {sbNum(SBUI.remain, `${card.remain}개`)}</span>
+            </div>
+          ))}
       </div>
     </Link>
   );
