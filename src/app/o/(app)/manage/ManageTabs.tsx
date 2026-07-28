@@ -8,11 +8,13 @@ import { useState, type ReactNode } from "react";
 export default function ManageTabs({
   campaignsView,
   reservationsView,
+  initialTab = "campaigns",
 }: {
   campaignsView: ReactNode;
   reservationsView: ReactNode;
+  initialTab?: "campaigns" | "reservations"; // 홈 [예약 관리] 버튼 딥링크(?tab=reservations)
 }) {
-  const [tab, setTab] = useState<"campaigns" | "reservations">("campaigns");
+  const [tab, setTab] = useState<"campaigns" | "reservations">(initialTab);
   return (
     <div>
       <div className="px-5 pt-12 pb-2 flex items-baseline gap-3.5">

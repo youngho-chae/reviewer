@@ -8,7 +8,7 @@ import { useState, type ReactNode } from "react";
  *  - 상태관리(구 '예약 관리' — 예약관리 탭 신설로 네이밍 겹쳐 변경): 예약 가능 일정 차단
  *    (당일 일시 정지·특정 날짜·특정 시간). 예약형·미종료 전용.
  *  - 후기 관리: 이 캠페인에 연결된 후기(작성 대기·심사 중·승인·반려)만 조회.
- * 내용은 서버에서 데이터를 채워 ReactNode로 전달받는다 (HomeQueues와 동일 문법).
+ * 내용은 서버에서 데이터를 채워 ReactNode로 전달받는다.
  */
 export default function ManageTabs({
   showReserve,

@@ -58,6 +58,8 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
   const [draft, setDraft] = useState<Slot[]>([]); // 시트 내 임시 선택
   const [monthIdx, setMonthIdx] = useState(0); // 표시 월 (첫 선택 가능일 기준 오프셋)
   const [pickDate, setPickDate] = useState<string | null>(null); // 시트에서 현재 고른 날짜
+  const [cancelling, setCancelling] = useState(false); // 확정 취소 폼 (§5-3 — 홈 큐에서 이관)
+  const [cancelReason, setCancelReason] = useState("");
 
   const actionable = data.state === "requested" || data.state === "counter";
   const chip = STATE_CHIP[data.state];
@@ -250,6 +252,62 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
                 >
                   {busy ? "보내는 중..." : "제안 보내기"}
                 </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 확정 예약 취소 (§5-3 — 2026-07-28 홈 큐 제거로 상세에 이관): 매장 사정 예외 처리,
+            사유 필수·체험자 원문 안내·QR 즉시 무효. 체험자 패널티·재신청 제한 없음 */}
+        {data.state === "confirmed" && (
+          <div className="mt-5">
+            {!cancelling ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelling(true);
+                  setCancelReason("");
+                  setErr(null);
+                }}
+                className="cp-action text-[13px] font-semibold text-muted underline"
+              >
+                확정 예약 취소
+              </button>
+            ) : (
+              <div className="rounded-sm bg-sunken px-3 py-2.5">
+                <p className="text-[12px] text-ink2 leading-[1.5]">
+                  확정된 예약을 취소해요 — 사유는 체험자에게 그대로 안내되고, QR은 즉시 사용할 수 없게 돼요. 체험자
+                  패널티·재신청 제한은 없어요.
+                </p>
+                <input
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value.slice(0, 100))}
+                  placeholder="취소 사유 (필수) — 예: 매장 사정으로 휴무예요"
+                  className="mt-2 w-full h-9 px-3 rounded-sm border border-hairline bg-canvas text-[13px] text-ink placeholder:text-mutedSoft"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCancelling(false)}
+                    className="cp-action h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold text-ink"
+                  >
+                    돌아가기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await post("/api/owner/reserve-cancel", { passId: data.passId, reason: cancelReason.trim() });
+                      if (ok) {
+                        setCancelling(false);
+                        router.refresh();
+                      }
+                    }}
+                    disabled={busy || !cancelReason.trim()}
+                    className="cp-action h-8 px-3.5 rounded-sm bg-errorSoft text-error text-[12px] font-bold disabled:opacity-60"
+                  >
+                    {busy ? "취소 중..." : "예약 취소하기"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
