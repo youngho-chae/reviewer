@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     const analysis = await analyzeSnsIndex(kind, parsed.id);
     if (analysis) {
       analyzed = true;
-      apiGrade = analysis.grade;
+      apiGrade = analysis.grade ?? undefined; // score 미검출 시 팔로워 공식(INDEX_BANDS) 폴백
       inf = analysis.followers;
     }
   }

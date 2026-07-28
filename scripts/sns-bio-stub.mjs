@@ -57,12 +57,15 @@ http
       }
       if (req.method === "POST" && u.pathname === "/__index") {
         const j = JSON.parse(raw || "{}");
-        // biography는 선택 — 응답 원문 폴백 스캔(crawlBioHasCode ③층) 검증용
-        indexes.set(String(j.id), {
-          followers: j.followers,
-          score: j.score,
-          ...(j.biography ? { biography: j.biography } : {}),
-        });
+        // payload가 있으면 그대로 응답(스키마 변형 재현) — biography는 폴백 스캔 검증용
+        indexes.set(
+          String(j.id),
+          j.payload ?? {
+            followers: j.followers,
+            score: j.score,
+            ...(j.biography ? { biography: j.biography } : {}),
+          },
+        );
         return json(200, { ok: true });
       }
       // 인스타/틱톡 지수 API — POST 전용, body { username }
