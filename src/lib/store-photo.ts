@@ -59,6 +59,12 @@ export function photoForStore(storeId: string, category?: string): string {
   return FOOD_PHOTOS[hash(storeId) % FOOD_PHOTOS.length];
 }
 
+// 캠페인 대표 썸네일 1장 (2026-07-28 QA — 홈/검색/관심/체험권 카드가 photoForStore
+// 해시 폴백을 쓰면 서로 다른 매장이 같은 스톡 사진으로 겹친다). 등록 사진 [0] 우선.
+export function coverForCampaign(campaignPhotos: string[] | undefined, storeId: string, category?: string): string {
+  return photosForCampaign(campaignPhotos, storeId, category)[0];
+}
+
 // 캠페인 카드 캐러셀용 사진 목록 (2026-07-17 회의) — 사장님 등록 사진(campaign.photos:
 // 대표 1 + 추가, 3~20장) 우선, 미등록 캠페인(구 시드)은 대표 1장 + 결정론적 2장 폴백.
 export function photosForCampaign(campaignPhotos: string[] | undefined, storeId: string, category?: string): string[] {

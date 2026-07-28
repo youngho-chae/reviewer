@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { photoForStore } from "@/lib/store-photo";
+import { coverForCampaign } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, formatDistance } from "@/lib/distance-mock";
 import { campaignExposure, campaignRemain, type CampaignExposure } from "@/lib/campaign-visibility";
@@ -42,6 +42,7 @@ export default async function ReviewerInterests({
       return {
         campaignId: c.id,
         storeId: store.id,
+        photos: c.photos,
         name: store.name,
         category: store.category,
         area: store.area,
@@ -103,7 +104,7 @@ export default async function ReviewerInterests({
             className={`cp-action flex gap-3 ${p.open ? "" : "opacity-70"}`}
           >
             <div className="relative w-[96px] h-[96px] shrink-0 rounded-md overflow-hidden bg-sunken">
-              <Image src={photoForStore(p.storeId, p.category)} alt={p.name} fill sizes="96px" className="object-cover" />
+              <Image src={coverForCampaign(p.photos, p.storeId, p.category)} alt={p.name} fill sizes="96px" className="object-cover" />
               {!p.open && (
                 <div className="absolute inset-0 bg-ink/45 grid place-items-center">
                   <span className="text-white text-[12px] font-semibold">마감된 체험</span>

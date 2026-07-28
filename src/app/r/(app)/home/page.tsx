@@ -5,7 +5,7 @@ import { getReviewerOrNull } from "@/lib/server-helpers";
 import { getDBAsync, persistNaverRefresh } from "@/lib/db";
 import { channelOffers, bestEligibleSupport } from "@/lib/grade";
 import type { SnsKind } from "@/lib/types";
-import { photoForStore } from "@/lib/store-photo";
+import { coverForCampaign } from "@/lib/store-photo";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { mockDistanceM, walkMinutes, NEARBY_RADIUS_M } from "@/lib/distance-mock";
 import { haversineM, regionCenter } from "@/lib/geo";
@@ -38,6 +38,7 @@ interface HomeCard {
   lng?: number;
   createdAt: number;
   planRank: number; // 사장님 멤버십 랭크 — 추천순 (§4)
+  photos?: string[]; // 캠페인 등록 사진 — 대표 [0] (2026-07-28 QA: 해시 폴백 중복 수정)
   // [2026-07-12 회의 §4-3·§6-2] 전체 리스트 카드는 잔여 수 대신 지역(1차·2차) 정보 우선
   region: string;
 }
@@ -91,6 +92,7 @@ export default async function ReviewerHome({
       createdAt: c.createdAt,
       planRank: ownerPlanRank.get(store.ownerId) ?? 0,
       region: regionFromAddress(store.address, store.area),
+      photos: c.photos,
     };
   });
 
@@ -144,6 +146,7 @@ export default async function ReviewerHome({
             pointReward: c.pointReward ?? 0,
             createdAt: c.createdAt,
             planRank: ownerPlanRank.get(store.ownerId) ?? 0,
+            photos: c.photos,
           };
         })
         .sort(compareRecommended)
@@ -274,7 +277,7 @@ export default async function ReviewerHome({
                   <Link href={`/r/store/${p.storeId}?campaign=${p.campaignId}`} className="cp-action block">
                     <div className="aspect-[4/3] bg-sunken relative overflow-hidden rounded-md">
                       <Image
-                        src={photoForStore(p.storeId, p.category)}
+                        src={coverForCampaign(p.photos, p.storeId, p.category)}
                         alt={p.name}
                         fill
                         sizes="168px"
@@ -346,7 +349,7 @@ function ExperienceCard({ card, info = "remain", guest = false }: { card: HomeCa
     <Link href={`/r/store/${card.storeId}?campaign=${card.campaignId}`} className="cp-action block">
       <div className="aspect-[4/3] bg-sunken relative overflow-hidden rounded-md">
         <Image
-          src={photoForStore(card.storeId, card.category)}
+          src={coverForCampaign(card.photos, card.storeId, card.category)}
           alt={card.name}
           fill
           sizes="(max-width: 480px) 50vw, 240px"
