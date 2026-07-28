@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     if (analysis) {
       analyzed = true;
       apiGrade = analysis.grade;
-      inf = analysis.totalVisitors;
+      inf = analysis.dailyVisitors; // 일 방문자 (2026-07-28 확정 — 총 방문자 아님)
     }
   } else {
     const analysis = await analyzeSnsIndex(kind, parsed.id);
