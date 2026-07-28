@@ -3,11 +3,11 @@ import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import type { Campaign } from "@/lib/types";
-import { fmtReservationLabel, reservationEpoch, reservationHistoryLines, reviewerCounterUsed } from "@/lib/reservation";
 import CampaignFilter from "../home/CampaignFilter";
 import ManageTabs from "./ManageTabs";
 import CampaignSegments from "./CampaignSegments";
-import ReservationManager, { type ManagedReservation } from "./ReservationManager";
+import ReservationManager from "./ReservationManager";
+import { buildManagedReservations } from "./reservation-items";
 
 export const dynamic = "force-dynamic";
 
@@ -79,17 +79,15 @@ export default async function OwnerManage() {
   const filteredView = (list: Campaign[]) => {
     const open = list.filter((c) => c.endAt > Date.now());
     const closed = list.filter((c) => c.endAt <= Date.now());
+    // 캠페인 생성은 홈 전용 (2026-07-28 지시) — 빈 상태도 안내 텍스트만
     const listOf = (arr: Campaign[], empty: string) => (
       <div className="px-5 space-y-3 pb-6">
         {arr.map(renderCard)}
-        {arr.length === 0 &&
-          (list.length === 0 ? (
-            <Link href="/o/campaign/new" className="block rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
-              + 첫 체험단 캠페인 만들기
-            </Link>
-          ) : (
-            <div className="rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">{empty}</div>
-          ))}
+        {arr.length === 0 && (
+          <div className="rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
+            {list.length === 0 ? "아직 캠페인이 없어요 — 홈에서 만들 수 있어요." : empty}
+          </div>
+        )}
       </div>
     );
     return (
@@ -114,52 +112,15 @@ export default async function OwnerManage() {
       : []),
   ];
 
+  // [+ 새 캠페인]은 홈 전용 — 관리 탭에서는 미제공 (2026-07-28 지시)
   const campaignsView = (
-    <div>
-      <div className="px-5 pb-3 flex justify-end">
-        <Link href="/o/campaign/new" className="cp-action text-[13px] text-brand font-semibold">+ 새 캠페인</Link>
-      </div>
+    <div className="pt-1">
       <CampaignSegments segments={segments} />
     </div>
   );
 
-  // ── 예약관리 — 예약 정보가 있는 패스 전체 (active + 취소) ─────────────────────
-  const reservations: ManagedReservation[] = myPasses
-    .filter((p) => p.reservation && (p.status === "active" || p.status === "cancelled"))
-    .map((p) => {
-      const r = p.reservation!;
-      const c = myCampaigns.find((x) => x.id === p.campaignId);
-      const store = myStores.find((s) => s.id === c?.storeId);
-      // 원 요청 일시 (재제안 카드의 흐림 표기용) — 히스토리 첫 줄 = 최초 신청
-      const firstLine = reservationHistoryLines(r)[0];
-      const state: ManagedReservation["state"] =
-        p.status === "cancelled"
-          ? "cancelled"
-          : r.status === "confirmed"
-            ? "confirmed"
-            : r.status === "proposed"
-              ? "proposed"
-              : reviewerCounterUsed(r)
-                ? "counter"
-                : "requested";
-      return {
-        passId: p.id,
-        storeId: store?.id ?? "",
-        storeName: store?.name ?? "매장",
-        campaignTitle: c?.title ?? "캠페인",
-        masked: `#${p.reviewerId.slice(-4)}`,
-        label: fmtReservationLabel(r.date, r.time),
-        ...(r.partySize ? { partySize: r.partySize } : {}),
-        state,
-        // 재제안 카드 — 원래 요청 일시를 흐리게 병기
-        ...(state === "counter" && firstLine?.timeLabel ? { originalLabel: firstLine.timeLabel } : {}),
-        epoch: reservationEpoch(r.date, r.time),
-      };
-    })
-    .sort((a, b) => {
-      const pr = { requested: 0, counter: 0, proposed: 1, confirmed: 2, cancelled: 3 } as const;
-      return pr[a.state] - pr[b.state] || a.epoch - b.epoch;
-    });
+  // ── 예약관리 — 예약 정보가 있는 패스 전체 (빌더 공유: 캠페인 관리 [예약관리] 탭과 동일) ──
+  const reservations = buildManagedReservations(myPasses, myCampaigns, myStores);
 
   const reservationsView = (
     <ReservationManager items={reservations} stores={myStores.map((s) => ({ id: s.id, name: s.name }))} />
