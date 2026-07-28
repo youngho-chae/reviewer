@@ -16,7 +16,12 @@ export const dynamic = "force-dynamic";
 //  - [캠페인]: 유형 세그먼트(방문형·배송은 플래그 — 기자단은 이 브랜치에서 코드째 제거라 미노출)
 //    + [전체|진행중|종료] 칩 + 캠페인 카드(관리 진입)
 //  - [예약관리]: 매장 셀렉터 + [전체|요청|조율|확정|취소] 칩 + 상태별 예약 카드
-export default async function OwnerManage() {
+export default async function OwnerManage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const myStores = db.stores.filter((s) => s.ownerId === me.id);
@@ -128,7 +133,11 @@ export default async function OwnerManage() {
 
   return (
     <div className="pb-24 bg-canvas">
-      <ManageTabs campaignsView={campaignsView} reservationsView={reservationsView} />
+      <ManageTabs
+        campaignsView={campaignsView}
+        reservationsView={reservationsView}
+        initialTab={tab === "reservations" ? "reservations" : "campaigns"}
+      />
     </div>
   );
 }

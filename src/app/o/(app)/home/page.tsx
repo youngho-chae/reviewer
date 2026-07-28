@@ -2,232 +2,146 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
-import type { Campaign } from "@/lib/types";
-import CampaignFilter from "./CampaignFilter";
-import ShipQueue, { type ShipQueueItem } from "./ShipQueue";
-import ReservationQueue, { type ReservationQueueItem } from "./ReservationQueue";
-import HomeQueues from "./HomeQueues";
-import {
-  fmtReservationLabel,
-  fmtTime12,
-  reservationEpoch,
-  reservationHistoryLines,
-  ownerProposalUsed,
-  reviewerCounterUsed,
-  campaignDateOptions,
-  campaignTimeSlots,
-  scheduleOf,
-  inBreakTime,
-} from "@/lib/reservation";
+import { DELIVERY_ENABLED } from "@/lib/flags";
+import Icon from "@/components/Icon";
+import StoreSwitcher from "./StoreSwitcher";
+import HomeCampaigns, { type HomeCampaignItem } from "./HomeCampaigns";
 
 export const dynamic = "force-dynamic";
 
-export default async function OwnerHome() {
+// 사장님 홈 (2026-07-28 개편 2단계 — 시안) — 로고+매장 스위처 → 이번 달 모집 현황
+// (방문 예정·사용 완료·후기 검수 대기 + 모집 한도 프로그레스·플랜) → [새 캠페인 등록 |
+// 예약 관리] → 진행 중인 캠페인(유형 칩 + 신형 카드, 전체보기 = [관리] 탭).
+// 구 홈의 [방문 예약|발송 대기] 큐는 제거 — 예약 처리(확정·제안·거절·확정 취소)는
+// [관리]-[예약관리]·예약 정보 상세로 이관 (2026-07-28).
+export default async function OwnerHome({ searchParams }: { searchParams: Promise<{ store?: string }> }) {
+  const { store: storeParam } = await searchParams;
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const myStores = db.stores.filter((s) => s.ownerId === me.id);
-  const storeIds = myStores.map((s) => s.id);
+  const currentStore = myStores.some((s) => s.id === storeParam) ? storeParam! : "all";
+  const storeIds = currentStore === "all" ? myStores.map((s) => s.id) : [currentStore];
   const myCampaigns = db.campaigns.filter((c) => storeIds.includes(c.storeId));
-  const myPasses = db.passes.filter((p) => p.ownerId === me.id);
+  const campaignIds = new Set(myCampaigns.map((c) => c.id));
+  const myPasses = db.passes.filter((p) => p.ownerId === me.id && campaignIds.has(p.campaignId));
+
+  // ── 이번 달 모집 현황 — 최근 30일 발급 기준 (기존 홈과 동일 창) ──
   const monthAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
   const thisMonth = myPasses.filter((p) => p.issuedAt >= monthAgo);
-  const pendingReviews = myPasses.filter((p) => p.status === "review_submitted").length;
-  const activeNow = myPasses.filter((p) => p.status === "active").length;
+  const pendingVisit = thisMonth.filter((p) => p.status === "active").length;
+  const usedDone = thisMonth.filter((p) => ["used", "review_submitted", "completed"].includes(p.status)).length;
+  const reviewWait = myPasses.filter((p) => p.status === "review_submitted").length;
 
-  // 배송형 발송 대기 큐 (2026-07-12 레뷰 벤치마크) — 수령인 정보는 발송 목적 한정 노출,
-  // 등급·실명(계정)은 계속 비노출 (익명 #last4 — 확정 정책 8의 명시적 예외, 데이터정책서 §1.0b)
-  const deliveryCampaignIds = new Set(myCampaigns.filter((c) => c.kind === "delivery").map((c) => c.id));
-  const shipQueue: ShipQueueItem[] = myPasses
-    .filter((p) => p.status === "active" && deliveryCampaignIds.has(p.campaignId) && p.shipping)
-    .sort((a, b) => a.issuedAt - b.issuedAt)
-    .map((p) => ({
-      passId: p.id,
-      masked: `#${p.reviewerId.slice(-4)}`,
-      campaignTitle: myCampaigns.find((c) => c.id === p.campaignId)?.title ?? "캠페인",
-      recipient: p.shipping!.recipient,
-      phone: p.shipping!.phone,
-      address: p.shipping!.address,
-      option: p.shipping!.option,
-      issuedAt: p.issuedAt,
-    }));
+  // 모집 한도 프로그레스 — 이번 달(달력 기준) 오픈한 캠페인의 총 모집 인원 vs 플랜 한도
+  // (캠페인 생성 API의 월간 한도 검증과 동일 기준 — 매장 필터와 무관하게 사장님 전체)
+  const monthStart = (() => {
+    const d = new Date(Date.now() + 9 * 3600000);
+    return Date.parse(`${d.toISOString().slice(0, 7)}-01T00:00:00+09:00`);
+  })();
+  const ownerStoreIds = new Set(myStores.map((s) => s.id));
+  const monthUsed = db.campaigns
+    .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
+    .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
+  const monthLimit = PLAN_POLICY[me.plan].monthlyTeamLimit;
 
-  // 예약 확인 큐 (2026-07-16 리뷰노트 벤치마크) — 예약형 방문 신청 (익명 #last4 · 일시만).
-  // [P1] 예약 확인은 일정 조율 — 거절 없음. 방문 임박 순 정렬, 확정 건도 방문 예정으로 함께 표시.
-  const reservationQueue: ReservationQueueItem[] = myPasses
-    .filter((p) => p.status === "active" && p.reservation)
-    .map((p) => {
-      const c = myCampaigns.find((x) => x.id === p.campaignId);
-      const schedule = c ? scheduleOf(c) : undefined;
+  // ── 진행 중인 캠페인 카드 ──
+  const now = Date.now();
+  const items: HomeCampaignItem[] = myCampaigns
+    .filter((c) => c.endAt > now)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((c) => {
+      const store = myStores.find((s) => s.id === c.storeId);
+      const passes = db.passes.filter((p) => p.campaignId === c.id);
+      const isDelivery = c.kind === "delivery";
+      const reserveRequired = !isDelivery && !!c.reservationRequired;
+      const active = passes.filter((p) => p.status === "active");
+      // 예약형은 응답이 필요한 건(미확정 예약)을 앞세운다 — 시안 "예약 확인 필요"
+      const pendingCount = reserveRequired
+        ? active.filter((p) => p.reservation && p.reservation.status !== "confirmed").length
+        : active.length;
       return {
-        passId: p.id,
-        masked: `#${p.reviewerId.slice(-4)}`,
-        campaignTitle: c?.title ?? "캠페인",
-        label: fmtReservationLabel(p.reservation!.date, p.reservation!.time),
-        status: p.reservation!.status,
-        epoch: reservationEpoch(p.reservation!.date, p.reservation!.time),
-        endAt: c?.endAt ?? p.expiresAt,
-        partySize: p.reservation!.partySize, // 방문 인원수 (2026-07-17)
-        // 제안 폼 선택지 — 캠페인 예약 스케줄(요일·운영시간·브레이크) 기준 (§2-2, 12시간제 §7-2)
-        dateOptions: c
-          ? campaignDateOptions(c).map((d) => ({ date: d.date, label: d.label, disabled: d.disabled }))
-          : [],
-        timeOptions: schedule
-          ? campaignTimeSlots(schedule)
-              .filter((t) => !inBreakTime(schedule, t))
-              .map((t) => ({ time: t, label: fmtTime12(t) }))
-          : [],
-        // 협상 히스토리 (v3) — 누가 언제 어떤 시간을 제안했는지 + 각 1회 제안 소진 여부
-        history: reservationHistoryLines(p.reservation!).map((h) => ({
-          prefix: h.prefix,
-          timeLabel: h.timeLabel,
-          ...(h.note ? { note: h.note } : {}),
-        })),
-        proposalUsed: ownerProposalUsed(p.reservation!),
-        counterUsed: reviewerCounterUsed(p.reservation!),
+        id: c.id,
+        kind: isDelivery ? ("delivery" as const) : ("visit" as const),
+        reserveRequired,
+        title: c.title,
+        storeName: store?.name ?? "",
+        daysLeft: Math.max(0, Math.ceil((c.endAt - now) / 86400000)),
+        pendingLabel: isDelivery ? "발송 대기" : reserveRequired ? "예약 확인 필요" : "방문 예정",
+        pendingCount,
+        usedCount: passes.filter((p) => ["used", "review_submitted", "completed"].includes(p.status)).length,
+        totalQuota: c.quota.S + c.quota.A + c.quota.B + c.quota.C,
       };
-    })
-    .sort((a, b) => a.epoch - b.epoch);
+    });
 
   return (
     <div className="pb-24 bg-canvas">
-      <div className="px-5 pt-12 pb-3">
-        <div className="text-[12px] text-muted">{me.storeName}</div>
-        <h1 className="text-[20px] font-bold text-ink tracking-title mt-1">안녕하세요, 사장님</h1>
+      {/* 로고 + 매장 스위처 (시안 — 로고 영역 + ▾) */}
+      <div className="px-5 pt-12 pb-4 flex items-center gap-3">
+        <span className="text-[15px] font-bold text-brand tracking-title">CATCHPASS</span>
+        <StoreSwitcher stores={myStores.map((s) => ({ id: s.id, name: s.name }))} current={currentStore} />
       </div>
 
-      {/* 이번 달 모집 현황 — 홈 최상단 (2026-07-16 회의). 플랜·관리 기능을 하단에 간소화 통합.
-          '최근 등록된 후기' 카드는 메인 [후기] 탭과 역할이 겹쳐 제거. */}
-      <div className="mx-5 rounded-lg border border-hairline bg-canvas p-4">
+      {/* 이번 달 모집 현황 — 파스텔 카드 + 모집 한도 프로그레스 (시안) */}
+      <div className="mx-5 rounded-lg bg-brandSoft p-4">
         <div className="text-[14px] font-bold text-ink">이번 달 모집 현황</div>
-        <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+        <div className="mt-3 grid grid-cols-3 text-center">
           <div>
-            <div className="text-[12px] text-muted">누적 모집</div>
-            <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{thisMonth.length}</div>
+            <div className="text-[20px] font-bold text-ink tabular-nums">{pendingVisit}</div>
+            <div className="mt-0.5 text-[12px] text-muted">방문 예정</div>
           </div>
           <div className="border-l border-r border-hairlineSoft">
-            <div className="text-[12px] text-muted">사용 진행</div>
-            <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{activeNow}</div>
+            <div className="text-[20px] font-bold text-ink tabular-nums">{usedDone}</div>
+            <div className="mt-0.5 text-[12px] text-muted">사용 완료</div>
           </div>
           <div>
-            <div className="text-[12px] text-muted">검수 대기</div>
-            <div className="text-[20px] font-bold text-ink tabular-nums mt-1">{pendingReviews}</div>
+            <div className="text-[20px] font-bold text-ink tabular-nums">{reviewWait}</div>
+            <div className="mt-0.5 text-[12px] text-muted">후기 검수 대기</div>
           </div>
         </div>
-        <div className="mt-3.5 pt-3 border-t border-hairlineSoft flex items-center justify-between">
-          <span className="text-[13px] text-muted">
-            현재 플랜 <span className="font-semibold text-ink">{me.plan}</span> ·{" "}
-            {PLAN_POLICY[me.plan].monthlyTeamLimit === null ? "무제한 모집" : `월 ${PLAN_POLICY[me.plan].monthlyTeamLimit}팀 모집`}
-          </span>
-          <Link href="/o/me" className="cp-action text-[13px] font-semibold text-brand">관리 →</Link>
-        </div>
-      </div>
-
-      {/* 홈 내부 큐 탭 — [방문 예약 | 발송 대기] (2026-07-16 회의) */}
-      <HomeQueues
-        reservationCount={reservationQueue.length}
-        shipCount={shipQueue.length}
-        reservationView={<ReservationQueue items={reservationQueue} />}
-        shipView={<ShipQueue items={shipQueue} />}
-      />
-
-      {/* 내 캠페인 — 전체/진행중/종료 필터 (2026-07-23), 카드 = 캠페인 관리(예약·후기) 진입점 */}
-      <div className="px-5 mt-8 mb-3 flex items-end justify-between">
-        <h2 className="text-[18px] font-bold text-ink tracking-title">내 캠페인</h2>
-        <Link href="/o/campaign/new" className="cp-action text-[13px] text-brand font-semibold">+ 새 캠페인</Link>
-      </div>
-      {(() => {
-        // 모든 플랜이 S~C 모집 가능. 자물쇠 없음.
-        const renderCard = (c: Campaign) => {
-          const store = db.stores.find((s) => s.id === c.storeId);
-          const totalQuota = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
-          const campaignPasses = db.passes.filter((p) => p.campaignId === c.id);
-          const pendingCnt = campaignPasses.filter((p) => p.status === "active").length;
-          const visitedCnt = campaignPasses.filter((p) =>
-            ["used", "review_submitted", "completed"].includes(p.status),
-          ).length;
-          const isDelivery = c.kind === "delivery";
-          const ended = c.endAt <= Date.now();
-          const pendingLabel = isDelivery ? "발송 대기" : "방문 예정";
-          const completedLabel = isDelivery ? "발송 완료" : "방문 완료";
-          return (
-            // 카드 전체가 캠페인 관리(예약 관리·후기 관리)로 진입 — 종료 캠페인도 후기 조회 가능
-            <Link href={`/o/campaign/${c.id}`} key={c.id} className="cp-action block rounded-lg border border-hairline bg-canvas p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-[15px] font-semibold text-ink flex items-center gap-1.5">
-                    {isDelivery && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold shrink-0">
-                        📦 배송
-                      </span>
-                    )}
-                    {!isDelivery && c.reservationRequired && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-xs bg-brandSoft text-brand text-[11px] font-semibold shrink-0">
-                        📅 예약형
-                      </span>
-                    )}
-                    <span className="truncate">{c.title}</span>
-                  </div>
-                  <div className="text-[12px] text-muted mt-0.5">{store?.name}</div>
-                </div>
-                <div className="text-[12px] text-muted tabular-nums">
-                  {ended ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-sunken text-muted font-semibold">종료</span>
-                  ) : (
-                    <>D-{Math.max(0, Math.floor((c.endAt - Date.now()) / 86400000))}</>
-                  )}{" "}
-                  <span className="text-brand font-semibold">관리 →</span>
-                </div>
-              </div>
-              {/* [확정 정책 8] 캠페인 진행 현황은 방문 예정/방문 완료/총 모집 3종만 —
-                  체험자 등급(등급별 버킷)은 사장님에게 노출하지 않는다 (응대 차별 방지, 내부 데이터는 어드민 전용) */}
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-sm py-2.5 bg-sunken">
-                  <div className="text-[11px] text-muted">{pendingLabel}</div>
-                  <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{pendingCnt}명</div>
-                </div>
-                <div className="rounded-sm py-2.5 bg-sunken">
-                  <div className="text-[11px] text-muted">{completedLabel}</div>
-                  <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{visitedCnt}명</div>
-                </div>
-                <div className="rounded-sm py-2.5 bg-sunken">
-                  <div className="text-[11px] text-muted">🎫 총 모집</div>
-                  <div className="text-[15px] font-semibold text-ink tabular-nums mt-0.5">{totalQuota}명</div>
-                </div>
-              </div>
+        <div className="mt-4 pt-3 border-t border-hairlineSoft">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-ink tabular-nums">
+              모집 한도 {monthLimit === null ? `${monthUsed} / 무제한` : `${monthUsed}/${monthLimit}`}
+            </span>
+            <Link href="/o/membership" className="cp-action text-[13px] font-semibold text-ink">
+              {me.plan} <span className="text-muted">›</span>
             </Link>
-          );
-        };
-
-        // 배송형은 방문형 리스트에 함께 노출 (카드 라벨만 발송 대기/완료로 분기 — 별도 탭 없이 관리)
-        const visitCampaigns = myCampaigns;
-
-        // 상태 필터 (2026-07-23) — 지금까지 오픈한 전체 / 진행중 / 종료
-        const openCampaigns = visitCampaigns.filter((c) => c.endAt > Date.now());
-        const closedCampaigns = visitCampaigns.filter((c) => c.endAt <= Date.now());
-        const listOf = (list: Campaign[], empty: string) => (
-          <div className="px-5 space-y-3">
-            {list.map(renderCard)}
-            {list.length === 0 &&
-              (visitCampaigns.length === 0 ? (
-                <Link href="/o/campaign/new" className="block rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">
-                  + 첫 체험단 캠페인 만들기
-                </Link>
-              ) : (
-                <div className="rounded-md border border-dashed border-hairline p-6 text-center text-muted text-[14px]">{empty}</div>
-              ))}
           </div>
-        );
-        return (
-          <CampaignFilter
-            allCount={visitCampaigns.length}
-            openCount={openCampaigns.length}
-            closedCount={closedCampaigns.length}
-            allView={listOf(visitCampaigns, "캠페인이 없어요.")}
-            openView={listOf(openCampaigns, "진행 중인 캠페인이 없어요.")}
-            closedView={listOf(closedCampaigns, "종료된 캠페인이 없어요.")}
-          />
-        );
-      })()}
+          {monthLimit !== null && (
+            <div className="mt-2 h-2 rounded-pill bg-canvas overflow-hidden">
+              <div
+                className="h-full rounded-pill bg-brand"
+                style={{ width: `${Math.min(100, Math.round((monthUsed / Math.max(monthLimit, 1)) * 100))}%` }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 빠른 실행 — 새 캠페인 등록 | 예약 관리 (시안) */}
+      <div className="mx-5 mt-3 grid grid-cols-2 gap-2">
+        <Link
+          href="/o/campaign/new"
+          className="cp-action h-[52px] rounded-md border border-hairline bg-canvas flex items-center justify-center gap-1.5 text-[14px] font-semibold text-ink"
+        >
+          <Icon name="plus" variant="border" size={17} /> 새 캠페인 등록
+        </Link>
+        <Link
+          href="/o/manage?tab=reservations"
+          className="cp-action h-[52px] rounded-md border border-brand bg-canvas flex items-center justify-center gap-1.5 text-[14px] font-semibold text-brand"
+        >
+          <Icon name="calendar-check" variant="border" size={18} /> 예약 관리
+        </Link>
+      </div>
+
+      {/* 진행 중인 캠페인 — 유형 칩 + 신형 카드, 전체보기 = [관리] 탭 */}
+      <div className="px-5 mt-8 mb-3 flex items-end justify-between">
+        <h2 className="text-[18px] font-bold text-ink tracking-title">진행 중인 캠페인</h2>
+        <Link href="/o/manage" className="cp-action text-[13px] font-medium text-muted">
+          전체보기 <span aria-hidden>›</span>
+        </Link>
+      </div>
+      <HomeCampaigns items={items} showDelivery={DELIVERY_ENABLED} />
     </div>
   );
 }
