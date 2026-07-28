@@ -130,11 +130,8 @@ export default async function OwnerManage() {
       const r = p.reservation!;
       const c = myCampaigns.find((x) => x.id === p.campaignId);
       const store = myStores.find((s) => s.id === c?.storeId);
-      const history = reservationHistoryLines(r).map((h) => ({
-        prefix: h.prefix,
-        timeLabel: h.timeLabel,
-        ...(h.note ? { note: h.note } : {}),
-      }));
+      // 원 요청 일시 (재제안 카드의 흐림 표기용) — 히스토리 첫 줄 = 최초 신청
+      const firstLine = reservationHistoryLines(r)[0];
       const state: ManagedReservation["state"] =
         p.status === "cancelled"
           ? "cancelled"
@@ -154,10 +151,9 @@ export default async function OwnerManage() {
         label: fmtReservationLabel(r.date, r.time),
         ...(r.partySize ? { partySize: r.partySize } : {}),
         state,
-        // 재제안 카드 — 원래 요청 일시를 흐리게 병기 (히스토리 첫 줄 = 최초 신청)
-        ...(state === "counter" && history[0]?.timeLabel ? { originalLabel: history[0].timeLabel } : {}),
+        // 재제안 카드 — 원래 요청 일시를 흐리게 병기
+        ...(state === "counter" && firstLine?.timeLabel ? { originalLabel: firstLine.timeLabel } : {}),
         epoch: reservationEpoch(r.date, r.time),
-        history,
       };
     })
     .sort((a, b) => {
