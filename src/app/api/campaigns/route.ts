@@ -3,7 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, ReservationSchedule, SnsKind } from "@/lib/types";
-import { timeToMin, SLOT_CAPACITY_MIN, SLOT_CAPACITY_MAX } from "@/lib/reservation";
+import { timeToMin, kstTodayStr, SLOT_CAPACITY_MIN, SLOT_CAPACITY_MAX } from "@/lib/reservation";
 import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
 import { CHANNEL_ORDER } from "@/lib/channels";
 import { isDeliveryCategory } from "@/lib/delivery-categories";
@@ -34,24 +34,9 @@ export async function POST(req: NextRequest) {
     }
     useCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
   }
-  // 동일 사장님의 진행 중(미마감) 캠페인 간 4자리 코드 중복 방지 (조회 모호성 제거)
-  const ownerStoreIdSet = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
-  const codeInUse = (code: string) =>
-    db.campaigns.some((c) => ownerStoreIdSet.has(c.storeId) && c.endAt > Date.now() && c.useCode === code);
-  // 배송형 자동 생성 코드가 충돌하면 재생성 (사장님 입력이 아니므로 오류 대신 해소)
-  if (isDeliveryKind && !isUseCode(normalizeUseCode(String(body.useCode ?? "")))) {
-    let guard = 0;
-    while (codeInUse(useCode) && guard++ < 50) {
-      useCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-    }
-  }
-  const dupActive = codeInUse(useCode);
-  if (dupActive) {
-    return NextResponse.json(
-      { error: `사용처리 코드 ${useCode}는 진행 중인 다른 캠페인에서 사용 중입니다. 다른 4자리를 입력해주세요.` },
-      { status: 400 },
-    );
-  }
+  // 코드 중복 검증 없음 (2026-07-28 확정) — 사용처리 코드는 매장에서 눈으로 확인하는
+  // 용도이고, 실제 사용 처리(use-by-code)는 패스 단위로 그 캠페인의 코드와 대조하므로
+  // 다른 매장·다른 캠페인과 중복돼도 무관하다.
 
   // 월간 모집 팀 수 정책 검증 — 초대 보상(quota_bonus)은 플랜 한도에 가산되며 사용 시 소진
   const policy = PLAN_POLICY[owner.plan];
@@ -116,6 +101,11 @@ export async function POST(req: NextRequest) {
     : [];
 
   const now = Date.now();
+  // 종료 시각 (2026-07-28 확정) — 생성일 기준 n일 지정이므로 시간 단위가 아니라
+  // **n일차 자정(KST 00시) 직전**까지 유효: 생성일 00시(KST) + n일 − 1ms.
+  // 예) 7/28 생성 · 30일 → 8/26 23:59:59.999 종료 (생성일 포함 30일).
+  const days = Math.max(1, Math.floor(Number(body.days) || 30));
+  const endAt = Date.parse(`${kstTodayStr(now)}T00:00:00+09:00`) + days * 86400000 - 1;
   // 캠페인명 — 사장님 내부 관리용 제목 (확정 정책 7). 미입력 시 매장명 자동.
   // 체험자 화면은 항상 매장명(store.name) 중심으로 노출한다.
   const ownerTitle = String(body.title || "").trim().slice(0, 40);
@@ -171,8 +161,7 @@ export async function POST(req: NextRequest) {
     // 예약 가능 시작일 (2-5) — 오늘 이후만, 캠페인 종료일보다 이르게. 미설정 = 즉시 예약 가능.
     const opensAt = Number(rs.opensAt);
     if (Number.isFinite(opensAt) && opensAt > now) {
-      const endAtCandidate = now + (Number(body.days) || 30) * 86400000;
-      if (opensAt >= endAtCandidate) {
+      if (opensAt >= endAt) {
         return NextResponse.json({ error: "예약 가능 시작일은 캠페인 종료일보다 이르게 설정해주세요" }, { status: 400 });
       }
       reservationSchedule.opensAt = opensAt;
@@ -207,7 +196,7 @@ export async function POST(req: NextRequest) {
     kind,
     title: ownerTitle || store.name,
     startAt: now,
-    endAt: now + (Number(body.days) || 30) * 86400000,
+    endAt, // 생성일 기준 n일차 자정(KST) 직전 (2026-07-28)
     supportAmount: Number(body.supportAmount) || 0,
     quota: distributeQuota(owner.plan, totalQuota),
     used: { S: 0, A: 0, B: 0, C: 0 },
