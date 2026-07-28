@@ -373,13 +373,21 @@ export async function analyzeNaverBlog(blogId: string): Promise<BlogAnalysis | n
     }
     raw = await r.text();
     const j: unknown = JSON.parse(raw);
-    const grade = findGradeDeep(j);
+    // 실 스키마 확정 (2026-07-28 실호출): grade = influence.grade · 총 방문자 =
+    // blog.profile.total_visitors. 확정 경로를 먼저 읽고, 스키마가 또 바뀌면 딥 서치 폴백.
+    // (주의 값: mate.grade="메이트 근접"(등급 아님) · profile.today_visitors=일 방문자 ·
+    //  metrics.daily_visitors_est · influence.subscores 내 total_visitors는 점수(98.7))
+    const known = j as {
+      influence?: { grade?: unknown };
+      blog?: { profile?: { total_visitors?: unknown } };
+    };
+    const grade = normalizeGrade(known.influence?.grade) ?? findGradeDeep(j);
     if (!grade) {
       // 스키마 불일치 진단 — 실제 응답 형태를 로그로 남겨 파서를 정확히 맞출 수 있게
       console.log(`[sns-bio] blog-analyzer @${blogId} grade 추출 실패 — 응답: ${raw.slice(0, 400)}`);
       return null;
     }
-    const totalVisitors = findTotalVisitorsDeep(j);
+    const totalVisitors = parseCount(known.blog?.profile?.total_visitors) ?? findTotalVisitorsDeep(j);
     if (totalVisitors === null) {
       console.log(`[sns-bio] blog-analyzer @${blogId} total_visitors 추출 실패 — 응답: ${raw.slice(0, 400)}`);
     }
