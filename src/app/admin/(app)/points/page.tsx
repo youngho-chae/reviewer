@@ -31,7 +31,7 @@ export default async function AdminPoints() {
       </section>
 
       {pending.length > 0 && (
-        <section className="px-5 mt-5 space-y-3">
+        <section className="px-5 mt-5 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
           <h2 className="text-[15px] font-bold text-ink">처리 대기</h2>
           {pending.map((w) => (
             <div key={w.id} className="rounded-lg border border-warning/40 bg-canvas p-4">
@@ -62,7 +62,7 @@ export default async function AdminPoints() {
       )}
 
       {processed.length > 0 && (
-        <section className="px-5 mt-6 space-y-2">
+        <section className="px-5 mt-6 space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-2 lg:items-start">
           <h2 className="text-[15px] font-bold text-ink">처리 내역</h2>
           {processed.map((w) => (
             <div key={w.id} className="rounded-md border border-hairline bg-canvas px-4 py-3 flex items-center justify-between gap-3">

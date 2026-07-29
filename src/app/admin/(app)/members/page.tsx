@@ -33,7 +33,7 @@ export default async function AdminMembers() {
         </div>
       </section>
 
-      <section className="px-5 mt-5 space-y-3">
+      <section className="px-5 mt-5 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
         {rows.map(({ rv, latest, reviews }) => (
           <details key={rv.id} className="rounded-lg border border-hairline bg-canvas p-4">
             <summary className="cursor-pointer list-none">
