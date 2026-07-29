@@ -147,6 +147,7 @@ export interface Campaign {
   title: string;
   startAt: number;
   endAt: number;
+  authorityConfirmedAt?: number; // [필수] 매장 운영 권한 확인 동의 시각 (2026-07-28 — 증적)
   supportAmount: number; // 방문형 지원금 한도
   quota: CampaignGradeQuota;
   used: { S: number; A: number; B: number; C: number };
