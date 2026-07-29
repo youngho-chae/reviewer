@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
   const store = db.stores.find((x) => x.id === body.storeId && x.ownerId === s.userId);
   if (!store) return NextResponse.json({ error: "잘못된 매장" }, { status: 400 });
 
+  // [필수] 매장 등록 및 캠페인 운영 권한 확인 (2026-07-28) — 폼 체크와 별개로 서버 재검증
+  if (body.authorityConfirmed !== true) {
+    return NextResponse.json({ error: "매장 등록 및 캠페인 운영 권한 확인에 동의해주세요" }, { status: 400 });
+  }
+
   const totalQuota = Math.max(0, Math.floor(Number(body.totalQuota) || 0));
   if (totalQuota <= 0) return NextResponse.json({ error: "모집 인원을 1명 이상 입력해주세요" }, { status: 400 });
 
@@ -197,6 +202,7 @@ export async function POST(req: NextRequest) {
     title: ownerTitle || store.name,
     startAt: now,
     endAt, // 생성일 기준 n일차 자정(KST) 직전 (2026-07-28)
+    authorityConfirmedAt: now, // 권한 확인 동의 시각 (증적 — 2026-07-28)
     supportAmount: Number(body.supportAmount) || 0,
     quota: distributeQuota(owner.plan, totalQuota),
     used: { S: 0, A: 0, B: 0, C: 0 },

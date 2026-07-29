@@ -62,6 +62,7 @@ export default function NewCampaign() {
   // 캠페인 사진 (2026-07-17 회의) — [0]=플레이스 대표 이미지 자리 + 추가 사진, 3~20장 필수.
   // 업로드 파일은 클라이언트에서 640px·JPEG로 리사이즈해 dataURL 저장 (DB 비대화 방지)
   const [photos, setPhotos] = useState<string[]>([]);
+  const [authorityConfirmed, setAuthorityConfirmed] = useState(false); // [필수] 매장 운영 권한 확인 (2026-07-28)
   const [photoErr, setPhotoErr] = useState<string | null>(null);
 
   async function addPhotos(files: FileList | null) {
@@ -254,6 +255,7 @@ export default function NewCampaign() {
         requiredChannels: channels,
         highlightKeywords,
         description,
+        authorityConfirmed, // [필수] 매장 운영 권한 확인 (2026-07-28 — 서버 재검증)
       }),
     });
     if (!res.ok) {
@@ -876,9 +878,30 @@ export default function NewCampaign() {
           <div className="mt-1 text-right text-[11px] text-muted tabular-nums">{description.length} / 500</div>
         </section>
 
+        {/* [필수] 매장 등록 및 캠페인 운영 권한 확인 (2026-07-28 — 카피 원문) */}
+        <section className="rounded-md border border-hairline p-4">
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={authorityConfirmed}
+              onChange={(e) => setAuthorityConfirmed(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-[#9333EA] shrink-0"
+            />
+            <span className="text-[13px] font-bold text-ink leading-[1.5]">[필수] 매장 등록 및 캠페인 운영 권한 확인</span>
+          </label>
+          <p className="mt-2 pl-[26px] text-[12px] text-ink2 leading-[1.6]">
+            매장 소유자·운영자 또는 적법한 위임을 받은 관리 대행사만 해당 매장의 체험단 캠페인을 생성할 수 있습니다.
+          </p>
+          <p className="mt-1.5 pl-[26px] text-[12px] text-muted leading-[1.6]">
+            권한 없이 타인의 매장을 대상으로 캠페인을 생성하거나 허위 정보를 등록하여 매장 운영에 피해를 주는 경우, 캠페인
+            중단 및 서비스 이용 제한 조치가 적용될 수 있으며 업무방해 등 관련 법령에 따라 민·형사상 책임이 발생할 수
+            있습니다.
+          </p>
+        </section>
+
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit || photos.length < 3 || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory)}
+          disabled={busy || !storeId || overLimit || photos.length < 3 || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory) || !authorityConfirmed}
           type="submit"
           className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >
@@ -890,7 +913,9 @@ export default function NewCampaign() {
                 ? "사용처리 코드 4자리 입력"
                 : isDelivery && !productCategory
                   ? "상품 카테고리 선택"
-                  : "캠페인 생성"}
+                  : !authorityConfirmed
+                    ? "권한 확인 동의 필요"
+                    : "캠페인 생성"}
         </button>
       </form>
     </div>
