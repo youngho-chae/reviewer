@@ -157,7 +157,7 @@ export default async function AdminReservations({
         </form>
       </section>
 
-      <section className="px-5 mt-4 space-y-3">
+      <section className="px-5 mt-4 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
         {rows.length === 0 && (
           <div className="rounded-md border border-dashed border-hairline p-6 text-center text-[13px] text-muted">
             조건에 맞는 예약이 없습니다.
