@@ -11,6 +11,11 @@ export const dynamic = "force-dynamic";
 // 사용: GET /api/health → { ok, authSecretSet, kv: {...}, db: {...} }
 export async function GET() {
   const authSecretSet = !!process.env.AUTH_SECRET;
+  // 인스타 캡처 OCR 설정 여부 (2026-07-29 — env 반영 진단용, 값은 비노출)
+  const ocr = {
+    invokeUrlSet: !!process.env.NCP_OCR_INVOKE_URL,
+    secretSet: !!process.env.NCP_OCR_SECRET,
+  };
 
   // KV 왕복 점검 — 연결·포맷·지연
   const kv: Record<string, unknown> = { configured: kvAvailable() };
@@ -48,6 +53,7 @@ export async function GET() {
     ok: ok && (authSecretSet || process.env.NODE_ENV !== "production"),
     env: process.env.NODE_ENV,
     authSecretSet, // production에서 false면 로그인(세션 서명)이 fail-closed로 500
+    ocr, // 인스타 캡처 OCR env 설정 여부 (2026-07-29)
     kv,
     db,
   });
