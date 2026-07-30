@@ -64,17 +64,32 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 검증 — OCR 텍스트에 ① 계정 인증코드 ② 입력한 SNS 계정 ID가 함께 있어야 한다.
-  // OCR 특성 보정: 공백 제거 병합본 기준, 코드는 대소문자 완전 일치 우선 → 소문자 비교 폴백
-  // (8자리 난수라 케이스 무시 우연 일치는 무시 가능), ID는 소문자 비교.
-  const compact = ocr.text.replace(/\s+/g, "");
-  const codeFound = compact.includes(code) || compact.toLowerCase().includes(code.toLowerCase());
-  const idFound = compact.toLowerCase().includes(parsed.id.toLowerCase());
+  // 검증 (Template OCR — 도메인 확정 2026-07-30: Field 01 = SNS 아이디 · Field 02 = 인증코드)
+  // 필드명("01"/"02") → 필드 순서(1번째/2번째) → 전체 텍스트 순으로 후보를 넓혀 대조한다.
+  // OCR 특성 보정: 공백 제거 병합 기준, 코드는 완전 일치 우선 → 대소문자 무시 폴백
+  // (8자리 난수라 케이스 무시 우연 일치는 무시 가능), ID는 대소문자 무시.
+  const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  const fields = ocr.fields;
+  const idCandidates = [
+    ...fields.filter((f) => /01/.test(f.name)).map((f) => f.text),
+    fields[0]?.text ?? "",
+    ocr.text,
+  ];
+  const codeCandidates = [
+    ...fields.filter((f) => /02/.test(f.name)).map((f) => f.text),
+    fields[1]?.text ?? "",
+    ocr.text,
+  ];
+  const idFound = idCandidates.some((t) => norm(t).includes(norm(parsed.id)));
+  const codeFound =
+    codeCandidates.some((t) => t.replace(/\s+/g, "").includes(code)) ||
+    codeCandidates.some((t) => norm(t).includes(code.toLowerCase()));
   if (!codeFound || !idFound) {
     const trace = [
-      `OCR 인식 ${ocr.text.length.toLocaleString()}자`,
-      `계정 인증코드: ${codeFound ? "검출" : "미검출"}`,
+      ...(ocr.template ? [`템플릿: ${ocr.template}`] : []),
+      `필드: ${fields.map((f) => `${f.name || "?"}="${f.text.slice(0, 24)}"`).join(" · ") || "없음"}`,
       `계정 ID(@${parsed.id}): ${idFound ? "검출" : "미검출"}`,
+      `계정 인증코드: ${codeFound ? "검출" : "미검출"}`,
     ];
     console.log(`[sns-bio] instagram @${parsed.id} OCR 검증 실패`, trace, `— 텍스트: ${ocr.text.slice(0, 200)}`);
     return NextResponse.json(
