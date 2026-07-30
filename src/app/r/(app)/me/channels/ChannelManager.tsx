@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import type { Grade, SnsKind } from "@/lib/types";
@@ -43,8 +43,8 @@ const CONNECT_GUIDE: Record<SnsKind, string[]> = {
   ],
   instagram: [
     "[복사]를 누르면 코드가 복사되면서 30분 인증이 시작되고, SNS 주소를 입력할 수 있어요.",
-    "복사한 인증코드를 프로필 소개(bio) 맨 앞에 붙여넣고 저장한 뒤 30분 안에 인증을 완료해 주세요.",
-    "전체 공개 계정이어야 해요. 인증되면 계정 분석으로 등급과 팔로워 수가 자동 산정돼요.",
+    "복사한 인증코드를 프로필 소개(bio) 맨 앞에 붙여넣고 저장해 주세요.",
+    "계정 아이디와 소개(bio)의 인증코드가 함께 보이는 프로필 화면을 캡처해 [업로드]하면 이미지 인식(OCR)으로 확인해요.",
     "팔로워 수 조작 및 불법 프로그램 사용 등 어뷰징 행위 적발 시, 페널티가 부여됩니다.",
   ],
   tiktok: [
@@ -94,6 +94,7 @@ export default function ChannelManager({
   const [err, setErr] = useState<string | null>(null);
   const [errTrace, setErrTrace] = useState<string[]>([]); // 검증 실패 층별 진단 (내부 QA)
   const [justConnected, setJustConnected] = useState<SnsKind | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null); // 인스타 캡처 업로드 (2026-07-28 OCR 인증)
 
   const armed = armedUntil !== null && armedUntil > nowTick;
   const leftMs = armedUntil ? Math.max(0, armedUntil - nowTick) : 0;
@@ -200,6 +201,60 @@ export default function ChannelManager({
       router.refresh();
     } catch {
       setErr("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
+      setFailed(true);
+      setBusy(false);
+    }
+  }
+
+  // [업로드] — 인스타 캡처 이미지 OCR 인증 (2026-07-28 인증방식 변경).
+  // 파일 선택 → 1280px 리사이즈(JPEG) → confirm-image API(코드+계정 ID 동시 검출) 호출.
+  async function uploadCapture(file: File) {
+    setBusy(true);
+    setErr(null);
+    setErrTrace([]);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const img = document.createElement("img");
+        const fr = new FileReader();
+        fr.onerror = () => reject(new Error("read"));
+        fr.onload = () => {
+          img.onload = () => {
+            const scale = Math.min(1, 1280 / img.width);
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", 0.88));
+          };
+          img.onerror = () => reject(new Error("img"));
+          img.src = String(fr.result);
+        };
+        fr.readAsDataURL(file);
+      });
+      const res = await fetch("/api/sns/bio-verify/confirm-image", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "instagram", url, image: dataUrl }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(j.error || "인증에 실패했어요.");
+        setErrTrace(Array.isArray(j.trace) ? j.trace : []);
+        if (j.expired) {
+          setArmedUntil(null);
+          setFailed(false);
+        } else {
+          setFailed(true); // [다시 업로드]로 전환
+        }
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      setSheetKind(null);
+      setJustConnected("instagram");
+      router.refresh();
+    } catch {
+      setErr("이미지를 읽지 못했어요. 다른 캡처로 다시 시도해주세요.");
       setFailed(true);
       setBusy(false);
     }
@@ -387,18 +442,49 @@ export default function ChannelManager({
               </div>
             )}
             <div className="mt-5 pt-4 border-t border-hairlineSoft">
-              <button
-                type="button"
-                onClick={() => confirm(sheetRow.kind)}
-                disabled={!armed || !url.trim() || busy}
-                className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
-              >
-                {busy ? "소개글 확인 중..." : failed ? "재시도" : "인증완료"}
-              </button>
-              <p className="mt-2 text-[11px] text-muted text-center">
-                [인증완료]를 누르면 채널 소개글을 즉시 확인해 인증코드 일치 여부를 검증해요. 인증되면 계정
-                분석으로 등급·{METRIC[sheetRow.kind]} 수가 자동 반영돼요.
-              </p>
+              {sheetRow.kind === "instagram" ? (
+                <>
+                  {/* 인스타 = 캡처 업로드 + OCR (2026-07-28 — 서버 크롤 불가 확정에 따른 인증방식 변경) */}
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = ""; // 같은 파일 재선택 허용
+                      if (f) void uploadCapture(f);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={!armed || !url.trim() || busy}
+                    className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+                  >
+                    {busy ? "이미지 확인 중..." : failed ? "다시 업로드" : "업로드"}
+                  </button>
+                  <p className="mt-2 text-[11px] text-muted text-center">
+                    계정 아이디와 소개(bio)의 인증코드가 함께 보이는 프로필 캡처를 올려주세요 — 이미지 인식(OCR)으로
+                    확인해요. 인증되면 계정 분석으로 등급·팔로워 수가 자동 반영돼요.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => confirm(sheetRow.kind)}
+                    disabled={!armed || !url.trim() || busy}
+                    className="cp-action w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+                  >
+                    {busy ? "소개글 확인 중..." : failed ? "재시도" : "인증완료"}
+                  </button>
+                  <p className="mt-2 text-[11px] text-muted text-center">
+                    [인증완료]를 누르면 채널 소개글을 즉시 확인해 인증코드 일치 여부를 검증해요. 인증되면 계정
+                    분석으로 등급·{METRIC[sheetRow.kind]} 수가 자동 반영돼요.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

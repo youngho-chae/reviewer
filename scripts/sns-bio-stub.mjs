@@ -68,6 +68,24 @@ http
         );
         return json(200, { ok: true });
       }
+      // CLOVA OCR 재현 (2026-07-28 인스타 캡처 인증) — X-OCR-SECRET 필수,
+      // images[0].data(base64)를 UTF-8 텍스트로 디코드해 단어를 fields로 반환
+      // (스모크는 '이미지' 자리에 base64 텍스트를 넣어 검증한다)
+      if (req.method === "POST" && u.pathname === "/ocr") {
+        if (!req.headers["x-ocr-secret"]) return json(401, { error: "missing X-OCR-SECRET" });
+        const j = JSON.parse(raw || "{}");
+        const data = j.images?.[0]?.data || "";
+        const text = Buffer.from(String(data), "base64").toString("utf-8");
+        return json(200, {
+          version: "V2",
+          images: [
+            {
+              inferResult: "SUCCESS",
+              fields: text.split(/\s+/).filter(Boolean).map((w) => ({ inferText: w })),
+            },
+          ],
+        });
+      }
       // 인스타/틱톡 지수 API — POST 전용, body { username }
       if (req.method === "POST" && (u.pathname === "/api/analyze" || u.pathname === "/api/tiktok")) {
         const j = JSON.parse(raw || "{}");
