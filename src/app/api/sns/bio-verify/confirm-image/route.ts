@@ -54,7 +54,12 @@ export async function POST(req: NextRequest) {
   const ocr = await ocrExtractText(m[2], format);
   if (!ocr.ok) {
     return NextResponse.json(
-      { error: "이미지 인식에 실패했어요 — 잠시 후 다시 업로드해주세요.", retry: true },
+      {
+        error: "이미지 인식에 실패했어요 — 잠시 후 다시 업로드해주세요.",
+        retry: true,
+        // OCR 응답 사유 — 내부 QA 진단용 (시트 에러 하단 표시)
+        ...(ocr.detail ? { trace: [`OCR: ${ocr.detail}`] } : {}),
+      },
       { status: 502 },
     );
   }
