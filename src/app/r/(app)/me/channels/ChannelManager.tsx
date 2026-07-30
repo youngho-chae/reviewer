@@ -27,6 +27,14 @@ const BIO_LABEL: Record<SnsKind, string> = {
   tiktok: "프로필 소개(bio)",
 };
 
+// 인스타 이미지 가이드 (2026-07-30) — 캡처 단계 스크린샷, 업로드 순서대로 노출.
+// 이미지 교체는 public/sns-guide/insta-step-N.png 파일만 갈아끼우면 된다.
+const INSTA_IMAGE_GUIDE = [
+  { src: "/sns-guide/insta-step-1.png", caption: "① 프로필에서 [프로필 편집]을 눌러요" },
+  { src: "/sns-guide/insta-step-2.png", caption: "② 인증할 계정(사용자 이름)을 확인하고, 소개에 계정 인증코드를 붙여넣어요" },
+  { src: "/sns-guide/insta-step-3.png", caption: "③ 아이디와 인증코드가 잘 보이게 프로필 화면을 캡처해요" },
+];
+
 const URL_PLACEHOLDER: Record<SnsKind, string> = {
   naver_blog: "blog.naver.com/아이디 또는 아이디",
   instagram: "instagram.com/아이디 또는 @아이디",
@@ -95,6 +103,7 @@ export default function ChannelManager({
   const [errTrace, setErrTrace] = useState<string[]>([]); // 검증 실패 층별 진단 (내부 QA)
   const [justConnected, setJustConnected] = useState<SnsKind | null>(null);
   const fileRef = useRef<HTMLInputElement>(null); // 인스타 캡처 업로드 (2026-07-28 OCR 인증)
+  const [guideOpen, setGuideOpen] = useState(false); // 인스타 이미지 가이드 뷰어 (2026-07-30)
 
   const armed = armedUntil !== null && armedUntil > nowTick;
   const leftMs = armedUntil ? Math.max(0, armedUntil - nowTick) : 0;
@@ -415,7 +424,19 @@ export default function ChannelManager({
 
             {/* 연결 가이드 */}
             <div className="mt-6">
-              <div className="text-[14px] font-bold text-ink">연결 가이드</div>
+              <div className="flex items-center justify-between">
+                <div className="text-[14px] font-bold text-ink">연결 가이드</div>
+                {/* 인스타 전용 — 캡처 단계 이미지 가이드 (2026-07-30, 업로드 순서대로) */}
+                {sheetRow.kind === "instagram" && (
+                  <button
+                    type="button"
+                    onClick={() => setGuideOpen(true)}
+                    className="cp-action h-8 px-3 rounded-pill border border-brand text-brand text-[12px] font-semibold"
+                  >
+                    이미지 가이드
+                  </button>
+                )}
+              </div>
               <ul className="mt-3 space-y-2">
                 {CONNECT_GUIDE[sheetRow.kind].map((g, i, arr) => (
                   <li key={i} className={`flex gap-2 text-[13px] leading-[1.55] ${i === arr.length - 1 ? "text-ink font-semibold" : "text-muted"}`}>
@@ -527,6 +548,34 @@ export default function ChannelManager({
               >
                 유지하기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 인스타 이미지 가이드 뷰어 (2026-07-30) — 캡처 단계 3장, 업로드 순서대로 */}
+      {guideOpen && (
+        <div className="fixed inset-0 bg-ink/70 z-[60] flex items-end" onClick={() => setGuideOpen(false)}>
+          <div
+            className="w-full max-h-[90dvh] overflow-y-auto rounded-t-xl bg-canvas p-5 pb-8"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="인스타그램 인증 이미지 가이드"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-[17px] font-bold text-ink tracking-title">이미지 가이드</h3>
+              <button type="button" aria-label="닫기" onClick={() => setGuideOpen(false)} className="cp-action w-10 h-10 text-[18px] text-ink">
+                ✕
+              </button>
+            </div>
+            <div className="mt-2 space-y-5">
+              {INSTA_IMAGE_GUIDE.map((g, i) => (
+                <figure key={i}>
+                  <figcaption className="text-[13px] font-semibold text-ink leading-[1.5] mb-2">{g.caption}</figcaption>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={g.src} alt={g.caption} className="w-full rounded-md border border-hairline" />
+                </figure>
+              ))}
             </div>
           </div>
         </div>
