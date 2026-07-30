@@ -19,7 +19,9 @@ export function ocrConfigured(): boolean {
   return INVOKE_URL.length > 0 && SECRET.length > 0;
 }
 
-export type OcrResult = { ok: true; text: string } | { ok: false; reason: "unconfigured" | "http" | "parse" };
+export type OcrResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: "unconfigured" | "http" | "parse"; detail?: string };
 
 // 이미지(base64, data: 접두 제거분)를 CLOVA OCR General에 보내 전체 텍스트를 추출.
 // 응답의 images[0].fields[].inferText를 공백으로 이어 붙여 돌려준다.
@@ -42,16 +44,25 @@ export async function ocrExtractText(imageBase64: string, format: string): Promi
     });
     clearTimeout(t);
     if (!r.ok) {
-      console.log(`[sns-bio] CLOVA OCR HTTP ${r.status} — ${(await r.text().catch(() => "")).slice(0, 200)}`);
-      return { ok: false, reason: "http" };
+      const body = (await r.text().catch(() => "")).slice(0, 300);
+      console.log(`[sns-bio] CLOVA OCR HTTP ${r.status} — ${body}`);
+      return { ok: false, reason: "http", detail: `HTTP ${r.status} ${body.slice(0, 120)}` };
     }
     const j = (await r.json()) as {
-      images?: Array<{ inferResult?: string; fields?: Array<{ inferText?: string }> }>;
+      images?: Array<{ inferResult?: string; message?: string; fields?: Array<{ inferText?: string }> }>;
     };
     const img = j.images?.[0];
     if (!img || (img.inferResult && img.inferResult !== "SUCCESS")) {
-      console.log(`[sns-bio] CLOVA OCR inferResult=${img?.inferResult ?? "없음"}`);
-      return { ok: false, reason: "parse" };
+      // NCP가 알려주는 실패 사유(message)까지 로그·detail로 — 도메인 타입(General/Template)·
+      // 포맷 문제 등 콘솔 설정 이슈를 원문으로 특정할 수 있게 한다 (2026-07-30 QA)
+      console.log(
+        `[sns-bio] CLOVA OCR inferResult=${img?.inferResult ?? "없음"} — 응답: ${JSON.stringify(j).slice(0, 400)}`,
+      );
+      return {
+        ok: false,
+        reason: "parse",
+        detail: `inferResult=${img?.inferResult ?? "없음"}${img?.message ? ` · ${img.message}` : ""}`,
+      };
     }
     const text = (img.fields ?? [])
       .map((f) => String(f.inferText ?? ""))
