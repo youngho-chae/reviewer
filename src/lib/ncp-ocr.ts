@@ -19,8 +19,13 @@ export function ocrConfigured(): boolean {
   return INVOKE_URL.length > 0 && SECRET.length > 0;
 }
 
+export interface OcrField {
+  name: string; // 템플릿 필드명 (예: "field 01" — Template OCR) · General은 빈 문자열 가능
+  text: string;
+}
+
 export type OcrResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; fields: OcrField[]; template?: string }
   | { ok: false; reason: "unconfigured" | "http" | "parse"; detail?: string };
 
 // 이미지(base64, data: 접두 제거분)를 CLOVA OCR General에 보내 전체 텍스트를 추출.
@@ -49,7 +54,12 @@ export async function ocrExtractText(imageBase64: string, format: string): Promi
       return { ok: false, reason: "http", detail: `HTTP ${r.status} ${body.slice(0, 120)}` };
     }
     const j = (await r.json()) as {
-      images?: Array<{ inferResult?: string; message?: string; fields?: Array<{ inferText?: string }> }>;
+      images?: Array<{
+        inferResult?: string;
+        message?: string;
+        matchedTemplate?: { name?: string };
+        fields?: Array<{ name?: string; inferText?: string }>;
+      }>;
     };
     const img = j.images?.[0];
     if (!img || (img.inferResult && img.inferResult !== "SUCCESS")) {
@@ -64,11 +74,14 @@ export async function ocrExtractText(imageBase64: string, format: string): Promi
         detail: `inferResult=${img?.inferResult ?? "없음"}${img?.message ? ` · ${img.message}` : ""}`,
       };
     }
-    const text = (img.fields ?? [])
-      .map((f) => String(f.inferText ?? ""))
-      .filter(Boolean)
-      .join(" ");
-    return { ok: true, text };
+    // Template OCR(도메인 타입 확정 2026-07-30)은 필드별 추출 — 필드명·값을 함께 돌려준다.
+    // (Field 01 = SNS 아이디 · Field 02 = 계정 인증코드로 템플릿 구성됨)
+    const fields: OcrField[] = (img.fields ?? []).map((f) => ({
+      name: String(f.name ?? ""),
+      text: String(f.inferText ?? ""),
+    }));
+    const text = fields.map((f) => f.text).filter(Boolean).join(" ");
+    return { ok: true, text, fields, template: img.matchedTemplate?.name };
   } catch (e) {
     console.log(`[sns-bio] CLOVA OCR 호출 실패: ${e instanceof Error ? e.name : "unknown"}`);
     return { ok: false, reason: "http" };

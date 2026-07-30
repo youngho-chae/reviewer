@@ -76,12 +76,19 @@ http
         const j = JSON.parse(raw || "{}");
         const data = j.images?.[0]?.data || "";
         const text = Buffer.from(String(data), "base64").toString("utf-8");
+        // Template OCR 재현 (도메인 확정 2026-07-30) — 줄 단위 = 템플릿 필드
+        // (field 01 = SNS 아이디 · field 02 = 인증코드), matchedTemplate 포함
         return json(200, {
           version: "V2",
           images: [
             {
               inferResult: "SUCCESS",
-              fields: text.split(/\s+/).filter(Boolean).map((w) => ({ inferText: w })),
+              matchedTemplate: { id: 1, name: "insta-bio" },
+              fields: text
+                .split(/\n/)
+                .map((l) => l.trim())
+                .filter(Boolean)
+                .map((l, i) => ({ name: `field 0${i + 1}`, inferText: l })),
             },
           ],
         });
