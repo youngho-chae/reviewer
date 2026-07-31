@@ -29,7 +29,7 @@ export default function ManageTabs({
   const tabs = [
     { key: "info" as const, label: "캠페인 관리" },
     ...(showReserve
-      ? [{ key: "reservations" as const, label: `예약관리${reservationCount > 0 ? ` ${reservationCount}` : ""}` }]
+      ? [{ key: "reservations" as const, label: `예약 관리${reservationCount > 0 ? ` ${reservationCount}` : ""}` }]
       : []),
     { key: "review" as const, label: `후기${reviewCount > 0 ? ` ${reviewCount}` : ""}` },
   ];
