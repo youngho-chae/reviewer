@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
+import { passRefNo } from "@/lib/owner-review-status";
 import { rid } from "@/lib/ids";
 import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
 import { reviewerCancelBlockedReason, reservationHistory, fmtReservationLabel } from "@/lib/reservation";
@@ -42,10 +43,10 @@ export async function POST(req: NextRequest) {
     userId: pass.ownerId,
     role: "owner",
     title: pass.reservation ? "예약 취소" : "체험권 참여 취소",
-    // [확정 정책 8] 익명 #last4 — 실명·등급 비노출
+    // [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호로 구분
     body: pass.reservation
-      ? `익명 #${pass.reviewerId.slice(-4)} 체험자가 ${fmtReservationLabel(pass.reservation.date, pass.reservation.time)} 예약을 취소했습니다. 시간대 정원과 모집 슬롯이 복구되었어요.`
-      : `익명 #${pass.reviewerId.slice(-4)} 체험자가 참여를 취소했습니다. 모집 슬롯이 복구되었습니다.`,
+      ? `체험권 ${passRefNo(pass.id)} 체험자가 ${fmtReservationLabel(pass.reservation.date, pass.reservation.time)} 예약을 취소했습니다. 시간대 정원과 모집 슬롯이 복구되었어요.`
+      : `체험권 ${passRefNo(pass.id)} 체험자가 참여를 취소했습니다. 모집 슬롯이 복구되었습니다.`,
     createdAt: now,
     read: false,
     link: "/o/home",

@@ -44,7 +44,7 @@ export default async function AdminReviews() {
       <section className="px-5 mt-5 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
         {rows.length === 0 && (
           <div className="rounded-md border border-dashed border-hairline p-10 text-center text-[14px] text-muted">
-            검수 대기 중인 후기가 없습니다.
+            검수 대기 중인 리뷰가 없습니다.
           </div>
         )}
         {rows.map(({ p, store, campaign, reviewer }) => (

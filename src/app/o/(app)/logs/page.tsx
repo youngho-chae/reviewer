@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
+import { passRefNo } from "@/lib/owner-review-status";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,6 @@ export default async function OwnerLogs() {
               {list.map((p) => {
                 const store = db.stores.find((s) => s.id === p.storeId);
                 const c = db.campaigns.find((x) => x.id === p.campaignId);
-                const reviewer = db.reviewers.find((r) => r.id === p.reviewerId);
                 const chip = statusChip(p.status);
                 return (
                   <div key={p.id} className="px-5 py-3">
@@ -79,8 +79,8 @@ export default async function OwnerLogs() {
                           <div className="text-[14px] font-semibold text-ink truncate">{store?.name}</div>
                         </div>
                         <div className="text-[12px] text-muted mt-1 truncate">
-                          {/* [확정 정책 8·10] 체험자 등급은 사장님에게 비노출 — 익명 표기만 */}
-                          {c?.title} · 익명 #{reviewer?.id.slice(-4)}
+                          {/* [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호로 구분 */}
+                          {c?.title} · 체험권 {passRefNo(p.id)}
                         </div>
                       </div>
                       <div className="text-right whitespace-nowrap">

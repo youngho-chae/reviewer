@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
+import { passRefNo } from "@/lib/owner-review-status";
 import { rid } from "@/lib/ids";
 import { appendRecentPass } from "@/lib/recent-passes-cookie";
 import {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     role: "owner",
     title: "예약 변경 요청",
     // [확정 정책 8·10] 익명 #last4 — 실명·등급 비노출
-    body: `익명 #${pass.reviewerId.slice(-4)} 체험자가 방문 예약을 ${prevLabel} → ${fmtReservationLabel(rd, rt)}로 변경했습니다. 예약을 확인해주세요.`,
+    body: `예약 ${passRefNo(pass.id)} 체험자가 방문 예약을 ${prevLabel} → ${fmtReservationLabel(rd, rt)}로 변경했습니다. 예약을 확인해주세요.`,
     createdAt: now,
     read: false,
     link: "/o/home",

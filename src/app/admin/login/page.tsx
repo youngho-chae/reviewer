@@ -32,7 +32,7 @@ export default function AdminLogin() {
     <main className="mobile-shell min-h-[100dvh] bg-canvas flex flex-col justify-center px-5">
       <div className="text-[13px] font-bold text-brand tracking-title">CATCHPASS</div>
       <h1 className="text-[20px] font-bold text-ink tracking-title mt-1">운영팀 검수 콘솔</h1>
-      <p className="text-[14px] text-muted mt-2">제출된 후기를 통과/반려 처리합니다.</p>
+      <p className="text-[14px] text-muted mt-2">제출된 리뷰를 통과/반려 처리합니다.</p>
 
       <form onSubmit={submit} className="mt-8 space-y-3">
         <input

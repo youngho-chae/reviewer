@@ -12,7 +12,7 @@ import HomeCampaigns, { type HomeCampaignItem } from "./HomeCampaigns";
 export const dynamic = "force-dynamic";
 
 // 사장님 홈 (2026-07-28 개편 2단계 — 시안) — 로고+매장 스위처 → 이번 달 모집 현황
-// (방문 예정·사용 완료·후기 검수 대기 + 모집 한도 프로그레스·플랜) → [새 캠페인 등록 |
+// (방문 예정·사용 완료·검수 중인 리뷰 + 모집 한도 프로그레스·플랜) → [새 캠페인 등록 |
 // 예약 관리] → 진행 중인 캠페인(유형 칩 + 신형 카드, 전체보기 = [관리] 탭).
 // 구 홈의 [방문 예약|발송 대기] 큐는 제거 — 예약 처리(확정·제안·거절·확정 취소)는
 // [관리]-[예약관리]·예약 정보 상세로 이관 (2026-07-28).
@@ -102,8 +102,9 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
             <div className="mt-0.5 text-[12px] text-muted">사용 완료</div>
           </div>
           <div>
+            {/* 검수 중인 리뷰 = 체험자가 제출해 운영팀 검수를 기다리는 건만 (§4-2 — 작성 대기 제외) */}
             <div className="text-[20px] font-bold text-ink tabular-nums">{reviewWait}</div>
-            <div className="mt-0.5 text-[12px] text-muted">후기 검수 대기</div>
+            <div className="mt-0.5 text-[12px] text-muted">검수 중인 리뷰</div>
           </div>
         </div>
         <div className="mt-4 pt-3 border-t border-hairlineSoft">

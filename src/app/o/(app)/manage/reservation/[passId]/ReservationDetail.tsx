@@ -19,7 +19,7 @@ export interface ReservationDetailData {
   state: "requested" | "proposed" | "counter" | "confirmed" | "cancelled";
   campaignTitle: string;
   storeName: string;
-  masked: string;
+  refNo: string; // 예약번호 — 체험자 식별정보 대체 (§4-5)
   label: string; // 신청(또는 확정) 일정 라벨
   partySize?: number;
   proposalUsed: boolean;
@@ -153,8 +153,8 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
 
         <dl className="mt-3.5 space-y-2 text-[14px]">
           <div className="flex gap-6">
-            <dt className="w-[64px] shrink-0 text-muted">체험자</dt>
-            <dd className="font-semibold text-ink">익명 {data.masked}</dd>
+            <dt className="w-[64px] shrink-0 text-muted">예약번호</dt>
+            <dd className="font-semibold text-ink tabular-nums">{data.refNo}</dd>
           </div>
           <div className="flex gap-6">
             <dt className="w-[64px] shrink-0 text-muted">신청 일정</dt>

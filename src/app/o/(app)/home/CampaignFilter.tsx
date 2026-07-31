@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 /**
  * 내 캠페인 상태 필터 (2026-07-23) — [전체 | 진행중 | 종료] 칩.
  * 지금까지 오픈한 전체 캠페인을 상태별로 필터링해 보여준다 — 각 카드는 캠페인 관리
- * (/o/campaign/[id] — 예약 관리·후기 관리)로 진입한다. 뷰는 서버에서 채워 ReactNode로 전달.
+ * (/o/campaign/[id] — 예약 관리·리뷰)로 진입한다. 뷰는 서버에서 채워 ReactNode로 전달.
  */
 export default function CampaignFilter({
   allCount,

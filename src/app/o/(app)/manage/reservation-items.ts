@@ -1,5 +1,6 @@
 import type { Campaign, Pass, Store } from "@/lib/types";
 import { fmtReservationLabel, reservationEpoch, reservationHistoryLines, reviewerCounterUsed } from "@/lib/reservation";
+import { passRefNo } from "@/lib/owner-review-status";
 import type { ManagedReservation } from "./ReservationManager";
 
 // 예약관리 카드 데이터 빌더 (2026-07-28) — [관리]-[예약관리]와 캠페인 관리의
@@ -32,7 +33,8 @@ export function buildManagedReservations(
         storeId: store?.id ?? "",
         storeName: store?.name ?? "매장",
         campaignTitle: c?.title ?? "캠페인",
-        masked: `#${p.reviewerId.slice(-4)}`,
+        // [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 예약번호(거래 단위)로 구분
+        refNo: passRefNo(p.id),
         label: fmtReservationLabel(r.date, r.time),
         ...(r.partySize ? { partySize: r.partySize } : {}),
         state,
