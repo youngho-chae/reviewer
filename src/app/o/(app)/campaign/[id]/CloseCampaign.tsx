@@ -48,7 +48,7 @@ export default function CloseCampaign({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="cp-action w-full h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-error"
+          className="cp-action w-full h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
         >
           캠페인 종료하기
         </button>
