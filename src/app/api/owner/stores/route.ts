@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
-import { rid } from "@/lib/ids";
 import { scrapePlace } from "@/lib/naver-scraper";
 import { regionFromAddress } from "@/lib/regions";
 import { regionCenter } from "@/lib/geo";
-import type { Store } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-// 플레이스 URL/ID로 매장 등록 (확정 정책 5-1).
+// 플레이스 URL/ID로 매장 정보 불러오기 (2026-07-31 개편 — 조회 전용).
+// 과거에는 조회 즉시 매장을 DB에 등록했지만, 이제 **등록하지 않는다** — 응답 정보는
+// 새 캠페인 생성 화면의 세션(컴포넌트 상태)에서만 유지되고 페이지 이탈 시 휘발되며,
+// 실제 등록은 캠페인 생성 제출 시(newStore 페이로드) 함께 이뤄진다.
 // 유료 멤버십은 등록 매장 선택이 기본이지만, 프리 등급처럼 등록 플레이스가 없는
-// 사장님도 URL 입력·조회로 캠페인을 만들 수 있어야 한다 (프리 배제 금지).
-// 스크래핑이 차단된 환경에서는 매장명 수동 입력 폴백으로 최소 정보 생성.
+// 사장님도 URL 조회로 캠페인을 만들 수 있어야 한다 (확정 정책 5-1 — 프리 배제 금지).
+// 스크래핑이 차단된 환경에서는 매장명 수동 입력 폴백으로 최소 정보 구성.
 
 // m.place.naver.com/place/{id}, map.naver.com …/place/{id}, naver.me 단축 제외 — 숫자 ID 직접 입력도 허용
 function parsePlaceId(input: string): string | null {
@@ -46,8 +47,8 @@ export async function POST(req: NextRequest) {
   // 플레이스 정보 조회 — 실패(차단·비공개) 시 매장명 수동 입력 폴백
   const scraped = await scrapePlace(placeId).catch(() => null);
 
-  // 이미 등록된 플레이스 — 재수집 값으로 메타를 갱신해 준다 (자가 복구 2026-07-24:
-  // 과거 스크랩이 부실해 업종 "기타"/지역 "미지정"으로 남은 매장을 같은 URL 재등록으로 교정).
+  // 이미 등록된 플레이스 — 새로 만들지 않고 기존 매장을 반환 (재수집 값으로 메타 갱신,
+  // 자가 복구 2026-07-24: 과거 스크랩이 부실해 업종 "기타"/지역 "미지정"으로 남은 매장 교정).
   if (dup) {
     if (scraped) {
       const dupAddress = scraped.roadAddress || scraped.address;
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       if (scraped.reviewCount !== undefined) dup.reviewCount = scraped.reviewCount;
       await saveDBAsync();
     }
-    return NextResponse.json({ ok: true, store: dup, duplicated: true, refreshed: !!scraped });
+    return NextResponse.json({ ok: true, store: dup, existing: true, refreshed: !!scraped });
   }
 
   const name = scraped?.name || manualName;
@@ -80,14 +81,13 @@ export async function POST(req: NextRequest) {
   }
 
   // 지역 매핑 (2026-07-24) — 플레이스 주소("서울특별시 강남구 …")를 REGIONS 기준
-  // "서울 강남구" 라벨로 정규화해 지도 재검색·지역 필터·카드 지역 표기에 그대로 쓴다.
-  // 좌표가 안 내려오면 시군구 행정 기준점(regionCenter)으로 폴백해 지도에서 빠지지 않게 한다.
+  // "서울 강남구" 라벨로 정규화. 좌표가 안 내려오면 시군구 행정 기준점 폴백.
   const fullAddress = scraped?.roadAddress || scraped?.address;
   const region = regionFromAddress(scraped?.address || fullAddress);
   const fallbackCenter = region ? regionCenter(region) : null;
-  const store: Store = {
-    id: rid("st"),
-    ownerId: s.userId,
+  // 조회 전용 — id/ownerId 없이 정보만 반환한다 (DB 미기록). 클라이언트가 임시 항목으로
+  // 들고 있다가 캠페인 생성 시 newStore로 되돌려 보내면 그때 등록된다.
+  const store = {
     name,
     category: scraped?.category || "기타",
     area: region || "미지정",
@@ -99,10 +99,7 @@ export async function POST(req: NextRequest) {
     lng: scraped?.lng ?? fallbackCenter?.lng,
     address: fullAddress,
     naverPlaceId: placeId,
-    // 플레이스 첫 썸네일 — 캠페인 대표 사진 프리필·카드 폴백에 사용
     ...(scraped?.imageUrl ? { thumbnailUrl: scraped.imageUrl } : {}),
   };
-  db.stores.push(store);
-  await saveDBAsync();
-  return NextResponse.json({ ok: true, store, scraped: !!scraped });
+  return NextResponse.json({ ok: true, store, existing: false, scraped: !!scraped });
 }

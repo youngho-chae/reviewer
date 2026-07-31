@@ -3,10 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
-import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
+import { type PlanKey } from "@/lib/plan-policy";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { timeToMin, minToTime, fmtTime12 } from "@/lib/reservation";
+import { CHANNEL_REVIEW_CONDITIONS, CHANNEL_LABEL } from "@/lib/channels";
 
 // 예약 운영시간 선택지 — 00:00 ~ 24:00, 30분 단위 (24:00 = 자정 종료, 24시간 매장용)
 const HALF_HOURS: string[] = Array.from({ length: 49 }, (_, i) => minToTime(i * 30));
@@ -16,7 +17,21 @@ interface OwnerStore {
   name: string;
   area?: string;
   category?: string;
-  thumbnailUrl?: string; // 플레이스 첫 썸네일 (URL 매장 등록 시 수집)
+  address?: string;
+  thumbnailUrl?: string; // 플레이스 첫 썸네일 (URL 조회 시 수집)
+}
+
+// URL로 불러온 임시 매장 (2026-07-31) — DB 미등록. 이 화면의 상태로만 유지되고
+// 페이지 이탈 시 휘발되며, 캠페인 등록 제출 시 newStore로 보내 그때 저장된다.
+const TEMP_STORE_ID = "__temp__";
+interface TempStore extends OwnerStore {
+  rating?: number;
+  reviewCount?: number;
+  hours?: string;
+  lat?: number;
+  lng?: number;
+  naverPlaceId?: string;
+  coverEmoji?: string;
 }
 
 interface MenuRow {
@@ -30,24 +45,27 @@ const CHANNELS: { key: "naver_blog" | "instagram" | "tiktok"; label: string }[] 
   { key: "tiktok", label: "틱톡" },
 ];
 
+const DAY_CHOICES = [7, 14, 30];
+
 export default function NewCampaign() {
   const router = useRouter();
   const [stores, setStores] = useState<OwnerStore[]>([]);
   const [plan, setPlan] = useState<PlanKey>("Free");
   const [storeId, setStoreId] = useState("");
   const [title, setTitle] = useState(""); // 캠페인명 — 사장님 내부 관리용 (미입력 시 매장명 자동, 확정 정책 7)
-  // 플레이스 URL로 매장 추가 (확정 정책 5-1 — Free 등급 등 등록 매장이 없어도 캠페인 생성 가능)
+  // URL로 매장정보 불러오기 (2026-07-31 개편 — 조회 전용, 확정 정책 5-1: 프리 배제 금지)
   const [showAddStore, setShowAddStore] = useState(false);
   const [placeUrl, setPlaceUrl] = useState("");
   const [manualName, setManualName] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+  const [tempStore, setTempStore] = useState<TempStore | null>(null);
   // 캠페인 유형 (2026-07-12 레뷰 벤치마크) — 방문형 | 배송형(전국 택배 · 체험 포인트 지급 가능)
   const [kind, setKind] = useState<"visit" | "delivery">("visit");
   const [pointReward, setPointReward] = useState(""); // 배송형 기준 포인트 (선택 · 100P 단위)
   // 배송형 상품 카테고리 (필수) — 플레이스 분류가 아닌 상품군 분류 (delivery-categories.ts)
   const [productCategory, setProductCategory] = useState("");
-  const [reservationRequired, setReservationRequired] = useState(false); // 예약형 (2026-07-22 §1-1 — 유형 선택)
+  const [reservationRequired, setReservationRequired] = useState(false); // 캠페인 방식 = 예약 필수 (2026-07-22 §1-1)
   const [reservationNote, setReservationNote] = useState(""); // 예약 안내 (가능 요일·시간대 — 선택)
   // 예약 운영 스케줄 (2026-07-22 §2) — 요일·운영시간·브레이크·예약 오픈일·시간대 정원
   const [rsvDays, setRsvDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
@@ -91,11 +109,11 @@ export default function NewCampaign() {
     }
     setPhotos(next.slice(0, 20));
   }
-  const [days, setDays] = useState(30);
-  const [supportAmount, setSupportAmount] = useState("50000");
-  const [totalQuota, setTotalQuota] = useState("20");
-  const [useCode, setUseCode] = useState("");
-  const [menus, setMenus] = useState<MenuRow[]>([{ name: "", price: "" }]);
+  const [days, setDays] = useState(7); // 진행 일수 — 시안 칩 7/14/30
+  const [supportAmount, setSupportAmount] = useState("");
+  const [totalQuota, setTotalQuota] = useState("");
+  const [useCode, setUseCode] = useState(""); // 매장 확인 번호 (숫자 4자리)
+  const [menus, setMenus] = useState<MenuRow[]>([]);
   const [channels, setChannels] = useState<string[]>(["naver_blog", "instagram"]);
   const [keywords, setKeywords] = useState("");
   const [description, setDescription] = useState("");
@@ -103,13 +121,20 @@ export default function NewCampaign() {
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [supportInfoOpen, setSupportInfoOpen] = useState(false); // 지원금 ⓘ
+  const [codeInfoOpen, setCodeInfoOpen] = useState(false); // 매장 확인 번호 ⓘ
+  const [condOpen, setCondOpen] = useState(false); // 채널별 리뷰 작성 조건
+  const [leaveOpen, setLeaveOpen] = useState(false); // 이탈 확인 모달 (시안)
 
   useEffect(() => {
     fetch("/api/owner/me")
       .then((r) => r.json())
       .then((d) => {
         setStores(d.stores || []);
-        if (d.stores?.[0]) setStoreId(d.stores[0].id);
+        // 대표 매장이 Default 선택 (2026-07-31 — 지정은 마이페이지 [매장 정보], 미지정 시 첫 매장)
+        const primary = d.owner?.primaryStoreId;
+        const first = (d.stores || []).find((s: OwnerStore) => s.id === primary) ?? d.stores?.[0];
+        if (first) setStoreId(first.id);
         if (d.owner?.plan) setPlan(d.owner.plan as PlanKey);
         if (d.monthly) {
           setMonthlyUsed(Number(d.monthly.used) || 0);
@@ -118,8 +143,10 @@ export default function NewCampaign() {
       });
   }, []);
 
-  const policy = PLAN_POLICY[plan];
-  const selectedStore = stores.find((s) => s.id === storeId);
+  // URL로 불러온 임시 매장 포함 목록 — DB 반영이 아니라 이 화면 한정 (이탈 시 휘발)
+  const allStores = useMemo<OwnerStore[]>(() => (tempStore ? [...stores, tempStore] : stores), [stores, tempStore]);
+  const selectedStore = allStores.find((s) => s.id === storeId);
+  const tempSelected = storeId === TEMP_STORE_ID;
 
   // 플레이스 첫 썸네일 → 대표 사진([0]) 프리필 (2026-07-24) — 업로드 사진(dataURL)은 건드리지
   // 않고, 다른 매장의 썸네일(http URL)이 자리에 있으면 현재 매장 것으로 교체한다. 삭제도 가능.
@@ -128,7 +155,7 @@ export default function NewCampaign() {
     if (!thumb) return;
     setPhotos((arr) => {
       if (arr.includes(thumb)) return arr;
-      const otherThumbs = stores.map((st) => st.thumbnailUrl).filter(Boolean) as string[];
+      const otherThumbs = allStores.map((st) => st.thumbnailUrl).filter(Boolean) as string[];
       const rest = arr.filter((p) => !otherThumbs.includes(p));
       return [thumb, ...rest].slice(0, 20);
     });
@@ -137,31 +164,39 @@ export default function NewCampaign() {
   const remaining = monthlyLimit === null ? null : Math.max(0, monthlyLimit - monthlyUsed);
   const totalQuotaNum = Math.max(0, Number(totalQuota.replace(/\D/g, "")) || 0);
   const overLimit = remaining !== null && totalQuotaNum > remaining;
+  const supportNum = Math.max(0, Number(supportAmount.replace(/\D/g, "")) || 0);
 
-  // null = /api/owner/me 미로딩 (전 플랜 유한 한도 — 무제한 표기 없음, 2026-07-31)
-  const formattedMonthlyLimit = useMemo(() => (monthlyLimit === null ? "—" : `${monthlyLimit}팀`), [monthlyLimit]);
+  // 진행 일수 → 마감일 (생성일 기준 n일차 자정 KST 직전 — 2026-07-28 확정)
+  const deadlineLabel = useMemo(() => {
+    const d = new Date(Date.now() + 9 * 3600000);
+    const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + days * 86400000 - 1);
+    return `${end.getUTCMonth() + 1}월 ${end.getUTCDate()}일 (${"일월화수목금토"[end.getUTCDay()]})`;
+  }, [days]);
+
+  // 이탈 확인 (시안) — 입력이 있으면 뒤로가기 시 확인 모달
+  const dirty =
+    !!title || !!totalQuota || !!supportAmount || !!useCode || !!keywords || !!description ||
+    photos.length > 0 || menus.some((m) => m.name || m.price) || !!tempStore || authorityConfirmed;
 
   function toggleChannel(c: string) {
     setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
   }
 
   function setMenuNameAt(i: number, v: string) {
-    setMenus((arr) => arr.map((row, idx) => (idx === i ? { ...row, name: v } : row)));
+    setMenus((arr) => arr.map((m, j) => (j === i ? { ...m, name: v.slice(0, 30) } : m)));
   }
   function setMenuPriceAt(i: number, v: string) {
-    const cleaned = v.replace(/\D/g, "");
-    setMenus((arr) => arr.map((row, idx) => (idx === i ? { ...row, price: cleaned } : row)));
+    setMenus((arr) => arr.map((m, j) => (j === i ? { ...m, price: v.replace(/\D/g, "").slice(0, 8) } : m)));
   }
   function removeMenuAt(i: number) {
-    setMenus((arr) => (arr.length === 1 ? [{ name: "", price: "" }] : arr.filter((_, idx) => idx !== i)));
+    setMenus((arr) => arr.filter((_, j) => j !== i));
   }
-  // 필수 주문 메뉴는 최대 5개 (확정 정책 6)
   function addMenu() {
     setMenus((arr) => (arr.length >= 5 ? arr : [...arr, { name: "", price: "" }]));
   }
 
-  // 플레이스 URL로 매장 추가 — 조회 실패 시 매장명 수동 입력 폴백
-  async function addStoreByUrl() {
+  // URL로 매장정보 불러오기 — 조회 전용 (DB 미등록). 이미 등록된 플레이스면 그 매장을 선택.
+  async function loadStoreByUrl() {
     setAddBusy(true);
     setAddErr(null);
     const res = await fetch("/api/owner/stores", {
@@ -171,12 +206,20 @@ export default function NewCampaign() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setAddErr(data.error || "매장 추가 실패");
+      setAddErr(data.error || "매장 정보를 불러오지 못했어요");
       setAddBusy(false);
       return;
     }
-    setStores((arr) => [...arr, data.store]);
-    setStoreId(data.store.id);
+    if (data.existing) {
+      // 이미 내 매장으로 등록된 플레이스 — 목록에서 그 매장을 선택
+      setStores((arr) => (arr.some((s) => s.id === data.store.id) ? arr.map((s) => (s.id === data.store.id ? data.store : s)) : [...arr, data.store]));
+      setStoreId(data.store.id);
+      setTempStore(null);
+    } else {
+      // 임시 매장 — 이 화면에서만 유지 (새 URL 조회 시 교체, 이탈 시 휘발)
+      setTempStore({ ...data.store, id: TEMP_STORE_ID });
+      setStoreId(TEMP_STORE_ID);
+    }
     setShowAddStore(false);
     setPlaceUrl("");
     setManualName("");
@@ -190,7 +233,7 @@ export default function NewCampaign() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!isDelivery && useCode.length !== 4) {
-      setErr("사용처리 코드는 숫자 4자리로 입력해주세요");
+      setErr("매장 확인 번호는 숫자 4자리로 입력해주세요");
       return;
     }
     if (isReserve) {
@@ -226,11 +269,13 @@ export default function NewCampaign() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        storeId,
+        // URL로 불러온 임시 매장은 등록 확정 시점에만 저장 (newStore — 2026-07-31)
+        storeId: tempSelected ? undefined : storeId,
+        newStore: tempSelected && tempStore ? { ...tempStore, id: undefined } : undefined,
         kind,
         title: title.trim() || undefined,
         days: Number(days),
-        supportAmount: Number(supportAmount),
+        supportAmount: supportNum,
         totalQuota: totalQuotaNum,
         useCode: isDelivery ? undefined : useCode,
         pointReward: isDelivery && pointReward ? Number(pointReward) : undefined,
@@ -261,7 +306,7 @@ export default function NewCampaign() {
     });
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({}));
-      setErr(error || "생성 실패");
+      setErr(error || "등록 실패");
       setBusy(false);
       return;
     }
@@ -269,39 +314,51 @@ export default function NewCampaign() {
     router.refresh();
   }
 
+  function onBack() {
+    if (dirty) setLeaveOpen(true);
+    else router.push("/o/home");
+  }
+
+  const infoRow = (label: string, value?: string) => (
+    <div className="flex gap-4 py-1.5">
+      <span className="w-16 shrink-0 text-[13px] text-muted">{label}</span>
+      <span className="text-[13px] font-semibold text-ink">{value || "—"}</span>
+    </div>
+  );
+
   return (
     <div className="pb-24 bg-canvas min-h-[100dvh]">
       <div className="sticky top-0 z-10 bg-canvas">
         <div className="h-[52px] px-3 flex items-center">
-          <Link href="/o/home" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="홈으로">
+          <button type="button" onClick={onBack} className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="뒤로가기">
             <Icon name="chevron-left" variant="border" size={22} />
-          </Link>
-          <h1 className="text-[18px] font-bold text-ink tracking-title">새 캠페인</h1>
+          </button>
+          <h1 className="flex-1 text-center pr-10 text-[17px] font-bold text-ink tracking-title">새 캠페인 등록</h1>
         </div>
       </div>
 
-      <form onSubmit={submit} className="px-5 pt-4 space-y-8">
-        {/* 매장 선택 — 등록 매장 선택 또는 플레이스 URL로 추가 (확정 정책 5-1) */}
+      <form onSubmit={submit} className="px-5 pt-2 space-y-8">
+        {/* 매장 — 대표 매장 기본 선택 + URL로 매장정보 불러오기(임시) + 정보 요약 카드 (시안) */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">매장</div>
+          <div className="text-[15px] font-bold text-ink mb-2">매장</div>
           <select
             value={storeId}
             onChange={(e) => setStoreId(e.target.value)}
             className="w-full h-12 px-4 rounded-md border border-hairline bg-canvas focus:border-brand focus:outline-none text-[15px]"
           >
-            {stores.map((s) => (
+            {allStores.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {s.id === TEMP_STORE_ID ? `${s.name} (URL 불러옴)` : s.name}
               </option>
             ))}
-            {stores.length === 0 && <option value="">등록된 매장이 없어요</option>}
+            {allStores.length === 0 && <option value="">등록된 매장이 없어요</option>}
           </select>
           <button
             type="button"
             onClick={() => setShowAddStore((v) => !v)}
-            className="cp-action mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand"
+            className="cp-action mt-2.5 inline-flex items-center gap-1 text-[13px] font-semibold text-brand"
           >
-            + 플레이스 URL로 매장 추가
+            + URL로 매장정보 불러오기
           </button>
           {showAddStore && (
             <div className="mt-2 rounded-md border border-hairline p-3.5 space-y-2">
@@ -320,53 +377,116 @@ export default function NewCampaign() {
               {addErr && <p className="text-[12px] text-error">{addErr}</p>}
               <button
                 type="button"
-                onClick={addStoreByUrl}
+                onClick={loadStoreByUrl}
                 disabled={addBusy || !placeUrl.trim()}
                 className="cp-action w-full h-11 rounded-md bg-ink text-white text-[14px] font-semibold disabled:bg-sunken disabled:text-mutedSoft"
               >
-                {addBusy ? "불러오는 중..." : "매장 불러오기"}
+                {addBusy ? "불러오는 중..." : "매장 정보 불러오기"}
               </button>
               <p className="text-[11px] text-muted leading-[1.5]">
-                프리 플랜도 URL로 매장을 등록해 월 한도 내 캠페인을 만들 수 있어요. 플레이스 정보 조회가 어려우면
-                매장명을 함께 입력해주세요.
+                불러온 매장 정보는 <span className="text-ink font-medium">등록되지 않고 이 화면에서만 유지</span>돼요 —
+                페이지를 벗어나면 사라지고, 캠페인을 등록하면 그때 내 매장으로 함께 저장됩니다.
               </p>
+            </div>
+          )}
+          {selectedStore && (
+            <div className="mt-3 rounded-md bg-sunken px-4 py-2.5">
+              {infoRow("상호명", selectedStore.name)}
+              {infoRow("카테고리", selectedStore.category)}
+              {infoRow("주소", selectedStore.address)}
             </div>
           )}
         </section>
 
-        {/* 캠페인 유형 — 방문형 | 예약형 | 배송형 (2026-07-22 §1-1 — 예약형을 독립 유형으로 구분) */}
+        {/* 캠페인명 — 사장님 내부 관리용 (확정 정책 7). 체험자에게는 매장명으로 노출 */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">캠페인 유형</div>
-          <div className={`grid gap-2 ${DELIVERY_ENABLED ? "grid-cols-3" : "grid-cols-2"}`}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[15px] font-bold text-ink">캠페인명</span>
+            <span className="px-1.5 py-0.5 rounded-xs bg-sunken text-[11px] font-medium text-muted">선택</span>
+          </div>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value.slice(0, 40))}
+            placeholder="예: 신메뉴 출시 기념 체험단 모집"
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+          />
+          <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+            사장님 화면에서 캠페인을 구분하는 제목입니다. 미입력 시 매장명
+            {selectedStore ? ` 「${selectedStore.name}」` : ""}으로 자동 설정되며, 체험자에게는 항상{" "}
+            <span className="text-ink font-medium">매장명 중심으로 노출</span>됩니다.
+          </p>
+        </section>
+
+        {/* 총 모집 인원 + 플랜 사용 현황 카드 (시안 — 게이지는 홈과 동일한 잔여형) */}
+        <section>
+          <div className="text-[15px] font-bold text-ink mb-2">총 모집 인원</div>
+          <input
+            value={totalQuota}
+            onChange={(e) => setTotalQuota(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            placeholder="예: 20"
+            className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[15px] ${overLimit ? "border-error focus:border-error" : "border-hairline focus:border-brand"}`}
+          />
+          <div className="mt-3 rounded-md bg-sunken p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] font-semibold text-ink2">{plan}</span>
+              <span className="text-[15px] font-bold text-ink tabular-nums">
+                {monthlyUsed} / {monthlyLimit ?? "—"}
+              </span>
+            </div>
+            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조) */}
+            <div className="mt-2.5 h-2 rounded-pill bg-canvas overflow-hidden">
+              <div
+                className="h-full rounded-pill bg-brand"
+                style={{
+                  width:
+                    monthlyLimit === null
+                      ? "0%"
+                      : `${Math.max(0, Math.round(((monthlyLimit - monthlyUsed) / Math.max(monthlyLimit, 1)) * 100))}%`,
+                }}
+              />
+            </div>
+            {/* [확정 정책 8-3] 등급 우선 모집(부스팅) 표기는 도입하지 않는다 — 전 플랜 균등 배분 */}
+            <div className="mt-3 text-[13px] font-bold text-ink">{plan} 플랜 이용중 · 등급 배분 자동</div>
+            <p className="mt-1 text-[12px] text-muted leading-[1.5]">
+              총 모집 인원만 입력하시면 시스템이 전 등급에 자동 배분해요.
+              {remaining !== null && (
+                <>
+                  {" "}이번 달 잔여 <span className="text-ink font-medium">{remaining}팀</span>
+                  {overLimit && <span className="text-error"> — 입력값이 한도를 초과합니다</span>}
+                  {" · "}
+                  <Link href="/o/membership" className="text-brand font-medium">멤버십 업그레이드</Link>로 한도를 늘릴 수 있어요.
+                </>
+              )}
+            </p>
+          </div>
+        </section>
+
+        {/* 캠페인 유형 — 방문형 | 배송형 (기자단은 릴리스 미제공) */}
+        <section>
+          <div className="text-[15px] font-bold text-ink mb-2">캠페인 유형</div>
+          <div className="flex gap-2">
             {(
               [
-                { key: "visit", label: "🏠 방문형", desc: "예약 없이 방문 · 결제 시 직접 할인" },
-                { key: "reserve", label: "📅 예약형", desc: "방문 일시 예약 후 사장님 확정" },
-                // 배송형 — DELIVERY_ENABLED=false(main 릴리스)면 유형 선택에서 제외
-                ...(DELIVERY_ENABLED ? [{ key: "delivery" as const, label: "📦 배송형", desc: "택배 발송 · 전국 모집" }] : []),
-              ] as const
+                { key: "visit" as const, label: "방문형" },
+                ...(DELIVERY_ENABLED ? [{ key: "delivery" as const, label: "배송형" }] : []),
+              ]
             ).map((k) => {
-              const active = k.key === "delivery" ? isDelivery : !isDelivery && (k.key === "reserve") === reservationRequired;
+              const active = kind === k.key;
               return (
                 <button
                   key={k.key}
                   type="button"
                   onClick={() => {
-                    if (k.key === "delivery") {
-                      setKind("delivery");
-                      setReservationRequired(false);
-                    } else {
-                      setKind("visit");
-                      setReservationRequired(k.key === "reserve");
-                    }
+                    setKind(k.key);
+                    if (k.key === "delivery") setReservationRequired(false);
                   }}
                   aria-pressed={active}
-                  className={`rounded-md px-3 py-3.5 text-left bg-canvas ${
-                    active ? "border-[1.5px] border-brand" : "border border-hairline"
+                  className={`h-11 px-5 rounded-md text-[14px] bg-canvas ${
+                    active ? "border-[1.5px] border-brand text-brand font-bold" : "border border-hairline text-ink font-medium"
                   }`}
                 >
-                  <div className={`text-[15px] font-bold ${active ? "text-brand" : "text-ink"}`}>{k.label}</div>
-                  <div className="mt-0.5 text-[11px] text-muted leading-[1.4]">{k.desc}</div>
+                  {k.label}
                 </button>
               );
             })}
@@ -377,65 +497,48 @@ export default function NewCampaign() {
               체험자에게 리뷰 기한(발송 후 7일)이 시작돼요.
             </p>
           )}
-          {!isDelivery && reservationRequired && (
-            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-              예약형은 체험자가 희망 방문 일시를 선택해 신청하고, <span className="text-ink font-medium">사장님이 확정해야 QR 체험권이 열려요</span>.
-              방문형의 이용 방식은 그대로 유지됩니다.
-            </p>
-          )}
         </section>
 
-        {/* 캠페인명 — 사장님 내부 관리용 (확정 정책 7). 체험자에게는 매장명으로 노출 */}
-        <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">
-            캠페인명 <span className="text-[12px] text-muted font-normal">(내 관리용 · 선택)</span>
-          </div>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value.slice(0, 40))}
-            placeholder="예: 신메뉴 출시 기념 체험단 모집"
-            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
-          />
-          <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-            사장님 화면에서 캠페인을 구분하는 제목이에요. 미입력 시 매장명
-            {selectedStore ? ` 「${selectedStore.name}」` : ""}으로 자동 설정되며, <span className="text-ink font-medium">체험자에게는 항상 매장명 중심으로 노출</span>됩니다.
-          </p>
-        </section>
-
-        {/* 진행 일수 + 지원금 */}
-        <section className="grid grid-cols-2 gap-3">
-          <div>
-            <div className="text-[14px] font-semibold text-ink mb-2">진행 일수</div>
-            <input
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value.replace(/\D/g, "")) || 0)}
-              inputMode="numeric"
-              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
-            />
-          </div>
-          <div>
-            <div className="text-[14px] font-semibold text-ink mb-2">{isDelivery ? "제공 상품 정가 (원)" : "지원금 (원)"}</div>
-            <input
-              value={supportAmount}
-              onChange={(e) => setSupportAmount(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
-            />
-          </div>
-        </section>
-        <p className="text-[12px] text-muted leading-[1.5] -mt-2">
-          {isDelivery ? (
-            <>발송하는 체험 상품의 정가입니다. 체험자 화면에 <span className="text-ink font-medium">제공 상품 가치</span>로 노출돼요.</>
-          ) : (
-            <>지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다
-            (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.</>
-          )}
-        </p>
+        {/* 캠페인 방식 — 바로 방문 | 예약 필수 (방문형 전용, 시안 2카드) */}
+        {!isDelivery && (
+          <section>
+            <div className="text-[15px] font-bold text-ink mb-2">캠페인 방식</div>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { reserve: false, label: "🏠 바로 방문", desc: "예약 없이 방문 · 결제 시 바로 할인" },
+                  { reserve: true, label: "📅 예약 필수", desc: "방문 일시 신청 후 사장님 확정 필요" },
+                ]
+              ).map((k) => {
+                const active = reservationRequired === k.reserve;
+                return (
+                  <button
+                    key={String(k.reserve)}
+                    type="button"
+                    onClick={() => setReservationRequired(k.reserve)}
+                    aria-pressed={active}
+                    className={`rounded-md px-3 py-3.5 text-left bg-canvas ${
+                      active ? "border-[1.5px] border-brand" : "border border-hairline"
+                    }`}
+                  >
+                    <div className={`text-[14px] font-bold ${active ? "text-brand" : "text-ink"}`}>{k.label}</div>
+                    <div className="mt-0.5 text-[11px] text-muted leading-[1.4]">{k.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+            {reservationRequired && (
+              <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+                예약형은 체험자가 희망 방문 일시를 선택해 신청하고, <span className="text-ink font-medium">사장님이 확정해야 QR 체험권이 열려요</span>.
+              </p>
+            )}
+          </section>
+        )}
 
         {/* 배송형 — 상품 카테고리 (필수). 플레이스 분류(카페·식당)가 아닌 상품군 분류 */}
         {isDelivery && (
           <section>
-            <div className="text-[14px] font-semibold text-ink mb-2">상품 카테고리 (필수)</div>
+            <div className="text-[15px] font-bold text-ink mb-2">상품 카테고리 (필수)</div>
             <div className="flex flex-wrap gap-2">
               {DELIVERY_CAT_GROUPS.map((g) => (
                 <button
@@ -463,7 +566,7 @@ export default function NewCampaign() {
         {/* 배송형 — 상품 옵션 (선택, 2026-07-16 리뷰노트 벤치마크) */}
         {isDelivery && (
           <section>
-            <div className="text-[14px] font-semibold text-ink mb-2">
+            <div className="text-[15px] font-bold text-ink mb-2">
               상품 옵션 <span className="text-[12px] text-muted font-normal">(선택 · 쉼표로 최대 5개)</span>
             </div>
             <input
@@ -481,7 +584,7 @@ export default function NewCampaign() {
         {/* 배송형 — 체험 포인트 (선택) */}
         {isDelivery && (
           <section>
-            <div className="text-[14px] font-semibold text-ink mb-2">
+            <div className="text-[15px] font-bold text-ink mb-2">
               체험 포인트 <span className="text-[12px] text-muted font-normal">(선택 · 100P 단위)</span>
             </div>
             <input
@@ -659,159 +762,45 @@ export default function NewCampaign() {
           </section>
         )}
 
-        {/* 사용처리 4자리 코드 — 방문형 필수 (배송형은 사용 처리 개념이 없어 자동 생성) */}
-        {!isDelivery && (
+        {/* 진행 일수 — 시안 칩 7/14/30 + 마감일 안내 (종료 = 생성일 기준 n일차 자정 KST 직전) */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">사용처리 코드 (숫자 4자리)</div>
-          <input
-            value={useCode}
-            onChange={(e) => setUseCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            inputMode="numeric"
-            placeholder="예: 1234"
-            maxLength={4}
-            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[18px] font-semibold tracking-[0.4em] text-center"
-          />
-          <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-            체험자 화면에는 노출되지 않아요. 체험자가 제시한 체험권 화면에 사장님이 이 4자리를 직접 입력하거나, QR을 스캔하면 사용 처리됩니다.
-          </p>
-        </section>
-        )}
-
-        {/* 총 모집 인원 — 등급별이 아닌 통합 입력 + 월간 한도 안내 */}
-        <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">총 모집 인원</div>
-          <input
-            value={totalQuota}
-            onChange={(e) => setTotalQuota(e.target.value.replace(/\D/g, ""))}
-            inputMode="numeric"
-            placeholder="예: 20"
-            className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[15px] ${overLimit ? "border-error focus:border-error" : "border-hairline focus:border-brand"}`}
-          />
-          <div className="mt-3 rounded-md bg-canvas border border-hairline p-3.5">
-            <div className="flex items-center gap-2 text-[12px] text-muted">
-              <span className="font-semibold text-ink">{plan} 플랜</span>
-              <span>·</span>
-              <span>등급 배분 자동</span>
-            </div>
-            <p className="mt-2 text-[13px] text-ink leading-[1.55]">
-              {policy.description}. 사장님은 총 모집 인원만 설정하시면, 멤버십 등급에 맞춰 시스템이 자동으로 등급을 배분합니다.
-            </p>
-            {/* [확정 정책 8-3] 등급 우선 모집(부스팅) 표기는 도입하지 않는다 — 전 플랜 균등 배분 */}
-            <p className="mt-1.5 text-[11px] text-muted">모집 가능 등급: 전 등급 (배분 자동)</p>
-            <div className="mt-3 pt-3 border-t border-hairline flex items-center justify-between text-[12px]">
-              <span className="text-muted">이번 달 모집 현황</span>
-              <span className={overLimit ? "text-error font-semibold" : "text-ink font-medium"}>
-                {monthlyUsed}팀 사용
-                {monthlyLimit !== null && (
-                  <>
-                    {" / "}
-                    <span className="text-muted font-normal">월 한도 {formattedMonthlyLimit}</span>
-                  </>
-                )}
-              </span>
-            </div>
-            {remaining !== null && (
-              <p className="mt-1 text-[11px] text-muted">
-                이번 달 잔여 모집 가능 인원: <span className="text-ink font-medium">{remaining}팀</span>
-                {overLimit && <span className="text-error"> · 입력값이 한도를 초과합니다</span>}
-              </p>
-            )}
-            {monthlyLimit !== null && (
-              <p className="mt-2 text-[11px] text-muted leading-[1.5]">
-                월 모집 한도를 늘리려면 <Link href="/o/membership" className="text-brand font-medium">멤버십 업그레이드</Link>를 이용하세요.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* 필수 채널 */}
-        <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">필수 채널</div>
-          <div className="flex flex-wrap gap-2">
-            {CHANNELS.map((c) => (
+          <div className="text-[15px] font-bold text-ink mb-2">진행 일수</div>
+          <div className="flex gap-2">
+            {DAY_CHOICES.map((d) => (
               <button
-                key={c.key}
+                key={d}
                 type="button"
-                onClick={() => toggleChannel(c.key)}
-                className={`h-10 px-4 rounded-pill text-[14px] bg-canvas ${channels.includes(c.key) ? "border-[1.5px] border-ink text-ink font-semibold" : "border border-hairline text-ink font-medium"}`}
+                onClick={() => setDays(d)}
+                aria-pressed={days === d}
+                className={`h-11 px-5 rounded-md text-[14px] bg-canvas tabular-nums ${
+                  days === d ? "border-[1.5px] border-brand text-brand font-bold" : "border border-hairline text-ink font-medium"
+                }`}
               >
-                {c.label}
+                {d}일
               </button>
             ))}
           </div>
+          <p className="mt-2 text-[12px] font-medium text-successStrong">캠페인 마감일은 {deadlineLabel} 입니다.</p>
         </section>
 
-        {/* 필수 주문 메뉴 — 방문형 전용 (배송형은 방문·주문 개념이 없음) */}
-        {!isDelivery && (
+        {/* 매장·상품 사진 (2026-07-17 회의) — 대표 이미지 + 추가 사진, 3~20장 필수 */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">
-            필수 주문 메뉴 <span className="text-[12px] text-muted font-normal">(선택 입력 · 최대 5개)</span>
-          </div>
-          <p className="text-[12px] text-muted mb-3 leading-[1.5]">
-            체험자가 방문 시 주문해야 하는 메뉴 (택 1). 지정 없이 지원 금액만 설정해도 돼요. 메뉴명과 함께 가격을
-            입력하면 체험자에게 함께 노출됩니다.
-          </p>
-          <div className="space-y-2">
-            {menus.map((m, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-[11px] text-muted w-5 text-center">{i + 1}</span>
-                <input
-                  value={m.name}
-                  onChange={(e) => setMenuNameAt(i, e.target.value)}
-                  placeholder={i === 0 ? "예: 트러플 파스타" : "메뉴명"}
-                  className="flex-1 h-11 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
-                />
-                <div className="relative w-[120px]">
-                  <input
-                    value={m.price}
-                    onChange={(e) => setMenuPriceAt(i, e.target.value)}
-                    placeholder="가격"
-                    inputMode="numeric"
-                    className="w-full h-11 pl-3 pr-7 rounded-md border border-hairline focus:border-brand focus:outline-none text-[14px] text-right"
-                  />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] text-muted pointer-events-none">원</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeMenuAt(i)}
-                  aria-label="메뉴 삭제"
-                  disabled={menus.length === 1 && !menus[0].name && !menus[0].price}
-                  className="cp-action w-10 h-11 rounded-md border border-hairline grid place-items-center text-muted disabled:opacity-40"
-                >
-                  <Icon name="x" variant="border" size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={addMenu}
-            disabled={menus.length >= 5}
-            className="cp-action mt-3 inline-flex items-center gap-1.5 h-10 px-4 rounded-pill border border-dashed border-hairline text-[13px] font-semibold text-brand disabled:text-mutedSoft"
-          >
-            <Icon name="plus" variant="bold" size={14} />
-            <span>{menus.length >= 5 ? "최대 5개까지 등록할 수 있어요" : "메뉴 추가"}</span>
-          </button>
-        </section>
-        )}
-
-        {/* 매장·상품 사진 (2026-07-17 회의) — 대표 이미지 + 추가 사진, 3~20장 필수.
-            체험자 탐색 카드 캐러셀·상세 히어로에 노출된다. 첫 장이 대표 이미지. */}
-        <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">
-            매장·상품 사진 <span className="text-[12px] text-muted font-normal">(필수 · 3~20장, 첫 장이 대표)</span>
-          </div>
-          <p className="text-[12px] text-muted mb-3 leading-[1.5]">
-            플레이스 대표 이미지와 매장·메뉴 사진을 등록하세요. 체험자 탐색 카드와 상세 화면에 캐러셀로 노출됩니다.
-          </p>
+          <div className="text-[15px] font-bold text-ink mb-2">매장·상품 사진 (3~20장)</div>
           <div className="flex flex-wrap gap-2">
+            {photos.length < 20 && (
+              <label className="w-[84px] h-[84px] rounded-md border border-dashed border-hairline flex flex-col items-center justify-center gap-1 text-muted cursor-pointer">
+                <Icon name="camera" variant="border" size={20} />
+                <span className="text-[12px] tabular-nums">{photos.length} / 20</span>
+                <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
+              </label>
+            )}
             {photos.map((src, i) => (
-              <div key={i} className="relative w-[100px] h-[75px] rounded-md overflow-hidden bg-sunken border border-hairline">
+              <div key={i} className="relative w-[84px] h-[84px] rounded-md overflow-hidden bg-sunken border border-hairline">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
                 {i === 0 && (
-                  <span className="absolute left-1 top-1 px-1 py-0.5 rounded-xs bg-ink/70 text-white text-[10px] font-semibold">
-                    {src === selectedStore?.thumbnailUrl ? "대표 · 플레이스" : "대표"}
+                  <span className="absolute inset-x-0 bottom-0 py-0.5 bg-ink/70 text-white text-[10px] font-semibold text-center">
+                    대표사진
                   </span>
                 )}
                 <button
@@ -824,25 +813,112 @@ export default function NewCampaign() {
                 </button>
               </div>
             ))}
-            {photos.length < 20 && (
-              <label className="w-[100px] h-[75px] rounded-md border border-dashed border-hairline grid place-items-center text-[12px] text-muted cursor-pointer">
-                + 추가
-                <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
-              </label>
-            )}
           </div>
-          <p className={`mt-2 text-[12px] ${photos.length >= 3 ? "text-muted" : "text-error"}`}>
-            {photos.length}/20장 등록됨{photos.length < 3 ? " — 최소 3장이 필요해요" : ""}
-          </p>
+          {photos.length < 3 && <p className="mt-2 text-[12px] text-error">최소 3장의 이미지를 넣어주세요.</p>}
           {photoErr && <p className="mt-1 text-[12px] text-error">{photoErr}</p>}
+          <p className="mt-2 text-[11px] text-muted leading-[1.5]">
+            첫 장이 대표사진이에요 — 체험자 탐색 카드와 상세 화면에 캐러셀로 노출됩니다.
+          </p>
         </section>
 
-        {/* 강조 키워드 */}
+        {/* SNS 채널 + 채널별 리뷰 작성 조건 (시안) */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">강조 키워드</div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[15px] font-bold text-ink">
+              SNS 채널 <span className="text-[12px] text-muted font-normal">(다중 선택 가능)</span>
+            </span>
+            <button type="button" onClick={() => setCondOpen((v) => !v)} className="cp-action text-[12px] font-semibold text-brand">
+              채널별 리뷰 작성 조건 →
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {CHANNELS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => toggleChannel(c.key)}
+                className={`h-10 px-4 rounded-pill text-[14px] bg-canvas ${channels.includes(c.key) ? "border-[1.5px] border-brand text-brand font-semibold" : "border border-hairline text-ink font-medium"}`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {condOpen && (
+            <div className="mt-3 rounded-md border border-hairline p-3.5 space-y-3">
+              {CHANNELS.map((c) => (
+                <div key={c.key}>
+                  <div className="text-[12px] font-bold text-ink">{CHANNEL_LABEL[c.key]}</div>
+                  <ul className="mt-1 space-y-0.5">
+                    {CHANNEL_REVIEW_CONDITIONS[c.key].map((cond) => (
+                      <li key={cond.key} className="text-[12px] text-ink2">· {cond.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 필수 주문 메뉴 — 방문형 전용 (시안 카드형 · 선택 입력 · 최대 5개) */}
+        {!isDelivery && (
+        <section>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[15px] font-bold text-ink">필수 주문 메뉴</span>
+            <span className="px-1.5 py-0.5 rounded-xs bg-sunken text-[11px] font-medium text-muted">선택</span>
+          </div>
           <p className="text-[12px] text-muted mb-3 leading-[1.5]">
-            후기에 꼭 강조해주길 원하는 키워드를 쉼표(,)로 구분해 입력하세요. 체험자 매장 상세에 노출됩니다. (최대 5개)
+            체험자는 등록한 메뉴 중 1개를 필수로 주문해야 지원금을 받을 수 있어요. 최대 5개까지 등록 가능해요.
           </p>
+          <div className="space-y-2">
+            {menus.map((m, i) => (
+              <div key={i} className="rounded-md bg-brandSoft p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-brand">메뉴 {i + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeMenuAt(i)}
+                    aria-label={`메뉴 ${i + 1} 삭제`}
+                    className="cp-action w-6 h-6 rounded-full grid place-items-center text-muted"
+                  >
+                    <Icon name="x" variant="border" size={13} />
+                  </button>
+                </div>
+                <input
+                  value={m.name}
+                  onChange={(e) => setMenuNameAt(i, e.target.value)}
+                  placeholder={i === 0 ? "예: 트러플 파스타" : "메뉴명"}
+                  className="mt-2 w-full h-11 px-3.5 rounded-md border border-hairline bg-canvas focus:border-brand focus:outline-none text-[14px]"
+                />
+                <div className="mt-2 h-11 px-3.5 rounded-md border border-hairline bg-canvas flex items-center gap-2">
+                  <span className="text-[13px] text-muted shrink-0">메뉴 금액</span>
+                  <input
+                    value={m.price}
+                    onChange={(e) => setMenuPriceAt(i, e.target.value)}
+                    placeholder="0"
+                    inputMode="numeric"
+                    className="flex-1 min-w-0 text-right text-[14px] font-semibold tabular-nums focus:outline-none bg-transparent"
+                  />
+                  <span className="text-[13px] text-muted shrink-0">원</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addMenu}
+            disabled={menus.length >= 5}
+            className="cp-action mt-2 w-full h-11 rounded-md border border-brand text-[14px] font-semibold text-brand inline-flex items-center justify-center gap-1.5 disabled:border-hairline disabled:text-mutedSoft"
+          >
+            <Icon name="plus" variant="bold" size={14} />
+            <span>{menus.length >= 5 ? "최대 5개까지 등록할 수 있어요" : "메뉴 추가"}</span>
+          </button>
+        </section>
+        )}
+
+        {/* 필수 키워드 — 후기 강조 키워드 (체험자 매장 상세 노출) */}
+        <section>
+          <div className="text-[15px] font-bold text-ink mb-2">필수 키워드 (최대 5개)</div>
+          <p className="text-[12px] text-muted mb-2 leading-[1.5]">키워드 입력 시 쉼표(,)로 구분해 입력하세요.</p>
           <input
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
@@ -865,19 +941,81 @@ export default function NewCampaign() {
           )}
         </section>
 
-        {/* 매장 소개 (최대 500자) */}
+        {/* 매장소개 (최대 500자) */}
         <section>
-          <div className="text-[14px] font-semibold text-ink mb-2">매장 소개</div>
+          <div className="text-[15px] font-bold text-ink mb-2">매장소개</div>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 500))}
-            rows={5}
+            rows={6}
             maxLength={500}
             placeholder="매장과 체험에 대해 체험자에게 안내할 내용을 입력하세요."
             className="w-full px-4 py-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] leading-[1.5]"
           />
           <div className="mt-1 text-right text-[11px] text-muted tabular-nums">{description.length} / 500</div>
         </section>
+
+        {/* 지원금 (방문형) / 제공 상품 정가 (배송형) — ⓘ 토글 안내 */}
+        <section>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[15px] font-bold text-ink">{isDelivery ? "제공 상품 정가" : "지원금"}</span>
+            <button
+              type="button"
+              onClick={() => setSupportInfoOpen((v) => !v)}
+              aria-label="지원금 안내"
+              className="cp-action w-5 h-5 rounded-full border border-hairline text-[11px] text-muted leading-none"
+            >
+              i
+            </button>
+          </div>
+          <input
+            value={supportAmount}
+            onChange={(e) => setSupportAmount(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            placeholder="예: 50000"
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
+          />
+          {supportInfoOpen && (
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              {isDelivery ? (
+                <>발송하는 체험 상품의 정가입니다. 체험자 화면에 <span className="text-ink font-medium">제공 상품 가치</span>로 노출돼요.</>
+              ) : (
+                <>지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다
+                (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.</>
+              )}
+            </p>
+          )}
+        </section>
+
+        {/* 매장 확인 번호 (숫자 4자리) — 방문형 필수 (배송형은 사용 처리 개념이 없어 자동 생성) */}
+        {!isDelivery && (
+        <section>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[15px] font-bold text-ink">매장 확인 번호 (숫자 4자리)</span>
+            <button
+              type="button"
+              onClick={() => setCodeInfoOpen((v) => !v)}
+              aria-label="매장 확인 번호 안내"
+              className="cp-action w-5 h-5 rounded-full border border-hairline text-[11px] text-muted leading-none"
+            >
+              i
+            </button>
+          </div>
+          <input
+            value={useCode}
+            onChange={(e) => setUseCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            inputMode="numeric"
+            placeholder="예: 1234"
+            maxLength={4}
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[18px] font-semibold tracking-[0.4em] text-center"
+          />
+          {codeInfoOpen && (
+            <p className="mt-2 text-[12px] text-muted leading-[1.5]">
+              체험자 화면에는 노출되지 않아요. 체험자가 제시한 체험권 화면에 사장님이 이 4자리를 직접 입력하거나, QR을 스캔하면 사용 처리됩니다.
+            </p>
+          )}
+        </section>
+        )}
 
         {/* [필수] 매장 등록 및 캠페인 운영 권한 확인 (2026-07-28 — 카피 원문) */}
         <section className="rounded-md border border-hairline p-4">
@@ -891,10 +1029,10 @@ export default function NewCampaign() {
             <span className="text-[13px] font-bold text-ink leading-[1.5]">[필수] 매장 등록 및 캠페인 운영 권한 확인</span>
           </label>
           <p className="mt-2 pl-[26px] text-[12px] text-ink2 leading-[1.6]">
-            매장 소유자·운영자 또는 적법한 위임을 받은 관리 대행사만 해당 매장의 체험단 캠페인을 생성할 수 있습니다.
+            · 매장 소유자·운영자 또는 적법한 위임을 받은 관리 대행사만 해당 매장의 체험단 캠페인을 생성할 수 있습니다.
           </p>
           <p className="mt-1.5 pl-[26px] text-[12px] text-muted leading-[1.6]">
-            권한 없이 타인의 매장을 대상으로 캠페인을 생성하거나 허위 정보를 등록하여 매장 운영에 피해를 주는 경우, 캠페인
+            · 권한 없이 타인의 매장을 대상으로 캠페인을 생성하거나 허위 정보를 등록하여 매장 운영에 피해를 주는 경우, 캠페인
             중단 및 서비스 이용 제한 조치가 적용될 수 있으며 업무방해 등 관련 법령에 따라 민·형사상 책임이 발생할 수
             있습니다.
           </p>
@@ -902,23 +1040,62 @@ export default function NewCampaign() {
 
         {err && <div className="text-error text-[13px]">{err}</div>}
         <button
-          disabled={busy || !storeId || overLimit || photos.length < 3 || (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory) || !authorityConfirmed}
+          disabled={
+            busy || !storeId || overLimit || totalQuotaNum <= 0 || supportNum <= 0 || photos.length < 3 ||
+            (!isDelivery && useCode.length !== 4) || (isDelivery && !productCategory) || !authorityConfirmed
+          }
           type="submit"
           className="w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
         >
           {busy
-            ? "생성 중..."
+            ? "등록 중..."
             : overLimit
               ? "월 한도 초과"
-              : !isDelivery && useCode.length !== 4
-                ? "사용처리 코드 4자리 입력"
-                : isDelivery && !productCategory
-                  ? "상품 카테고리 선택"
-                  : !authorityConfirmed
-                    ? "권한 확인 동의 필요"
-                    : "캠페인 생성"}
+              : totalQuotaNum <= 0
+                ? "총 모집 인원 입력"
+                : supportNum <= 0
+                  ? isDelivery ? "제공 상품 정가 입력" : "지원금 입력"
+                  : !isDelivery && useCode.length !== 4
+                    ? "매장 확인 번호 4자리 입력"
+                    : isDelivery && !productCategory
+                      ? "상품 카테고리 선택"
+                      : photos.length < 3
+                        ? "사진 3장 이상 등록"
+                        : !authorityConfirmed
+                          ? "권한 확인 동의 필요"
+                          : "등록하기"}
         </button>
       </form>
+
+      {/* 이탈 확인 모달 (시안) — 입력이 있으면 뒤로가기 시 확인. [나가기]로만 이탈 (임시 매장·입력 휘발) */}
+      {leaveOpen && (
+        <div className="fixed inset-0 bg-ink/45 z-50 grid place-items-center px-6">
+          <div className="w-full rounded-xl bg-canvas p-5">
+            <h3 className="text-center text-[17px] font-bold text-ink tracking-title">작성 중인 정보가 저장되지 않습니다</h3>
+            <p className="mt-2.5 text-center text-[13px] text-ink2 leading-[1.6]">
+              지금 나가면 입력한 정보 모두 사라져요.
+              <br />
+              처음부터 다시 등록해야해요.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => router.push("/o/home")}
+                className="cp-action flex-1 h-12 rounded-md bg-sunken text-[15px] font-semibold text-ink"
+              >
+                나가기
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeaveOpen(false)}
+                className="cp-action flex-[1.4] h-12 rounded-md bg-brand text-white text-[15px] font-bold"
+              >
+                계속 작성하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

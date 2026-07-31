@@ -18,7 +18,39 @@ export async function POST(req: NextRequest) {
   const db = await getDBAsync();
   const owner = db.owners.find((o) => o.id === s.userId);
   if (!owner) return NextResponse.json({ error: "사장님 정보를 찾을 수 없습니다" }, { status: 400 });
-  const store = db.stores.find((x) => x.id === body.storeId && x.ownerId === s.userId);
+  let store = db.stores.find((x) => x.id === body.storeId && x.ownerId === s.userId);
+  // URL로 불러온 임시 매장 (2026-07-31) — 조회 시점에는 등록하지 않고(스토어 조회 API는
+  // 정보만 반환) 캠페인 생성이 확정될 때 등록한다. 같은 플레이스가 이미 있으면 재사용.
+  // push는 모든 검증 통과 후(생성 직전)에만 — 검증 400으로 고아 매장이 남지 않게 한다.
+  let isNewStore = false;
+  if (!store && body.newStore && typeof body.newStore === "object") {
+    const ns = body.newStore as Record<string, unknown>;
+    const placeId = typeof ns.naverPlaceId === "string" && /^\d{5,}$/.test(ns.naverPlaceId) ? ns.naverPlaceId : undefined;
+    store = placeId ? db.stores.find((x) => x.ownerId === s.userId && x.naverPlaceId === placeId) : undefined;
+    if (!store) {
+      const name = String(ns.name ?? "").trim().slice(0, 40);
+      if (!name) return NextResponse.json({ error: "잘못된 매장" }, { status: 400 });
+      const lat = Number(ns.lat);
+      const lng = Number(ns.lng);
+      const thumb = typeof ns.thumbnailUrl === "string" && /^https?:\/\//.test(ns.thumbnailUrl) ? ns.thumbnailUrl.slice(0, 500) : undefined;
+      store = {
+        id: rid("st"),
+        ownerId: s.userId,
+        name,
+        category: String(ns.category ?? "기타").trim().slice(0, 20) || "기타",
+        area: String(ns.area ?? "미지정").trim().slice(0, 20) || "미지정",
+        coverEmoji: "🏪",
+        rating: Math.max(0, Number(ns.rating) || 0),
+        reviewCount: Math.max(0, Math.floor(Number(ns.reviewCount) || 0)),
+        hours: String(ns.hours ?? "영업시간 미등록").trim().slice(0, 40) || "영업시간 미등록",
+        ...(Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : {}),
+        ...(typeof ns.address === "string" && ns.address.trim() ? { address: ns.address.trim().slice(0, 80) } : {}),
+        ...(placeId ? { naverPlaceId: placeId } : {}),
+        ...(thumb ? { thumbnailUrl: thumb } : {}),
+      };
+      isNewStore = true;
+    }
+  }
   if (!store) return NextResponse.json({ error: "잘못된 매장" }, { status: 400 });
 
   // [필수] 매장 등록 및 캠페인 운영 권한 확인 (2026-07-28) — 폼 체크와 별개로 서버 재검증
@@ -219,6 +251,7 @@ export async function POST(req: NextRequest) {
     ...(productOptions.length > 0 ? { productOptions } : {}),
     photos,
   };
+  if (isNewStore) db.stores.push(store); // URL로 불러온 매장 — 생성 확정 시점 등록
   db.campaigns.push(c);
   await saveDBAsync();
   return NextResponse.json({ ok: true, id: c.id });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
+import PrimaryStoreButton from "./PrimaryStoreButton";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export default async function OwnerStores() {
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const stores = db.stores.filter((s) => s.ownerId === me.id);
+  // 대표 매장 (2026-07-31) — 미지정/소유 아님이면 첫 매장 폴백 (새 캠페인 생성 기본 선택)
+  const primaryStoreId =
+    me.primaryStoreId && stores.some((s) => s.id === me.primaryStoreId) ? me.primaryStoreId : stores[0]?.id;
 
   return (
     <div className="pb-24 bg-canvas">
@@ -29,6 +33,7 @@ export default async function OwnerStores() {
           <li>· 매장명/주소/카테고리 수정은 운영팀(help@catchrank.co.kr) 문의</li>
           <li>· 영업시간/안내사항 변경은 매장 카드 우측 [편집] 예정 (운영팀 협의)</li>
           <li>· 매장 추가 신청은 CatchRank 본체 사이트에서 진행</li>
+          <li>· <span className="text-ink font-medium">대표 매장</span>은 새 캠페인 등록 화면의 기본 선택 매장이 됩니다</li>
         </ul>
       </div>
 
@@ -39,7 +44,10 @@ export default async function OwnerStores() {
             <div className="flex">
               <div className="w-24 bg-sunken grid place-items-center text-[44px]">{s.coverEmoji}</div>
               <div className="flex-1 p-3">
-                <div className="text-[15px] font-semibold text-ink">{s.name}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[15px] font-semibold text-ink">{s.name}</div>
+                  <PrimaryStoreButton storeId={s.id} isPrimary={s.id === primaryStoreId} />
+                </div>
                 <div className="text-[12px] text-muted mt-0.5">{s.area} · {s.category} · ★ {s.rating}</div>
                 {s.address && <div className="text-[12px] text-muted mt-1">📍 {s.address}</div>}
                 <div className="text-[12px] text-muted mt-1">🕐 {s.hours}</div>
