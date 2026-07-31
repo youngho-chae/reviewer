@@ -138,7 +138,8 @@ export default function NewCampaign() {
   const totalQuotaNum = Math.max(0, Number(totalQuota.replace(/\D/g, "")) || 0);
   const overLimit = remaining !== null && totalQuotaNum > remaining;
 
-  const formattedMonthlyLimit = useMemo(() => (monthlyLimit === null ? "무제한" : `${monthlyLimit}팀`), [monthlyLimit]);
+  // null = /api/owner/me 미로딩 (전 플랜 유한 한도 — 무제한 표기 없음, 2026-07-31)
+  const formattedMonthlyLimit = useMemo(() => (monthlyLimit === null ? "—" : `${monthlyLimit}팀`), [monthlyLimit]);
 
   function toggleChannel(c: string) {
     setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
