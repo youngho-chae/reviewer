@@ -44,7 +44,7 @@ export default async function AdminReviews() {
       <section className="px-5 mt-5 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
         {rows.length === 0 && (
           <div className="rounded-md border border-dashed border-hairline p-10 text-center text-[14px] text-muted">
-            검수 대기 중인 후기가 없습니다.
+            검수 대기 중인 리뷰가 없습니다.
           </div>
         )}
         {rows.map(({ p, store, campaign, reviewer }) => (
@@ -52,7 +52,10 @@ export default async function AdminReviews() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <GradeBadge grade={p.reviewerGrade} size="sm" />
-                <span className="text-[12px] text-muted">익명 #{p.reviewerId.slice(-4)} · {p.reviewerGrade}등급</span>
+                {/* [2026-07-31 §3-3] 운영팀 콘솔은 개별 건 구분을 위해 회원명(가입자 정보)을 노출한다
+                    — 익명 표기는 사장님 화면 전용 정책 */}
+                <span className="text-[12px] text-ink font-semibold">{reviewer?.nickname ?? "(탈퇴 회원)"}</span>
+                <span className="text-[12px] text-muted">· {p.reviewerGrade}등급</span>
               </div>
               <span className="text-[11px] text-muted">
                 {campaign?.kind === "delivery" ? "배송형" : "방문형"}

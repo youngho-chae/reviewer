@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
+import { passRefNo } from "@/lib/owner-review-status";
 import { normalizePassCode, isUseCode, normalizeUseCode } from "@/lib/ids";
 import type { Pass } from "@/lib/types";
 
@@ -49,12 +50,12 @@ export async function POST(req: NextRequest) {
     if (pass.ownerId !== s.userId) return NextResponse.json({ error: "다른 매장의 체험권" }, { status: 403 });
   }
 
-  const reviewer = db.reviewers.find((r) => r.id === pass!.reviewerId);
   const campaign = db.campaigns.find((c) => c.id === pass!.campaignId);
   return NextResponse.json({
     pass,
-    // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 전송하지 않는다 — 익명 식별자만
-    reviewer: reviewer ? { anonymousId: reviewer.id.slice(-4) } : null,
+    // [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함)를 사장님에게 전송하지 않는다 —
+    // 개별 건 구분은 체험권 번호(거래 단위)로 한다
+    passNo: passRefNo(pass!.id),
     campaign: campaign ? { title: campaign.title, supportAmount: campaign.supportAmount, useCode: campaign.useCode } : null,
   });
 }

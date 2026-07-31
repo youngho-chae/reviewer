@@ -46,7 +46,11 @@ export default async function AdminMembers() {
                       {rv.winWinBadge && <span className="ml-1.5 text-[11px] text-brand font-semibold">🤝 상생</span>}
                       {latest?.sCandidate && <span className="ml-1.5 text-[11px] text-ink font-semibold">S 후보</span>}
                     </div>
-                    <div className="text-[11px] text-muted truncate">{rv.email}</div>
+                    {/* [2026-07-31 §3-3] 운영상 개별 건 구분을 위해 관리자 화면은 가입자 식별정보(이메일·휴대폰)를 노출한다 */}
+                    <div className="text-[11px] text-muted truncate tabular-nums">
+                      {rv.email}
+                      {rv.phone && <> · {rv.phone.replace(/(\d{3})(\d{3,4})(\d{4})/, "$1-$2-$3")}</>}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right shrink-0 text-[11px] text-muted tabular-nums">

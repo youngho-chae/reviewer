@@ -1025,7 +1025,7 @@ export default function NewCampaign() {
         </section>
         )}
 
-        {/* 필수 키워드 — 후기 강조 키워드 (체험자 매장 상세 노출) */}
+        {/* 필수 키워드 — 리뷰 강조 키워드 (체험자 매장 상세 노출) */}
         <section>
           <div className="text-[15px] font-bold text-ink mb-2">필수 키워드 (최대 5개)</div>
           <p className="text-[12px] text-muted mb-2 leading-[1.5]">키워드 입력 시 쉼표(,)로 구분해 입력하세요.</p>

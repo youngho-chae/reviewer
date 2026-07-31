@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
+import { passRefNo } from "@/lib/owner-review-status";
 import { rid, passCode } from "@/lib/ids";
 import { readSession } from "@/lib/auth";
 import { Pass, PassReservation, Grade, SnsKind, ShippingInfo } from "@/lib/types";
@@ -198,9 +199,9 @@ export async function POST(req: NextRequest) {
     userId: pass.ownerId,
     role: "owner",
     title: isDelivery ? "배송형 신청 (발송 대기)" : reservationInfo ? "예약 방문 신청" : "체험권 발급",
-    // [확정 정책 8·10] 체험자 실명·등급은 사장님에게 비노출 — 익명·채널만 전달
+    // [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호로 구분
     // (배송형 수령인 정보는 알림이 아니라 발송 처리 화면에서만 — 목적 제한 노출)
-    body: `익명 #${me.id.slice(-4)} 체험자가 캠페인에 참여했습니다${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${
+    body: `새 체험자가 캠페인에 참여했습니다 (체험권 ${passRefNo(pass.id)})${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${
       isDelivery
         ? " 발송 처리를 진행해주세요."
         : reservationInfo
