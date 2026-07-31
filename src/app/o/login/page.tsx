@@ -34,7 +34,7 @@ export default function OwnerLogin() {
     <main className="mobile-shell px-5 pt-14 pb-10 bg-canvas">
       <Link href="/" className="cp-action text-brand text-[14px] font-medium">← 처음으로</Link>
       <h1 className="mt-8 text-[20px] font-bold text-ink tracking-title">사장님 로그인</h1>
-      <p className="mt-2 text-[15px] text-ink2 leading-[1.5]">멤버십으로 무제한 모집하세요.</p>
+      <p className="mt-2 text-[15px] text-ink2 leading-[1.5]">멤버십으로 더 크게 모집하세요.</p>
 
       <form onSubmit={submit} className="mt-8 space-y-3">
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]" />
