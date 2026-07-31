@@ -32,10 +32,11 @@ const DAY_MS = 86400000;
 // KST yyyy.mm.dd
 const fmtKstDate = (t: number) => new Date(t + 9 * 3600000).toISOString().slice(0, 10).replaceAll("-", ".");
 
-// 캠페인 상세 (2026-07-31 시안 개편) — [캠페인 관리 | 예약관리 | 후기] 탭.
-//  - 캠페인 관리: 사진 캐러셀·배지·모집 마감 D-n·현황 타일·[캠페인 종료하기]·기본 정보·
-//    모집 조건·매장 정보 + (예약형·미종료) 예약 일정 관리(구 '상태관리' 탭 흡수 — §6 일정 차단).
-//  - 종료 캠페인: "모집마감" 표기, 종료 버튼·일정 차단 섹션·예약관리 탭 미제공.
+// 캠페인 상세 (2026-07-31 시안 개편) — [캠페인 관리 | 예약 관리 | 후기] 탭.
+//  - 캠페인 관리: 사진 캐러셀·배지·모집 마감 D-n·현황 타일·[캠페인 종료하기] +
+//    (예약형) 예약 운영 섹션(운영 정보 카드 + 당일 일시 중지 토글·날짜 차단 칩·특정 시간 차단
+//    [일정 선택] 시트 — 구 '상태관리' 탭 흡수, §6) + 기본 정보·모집 조건·매장 정보.
+//  - 종료 캠페인: "모집마감" 표기, 종료 버튼·차단 카드·예약 관리 탭 미제공 (운영 정보 카드는 유지).
 //  - 후기: 이 캠페인에 연결된 후기만 상태별 조회 (§12-3)
 export default async function OwnerCampaignDetail({ params }: { params: Promise<{ id: string }> }) {
   const me = await getCurrentOwner();
@@ -200,6 +201,43 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         </p>
       )}
 
+      {/* 예약 운영 (§2·§6, 2026-07-31 시안) — 운영 정보 카드 + (미종료만) 당일 중지·날짜/시간 차단.
+          종료 캠페인은 받을 예약이 없어 차단 카드를 제공하지 않는다. */}
+      {isReserve && (
+        <section className="px-5 mt-6">
+          <h3 className="text-[16px] font-bold text-ink tracking-title">예약 운영</h3>
+          <div className="mt-3 rounded-lg border border-hairline px-4 divide-y divide-hairlineSoft">
+            {[
+              ["예약 가능한 요일", schedule.days.length === 7 ? "매일" : schedule.days.map((d) => KO_DAYS[d]).join(", ")],
+              ["예약 가능한 시간", `${fmtTime12(schedule.open)} ~ ${schedule.close === "24:00" ? "오전 12시" : fmtTime12(schedule.close)}`],
+              [
+                "브레이크 타임",
+                schedule.breakStart && schedule.breakEnd
+                  ? `${fmtTime12(schedule.breakStart)} ~ ${fmtTime12(schedule.breakEnd)}`
+                  : "미설정",
+              ],
+              ["같은 시간 최대 팀 수", `${slotCapacityOf(c)}팀`],
+              ["예약 가능 시작일", opensAt ? fmtReservationDateLabel(kstTodayStr(opensAt)) : "미설정"],
+            ].map(([label, value]) => (
+              <div key={label} className="py-3 flex items-center justify-between gap-3">
+                <span className="text-[13px] text-muted shrink-0">{label}</span>
+                <span className="text-[13px] font-semibold text-ink tabular-nums text-right">{value}</span>
+              </div>
+            ))}
+          </div>
+          {!ended && (
+            <BlocksManager
+              campaignId={c.id}
+              days={blockDays}
+              times={blockTimes}
+              blockedSlots={(blocks.slots ?? []).filter((s) => s.date >= today)}
+              slotResCounts={slotResCounts}
+              pausedToday={blocks.pausedDate === today}
+            />
+          )}
+        </section>
+      )}
+
       <div className="mt-4 h-2 bg-sunken" />
 
       {/* 캠페인 기본 정보 */}
@@ -218,19 +256,6 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
               <span className="text-[13px] font-semibold text-ink tabular-nums text-right">{value}</span>
             </div>
           ))}
-          {/* 예약 운영 요약 (§2) — 예약형만 */}
-          {isReserve && (
-            <div className="py-3 text-[12px] text-ink2 leading-[1.6]">
-              <span className="text-muted">예약 운영</span> ·{" "}
-              {schedule.days.length === 7 ? "매일" : schedule.days.map((d) => KO_DAYS[d]).join("·")} ·{" "}
-              {fmtTime12(schedule.open)} ~ {schedule.close === "24:00" ? "오전 12시" : fmtTime12(schedule.close)}
-              {schedule.breakStart && schedule.breakEnd && (
-                <> · 브레이크 {fmtTime12(schedule.breakStart)}~{fmtTime12(schedule.breakEnd)}</>
-              )}
-              {" · "}같은 시간 최대 {slotCapacityOf(c)}팀
-              {opensAt && opensAt > now && <> · 예약 오픈 {fmtReservationDateLabel(kstTodayStr(opensAt))} 예정</>}
-            </div>
-          )}
         </div>
       </section>
 
@@ -296,25 +321,6 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         </div>
       </section>
 
-      {/* 예약 일정 관리 (§6 — 구 '상태관리' 탭 흡수) — 예약형·미종료만.
-          종료 캠페인은 받을 예약이 없어 당일 일시중지·날짜/시간 차단 섹션을 제공하지 않는다. */}
-      {isReserve && !ended && (
-        <section className="px-5 mt-7">
-          <h3 className="text-[16px] font-bold text-ink tracking-title">예약 일정 관리</h3>
-          <div className="mt-3 rounded-md bg-brandSoft px-3.5 py-3 text-[13px] text-ink2 leading-[1.55]">
-            예약 요청 확인·확정·시간 제안은 <b className="text-brand">[예약관리]</b> 탭에서 해요. 여기서는{" "}
-            <b>더 이상 예약을 받을 수 없는 날짜·시간</b>을 막아둘 수 있어요.
-          </div>
-          <BlocksManager
-            campaignId={c.id}
-            days={blockDays}
-            times={blockTimes}
-            blockedSlots={(blocks.slots ?? []).filter((s) => s.date >= today)}
-            slotResCounts={slotResCounts}
-            pausedToday={blocks.pausedDate === today}
-          />
-        </section>
-      )}
     </div>
   );
 
@@ -371,8 +377,8 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         </div>
       </div>
 
-      {/* [캠페인 관리 | 예약관리 | 후기] (2026-07-31 시안 개편 — 구 '상태관리'는 캠페인 관리 탭
-          하단 '예약 일정 관리' 섹션으로 흡수). 예약관리 탭은 예약형·미종료 전용. */}
+      {/* [캠페인 관리 | 예약 관리 | 후기] (2026-07-31 시안 개편 — 구 '상태관리'는 캠페인 관리 탭
+          '예약 운영' 섹션으로 흡수). 예약 관리 탭은 예약형·미종료 전용. */}
       <ManageTabs
         showReserve={isReserve && !ended}
         reservationCount={campaignReservations.filter((r) => r.state === "requested" || r.state === "counter").length}
