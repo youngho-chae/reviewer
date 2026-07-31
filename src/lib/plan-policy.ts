@@ -7,7 +7,9 @@
 // [확정 정책 8-3] 등급 우선 모집/우선 노출(부스팅)은 1차 모델에 도입하지 않는다 —
 // 기존 priorityGrade(A/S 우선 배분)는 제거됨. 부스팅은 추후 비즈니스 모델로 별도 검토.
 //
-// 플랜별 한도: Premium 무제한 · Standard 50팀 · Basic 15팀 · Free 5팀(기본).
+// 플랜별 한도: Premium 100팀 · Standard 50팀 · Basic 15팀 · Free 5팀(기본).
+// [2026-07-31] Premium 무제한 폐기 → 월 100팀 상한. 전 플랜이 유한 한도이므로
+// monthlyTeamLimit의 null(무제한) 값과 관련 분기는 제거됨.
 //
 // [2026-07-10] 멤버십 혜택에 "탐색 추천순 노출 우대" 추가 — 추천순 정렬은
 // 사장님 플랜 랭크(PLAN_RANK) → 캠페인 최신순. 이는 **사장님 멤버십** 기준의
@@ -20,7 +22,7 @@ export type PlanKey = Owner["plan"];
 export interface PlanGradePolicy {
   plan: PlanKey;
   grades: Array<"S" | "A" | "B" | "C">;
-  monthlyTeamLimit: number | null; // null = 무제한
+  monthlyTeamLimit: number; // 월간 모집 가능 팀 수 상한 (전 플랜 유한)
   description: string;
 }
 
@@ -28,8 +30,8 @@ export const PLAN_POLICY: Record<PlanKey, PlanGradePolicy> = {
   Premium: {
     plan: "Premium",
     grades: ["S", "A", "B", "C"],
-    monthlyTeamLimit: null,
-    description: "월간 무제한 모집",
+    monthlyTeamLimit: 100,
+    description: "월 100팀까지 모집",
   },
   Standard: {
     plan: "Standard",

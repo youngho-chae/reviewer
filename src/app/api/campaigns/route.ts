@@ -43,28 +43,27 @@ export async function POST(req: NextRequest) {
   // 용도이고, 실제 사용 처리(use-by-code)는 패스 단위로 그 캠페인의 코드와 대조하므로
   // 다른 매장·다른 캠페인과 중복돼도 무관하다.
 
-  // 월간 모집 팀 수 정책 검증 — 초대 보상(quota_bonus)은 플랜 한도에 가산되며 사용 시 소진
+  // 월간 모집 팀 수 정책 검증 — 초대 보상(quota_bonus)은 플랜 한도에 가산되며 사용 시 소진.
+  // 전 플랜 유한 한도(2026-07-31 — Premium 무제한 폐기·월 100팀)라 무조건 검증한다.
   const policy = PLAN_POLICY[owner.plan];
-  if (policy.monthlyTeamLimit !== null) {
-    const monthStart = currentMonthStart();
-    const ownerStoreIds = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
-    const monthlyUsed = db.campaigns
-      .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
-      .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
-    const bonus = availableQuotaBonus(db, owner.id);
-    const remaining = policy.monthlyTeamLimit + bonus - monthlyUsed;
-    if (totalQuota > remaining) {
-      return NextResponse.json(
-        {
-          error: `${owner.plan} 플랜은 월 ${policy.monthlyTeamLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용${bonus > 0 ? ` · 보너스 +${bonus}팀` : ""} · 잔여 ${Math.max(0, remaining)}팀).`,
-        },
-        { status: 400 },
-      );
-    }
-    // 플랜 한도를 초과하는 분량만큼 보너스 소진
-    const overPlan = monthlyUsed + totalQuota - policy.monthlyTeamLimit;
-    if (overPlan > 0) consumeQuotaBonus(db, owner.id, overPlan);
+  const monthStart = currentMonthStart();
+  const ownerStoreIds = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
+  const monthlyUsed = db.campaigns
+    .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
+    .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
+  const bonus = availableQuotaBonus(db, owner.id);
+  const remaining = policy.monthlyTeamLimit + bonus - monthlyUsed;
+  if (totalQuota > remaining) {
+    return NextResponse.json(
+      {
+        error: `${owner.plan} 플랜은 월 ${policy.monthlyTeamLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용${bonus > 0 ? ` · 보너스 +${bonus}팀` : ""} · 잔여 ${Math.max(0, remaining)}팀).`,
+      },
+      { status: 400 },
+    );
   }
+  // 플랜 한도를 초과하는 분량만큼 보너스 소진
+  const overPlan = monthlyUsed + totalQuota - policy.monthlyTeamLimit;
+  if (overPlan > 0) consumeQuotaBonus(db, owner.id, overPlan);
 
   // 필수 주문 메뉴 — { name, price? } 형태로 정규화
   const requiredMenus: RequiredMenu[] = Array.isArray(body.requiredMenus)
