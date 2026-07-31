@@ -4,21 +4,7 @@ import { useRouter } from "next/navigation";
 
 // 모집 한도 리필권 구매 (2026-07-31 BM 전략안) — 확인 바텀시트 → 즉시 적용.
 // 결제(PG) 연동 전에는 멤버십과 동일하게 운영팀 수기 청구 SOP.
-export default function RefillPurchase({
-  plan,
-  grant,
-  price,
-  purchasedThisCycle,
-  maxPerCycle,
-  canBuy,
-}: {
-  plan: string;
-  grant: number;
-  price: number;
-  purchasedThisCycle: number;
-  maxPerCycle: number;
-  canBuy: boolean;
-}) {
+export default function RefillPurchase({ plan, grant, price }: { plan: string; grant: number; price: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -44,14 +30,9 @@ export default function RefillPurchase({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        disabled={!canBuy}
-        className="cp-action w-full h-11 rounded-md bg-brand text-white text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
+        className="cp-action w-full h-11 rounded-md bg-brand text-white text-[14px] font-bold"
       >
-        {canBuy
-          ? `${price.toLocaleString()}원에 ${grant}건 리필하기`
-          : maxPerCycle === 0
-            ? "Free 플랜은 구매할 수 없어요"
-            : `이번 달 구매 한도 소진 (${purchasedThisCycle}/${maxPerCycle}회)`}
+        {price.toLocaleString()}원에 {grant}건 리필하기
       </button>
       {msg && <p className="mt-2 text-[12px] font-medium text-brand">{msg}</p>}
 
@@ -76,7 +57,6 @@ export default function RefillPurchase({
               <li>구매 즉시 이번 달 모집 한도에 추가돼요.</li>
               <li>추가 한도는 <b>다음 결제일 전까지</b> 사용할 수 있고, 남은 수량은 다음 달로 이월되지 않아요.</li>
               <li>기존 한도를 먼저 사용한 뒤 리필 한도가 사용돼요.</li>
-              <li>구매는 결제 주기당 {maxPerCycle}회까지 가능해요 (이번 달 {purchasedThisCycle}회 구매).</li>
               <li>요금은 결제(PG) 연동 전까지 운영팀이 확인 후 청구해요.</li>
             </ul>
             {msg && <p className="mt-2 text-[12px] text-error">{msg}</p>}

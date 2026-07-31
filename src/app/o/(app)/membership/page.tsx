@@ -100,8 +100,6 @@ export default async function MembershipPage() {
             </div>
           </div>
           <div className="mt-3 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-ink2 leading-[1.6]">
-            Basic: 15건 추가 · Standard: 50건 추가 · Premium: 100건 추가
-            <br />
             추가 한도는 이번 결제 주기까지만 유효하고, 남은 수량은 이월되지 않아요.
           </div>
           <div className="mt-3">
@@ -113,14 +111,7 @@ export default async function MembershipPage() {
                 </p>
               </div>
             ) : (
-              <RefillPurchase
-                plan={me.plan}
-                grant={refillState.grant}
-                price={refillState.price}
-                purchasedThisCycle={refillState.purchasedThisCycle}
-                maxPerCycle={refillState.maxPerCycle}
-                canBuy={refillState.canBuy}
-              />
+              <RefillPurchase plan={me.plan} grant={refillState.grant} price={refillState.price} />
             )}
           </div>
           {refillHistory.length > 0 && (

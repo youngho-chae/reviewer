@@ -1,6 +1,6 @@
 import { getCurrentAdmin } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { kstMonth, REFILL_MAX_PER_CYCLE } from "@/lib/limit-refill";
+import { kstMonth } from "@/lib/limit-refill";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +19,13 @@ export default async function AdminRefills() {
   const fmtWhen = (ts: number) =>
     new Date(ts).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-  // 대량 모집 플랜 전환 후보 — 이번 주기 구매 횟수가 플랜 상한에 도달한 Premium 사장님 (§8)
+  // 대량 모집 플랜 전환 후보 — 이번 주기 리필 2회 이상 반복 구매한 Premium 사장님 (§8).
+  // 구매 횟수 제한은 해제(2026-07-31 보완) — 반복 구매자는 식별만 해서 별도 제안한다.
   const cycleCount = new Map<string, number>();
   for (const r of thisMonth) cycleCount.set(r.ownerId, (cycleCount.get(r.ownerId) ?? 0) + 1);
   const enterpriseCandidates = [...cycleCount.entries()].filter(([ownerId, n]) => {
     const o = db.owners.find((x) => x.id === ownerId);
-    return o?.plan === "Premium" && n >= REFILL_MAX_PER_CYCLE.Premium;
+    return o?.plan === "Premium" && n >= 2;
   });
 
   return (
@@ -44,7 +45,7 @@ export default async function AdminRefills() {
       {enterpriseCandidates.length > 0 && (
         <section className="px-5 mt-5">
           <h2 className="text-[15px] font-bold text-ink">대량 모집 플랜 제안 대상</h2>
-          <p className="mt-1 text-[12px] text-muted">이번 주기 Premium 리필 상한(2회) 도달 — Enterprise 제안 대상 (§8)</p>
+          <p className="mt-1 text-[12px] text-muted">이번 주기 Premium 리필 2회 이상 반복 구매 — Enterprise 제안 대상 (§8)</p>
           <div className="mt-2 space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
             {enterpriseCandidates.map(([ownerId, n]) => (
               <div key={ownerId} className="rounded-lg border border-warning/40 bg-canvas p-4 flex items-center justify-between">

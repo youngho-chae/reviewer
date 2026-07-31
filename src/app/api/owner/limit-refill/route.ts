@@ -16,23 +16,12 @@ export async function POST() {
   if (!owner) return NextResponse.json({ error: "사장님 정보를 찾을 수 없습니다" }, { status: 400 });
 
   const state = refillPurchaseState(db, owner);
-  // Free는 미판매 (전략안 §6 — 가격 신뢰 훼손 방지, Basic 업그레이드 유도)
-  if (owner.plan === "Free") {
+  // Free는 미판매 (전략안 §6 — 가격 신뢰 훼손 방지, Basic 업그레이드 유도).
+  // 구매 횟수 제한 없음 (2026-07-31 보완 — 주기당 상한 해제).
+  if (!state.canBuy) {
     return NextResponse.json(
       { error: "Free 플랜은 리필권을 구매할 수 없어요. Basic으로 업그레이드하면 매월 15건을 모집할 수 있어요." },
       { status: 403 },
-    );
-  }
-  // 결제 주기당 구매 제한 (전략안 §7 — Basic·Standard 1회 / Premium 2회)
-  if (!state.canBuy) {
-    return NextResponse.json(
-      {
-        error:
-          owner.plan === "Premium"
-            ? "이번 달 리필권 구매 한도(2회)를 모두 사용했어요. 더 큰 모집이 필요하시면 운영팀에 대량 모집 플랜을 문의해주세요."
-            : "리필권은 결제 주기당 1회만 구매할 수 있어요. 더 많은 모집이 필요하시면 멤버십 업그레이드를 이용해주세요.",
-      },
-      { status: 400 },
     );
   }
 
@@ -54,6 +43,5 @@ export async function POST() {
     price: refill.price,
     month: refill.month,
     purchasedThisCycle: state.purchasedThisCycle + 1,
-    maxPerCycle: state.maxPerCycle,
   });
 }

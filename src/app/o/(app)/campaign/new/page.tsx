@@ -139,7 +139,6 @@ export default function NewCampaign() {
     grant: number;
     price: number;
     purchasedThisCycle: number;
-    maxPerCycle: number;
     canBuy: boolean;
   } | null>(null);
   const [refillBusy, setRefillBusy] = useState(false);
@@ -209,6 +208,12 @@ export default function NewCampaign() {
   const totalQuotaNum = Math.max(0, Number(totalQuota.replace(/\D/g, "")) || 0);
   const overLimit = remaining !== null && totalQuotaNum > remaining;
   const supportNum = Math.max(0, Number(supportAmount.replace(/\D/g, "")) || 0);
+  // 표시용 한도 (2026-07-31 BM 보완) — 카드·게이지는 **기본 플랜 한도 기준**으로 표기하고
+  // 리필 누적 수량은 노출하지 않는다. 사용량에서 리필분을 차감해 게이지가 다시 차오른다.
+  // (잔여·초과 판정은 리필 포함 실한도(monthlyLimit) 기준 유지)
+  const refillAmt = refill?.bonus ?? 0;
+  const baseLimit = monthlyLimit === null ? null : monthlyLimit - refillAmt;
+  const shownUsed = baseLimit === null ? 0 : Math.min(baseLimit, Math.max(0, monthlyUsed - refillAmt));
 
   // 진행 일수 → 마감일 (생성일 기준 n일차 자정 KST 직전 — 2026-07-28 확정)
   const deadlineLabel = useMemo(() => {
@@ -475,18 +480,19 @@ export default function NewCampaign() {
             <div className="flex items-center gap-2">
               <span className="text-[14px] font-semibold text-ink2">{plan}</span>
               <span className="text-[15px] font-bold text-ink tabular-nums">
-                {monthlyUsed} / {monthlyLimit ?? "—"}
+                {shownUsed} / {baseLimit ?? "—"}
               </span>
             </div>
-            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조) */}
+            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조).
+                리필 구매 시 표시 사용량이 차감되어 다시 차오른다 (누적 한도 비노출) */}
             <div className="mt-2.5 h-2 rounded-pill bg-canvas overflow-hidden">
               <div
                 className="h-full rounded-pill bg-brand"
                 style={{
                   width:
-                    monthlyLimit === null
+                    baseLimit === null
                       ? "0%"
-                      : `${Math.max(0, Math.round(((monthlyLimit - monthlyUsed) / Math.max(monthlyLimit, 1)) * 100))}%`,
+                      : `${Math.max(0, Math.round(((baseLimit - shownUsed) / Math.max(baseLimit, 1)) * 100))}%`,
                 }}
               />
             </div>
@@ -510,7 +516,7 @@ export default function NewCampaign() {
           {remaining !== null && remaining <= 0 && refill && (
             <div className="mt-3 space-y-2">
               <p className="text-[13px] font-semibold text-ink">
-                이번 달 {plan === "Free" ? "무료 " : ""}모집 한도 {monthlyLimit}건을 모두 사용했어요.
+                이번 달 {plan === "Free" ? "무료 " : ""}모집 한도 {baseLimit}건을 모두 사용했어요.
               </p>
               {NEXT_PLAN[plan] &&
                 (() => {
@@ -550,27 +556,18 @@ export default function NewCampaign() {
                   <button
                     type="button"
                     onClick={buyRefill}
-                    disabled={refillBusy || !refill.canBuy}
+                    disabled={refillBusy}
                     className={`cp-action mt-2.5 w-full h-10 rounded-md text-[13px] font-bold disabled:bg-sunken disabled:text-mutedSoft ${
                       plan === "Premium" ? "bg-brand text-white" : "border border-hairline bg-canvas text-ink"
                     }`}
                   >
-                    {refillBusy
-                      ? "적용 중..."
-                      : refill.canBuy
-                        ? `${refill.grant}건 리필하기`
-                        : plan === "Premium"
-                          ? "이번 달 리필 한도 소진 (최대 2회)"
-                          : "이번 달 이미 리필했어요 (최대 1회)"}
+                    {refillBusy ? "적용 중..." : `${refill.grant}건 리필하기`}
                   </button>
                   {plan === "Standard" && (
                     <p className="mt-2 text-[11px] text-muted">리필권과 100원 차이로 매월 100건을 이용할 수 있어요.</p>
                   )}
                   {plan === "Premium" && (
-                    <p className="mt-2 text-[11px] text-muted leading-[1.5]">
-                      추가 한도는 다음 결제일 전까지 사용할 수 있어요.
-                      {!refill.canBuy && " 더 큰 모집이 필요하시면 운영팀에 대량 모집 플랜을 문의해주세요."}
-                    </p>
+                    <p className="mt-2 text-[11px] text-muted leading-[1.5]">추가 한도는 다음 결제일 전까지 사용할 수 있어요.</p>
                   )}
                 </div>
               )}
