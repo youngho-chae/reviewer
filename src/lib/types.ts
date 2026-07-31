@@ -91,6 +91,9 @@ export interface Owner {
   bizNumber?: string; // 사업자등록번호 10자리 (형식 검증만 — 진위 확인은 운영팀 수기)
   bizStatus?: "pending" | "verified";
   bizVerifiedAt?: number;
+  // 대표 매장 (2026-07-31) — 새 캠페인 생성의 매장 리스트 기본 선택.
+  // 미지정/소유 아님이면 첫 매장 폴백. 지정은 마이페이지 [매장 정보].
+  primaryStoreId?: string;
 }
 
 // 운영팀(검수) 계정 — 리뷰 통과/반려 백오피스 전용.
