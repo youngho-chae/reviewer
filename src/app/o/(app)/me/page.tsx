@@ -3,6 +3,7 @@ import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import LogoutButton from "@/components/LogoutButton";
 import DeleteAccountButton from "@/components/DeleteAccountButton";
+import { ownedRefills } from "@/lib/limit-refill";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,12 @@ export default async function OwnerMe() {
   const totalReviews = passes.filter((p) => p.status === "completed").length;
   const totalSupport = passes.reduce((s, p) => s + (p.supportApplied || 0), 0);
   const unreadNotifications = db.notifications.filter((n) => n.role === "owner" && n.userId === me.id && !n.read).length;
+  const ownedCoupons = ownedRefills(db, me.id).length; // 보유(미사용) 리필권 (2026-07-31 쿠폰함)
 
   const MENU: { href: string; icon: string; label: string; sub?: string; badge?: number }[] = [
     { href: "/o/campaign/new", icon: "🎯", label: "새 캠페인", sub: "방문형·예약형 모집" },
     { href: "/o/membership", icon: "💎", label: "멤버십 / 구독", sub: `${me.plan} 플랜` },
+    { href: "/o/coupons", icon: "🎟️", label: "쿠폰함", sub: ownedCoupons ? `리필권 ${ownedCoupons}장 보유` : "모집 한도 리필권 구매" },
     { href: "/o/logs", icon: "📋", label: "체험권 사용 로그", sub: `${passes.length}건` },
     { href: "/o/report", icon: "📊", label: "성과 리포트", sub: "최근 30일" },
     { href: "/o/stores", icon: "🏪", label: "매장 정보", sub: `${stores.length}곳` },
