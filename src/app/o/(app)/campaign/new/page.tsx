@@ -5,6 +5,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
 import { NEXT_PLAN, PLAN_PRICE } from "@/lib/limit-refill";
+import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { timeToMin, minToTime, fmtTime12 } from "@/lib/reservation";
@@ -133,16 +134,14 @@ export default function NewCampaign() {
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // 모집 한도 리필권 상태 (2026-07-31 BM — /api/owner/me 응답)
+  // 모집 한도 리필권 상태 (2026-07-31 BM 쿠폰형 — /api/owner/me 응답)
   const [refill, setRefill] = useState<{
     bonus: number;
     grant: number;
     price: number;
-    purchasedThisCycle: number;
+    owned: number; // 보유(미사용) 쿠폰 수 — [리필하기] 분기
     canBuy: boolean;
   } | null>(null);
-  const [refillBusy, setRefillBusy] = useState(false);
-  const [refillMsg, setRefillMsg] = useState<string | null>(null);
   const [supportInfoOpen, setSupportInfoOpen] = useState(false); // 지원금 ⓘ
   const [codeInfoOpen, setCodeInfoOpen] = useState(false); // 매장 확인 번호 ⓘ
   const [condOpen, setCondOpen] = useState(false); // 채널별 리뷰 작성 조건
@@ -170,21 +169,6 @@ export default function NewCampaign() {
     loadMe(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // 모집 한도 리필권 구매 (한도 소진 업셀 — 전략안 §6) — 즉시 적용 + 운영팀 수기 청구 SOP
-  async function buyRefill() {
-    setRefillBusy(true);
-    setRefillMsg(null);
-    const res = await fetch("/api/owner/limit-refill", { method: "POST" });
-    const j = await res.json().catch(() => ({}));
-    setRefillBusy(false);
-    if (!res.ok) {
-      setRefillMsg(j.error || "구매에 실패했어요.");
-      return;
-    }
-    setRefillMsg(`리필권 적용 완료 — 이번 달 모집 한도가 ${j.amount}건 늘었어요.`);
-    loadMe(false);
-  }
 
   // URL로 불러온 임시 매장 포함 목록 — DB 반영이 아니라 이 화면 한정 (이탈 시 휘발)
   const allStores = useMemo<OwnerStore[]>(() => (tempStore ? [...stores, tempStore] : stores), [stores, tempStore]);
@@ -482,6 +466,18 @@ export default function NewCampaign() {
               <span className="text-[15px] font-bold text-ink tabular-nums">
                 {shownUsed} / {baseLimit ?? "—"}
               </span>
+              {/* [리필하기] (2026-07-31 2차 보완) — 보유 쿠폰 없으면 구매, 있으면 사용 (홈과 동일 플로우) */}
+              {refill && (
+                <RefillFlow
+                  plan={plan}
+                  grant={refill.grant}
+                  price={refill.price}
+                  owned={refill.owned}
+                  trigger="리필하기"
+                  className="cp-action h-6 px-2 rounded-pill bg-brand text-white text-[11px] font-bold"
+                  onDone={() => loadMe(false)}
+                />
+              )}
             </div>
             {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조).
                 리필 구매 시 표시 사용량이 차감되어 다시 차오른다 (누적 한도 비노출) */}
@@ -553,16 +549,17 @@ export default function NewCampaign() {
                     모집 한도 리필권 <span className="font-bold text-ink">{refill.price.toLocaleString()}원</span> — 현재
                     멤버십의 월 모집 한도를 한 번 더 충전할 수 있어요.
                   </p>
-                  <button
-                    type="button"
-                    onClick={buyRefill}
-                    disabled={refillBusy}
-                    className={`cp-action mt-2.5 w-full h-10 rounded-md text-[13px] font-bold disabled:bg-sunken disabled:text-mutedSoft ${
+                  <RefillFlow
+                    plan={plan}
+                    grant={refill.grant}
+                    price={refill.price}
+                    owned={refill.owned}
+                    trigger={`${refill.grant}건 리필하기`}
+                    className={`cp-action mt-2.5 w-full h-10 rounded-md text-[13px] font-bold ${
                       plan === "Premium" ? "bg-brand text-white" : "border border-hairline bg-canvas text-ink"
                     }`}
-                  >
-                    {refillBusy ? "적용 중..." : `${refill.grant}건 리필하기`}
-                  </button>
+                    onDone={() => loadMe(false)}
+                  />
                   {plan === "Standard" && (
                     <p className="mt-2 text-[11px] text-muted">리필권과 100원 차이로 매월 100건을 이용할 수 있어요.</p>
                   )}
@@ -571,7 +568,6 @@ export default function NewCampaign() {
                   )}
                 </div>
               )}
-              {refillMsg && <p className="text-[12px] font-medium text-brand">{refillMsg}</p>}
             </div>
           )}
         </section>

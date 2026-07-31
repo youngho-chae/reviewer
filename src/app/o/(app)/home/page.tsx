@@ -2,7 +2,8 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
-import { refillBonus } from "@/lib/limit-refill";
+import { refillBonus, refillGrantFor, ownedRefills, REFILL_PRICE } from "@/lib/limit-refill";
+import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import Icon from "@/components/Icon";
 import StoreSwitcher from "./StoreSwitcher";
@@ -49,6 +50,7 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
   const refill = refillBonus(db, me.id);
   const monthLimit = PLAN_POLICY[me.plan].monthlyTeamLimit;
   const shownUsed = Math.min(monthLimit, Math.max(0, monthUsed - refill));
+  const ownedCoupons = ownedRefills(db, me.id).length; // 보유(미사용) 리필권 — [리필하기] 분기
 
   // ── 진행 중인 캠페인 카드 ──
   const now = Date.now();
@@ -106,8 +108,17 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
         </div>
         <div className="mt-4 pt-3 border-t border-hairlineSoft">
           <div className="flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-ink tabular-nums">
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-ink tabular-nums">
               모집 한도 {shownUsed}/{monthLimit}
+              {/* [리필하기] (2026-07-31 2차 보완) — 보유 쿠폰 없으면 구매, 있으면 사용 플로우 */}
+              <RefillFlow
+                plan={me.plan}
+                grant={refillGrantFor(me.plan)}
+                price={REFILL_PRICE}
+                owned={ownedCoupons}
+                trigger="리필하기"
+                className="cp-action h-6 px-2 rounded-pill bg-brand text-white text-[11px] font-bold"
+              />
             </span>
             <Link href="/o/membership" className="cp-action text-[13px] font-semibold text-ink">
               {me.plan} <span className="text-muted">›</span>

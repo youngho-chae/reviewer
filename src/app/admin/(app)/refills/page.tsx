@@ -13,7 +13,8 @@ export default async function AdminRefills() {
 
   const refills = [...(db.limitRefills ?? [])].sort((a, b) => b.purchasedAt - a.purchasedAt);
   const month = kstMonth();
-  const thisMonth = refills.filter((r) => r.month === month);
+  // 매출·반복 구매 집계는 **구매 시점** 기준 (쿠폰형 — 사용 여부와 무관하게 청구)
+  const thisMonth = refills.filter((r) => kstMonth(r.purchasedAt) === month);
   const revenue = thisMonth.reduce((s, r) => s + r.price, 0);
   const ownerEmail = (id: string) => db.owners.find((o) => o.id === id)?.email ?? `#${id.slice(-4)}`;
   const fmtWhen = (ts: number) =>
@@ -37,7 +38,7 @@ export default async function AdminRefills() {
             {revenue.toLocaleString()}원 <span className="text-[14px] text-muted font-medium">· {thisMonth.length}건</span>
           </div>
           <div className="text-[12px] text-muted mt-2">
-            PG 연동 전 수기 청구 근거 — 구매 즉시 한도 적용됨 · 리필 12,900원/회 (Basic 15 · Standard 50 · Premium 100건)
+            PG 연동 전 수기 청구 근거 — 구매 = 쿠폰 발급(사용 시 한도 가산) · 리필 12,900원/장 (Basic 15 · Standard 50 · Premium 100건)
           </div>
         </div>
       </section>
@@ -75,7 +76,7 @@ export default async function AdminRefills() {
               </div>
               <div className="mt-1 flex items-center justify-between text-[12px] text-muted tabular-nums">
                 <span>
-                  {r.plan} · +{r.amount}건 · 유효 {r.month}
+                  {r.plan} · +{r.amount}건 · {r.usedMonth ? `${r.usedMonth} 사용` : "미사용 (보관 중)"}
                 </span>
                 <span>{fmtWhen(r.purchasedAt)}</span>
               </div>

@@ -3,9 +3,8 @@ import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
 import PlanPicker from "./PlanPicker";
-import RefillPurchase from "./RefillPurchase";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
-import { refillPurchaseState, refillsThisCycle } from "@/lib/limit-refill";
+import { ownedRefills } from "@/lib/limit-refill";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +28,9 @@ function planSummary(plan: PlanKey): string {
 
 export default async function MembershipPage() {
   const me = await getCurrentOwner();
-  // 모집 한도 리필권 (2026-07-31 BM 전략안 — 정본 src/lib/limit-refill.ts)
+  // 모집 한도 리필권 (2026-07-31 2차 보완) — 구매·사용은 마이페이지 쿠폰함에서 (링크만 제공)
   const db = await getDBAsync();
-  const refillState = refillPurchaseState(db, me);
-  const refillHistory = refillsThisCycle(db, me.id).sort((a, b) => b.purchasedAt - a.purchasedAt);
+  const ownedCoupons = ownedRefills(db, me.id).length;
   return (
     <div className="pb-24 bg-canvas">
       {/* top-app-bar — 뒤로가기 + 타이틀 */}
@@ -83,50 +81,18 @@ export default async function MembershipPage() {
         <PlanPicker current={me.plan} />
       </div>
 
-      {/* 모집 한도 리필권 (2026-07-31 BM 전략안) — Free는 미판매(업그레이드 유도) */}
-      <h2 className="px-5 mt-8 text-[18px] font-bold text-ink tracking-title">모집 한도 리필권</h2>
-      <div className="px-5 mt-3">
-        <div className="rounded-lg border border-hairline bg-canvas p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[15px] font-bold text-ink">모집 한도 리필권</div>
-              <p className="mt-1 text-[12px] text-ink2 leading-[1.5]">
-                현재 멤버십의 월 모집 한도를 한 번 더 충전할 수 있어요.
-              </p>
-            </div>
-            <div className="text-right shrink-0">
-              <div className="text-[18px] font-bold text-ink tabular-nums">12,900원</div>
-              <div className="text-[11px] text-muted">/1회</div>
-            </div>
-          </div>
-          <div className="mt-3 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-ink2 leading-[1.6]">
-            추가 한도는 이번 결제 주기까지만 유효하고, 남은 수량은 이월되지 않아요.
-          </div>
-          <div className="mt-3">
-            {me.plan === "Free" ? (
-              <div>
-                <p className="text-[12px] text-muted leading-[1.5]">
-                  Free 플랜은 리필권을 구매할 수 없어요 — <span className="text-ink font-medium">Basic으로 업그레이드</span>하면
-                  매월 15건을 모집할 수 있어요.
-                </p>
-              </div>
-            ) : (
-              <RefillPurchase plan={me.plan} grant={refillState.grant} price={refillState.price} />
-            )}
-          </div>
-          {refillHistory.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-hairlineSoft space-y-1.5">
-              {refillHistory.map((r) => (
-                <div key={r.id} className="flex items-center justify-between text-[12px] text-ink2 tabular-nums">
-                  <span>
-                    {new Date(r.purchasedAt + 9 * 3600000).toISOString().slice(5, 10).replace("-", ".")} 리필 +{r.amount}건
-                  </span>
-                  <span className="text-muted">{r.price.toLocaleString()}원 · 이번 달 유효</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* 모집 한도 리필권 (2026-07-31 2차 보완) — 구매·보유 관리는 쿠폰함으로 이동, 여기는 진입 링크만 */}
+      <div className="px-5 mt-8">
+        <Link href="/o/coupons" className="cp-action flex items-center gap-3 rounded-lg border border-hairline bg-canvas p-4">
+          <span className="text-[20px]" aria-hidden>🎟️</span>
+          <span className="flex-1">
+            <span className="block text-[14px] font-bold text-ink">모집 한도 리필권</span>
+            <span className="block mt-0.5 text-[12px] text-muted">
+              {ownedCoupons > 0 ? `리필권 ${ownedCoupons}장 보유 중 — ` : ""}구매·사용은 쿠폰함에서
+            </span>
+          </span>
+          <span className="text-mutedSoft">→</span>
+        </Link>
       </div>
 
       <div className="px-5 mt-8">
