@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
+import { passRefNo } from "@/lib/owner-review-status";
 import { rid } from "@/lib/ids";
 import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
 import {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
   const store = db.stores.find((x) => x.id === pass.storeId);
   const now = Date.now();
-  const masked = `#${pass.reviewerId.slice(-4)}`; // [확정 정책 8] 익명 표기
+  const refNo = passRefNo(pass.id); // [2026-07-31 §4-5] 익명 ID 대신 체험권 번호 (확정 정책 8] 익명 표기
 
   if (action === "accept") {
     const rd = String(date || "");
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       userId: pass.ownerId,
       role: "owner",
       title: "제안한 예약 시간 수락 📅",
-      body: `익명 ${masked} 체험자가 ${fmtReservationLabel(rd, rt)} 방문을 수락했습니다. 예약이 확정되었어요.`,
+      body: `예약 ${refNo} 체험자가 ${fmtReservationLabel(rd, rt)} 방문을 수락했습니다. 예약이 확정되었어요.`,
       createdAt: now,
       read: false,
       link: "/o/home",
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
       userId: pass.ownerId,
       role: "owner",
       title: "체험자 재제안 — 새 방문 시간 요청",
-      body: `익명 ${masked} 체험자가 제안 대신 ${fmtReservationLabel(rd, rt)} 방문을 요청했습니다 (기존 희망 ${prevLabel}). 예약을 확인하거나 거절할 수 있어요.`,
+      body: `예약 ${refNo} 체험자가 제안 대신 ${fmtReservationLabel(rd, rt)} 방문을 요청했습니다 (기존 희망 ${prevLabel}). 예약을 확인하거나 거절할 수 있어요.`,
       createdAt: now,
       read: false,
       link: "/o/home",
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
       userId: pass.ownerId,
       role: "owner",
       title: "예약 제안 거절 (신청 취소)",
-      body: `익명 ${masked} 체험자가 제안한 시간이 맞지 않아 신청을 취소했습니다. 모집 슬롯이 복구되었어요.`,
+      body: `예약 ${refNo} 체험자가 제안한 시간이 맞지 않아 신청을 취소했습니다. 모집 슬롯이 복구되었어요.`,
       createdAt: now,
       read: false,
       link: "/o/home",

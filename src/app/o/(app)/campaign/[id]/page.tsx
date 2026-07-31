@@ -23,6 +23,13 @@ import CloseCampaign from "./CloseCampaign";
 import ExpandableDesc from "./ExpandableDesc";
 import ReservationManager from "../../manage/ReservationManager";
 import { buildManagedReservations } from "../../manage/reservation-items";
+import {
+  ownerReviewState,
+  ownerReviewSummary,
+  isReviewOverdue,
+  passRefNo,
+  OWNER_REVIEW_LABEL,
+} from "@/lib/owner-review-status";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +39,12 @@ const DAY_MS = 86400000;
 // KST yyyy.mm.dd
 const fmtKstDate = (t: number) => new Date(t + 9 * 3600000).toISOString().slice(0, 10).replaceAll("-", ".");
 
-// 캠페인 상세 (2026-07-31 시안 개편) — [캠페인 관리 | 예약 관리 | 후기] 탭.
+// 캠페인 상세 (2026-07-31 시안 개편) — [캠페인 관리 | 예약 관리 | 리뷰] 탭.
 //  - 캠페인 관리: 사진 캐러셀·배지·모집 마감 D-n·현황 타일·[캠페인 종료하기] +
 //    (예약형) 예약 운영 섹션(운영 정보 카드 + 당일 일시 중지 토글·날짜 차단 칩·특정 시간 차단
 //    [일정 선택] 시트 — 구 '상태관리' 탭 흡수, §6) + 기본 정보·모집 조건·매장 정보.
 //  - 종료 캠페인: "모집마감" 표기, 종료 버튼·차단 카드·예약 관리 탭 미제공 (운영 정보 카드는 유지).
-//  - 후기: 이 캠페인에 연결된 후기만 상태별 조회 (§12-3)
+//  - 리뷰: 이 캠페인 기준 리뷰 현황(이용 완료 모수 — §4-4)을 상태별 조회. 용어 통일(후기→리뷰 §4-6)
 export default async function OwnerCampaignDetail({ params }: { params: Promise<{ id: string }> }) {
   const me = await getCurrentOwner();
   const { id } = await params;
@@ -87,25 +94,24 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
     }
   }
 
-  // ── 후기 탭 — 이 캠페인에 연결된 후기 (§12-3: 작성 대기·심사 중·승인·반려) ──
+  // ── 리뷰 탭 — 이 캠페인 기준 리뷰 현황 (2026-07-31 개선안 §4-4: 이용 완료 인원 기준,
+  //    작성 대기·검수 중·완료·재작성 요청. 체험자 식별정보 대신 체험권 번호 §4-5) ──
+  const reviewSummary = ownerReviewSummary(passes);
   const reviewRows = passes
-    .filter((p) => ["used", "review_submitted", "completed", "rejected"].includes(p.status))
+    .filter((p) => ownerReviewState(p) !== null)
     .sort((a, b) => (b.usedAt ?? b.issuedAt) - (a.usedAt ?? a.issuedAt))
-    .map((p) => ({
-      id: p.id,
-      masked: `#${p.reviewerId.slice(-4)}`,
-      status:
-        p.status === "used"
-          ? "리뷰 작성 대기"
-          : p.status === "review_submitted"
-            ? "심사 중"
-            : p.status === "completed"
-              ? "승인"
-              : "반려",
-      tone: p.status === "completed" ? "ok" : p.status === "rejected" ? "bad" : "wait",
-      reservationLabel: p.reservation ? fmtReservationLabel(p.reservation.date, p.reservation.time) : null,
-      reviewUrl: p.reviewUrl ?? null,
-    }));
+    .map((p) => {
+      const state = ownerReviewState(p)!;
+      return {
+        id: p.id,
+        refNo: passRefNo(p.id),
+        status: OWNER_REVIEW_LABEL[state],
+        overdue: isReviewOverdue(p, now),
+        tone: state === "done" ? "ok" : state === "resubmit" ? "bad" : "wait",
+        reservationLabel: p.reservation ? fmtReservationLabel(p.reservation.date, p.reservation.time) : null,
+        reviewUrl: p.reviewUrl ?? null,
+      };
+    });
 
   const opensAt = c.reservationSchedule?.opensAt;
 
@@ -327,29 +333,45 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
   const reviewView = (
     <section className="px-5 pt-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-[16px] font-bold text-ink tracking-title">이 캠페인의 후기</h2>
-        <Link href="/o/reviews" className="cp-action text-[13px] font-semibold text-brand">전체 후기 →</Link>
+        <h2 className="text-[16px] font-bold text-ink tracking-title">이 캠페인의 리뷰</h2>
+        <Link href="/o/reviews" className="cp-action text-[13px] font-semibold text-brand">리뷰 관리 →</Link>
+      </div>
+      {/* 캠페인 기준 리뷰 현황 요약 (§4-4) — 모수 = 이용 완료 인원 (미사용 발급분 제외) */}
+      <div className="mt-3 rounded-md bg-sunken px-3.5 py-3 text-[13px] tabular-nums">
+        <div className="font-bold text-ink">이용 완료 {reviewSummary.usedTotal}건</div>
+        <div className="mt-1 text-[12px] text-ink2">
+          작성 대기 {reviewSummary.pending}건 · 검수 중 {reviewSummary.reviewing}건 · 완료 {reviewSummary.done}건
+          {reviewSummary.resubmit > 0 && <> · 재작성 요청 {reviewSummary.resubmit}건</>}
+        </div>
       </div>
       <div className="mt-3 space-y-2">
         {reviewRows.length === 0 && (
           <div className="rounded-md border border-dashed border-hairline p-5 text-center text-[13px] text-muted">
-            아직 등록된 후기가 없어요.
+            아직 리뷰 현황이 없어요.
           </div>
         )}
         {reviewRows.map((r) => (
           <div key={r.id} className="rounded-md border border-hairline px-3.5 py-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[13px] font-semibold text-ink">익명 {r.masked}</span>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-pill text-[11px] font-semibold ${
-                  r.tone === "ok"
-                    ? "bg-successSoft text-successStrong"
-                    : r.tone === "bad"
-                      ? "bg-errorSoft text-error"
-                      : "bg-sunken text-muted"
-                }`}
-              >
-                {r.status}
+              {/* [§4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호로 구분 */}
+              <span className="text-[13px] font-semibold text-ink tabular-nums">체험권 {r.refNo}</span>
+              <span className="flex items-center gap-1.5">
+                {r.overdue && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-pill text-[11px] font-semibold bg-errorSoft text-error">
+                    기한 초과
+                  </span>
+                )}
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-pill text-[11px] font-semibold ${
+                    r.tone === "ok"
+                      ? "bg-successSoft text-successStrong"
+                      : r.tone === "bad"
+                        ? "bg-errorSoft text-error"
+                        : "bg-sunken text-muted"
+                  }`}
+                >
+                  {r.status}
+                </span>
               </span>
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 text-[12px] text-muted">
@@ -377,7 +399,7 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         </div>
       </div>
 
-      {/* [캠페인 관리 | 예약 관리 | 후기] (2026-07-31 시안 개편 — 구 '상태관리'는 캠페인 관리 탭
+      {/* [캠페인 관리 | 예약 관리 | 리뷰] (2026-07-31 시안 개편 — 구 '상태관리'는 캠페인 관리 탭
           '예약 운영' 섹션으로 흡수). 예약 관리 탭은 예약형·미종료 전용. */}
       <ManageTabs
         showReserve={isReserve && !ended}

@@ -137,8 +137,8 @@ export default function ScanPage() {
         {result && (
           <div className="mt-6 rounded-lg border border-hairline bg-canvas p-4">
             <div className="text-[12px] text-muted">{result.campaign?.title}</div>
-            {/* [확정 정책 8·10] 체험자 실명·등급 비노출 — 익명 표기만 (응대 차별·선입견 방지) */}
-            <div className="mt-1 text-[18px] font-bold text-ink tracking-title">체험자 익명 #{result.reviewer?.anonymousId}</div>
+            {/* [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호(거래 단위)로 구분 */}
+            <div className="mt-1 text-[18px] font-bold text-ink tracking-title tabular-nums">체험권 {result.passNo}</div>
             <div className="mt-2 text-[13px] text-muted">상태: {STATUS_LABEL[result.pass.status] ?? result.pass.status}</div>
             <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{result.campaign?.supportAmount.toLocaleString()}원</span></div>
 

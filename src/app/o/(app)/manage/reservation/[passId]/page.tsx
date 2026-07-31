@@ -13,11 +13,12 @@ import {
   scheduleOf,
 } from "@/lib/reservation";
 import ReservationDetail, { type ReservationDetailData } from "./ReservationDetail";
+import { passRefNo } from "@/lib/owner-review-status";
 
 export const dynamic = "force-dynamic";
 
 // 예약 정보 상세 (2026-07-28 시안 — [관리]-[예약관리] 카드의 [예약 정보] = 다음 depth).
-// 상태 칩 → 캠페인명 → 체험자(익명 #last4)·신청 일정·인원 → (요청/재제안) [예약 확정] +
+// 상태 칩 → 캠페인명 → 예약번호(§4-5 식별정보 비노출)·신청 일정·인원 → (요청/재제안) [예약 확정] +
 // [거절]·[다른 일정 제안(캘린더·오전/오후 시트)] → 안내 → 예약 내역 타임라인.
 export default async function OwnerReservationDetail({ params }: { params: Promise<{ passId: string }> }) {
   const { passId } = await params;
@@ -64,7 +65,7 @@ export default async function OwnerReservationDetail({ params }: { params: Promi
     state,
     campaignTitle: c?.title ?? "캠페인",
     storeName: store?.name ?? "",
-    masked: `#${p.reviewerId.slice(-4)}`,
+    refNo: passRefNo(p.id), // [§4-5] 익명 ID 대신 예약번호
     label: fmtReservationLabel(r.date, r.time),
     partySize: r.partySize,
     proposalUsed: ownerProposalUsed(r),
