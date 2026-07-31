@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
-import { type PlanKey } from "@/lib/plan-policy";
+import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
+import { NEXT_PLAN, PLAN_PRICE } from "@/lib/limit-refill";
+import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { timeToMin, minToTime, fmtTime12 } from "@/lib/reservation";
@@ -132,26 +134,40 @@ export default function NewCampaign() {
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 모집 한도 리필권 상태 (2026-07-31 BM 쿠폰형 — /api/owner/me 응답)
+  const [refill, setRefill] = useState<{
+    bonus: number;
+    grant: number;
+    price: number;
+    owned: number; // 보유(미사용) 쿠폰 수 — [리필하기] 분기
+    canBuy: boolean;
+  } | null>(null);
   const [supportInfoOpen, setSupportInfoOpen] = useState(false); // 지원금 ⓘ
   const [codeInfoOpen, setCodeInfoOpen] = useState(false); // 매장 확인 번호 ⓘ
   const [condOpen, setCondOpen] = useState(false); // 채널별 리뷰 작성 조건
   const [leaveOpen, setLeaveOpen] = useState(false); // 이탈 확인 모달 (시안)
 
-  useEffect(() => {
+  const loadMe = (selectFirst: boolean) =>
     fetch("/api/owner/me")
       .then((r) => r.json())
       .then((d) => {
         setStores(d.stores || []);
         // 대표 매장이 Default 선택 (2026-07-31 — 지정은 마이페이지 [매장 정보], 미지정 시 첫 매장)
-        const primary = d.owner?.primaryStoreId;
-        const first = (d.stores || []).find((s: OwnerStore) => s.id === primary) ?? d.stores?.[0];
-        if (first) setStoreId(first.id);
+        if (selectFirst) {
+          const primary = d.owner?.primaryStoreId;
+          const first = (d.stores || []).find((s: OwnerStore) => s.id === primary) ?? d.stores?.[0];
+          if (first) setStoreId(first.id);
+        }
         if (d.owner?.plan) setPlan(d.owner.plan as PlanKey);
         if (d.monthly) {
           setMonthlyUsed(Number(d.monthly.used) || 0);
           setMonthlyLimit(d.monthly.limit === null || d.monthly.limit === undefined ? null : Number(d.monthly.limit));
         }
+        setRefill(d.refill ?? null); // 모집 한도 리필권 상태 (2026-07-31 BM)
       });
+  useEffect(() => {
+    loadMe(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // URL로 불러온 임시 매장 포함 목록 — DB 반영이 아니라 이 화면 한정 (이탈 시 휘발)
@@ -176,6 +192,12 @@ export default function NewCampaign() {
   const totalQuotaNum = Math.max(0, Number(totalQuota.replace(/\D/g, "")) || 0);
   const overLimit = remaining !== null && totalQuotaNum > remaining;
   const supportNum = Math.max(0, Number(supportAmount.replace(/\D/g, "")) || 0);
+  // 표시용 한도 (2026-07-31 BM 보완) — 카드·게이지는 **기본 플랜 한도 기준**으로 표기하고
+  // 리필 누적 수량은 노출하지 않는다. 사용량에서 리필분을 차감해 게이지가 다시 차오른다.
+  // (잔여·초과 판정은 리필 포함 실한도(monthlyLimit) 기준 유지)
+  const refillAmt = refill?.bonus ?? 0;
+  const baseLimit = monthlyLimit === null ? null : monthlyLimit - refillAmt;
+  const shownUsed = baseLimit === null ? 0 : Math.min(baseLimit, Math.max(0, monthlyUsed - refillAmt));
 
   // 진행 일수 → 마감일 (생성일 기준 n일차 자정 KST 직전 — 2026-07-28 확정)
   const deadlineLabel = useMemo(() => {
@@ -442,18 +464,31 @@ export default function NewCampaign() {
             <div className="flex items-center gap-2">
               <span className="text-[14px] font-semibold text-ink2">{plan}</span>
               <span className="text-[15px] font-bold text-ink tabular-nums">
-                {monthlyUsed} / {monthlyLimit ?? "—"}
+                {shownUsed} / {baseLimit ?? "—"}
               </span>
+              {/* [리필하기] (2026-07-31 2차 보완) — 보유 쿠폰 없으면 구매, 있으면 사용 (홈과 동일 플로우) */}
+              {refill && (
+                <RefillFlow
+                  plan={plan}
+                  grant={refill.grant}
+                  price={refill.price}
+                  owned={refill.owned}
+                  trigger="리필하기"
+                  className="cp-action h-6 px-2 rounded-pill bg-brand text-white text-[11px] font-bold"
+                  onDone={() => loadMe(false)}
+                />
+              )}
             </div>
-            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조) */}
+            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조).
+                리필 구매 시 표시 사용량이 차감되어 다시 차오른다 (누적 한도 비노출) */}
             <div className="mt-2.5 h-2 rounded-pill bg-canvas overflow-hidden">
               <div
                 className="h-full rounded-pill bg-brand"
                 style={{
                   width:
-                    monthlyLimit === null
+                    baseLimit === null
                       ? "0%"
-                      : `${Math.max(0, Math.round(((monthlyLimit - monthlyUsed) / Math.max(monthlyLimit, 1)) * 100))}%`,
+                      : `${Math.max(0, Math.round(((baseLimit - shownUsed) / Math.max(baseLimit, 1)) * 100))}%`,
                 }}
               />
             </div>
@@ -471,6 +506,70 @@ export default function NewCampaign() {
               )}
             </p>
           </div>
+
+          {/* 한도 소진 업셀 (2026-07-31 BM 전략안 §6) — 추천 = 업그레이드(Free·Basic·Standard),
+              리필권 = 보조(Basic·Standard)/메인(Premium). Free는 리필 미판매. */}
+          {remaining !== null && remaining <= 0 && refill && (
+            <div className="mt-3 space-y-2">
+              <p className="text-[13px] font-semibold text-ink">
+                이번 달 {plan === "Free" ? "무료 " : ""}모집 한도 {baseLimit}건을 모두 사용했어요.
+              </p>
+              {NEXT_PLAN[plan] &&
+                (() => {
+                  const next = NEXT_PLAN[plan]!;
+                  const diff = PLAN_PRICE[next] - PLAN_PRICE[plan];
+                  const nextLimit = PLAN_POLICY[next].monthlyTeamLimit;
+                  const gain = nextLimit - PLAN_POLICY[plan].monthlyTeamLimit;
+                  return (
+                    <div className="rounded-md border-[1.5px] border-brand bg-canvas p-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded-xs bg-brand text-white text-[10px] font-bold">추천</span>
+                        <span className="text-[14px] font-bold text-ink">{next}로 업그레이드</span>
+                      </div>
+                      <p className="mt-1 text-[12px] text-ink2 leading-[1.5]">
+                        {plan === "Free"
+                          ? `월 ${PLAN_PRICE[next].toLocaleString()}원으로 매월 ${nextLimit}건 모집할 수 있어요.`
+                          : plan === "Standard"
+                            ? `월 ${diff.toLocaleString()}원만 추가하면 매월 ${nextLimit}건을 모집할 수 있어요.`
+                            : `월 ${diff.toLocaleString()}원만 추가하면 이번 달 ${gain}건을 더 모집할 수 있어요.`}
+                      </p>
+                      <Link
+                        href="/o/membership"
+                        className="cp-action mt-2.5 block w-full h-10 rounded-md bg-brand text-white text-[13px] font-bold text-center leading-10"
+                      >
+                        {plan === "Free" ? "Basic 시작하기" : `${next}로 업그레이드`}
+                      </Link>
+                    </div>
+                  );
+                })()}
+              {plan !== "Free" && (
+                <div className={`rounded-md bg-canvas p-3.5 ${plan === "Premium" ? "border-[1.5px] border-brand" : "border border-hairline"}`}>
+                  <div className="text-[14px] font-bold text-ink">이번 달만 {refill.grant}건 추가</div>
+                  <p className="mt-1 text-[12px] text-ink2 leading-[1.5]">
+                    모집 한도 리필권 <span className="font-bold text-ink">{refill.price.toLocaleString()}원</span> — 현재
+                    멤버십의 월 모집 한도를 한 번 더 충전할 수 있어요.
+                  </p>
+                  <RefillFlow
+                    plan={plan}
+                    grant={refill.grant}
+                    price={refill.price}
+                    owned={refill.owned}
+                    trigger={`${refill.grant}건 리필하기`}
+                    className={`cp-action mt-2.5 w-full h-10 rounded-md text-[13px] font-bold ${
+                      plan === "Premium" ? "bg-brand text-white" : "border border-hairline bg-canvas text-ink"
+                    }`}
+                    onDone={() => loadMe(false)}
+                  />
+                  {plan === "Standard" && (
+                    <p className="mt-2 text-[11px] text-muted">리필권과 100원 차이로 매월 100건을 이용할 수 있어요.</p>
+                  )}
+                  {plan === "Premium" && (
+                    <p className="mt-2 text-[11px] text-muted leading-[1.5]">추가 한도는 다음 결제일 전까지 사용할 수 있어요.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* 캠페인 유형 — 방문형 | 배송형 (기자단은 릴리스 미제공) */}

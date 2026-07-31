@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
+import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
 import PlanPicker from "./PlanPicker";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
+import { ownedRefills } from "@/lib/limit-refill";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,9 @@ function planSummary(plan: PlanKey): string {
 
 export default async function MembershipPage() {
   const me = await getCurrentOwner();
+  // 모집 한도 리필권 (2026-07-31 2차 보완) — 구매·사용은 마이페이지 쿠폰함에서 (링크만 제공)
+  const db = await getDBAsync();
+  const ownedCoupons = ownedRefills(db, me.id).length;
   return (
     <div className="pb-24 bg-canvas">
       {/* top-app-bar — 뒤로가기 + 타이틀 */}
@@ -74,6 +79,20 @@ export default async function MembershipPage() {
 
       <div className="px-5 mt-6">
         <PlanPicker current={me.plan} />
+      </div>
+
+      {/* 모집 한도 리필권 (2026-07-31 2차 보완) — 구매·보유 관리는 쿠폰함으로 이동, 여기는 진입 링크만 */}
+      <div className="px-5 mt-8">
+        <Link href="/o/coupons" className="cp-action flex items-center gap-3 rounded-lg border border-hairline bg-canvas p-4">
+          <span className="text-[20px]" aria-hidden>🎟️</span>
+          <span className="flex-1">
+            <span className="block text-[14px] font-bold text-ink">모집 한도 리필권</span>
+            <span className="block mt-0.5 text-[12px] text-muted">
+              {ownedCoupons > 0 ? `리필권 ${ownedCoupons}장 보유 중 — ` : ""}구매·사용은 쿠폰함에서
+            </span>
+          </span>
+          <span className="text-mutedSoft">→</span>
+        </Link>
       </div>
 
       <div className="px-5 mt-8">
