@@ -8,6 +8,17 @@ import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { timeToMin, minToTime, fmtTime12 } from "@/lib/reservation";
 import { CHANNEL_REVIEW_CONDITIONS, CHANNEL_LABEL } from "@/lib/channels";
+import { SUPPORT_MULTIPLIER, supportForGrade } from "@/lib/grade";
+import type { Grade } from "@/lib/types";
+
+// 등급별 지원금 시트 행 (시안 — "New" = N등급 표기)
+const GRADE_ROWS: Array<{ grade: Grade; label: string }> = [
+  { grade: "S", label: "S등급" },
+  { grade: "A", label: "A등급" },
+  { grade: "B", label: "B등급" },
+  { grade: "C", label: "C등급" },
+  { grade: "N", label: "New" },
+];
 
 // 예약 운영시간 선택지 — 00:00 ~ 24:00, 30분 단위 (24:00 = 자정 종료, 24시간 매장용)
 const HALF_HOURS: string[] = Array.from({ length: 49 }, (_, i) => minToTime(i * 30));
@@ -975,14 +986,10 @@ export default function NewCampaign() {
             placeholder="예: 50000"
             className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
           />
-          {supportInfoOpen && (
+          {/* 배송형은 인라인 안내, 방문형 지원금은 등급별 지원금 바텀시트 (2026-07-31 시안) */}
+          {supportInfoOpen && isDelivery && (
             <p className="mt-2 text-[12px] text-muted leading-[1.5]">
-              {isDelivery ? (
-                <>발송하는 체험 상품의 정가입니다. 체험자 화면에 <span className="text-ink font-medium">제공 상품 가치</span>로 노출돼요.</>
-              ) : (
-                <>지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다
-                (등급별 차등 지급 · 별도 정산 없음). 입력 금액은 S등급 100% 기준이에요.</>
-              )}
+              발송하는 체험 상품의 정가입니다. 체험자 화면에 <span className="text-ink font-medium">제공 상품 가치</span>로 노출돼요.
             </p>
           )}
         </section>
@@ -1066,6 +1073,52 @@ export default function NewCampaign() {
                           : "등록하기"}
         </button>
       </form>
+
+      {/* 등급별 지원금 바텀시트 (2026-07-31 시안) — 지원금 ⓘ 클릭. 배율 정본 = grade.ts SUPPORT_MULTIPLIER [P1] */}
+      {supportInfoOpen && !isDelivery && (
+        <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => setSupportInfoOpen(false)}>
+          <div className="w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-canvas p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-[18px] font-bold text-ink tracking-title">등급별 지원금</h3>
+              <button
+                type="button"
+                onClick={() => setSupportInfoOpen(false)}
+                aria-label="닫기"
+                className="cp-action w-9 h-9 -mr-2 rounded-full grid place-items-center text-ink"
+              >
+                <Icon name="x" variant="border" size={18} />
+              </button>
+            </div>
+            <p className="mt-3 text-[13px] text-ink2 leading-[1.6]">
+              체험자 등급에 따라 지원금이 차등 지급돼요.
+              <br />
+              입력한 금액은 S등급 기준이며, 나머지 등급은 아래 비율로 자동 계산돼요.
+            </p>
+            {(() => {
+              const base = supportNum > 0 ? supportNum : 10000;
+              return (
+                <div className="mt-4 rounded-lg bg-sunken p-4">
+                  <div className="text-[14px] font-bold text-ink">예시) 지원금이 {base.toLocaleString()}원인 경우</div>
+                  <div className="mt-2">
+                    {GRADE_ROWS.map(({ grade, label }) => (
+                      <div key={grade} className="py-2 flex items-center gap-2.5">
+                        <span className="text-[14px] font-bold text-brand w-12">{label}</span>
+                        <span className="text-[13px] text-ink2 tabular-nums">{Math.round(SUPPORT_MULTIPLIER[grade] * 100)}%</span>
+                        <span className="ml-auto text-[15px] font-bold text-ink tabular-nums">
+                          {supportForGrade(base, grade).toLocaleString()}원
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+            <p className="mt-3 text-[12px] text-muted leading-[1.5]">
+              지원금은 체험자 결제 시 <span className="text-ink font-medium">매장에서 직접 제공하는 할인</span>입니다 (별도 정산 없음).
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 이탈 확인 모달 (시안) — 입력이 있으면 뒤로가기 시 확인. [나가기]로만 이탈 (임시 매장·입력 휘발) */}
       {leaveOpen && (
