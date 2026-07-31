@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
+import { refillBonus } from "@/lib/limit-refill";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import Icon from "@/components/Icon";
 import StoreSwitcher from "./StoreSwitcher";
@@ -42,7 +43,9 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
   const monthUsed = db.campaigns
     .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
     .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
-  const monthLimit = PLAN_POLICY[me.plan].monthlyTeamLimit;
+  // 모집 한도 리필권(2026-07-31 BM) — 이번 결제 주기 리필 수량을 한도에 가산
+  const refill = refillBonus(db, me.id);
+  const monthLimit = PLAN_POLICY[me.plan].monthlyTeamLimit + refill;
 
   // ── 진행 중인 캠페인 카드 ──
   const now = Date.now();
@@ -102,6 +105,7 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-semibold text-ink tabular-nums">
               모집 한도 {monthUsed}/{monthLimit}
+              {refill > 0 && <span className="ml-1.5 text-[11px] font-bold text-brand">리필 +{refill}</span>}
             </span>
             <Link href="/o/membership" className="cp-action text-[13px] font-semibold text-ink">
               {me.plan} <span className="text-muted">›</span>

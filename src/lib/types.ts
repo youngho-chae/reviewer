@@ -372,6 +372,20 @@ export type WithdrawalStatus = "requested" | "paid" | "rejected";
 // 출금 신청 — 신청 시점에 세액·수수료·실지급액을 확정 계산해 보존한다 (세율 변경 소급 방지).
 // 실서비스는 원천징수 신고를 위해 실명·주민등록번호 수집이 필요하다 — 프로토타입은 미수집
 // (데이터정책서 §1.0b).
+// 모집 한도 리필권 구매 기록 (2026-07-31 BM 전략안 — append-only 원장).
+// 구매 즉시 "구매 시점 플랜의 월 모집 한도"만큼 이번 결제 주기(캘린더 월 KST) 한도에 가산.
+// 미사용 수량 이월 불가 — month가 지나면 자동 소멸(레코드는 청구·지표용으로 보존).
+// 플랜 변경해도 이미 구매한 리필 수량은 주기 종료까지 유지(amount는 구매 시점 고정).
+export interface LimitRefill {
+  id: string;
+  ownerId: string;
+  plan: Owner["plan"]; // 구매 시점 플랜 (지급 수량 근거·지표용)
+  amount: number; // 추가된 모집 한도 (= 구매 시점 플랜의 월 한도)
+  price: number; // 결제 금액 (현행 12,900원 — 청구·지표용 스냅샷)
+  month: string; // 유효 결제 주기 "YYYY-MM" (KST 캘린더 월) — 해당 월까지만 유효
+  purchasedAt: number;
+}
+
 export interface WithdrawalRequest {
   id: string;
   reviewerId: string;
@@ -491,6 +505,8 @@ export interface DBShape {
   // ── 포인트 (2026-07-12 레뷰 벤치마크) ──
   pointTxns?: PointTxn[];
   withdrawals?: WithdrawalRequest[];
+  // ── 모집 한도 리필권 (2026-07-31 BM 전략안 — 정본 src/lib/limit-refill.ts) ──
+  limitRefills?: LimitRefill[];
   // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거

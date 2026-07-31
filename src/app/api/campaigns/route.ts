@@ -8,6 +8,7 @@ import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-poli
 import { CHANNEL_ORDER } from "@/lib/channels";
 import { isDeliveryCategory } from "@/lib/delivery-categories";
 import { availableQuotaBonus, consumeQuotaBonus } from "@/lib/referral";
+import { refillBonus } from "@/lib/limit-refill";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
 
   // 월간 모집 팀 수 정책 검증 — 초대 보상(quota_bonus)은 플랜 한도에 가산되며 사용 시 소진.
   // 전 플랜 유한 한도(2026-07-31 — Premium 무제한 폐기·월 100팀)라 무조건 검증한다.
+  // 모집 한도 리필권(2026-07-31 BM)은 이번 결제 주기 한도에 가산 — 기본 한도 소진 후 사용(가산 산술).
   const policy = PLAN_POLICY[owner.plan];
   const monthStart = currentMonthStart();
   const ownerStoreIds = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
@@ -84,17 +86,19 @@ export async function POST(req: NextRequest) {
     .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
     .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
   const bonus = availableQuotaBonus(db, owner.id);
-  const remaining = policy.monthlyTeamLimit + bonus - monthlyUsed;
+  const refill = refillBonus(db, owner.id);
+  const effectiveLimit = policy.monthlyTeamLimit + refill;
+  const remaining = effectiveLimit + bonus - monthlyUsed;
   if (totalQuota > remaining) {
     return NextResponse.json(
       {
-        error: `${owner.plan} 플랜은 월 ${policy.monthlyTeamLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용${bonus > 0 ? ` · 보너스 +${bonus}팀` : ""} · 잔여 ${Math.max(0, remaining)}팀).`,
+        error: `${owner.plan} 플랜은 월 ${effectiveLimit}팀까지 모집 가능합니다 (이번 달 ${monthlyUsed}팀 사용${refill > 0 ? ` · 리필 +${refill}팀 포함` : ""}${bonus > 0 ? ` · 보너스 +${bonus}팀` : ""} · 잔여 ${Math.max(0, remaining)}팀).`,
       },
       { status: 400 },
     );
   }
-  // 플랜 한도를 초과하는 분량만큼 보너스 소진
-  const overPlan = monthlyUsed + totalQuota - policy.monthlyTeamLimit;
+  // 플랜+리필 한도를 초과하는 분량만큼 초대 보너스 소진
+  const overPlan = monthlyUsed + totalQuota - effectiveLimit;
   if (overPlan > 0) consumeQuotaBonus(db, owner.id, overPlan);
 
   // 필수 주문 메뉴 — { name, price? } 형태로 정규화
