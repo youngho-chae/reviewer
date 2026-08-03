@@ -22,6 +22,7 @@
 
 import type { DBShape, LimitRefill, Owner } from "./types";
 import { PLAN_POLICY, type PlanKey } from "./plan-policy";
+import { billingCycle } from "./billing-cycle";
 
 export const REFILL_PRICE = 12900;
 
@@ -57,11 +58,12 @@ export function ownedRefills(db: DBShape, ownerId: string): LimitRefill[] {
     .sort((a, b) => a.purchasedAt - b.purchasedAt);
 }
 
-// 이번 결제 주기에 **사용(적용)**된 리필 가산 한도 — 사용한 주기까지만 유효·이월 불가
-export function refillBonus(db: DBShape, ownerId: string, now: number = Date.now()): number {
-  const month = kstMonth(now);
+// 이번 결제 주기에 **사용(적용)**된 리필 가산 한도 — 사용한 주기까지만 유효·이월 불가.
+// 주기 = billing-cycle 정본 (2026-08-03 — 유료: 결제 시점~재결제 전, Free: 가입일 anniversary).
+export function refillBonus(db: DBShape, owner: Owner, now: number = Date.now()): number {
+  const cycle = billingCycle(owner, now);
   return (db.limitRefills ?? [])
-    .filter((r) => r.ownerId === ownerId && r.usedMonth === month)
+    .filter((r) => r.ownerId === owner.id && r.usedAt && r.usedAt >= cycle.start && r.usedAt <= cycle.end)
     .reduce((sum, r) => sum + r.amount, 0);
 }
 

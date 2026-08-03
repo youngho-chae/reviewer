@@ -526,7 +526,7 @@ export default function NewCampaign() {
               총 모집 인원만 입력하시면 시스템이 전 등급에 자동 배분해요.
               {remaining !== null && (
                 <>
-                  {" "}이번 달 잔여 <span className="text-ink font-medium">{remaining}팀</span>
+                  {" "}이번 주기 잔여 <span className="text-ink font-medium">{remaining}팀</span>
                   {overLimit && <span className="text-error"> — 입력값이 한도를 초과합니다</span>}
                   {" · "}
                   <Link href="/o/membership" className="text-brand font-medium">멤버십 업그레이드</Link>로 한도를 늘릴 수 있어요.
@@ -540,7 +540,7 @@ export default function NewCampaign() {
           {remaining !== null && remaining <= 0 && refill && (
             <div className="mt-3 space-y-2">
               <p className="text-[13px] font-semibold text-ink">
-                이번 달 {plan === "Free" ? "무료 " : ""}모집 한도 {baseLimit}건을 모두 사용했어요.
+                이번 주기 {plan === "Free" ? "무료 " : ""}모집 한도 {baseLimit}건을 모두 사용했어요.
               </p>
               {NEXT_PLAN[plan] &&
                 (() => {
@@ -559,7 +559,7 @@ export default function NewCampaign() {
                           ? `월 ${PLAN_PRICE[next].toLocaleString()}원으로 매월 ${nextLimit}건 모집할 수 있어요.`
                           : plan === "Standard"
                             ? `월 ${diff.toLocaleString()}원만 추가하면 매월 ${nextLimit}건을 모집할 수 있어요.`
-                            : `월 ${diff.toLocaleString()}원만 추가하면 이번 달 ${gain}건을 더 모집할 수 있어요.`}
+                            : `월 ${diff.toLocaleString()}원만 추가하면 이번 주기 ${gain}건을 더 모집할 수 있어요.`}
                       </p>
                       <Link
                         href="/o/membership"
@@ -572,7 +572,7 @@ export default function NewCampaign() {
                 })()}
               {plan !== "Free" && (
                 <div className={`rounded-md bg-canvas p-3.5 ${plan === "Premium" ? "border-[1.5px] border-brand" : "border border-hairline"}`}>
-                  <div className="text-[14px] font-bold text-ink">이번 달만 {refill.grant}건 추가</div>
+                  <div className="text-[14px] font-bold text-ink">이번 주기만 {refill.grant}건 추가</div>
                   <p className="mt-1 text-[12px] text-ink2 leading-[1.5]">
                     모집 한도 리필권 <span className="font-bold text-ink">{refill.price.toLocaleString()}원</span> — 현재
                     멤버십의 월 모집 한도를 한 번 더 충전할 수 있어요.

@@ -4,7 +4,8 @@ import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
 import RefillFlow from "@/components/RefillFlow";
 import CouponUseButton from "./CouponUseButton";
-import { ownedRefills, refillGrantFor, kstMonth, REFILL_PRICE } from "@/lib/limit-refill";
+import { ownedRefills, refillGrantFor, REFILL_PRICE } from "@/lib/limit-refill";
+import { billingCycle } from "@/lib/billing-cycle";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function OwnerCoupons() {
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const owned = ownedRefills(db, me.id);
-  const month = kstMonth();
+  const cycle = billingCycle(me); // 결제 주기 (2026-08-03) — '적용 중' 판정
   const used = (db.limitRefills ?? [])
     .filter((r) => r.ownerId === me.id && r.usedAt)
     .sort((a, b) => (b.usedAt ?? 0) - (a.usedAt ?? 0));
@@ -47,7 +48,7 @@ export default async function OwnerCoupons() {
         <div className="mt-3 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-ink2 leading-[1.6]">
           구매하면 쿠폰으로 발급돼요 — 바로 쓰거나 보관할 수 있어요.
           <br />
-          사용한 달의 모집 한도에 추가되고, 그 달까지만 유효해요 (남은 수량 이월 불가).
+          사용한 결제 주기의 모집 한도에 추가되고, 그 주기까지만 유효해요 (남은 수량 이월 불가).
         </div>
         <div className="mt-3">
           {me.plan === "Free" ? (
@@ -98,7 +99,7 @@ export default async function OwnerCoupons() {
               <div key={r.id} className="rounded-md bg-sunken px-3.5 py-2.5 flex items-center justify-between text-[12px] tabular-nums">
                 <span className="text-ink2">모집 한도 리필권 +{r.amount}건</span>
                 <span className="text-muted">
-                  {fmtDate(r.usedAt!)} 사용{r.usedMonth === month ? " · 이번 달 적용 중" : ""}
+                  {fmtDate(r.usedAt!)} 사용{r.usedAt! >= cycle.start && r.usedAt! <= cycle.end ? " · 이번 주기 적용 중" : ""}
                 </span>
               </div>
             ))}

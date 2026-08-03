@@ -116,7 +116,7 @@ export default function RefillFlow({
             </div>
             <ul className="mt-3 space-y-1.5 text-[12px] text-ink2 leading-[1.55] list-disc pl-4">
               <li>구매하면 쿠폰으로 발급돼요 — 바로 쓰거나 쿠폰함에 보관할 수 있어요.</li>
-              <li>사용하면 그 달의 모집 한도에 추가되고, 사용한 달까지만 유효해요 (남은 수량 이월 불가).</li>
+              <li>사용하면 이번 결제 주기 모집 한도에 추가되고, 그 주기까지만 유효해요 (남은 수량 이월 불가).</li>
               <li>요금은 결제(PG) 연동 전까지 운영팀이 확인 후 청구해요.</li>
             </ul>
             {err && <p className="mt-2 text-[12px] text-error">{err}</p>}
@@ -147,7 +147,7 @@ export default function RefillFlow({
           <>
             <h3 className="text-center text-[17px] font-bold text-ink tracking-title">리필권을 구매했어요</h3>
             <p className="mt-2.5 text-center text-[13px] text-ink2 leading-[1.6]">
-              지금 사용하면 이번 달 모집 한도가 <b className="text-ink">{boughtAmount}건</b> 늘어나요.
+              지금 사용하면 이번 결제 주기 모집 한도가 <b className="text-ink">{boughtAmount}건</b> 늘어나요.
               <br />
               나중에 쓰면 마이페이지 쿠폰함에 보관돼요.
             </p>
@@ -181,7 +181,7 @@ export default function RefillFlow({
               보유한 리필권 {owned}개 중 1개를 사용할까요?
             </h3>
             <p className="mt-2.5 text-center text-[13px] text-ink2 leading-[1.6]">
-              사용하면 이번 달 모집 한도가 늘어나고,
+              사용하면 이번 결제 주기 모집 한도가 늘어나고,
               <br />
               추가된 한도는 이번 결제 주기까지만 유효해요.
             </p>
