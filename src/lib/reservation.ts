@@ -104,12 +104,17 @@ export function reservationTakenCount(passes: Pass[], campaignId: string, date: 
   ).length;
 }
 
-// 예약 가능 시작일 (2-5 · 2026-07-23 정정) — 신청 시도 가능 시점이 아니라 **방문 날짜의 하한**이다.
+// 예약 가능 방문일 하한 (2-5 · 2026-07-23 정정) — 신청 시도 가능 시점이 아니라 **방문 날짜의 하한**이다.
 // 예: 캠페인 오픈 7/23·예약 시작일 7/25 → 지금 바로 신청할 수 있고, 날짜 피커에서 23·24일만 비활성.
-// 반환: 하한 날짜 문자열("YYYY-MM-DD") 또는 null(제한 없음).
-export function reservationOpenDate(c: ScheduleSource): string | null {
-  const opensAt = c.reservationSchedule?.opensAt;
-  return opensAt ? kstTodayStr(opensAt) : null;
+// 2026-08-03 개정: 예약형은 캠페인 오픈(생성) **당일 방문 예약 불가** — 예약 가능 시작일(opensAt)을
+// 지정하지 않으면 하한 = 오픈일 +1일, 지정하면 max(opensAt, 오픈일+1). 기존 캠페인은 오픈일+1이
+// 이미 지나 오늘부터와 동일하게 동작한다 (하위 호환).
+// 반환: 하한 날짜 문자열("YYYY-MM-DD") 또는 null(제한 없음 — 구버전 데이터).
+export function reservationOpenDate(c: ScheduleSource & Partial<Pick<Campaign, "createdAt">>): string | null {
+  const opens = c.reservationSchedule?.opensAt ? kstTodayStr(c.reservationSchedule.opensAt) : null;
+  const dayAfterOpen = c.createdAt ? kstTodayStr(c.createdAt + 24 * 60 * 60 * 1000) : null;
+  if (opens && dayAfterOpen) return opens > dayAfterOpen ? opens : dayAfterOpen;
+  return opens ?? dayAfterOpen;
 }
 
 export interface ReservationDateOption {
@@ -120,10 +125,10 @@ export interface ReservationDateOption {
 }
 
 // 캠페인 스케줄 기준 날짜 선택지 — 오늘부터 min(14일, 종료일)까지.
-// 휴무 요일·차단 날짜·오픈 전 날짜(opensAt 이전 — not_open)는 비활성 표시.
-// opensAt이 미래면 14일 윈도우의 기준점을 오픈일로 옮겨, 오픈일부터 14일까지 선택할 수 있게 한다.
+// 휴무 요일·차단 날짜·하한 전 날짜(오픈 당일 포함 — not_open)는 비활성 표시 (2026-08-03).
+// 하한이 미래면 14일 윈도우의 기준점을 하한일로 옮겨, 하한일부터 14일까지 선택할 수 있게 한다.
 export function campaignDateOptions(
-  c: Pick<Campaign, "endAt" | "reservationSchedule" | "reservationBlocks">,
+  c: Pick<Campaign, "endAt" | "createdAt" | "reservationSchedule" | "reservationBlocks">,
   now: number = Date.now(),
 ): ReservationDateOption[] {
   const schedule = scheduleOf(c);
@@ -178,7 +183,7 @@ export function campaignSlotStatuses(
 
 // 서버 종합 검증 (3-2) — 발급·변경·재제안·사장님 제안이 공유한다. 통과 시 null.
 export function validateReservationForCampaign(
-  c: Pick<Campaign, "endAt" | "reservationSchedule" | "reservationBlocks">,
+  c: Pick<Campaign, "endAt" | "createdAt" | "reservationSchedule" | "reservationBlocks">,
   passes: Pass[],
   campaignId: string,
   date: string,
@@ -221,7 +226,7 @@ export interface ReservationPicker {
 // 발급 시트·예약 변경·재제안이 공유하는 선택지 빌더 (§3-2, §7-1).
 // excludePassId: 본인 패스는 정원 집계에서 제외 (변경 시 현재 슬롯 유지 가능)
 export function buildReservationPicker(
-  c: Pick<Campaign, "id" | "endAt" | "reservationSchedule" | "reservationBlocks">,
+  c: Pick<Campaign, "id" | "endAt" | "createdAt" | "reservationSchedule" | "reservationBlocks">,
   passes: Pass[],
   excludePassId?: string,
   now: number = Date.now(),
