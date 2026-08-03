@@ -163,7 +163,8 @@ export async function POST(req: NextRequest) {
   }
   // 예약형 (2026-07-22 작업 리스트 1-1 — 방문형과 구분되는 유형으로 승격, 데이터는 visit+reservationRequired)
   const reservationRequired = kind === "visit" && body.reservationRequired === true;
-  // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — 가능 요일·시간대 등) — 예약형 전용, 선택 입력
+  // 예약 안내 (2026-07-16 리뷰노트 벤치마크 — 가능 요일·시간대 등) — 예약형 전용, 선택 입력.
+  // 2026-08-03: 생성 폼 인풋은 제거 — 신규 캠페인은 미입력, 기존 캠페인·시드 표기용으로 필드는 유지
   const reservationNote = reservationRequired ? String(body.reservationNote || "").trim().slice(0, 80) : "";
   // 예약 운영 스케줄 (2026-07-22 §2) — 예약형 필수: 요일·운영시간(30분 단위)·브레이크(선택)·
   // 예약 가능 시작일(선택, 기본 즉시)·시간대 정원(1~5, 기본 1팀)
