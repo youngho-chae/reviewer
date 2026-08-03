@@ -334,7 +334,7 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
     <section className="px-5 pt-4">
       <div className="flex items-center justify-between">
         <h2 className="text-[16px] font-bold text-ink tracking-title">이 캠페인의 리뷰</h2>
-        <Link href="/o/reviews" className="cp-action text-[13px] font-semibold text-brand">리뷰 관리 →</Link>
+        <Link href="/o/manage?tab=reviews" className="cp-action text-[13px] font-semibold text-brand">리뷰 관리 →</Link>
       </div>
       {/* 캠페인 기준 리뷰 현황 요약 (§4-4) — 모수 = 이용 완료 인원 (미사용 발급분 제외) */}
       <div className="mt-3 rounded-md bg-sunken px-3.5 py-3 text-[13px] tabular-nums">
