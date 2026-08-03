@@ -79,7 +79,6 @@ export default function NewCampaign() {
   // 배송형 상품 카테고리 (필수) — 플레이스 분류가 아닌 상품군 분류 (delivery-categories.ts)
   const [productCategory, setProductCategory] = useState("");
   const [reservationRequired, setReservationRequired] = useState(false); // 캠페인 방식 = 예약 필수 (2026-07-22 §1-1)
-  const [reservationNote, setReservationNote] = useState(""); // 예약 안내 (가능 요일·시간대 — 선택)
   // 예약 운영 스케줄 (2026-07-22 §2) — 요일·운영시간·브레이크·예약 오픈일·시간대 정원
   const [rsvDays, setRsvDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [rsvOpen, setRsvOpen] = useState("11:00");
@@ -322,7 +321,6 @@ export default function NewCampaign() {
           ? productOptionsRaw.split(/[,\n]/).map((o) => o.trim()).filter((o) => o.length > 0).slice(0, 5)
           : undefined,
         reservationRequired: isReserve ? true : undefined,
-        reservationNote: isReserve ? reservationNote.trim() || undefined : undefined,
         // 예약 운영 스케줄 (2026-07-22 §2) — 예약형 필수
         reservationSchedule: isReserve
           ? {
@@ -885,17 +883,6 @@ export default function NewCampaign() {
                 ))}
               </select>
               <p className="mt-1.5 text-[11px] text-muted">시간대 정원이 차면 해당 시간은 자동으로 마감돼요 · 취소되면 자동 복구됩니다.</p>
-            </div>
-
-            {/* 예약 안내 — 가능 요일·시간대 등 자유 텍스트 (선택) */}
-            <div>
-              <input
-                value={reservationNote}
-                onChange={(e) => setReservationNote(e.target.value.slice(0, 80))}
-                placeholder="예약 안내 (선택) — 예: 주차는 매장 뒤 공영주차장을 이용해주세요"
-                className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px]"
-              />
-              <p className="mt-1.5 text-[12px] text-muted">추가 안내가 있다면 적어주세요 — 체험자 상세·신청 화면에 표시돼요.</p>
             </div>
           </section>
         )}
