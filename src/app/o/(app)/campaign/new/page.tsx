@@ -152,8 +152,9 @@ export default function NewCampaign() {
       .then((r) => r.json())
       .then((d) => {
         setStores(d.stores || []);
-        // 대표 매장이 Default 선택 (2026-07-31 — 지정은 마이페이지 [매장 정보], 미지정 시 첫 매장)
-        if (selectFirst) {
+        // 대표 매장이 Default 선택 (2026-07-31 — 지정은 마이페이지 [매장 정보], 미지정 시 첫 매장).
+        // Free 플랜은 등록 매장 리스트가 멤버십 전용이라 자동 선택하지 않는다 — URL 불러오기 전용.
+        if (selectFirst && d.owner?.plan !== "Free") {
           const primary = d.owner?.primaryStoreId;
           const first = (d.stores || []).find((s: OwnerStore) => s.id === primary) ?? d.stores?.[0];
           if (first) setStoreId(first.id);
@@ -174,6 +175,8 @@ export default function NewCampaign() {
   const allStores = useMemo<OwnerStore[]>(() => (tempStore ? [...stores, tempStore] : stores), [stores, tempStore]);
   const selectedStore = allStores.find((s) => s.id === storeId);
   const tempSelected = storeId === TEMP_STORE_ID;
+  // Free 플랜 = 등록 매장 리스트 비활성('멤버십 회원 전용') — URL 불러오기 전용 (monthlyLimit 로딩 후 판정)
+  const freeLocked = monthlyLimit !== null && plan === "Free";
 
   // 플레이스 첫 썸네일 → 대표 사진([0]) 프리필 (2026-07-24) — 업로드 사진(dataURL)은 건드리지
   // 않고, 다른 매장의 썸네일(http URL)이 자리에 있으면 현재 매장 것으로 교체한다. 삭제도 가능.
@@ -243,14 +246,16 @@ export default function NewCampaign() {
       setAddBusy(false);
       return;
     }
-    if (data.existing) {
+    if (data.existing && plan !== "Free") {
       // 이미 내 매장으로 등록된 플레이스 — 목록에서 그 매장을 선택
       setStores((arr) => (arr.some((s) => s.id === data.store.id) ? arr.map((s) => (s.id === data.store.id ? data.store : s)) : [...arr, data.store]));
       setStoreId(data.store.id);
       setTempStore(null);
     } else {
-      // 임시 매장 — 이 화면에서만 유지 (새 URL 조회 시 교체, 이탈 시 휘발)
-      setTempStore({ ...data.store, id: TEMP_STORE_ID });
+      // 임시 매장 — 이 화면에서만 유지 (새 URL 조회 시 교체, 이탈 시 휘발).
+      // Free는 등록 매장을 쓸 수 없어 기존 매장이어도 임시 취급 — 제출 시 같은 placeId면 서버가 재사용.
+      const { id: _id, ownerId: _ownerId, ...info } = data.store;
+      setTempStore({ ...info, id: TEMP_STORE_ID });
       setStoreId(TEMP_STORE_ID);
     }
     setShowAddStore(false);
@@ -371,21 +376,44 @@ export default function NewCampaign() {
       </div>
 
       <form onSubmit={submit} className="px-5 pt-2 space-y-8">
-        {/* 매장 — 대표 매장 기본 선택 + URL로 매장정보 불러오기(임시) + 정보 요약 카드 (시안) */}
+        {/* 매장 — 대표 매장 기본 선택 + URL로 매장정보 불러오기(임시) + 정보 요약 카드 (시안).
+            Free 플랜은 등록 매장 리스트가 '멤버십 회원 전용'(비활성) — 가입 시 입력한 매장도
+            리스트에 노출하지 않고, URL로 불러온 매장(상호명/카테고리/주소 요약)으로만 진행한다. */}
         <section>
           <div className="text-[15px] font-bold text-ink mb-2">매장</div>
-          <select
-            value={storeId}
-            onChange={(e) => setStoreId(e.target.value)}
-            className="w-full h-12 px-4 rounded-md border border-hairline bg-canvas focus:border-brand focus:outline-none text-[15px]"
-          >
-            {allStores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.id === TEMP_STORE_ID ? `${s.name} (URL 불러옴)` : s.name}
-              </option>
-            ))}
-            {allStores.length === 0 && <option value="">등록된 매장이 없어요</option>}
-          </select>
+          {freeLocked ? (
+            <>
+              <select
+                disabled
+                value={tempSelected ? TEMP_STORE_ID : ""}
+                aria-label="매장 선택 (멤버십 회원 전용)"
+                className="w-full h-12 px-4 rounded-md border border-hairline bg-sunken text-[15px] text-mutedSoft"
+              >
+                {tempStore ? (
+                  <option value={TEMP_STORE_ID}>{tempStore.name} (URL 불러옴)</option>
+                ) : (
+                  <option value="">멤버십 회원 전용</option>
+                )}
+              </select>
+              <p className="mt-1.5 text-[11px] text-muted leading-[1.5]">
+                등록 매장 선택은 <Link href="/o/membership" className="text-brand font-medium">멤버십 회원 전용</Link>이에요 —
+                Free 플랜은 아래 URL로 매장정보를 불러와 캠페인을 만들 수 있어요.
+              </p>
+            </>
+          ) : (
+            <select
+              value={storeId}
+              onChange={(e) => setStoreId(e.target.value)}
+              className="w-full h-12 px-4 rounded-md border border-hairline bg-canvas focus:border-brand focus:outline-none text-[15px]"
+            >
+              {allStores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.id === TEMP_STORE_ID ? `${s.name} (URL 불러옴)` : s.name}
+                </option>
+              ))}
+              {allStores.length === 0 && <option value="">등록된 매장이 없어요</option>}
+            </select>
+          )}
           <button
             type="button"
             onClick={() => setShowAddStore((v) => !v)}
