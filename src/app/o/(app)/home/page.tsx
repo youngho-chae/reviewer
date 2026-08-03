@@ -3,6 +3,7 @@ import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
 import { refillBonus, refillGrantFor, ownedRefills, REFILL_PRICE } from "@/lib/limit-refill";
+import { billingCycle, cycleLabel } from "@/lib/billing-cycle";
 import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import Icon from "@/components/Icon";
@@ -11,7 +12,7 @@ import HomeCampaigns, { type HomeCampaignItem } from "./HomeCampaigns";
 
 export const dynamic = "force-dynamic";
 
-// 사장님 홈 (2026-07-28 개편 2단계 — 시안) — 로고+매장 스위처 → 이번 달 모집 현황
+// 사장님 홈 (2026-07-28 개편 2단계 — 시안) — 로고+매장 스위처 → 모집 현황(결제 주기 기간 표기)
 // (방문 예정·사용 완료·검수 중인 리뷰 + 모집 한도 프로그레스·플랜) → [새 캠페인 등록 |
 // 예약 관리] → 진행 중인 캠페인(유형 칩 + 신형 카드, 전체보기 = [관리] 탭).
 // 구 홈의 [방문 예약|발송 대기] 큐는 제거 — 예약 처리(확정·제안·거절·확정 취소)는
@@ -34,20 +35,18 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
   const usedDone = thisMonth.filter((p) => ["used", "review_submitted", "completed"].includes(p.status)).length;
   const reviewWait = myPasses.filter((p) => p.status === "review_submitted").length;
 
-  // 모집 한도 프로그레스 — 이번 달(달력 기준) 오픈한 캠페인의 총 모집 인원 vs 플랜 한도
-  // (캠페인 생성 API의 월간 한도 검증과 동일 기준 — 매장 필터와 무관하게 사장님 전체)
-  const monthStart = (() => {
-    const d = new Date(Date.now() + 9 * 3600000);
-    return Date.parse(`${d.toISOString().slice(0, 7)}-01T00:00:00+09:00`);
-  })();
+  // 모집 한도 프로그레스 — **결제 주기** 내 오픈한 캠페인의 총 모집 인원 vs 플랜 한도
+  // (2026-08-03 확정: 유료 = 결제 시점~재결제 전, Free = 가입일 anniversary — 캠페인 생성 API와
+  //  동일 기준, 매장 필터와 무관하게 사장님 전체. 캘린더 월("이번 달") 기산 폐기)
+  const cycle = billingCycle(me);
   const ownerStoreIds = new Set(myStores.map((s) => s.id));
   const monthUsed = db.campaigns
-    .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
+    .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= cycle.start)
     .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
   // 모집 한도 리필권(2026-07-31 BM 보완) — 홈 게이지는 **기본 플랜 한도 기준**으로 표기하고
   // 리필 누적 수량은 노출하지 않는다(누적 지출 부담 인지 방지). 대신 사용량에서 리필분을
   // 차감해 게이지가 다시 차오르게 한다: 표시 사용량 = max(0, 사용 − 리필).
-  const refill = refillBonus(db, me.id);
+  const refill = refillBonus(db, me);
   const monthLimit = PLAN_POLICY[me.plan].monthlyTeamLimit;
   const shownUsed = Math.min(monthLimit, Math.max(0, monthUsed - refill));
   const ownedCoupons = ownedRefills(db, me.id).length; // 보유(미사용) 리필권 — [리필하기] 분기
@@ -89,9 +88,13 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
         <StoreSwitcher stores={myStores.map((s) => ({ id: s.id, name: s.name }))} current={currentStore} />
       </div>
 
-      {/* 이번 달 모집 현황 — 파스텔 카드 + 모집 한도 프로그레스 (시안) */}
+      {/* 모집 현황 — 파스텔 카드 + 모집 한도 프로그레스 (시안).
+          타이틀은 "모집 현황" + 우측 결제 주기 기간 (2026-08-03 — "이번 달" 표기는 주기와 어긋나 폐기) */}
       <div className="mx-5 rounded-lg bg-brandSoft p-4">
-        <div className="text-[14px] font-bold text-ink">이번 달 모집 현황</div>
+        <div className="flex items-center justify-between">
+          <div className="text-[14px] font-bold text-ink">모집 현황</div>
+          <span className="text-[11px] text-muted tabular-nums">{cycleLabel(cycle)}</span>
+        </div>
         <div className="mt-3 grid grid-cols-3 text-center">
           <div>
             <div className="text-[20px] font-bold text-ink tabular-nums">{pendingVisit}</div>
