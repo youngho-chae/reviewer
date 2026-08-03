@@ -4,24 +4,28 @@ import { getDBAsync } from "@/lib/db";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import type { Campaign } from "@/lib/types";
 import CampaignFilter from "../home/CampaignFilter";
-import ManageTabs from "./ManageTabs";
+import ManageTabs, { type ManageTab } from "./ManageTabs";
 import CampaignSegments from "./CampaignSegments";
 import ReservationManager from "./ReservationManager";
+import ReviewsPanel from "./ReviewsPanel";
 import { buildManagedReservations } from "./reservation-items";
+import { ownerReviewState } from "@/lib/owner-review-status";
 
 export const dynamic = "force-dynamic";
 
 // [관리] 탭 (2026-07-28 사장님 화면 개편 1단계) — 홈의 무한 스크롤 부담을 분산:
-// 캠페인 관리와 예약관리를 이 페이지로 모은다. 홈 개편은 별도 단계(추후 지시).
+// 캠페인 관리와 예약 관리를 이 페이지로 모은다.
 //  - [캠페인]: 유형 세그먼트(방문형·배송은 플래그 — 기자단은 이 브랜치에서 코드째 제거라 미노출)
 //    + [전체|진행중|종료] 칩 + 캠페인 카드(관리 진입)
-//  - [예약관리]: 매장 셀렉터 + [전체|요청|조율|확정|취소] 칩 + 상태별 예약 카드
+//  - [예약 관리]: 매장 셀렉터 + [전체|요청|조율|확정|취소] 칩 + 상태별 예약 카드
+//  - [리뷰 관리] (2026-08-03 병합): 구 단독 페이지(/o/reviews — 지금은 이 탭으로 리다이렉트)를
+//    흡수 — 바텀 네비는 4개 메뉴(홈·관리·QR 스캔·마이)로 정리. ?st= 상태 필터 유지.
 export default async function OwnerManage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; st?: string }>;
 }) {
-  const { tab } = await searchParams;
+  const { tab, st } = await searchParams;
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const myStores = db.stores.filter((s) => s.ownerId === me.id);
@@ -131,12 +135,25 @@ export default async function OwnerManage({
     <ReservationManager items={reservations} stores={myStores.map((s) => ({ id: s.id, name: s.name }))} />
   );
 
+  // ── 리뷰 관리 (2026-08-03 병합 — §4-1 상태 정의·이용 완료 모수는 ReviewsPanel/정본 공유) ──
+  const reviewPasses = myPasses
+    .filter((p) => ownerReviewState(p) !== null)
+    .sort((a, b) => (b.reviewSubmittedAt || b.usedAt || 0) - (a.reviewSubmittedAt || a.usedAt || 0));
+
+  const reviewsView = (
+    <ReviewsPanel passes={reviewPasses} stores={myStores} campaigns={myCampaigns} st={st} />
+  );
+
+  const initialTab: ManageTab =
+    tab === "reservations" ? "reservations" : tab === "reviews" ? "reviews" : "campaigns";
+
   return (
     <div className="pb-24 bg-canvas">
       <ManageTabs
         campaignsView={campaignsView}
         reservationsView={reservationsView}
-        initialTab={tab === "reservations" ? "reservations" : "campaigns"}
+        reviewsView={reviewsView}
+        initialTab={initialTab}
       />
     </div>
   );

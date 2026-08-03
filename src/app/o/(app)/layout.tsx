@@ -46,10 +46,10 @@ export default async function OwnerAppLayout({ children }: { children: React.Rea
       <BottomNav
         items={[
           { href: "/o/home", label: "홈", icon: "home" },
-          // [관리] (2026-07-28 개편) — 캠페인 관리 + 예약관리. 홈 무한 스크롤 분산 목적
+          // [관리] (2026-07-28 개편) — 캠페인 + 예약 관리 + 리뷰 관리(2026-08-03 병합 —
+          // 구 단독 '리뷰 관리' 메뉴 흡수, 바텀 네비 4개 운영)
           { href: "/o/manage", label: "관리", icon: "calendar-check" },
           { href: "/o/scan", label: "QR 스캔", icon: "camera" },
-          { href: "/o/reviews", label: "리뷰 관리", icon: "clipboard" }, // 용어 통일 (§4-6 — 후기→리뷰)
           { href: "/o/me", label: "마이", icon: "user" },
         ]}
       />
