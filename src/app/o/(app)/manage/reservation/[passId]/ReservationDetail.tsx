@@ -19,7 +19,6 @@ export interface ReservationDetailData {
   state: "requested" | "proposed" | "counter" | "confirmed" | "cancelled";
   campaignTitle: string;
   storeName: string;
-  refNo: string; // 예약번호 — 체험자 식별정보 대체 (§4-5)
   label: string; // 신청(또는 확정) 일정 라벨
   partySize?: number;
   proposalUsed: boolean;
@@ -152,10 +151,6 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
         <h2 className="mt-2.5 text-[18px] font-bold text-ink tracking-title leading-[1.35] line-clamp-2">{data.campaignTitle}</h2>
 
         <dl className="mt-3.5 space-y-2 text-[14px]">
-          <div className="flex gap-6">
-            <dt className="w-[64px] shrink-0 text-muted">예약번호</dt>
-            <dd className="font-semibold text-ink tabular-nums">{data.refNo}</dd>
-          </div>
           <div className="flex gap-6">
             <dt className="w-[64px] shrink-0 text-muted">신청 일정</dt>
             <dd className="font-semibold text-ink tabular-nums">{sbNum(SBUI.dateTime, data.label)}</dd>
