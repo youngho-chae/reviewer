@@ -94,6 +94,9 @@ export interface Owner {
   // 대표 매장 (2026-07-31) — 새 캠페인 생성의 매장 리스트 기본 선택.
   // 미지정/소유 아님이면 첫 매장 폴백. 지정은 마이페이지 [매장 정보].
   primaryStoreId?: string;
+  // 결제 주기 anchor (2026-08-03 — 정본 src/lib/billing-cycle.ts): 유료 플랜의 최근 결제(플랜
+  // 시작/변경) 시각. 미기록(구버전·Free)은 가입일(createdAt) 폴백 — Free 주기 = 가입일 기준.
+  planStartedAt?: number;
 }
 
 // 운영팀(검수) 계정 — 리뷰 통과/반려 백오피스 전용.

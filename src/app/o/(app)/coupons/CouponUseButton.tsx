@@ -45,7 +45,7 @@ export default function CouponUseButton({ refillId, amount }: { refillId: string
             </div>
             <h3 className="text-center text-[17px] font-bold text-ink tracking-title">이 리필권을 사용할까요?</h3>
             <p className="mt-2.5 text-center text-[13px] text-ink2 leading-[1.6]">
-              사용하면 이번 달 모집 한도가 <b className="text-ink">{amount}건</b> 늘어나요.
+              사용하면 이번 결제 주기 모집 한도가 <b className="text-ink">{amount}건</b> 늘어나요.
               <br />
               추가된 한도는 이번 결제 주기까지만 유효해요.
             </p>

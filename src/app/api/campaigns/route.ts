@@ -4,7 +4,8 @@ import { readSession } from "@/lib/auth";
 import { rid, isUseCode, normalizeUseCode } from "@/lib/ids";
 import { Campaign, RequiredMenu, ReservationSchedule, SnsKind } from "@/lib/types";
 import { timeToMin, kstTodayStr, SLOT_CAPACITY_MIN, SLOT_CAPACITY_MAX } from "@/lib/reservation";
-import { distributeQuota, PLAN_POLICY, currentMonthStart } from "@/lib/plan-policy";
+import { distributeQuota, PLAN_POLICY } from "@/lib/plan-policy";
+import { billingCycle } from "@/lib/billing-cycle";
 import { CHANNEL_ORDER } from "@/lib/channels";
 import { isDeliveryCategory } from "@/lib/delivery-categories";
 import { availableQuotaBonus, consumeQuotaBonus } from "@/lib/referral";
@@ -80,13 +81,14 @@ export async function POST(req: NextRequest) {
   // 전 플랜 유한 한도(2026-07-31 — Premium 무제한 폐기·월 100팀)라 무조건 검증한다.
   // 모집 한도 리필권(2026-07-31 BM)은 이번 결제 주기 한도에 가산 — 기본 한도 소진 후 사용(가산 산술).
   const policy = PLAN_POLICY[owner.plan];
-  const monthStart = currentMonthStart();
+  // 한도 기산 = 결제 주기 (2026-08-03 — 유료: 결제 시점~재결제 전, Free: 가입일 anniversary)
+  const monthStart = billingCycle(owner).start;
   const ownerStoreIds = new Set(db.stores.filter((x) => x.ownerId === owner.id).map((x) => x.id));
   const monthlyUsed = db.campaigns
     .filter((c) => ownerStoreIds.has(c.storeId) && c.createdAt >= monthStart)
     .reduce((sum, c) => sum + c.quota.S + c.quota.A + c.quota.B + c.quota.C, 0);
   const bonus = availableQuotaBonus(db, owner.id);
-  const refill = refillBonus(db, owner.id);
+  const refill = refillBonus(db, owner);
   const effectiveLimit = policy.monthlyTeamLimit + refill;
   const remaining = effectiveLimit + bonus - monthlyUsed;
   if (totalQuota > remaining) {
