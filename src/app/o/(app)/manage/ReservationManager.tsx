@@ -11,14 +11,14 @@ import { SBUI, sbNum } from "@/lib/storyboard";
  *  - "체험자 재제안" 카드는 원래 요청 일시를 흐리게 + 오렌지 제안 일정 라인 (시안)
  *  - [예약 정보] = 다음 depth(/o/manage/reservation/[passId]) 이동 (2026-07-28 시안 —
  *    아코디언 아님. 확정·거절·다른 일정 제안·예약 내역은 상세에서)
- *  - 체험자 식별정보(익명 ID 포함) 비노출 (2026-07-31 §4-5) — 예약번호(거래 단위)로 구분
+ *  - 체험자 식별정보(익명 ID 포함) 비노출 (2026-07-31 §4-5) — 예약번호(passRefNo) 표기도
+ *    삭제 (2026-08-03), 카드 구분은 일시·캠페인명·매장명으로
  */
 export interface ManagedReservation {
   passId: string;
   storeId: string;
   storeName: string;
   campaignTitle: string;
-  refNo: string; // 예약번호 (passRefNo — 체험자 식별정보 대체, §4-5)
   label: string; // 현재 기준 일시 라벨 (요청/확정 일시 · 재제안이면 체험자 재제안 일시)
   partySize?: number;
   state: "requested" | "proposed" | "counter" | "confirmed" | "cancelled";
@@ -136,13 +136,9 @@ export default function ReservationManager({
           const confirmable = it.state === "requested" || it.state === "counter";
           return (
             <div key={it.passId} className="rounded-lg border border-hairline bg-canvas p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className={`inline-flex items-center px-2 py-1 rounded-xs text-[11px] font-semibold ${chip.cls}`}>
-                  {chip.label}
-                </span>
-                {/* [§4-5] 개별 건 구분은 예약번호로 — 체험자 식별정보 비노출 */}
-                <span className="text-[11px] text-muted tabular-nums">예약번호 {it.refNo}</span>
-              </div>
+              <span className={`inline-flex items-center px-2 py-1 rounded-xs text-[11px] font-semibold ${chip.cls}`}>
+                {chip.label}
+              </span>
 
               {/* 일시 라인 — 재제안 카드는 원 요청을 흐리게 + 오렌지 제안 일정 (시안) */}
               {it.state === "counter" ? (
