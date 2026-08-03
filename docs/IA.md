@@ -61,7 +61,7 @@
 |---|---|---|
 | O-00 | 홈 (플랜·모집 현황·진행 캠페인 탭) | `/o/home` |
 | O-00b | 로그인 · 가입 | `/o/login` · `/o/signup` |
-| O-01 | 후기 모니터링 (조회 전용) | `/o/reviews` |
+| O-01 | 관리 (캠페인 · 예약 관리 · 리뷰 관리 탭) | `/o/manage` (리뷰 관리 = `?tab=reviews`, 구 `/o/reviews`는 리다이렉트) |
 | O-02 | 사용 처리 (QR 스캔 + 4자리 입력) | `/o/scan` |
 | O-03 | 성과 리포트 | `/o/report` |
 | O-04 | 더보기 (메뉴 허브) | `/o/me` |
@@ -71,8 +71,8 @@
 | O-12 | 매장 정보 | `/o/stores` |
 | O-14 | 멤버십 / 구독 관리 | `/o/membership` |
 
-**사장님 BottomNav (4탭):** **홈** `/o/home` · **QR 스캔** `/o/scan` · **후기** `/o/reviews` · **MY** `/o/me`.
-- 아이콘: home / camera / clipboard / user. 리포트·멤버십·로그·매장정보는 MY 허브 진입.
+**사장님 BottomNav (4탭 — 2026-08-03):** **홈** `/o/home` · **관리** `/o/manage` · **QR 스캔** `/o/scan` · **마이** `/o/me`.
+- 아이콘: home / calendar-check / camera / user. 리뷰 관리는 [관리] 탭 내부로 병합(2026-08-03), 리포트·멤버십·로그·매장정보는 마이 허브 진입.
 
 ### 2.3 운영팀 (Admin) — `/admin/...`
 
