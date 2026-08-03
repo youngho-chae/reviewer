@@ -7,7 +7,6 @@ import {
   ownerReviewState,
   ownerReviewSummary,
   isReviewOverdue,
-  passRefNo,
   OWNER_REVIEW_LABEL,
   type OwnerReviewState,
 } from "@/lib/owner-review-status";
@@ -100,14 +99,16 @@ export default async function OwnerReviews({ searchParams }: { searchParams: Pro
       <section className="px-5 mt-6 space-y-3">
         {passes.map((p) => {
           const store = db.stores.find((s) => s.id === p.storeId);
+          const campaign = db.campaigns.find((c) => c.id === p.campaignId);
           const state = ownerReviewState(p)!;
           const overdue = isReviewOverdue(p, now);
           const deadline = reviewDeadline(p);
           return (
             <article key={p.id} className="bg-canvas border border-hairline rounded-lg p-5">
               <div className="flex items-center justify-between gap-2">
-                {/* [§4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 거래 단위 번호로 구분 */}
-                <span className="text-[12px] text-muted tabular-nums">체험권 {passRefNo(p.id)}</span>
+                {/* [2026-07-31 보완] 체험권 번호 대신 캠페인명 표기 — 캠페인명은 선택 입력이라
+                    미작성(구버전 포함) 캠페인은 매장명으로 폴백 (§4-5 식별정보 비노출은 유지) */}
+                <span className="text-[12px] text-muted truncate min-w-0">{campaign?.title || store?.name}</span>
                 <span className="flex items-center gap-1.5">
                   {overdue && (
                     <span className="text-[11px] px-2 py-0.5 rounded-pill font-semibold bg-errorSoft text-error">기한 초과</span>
