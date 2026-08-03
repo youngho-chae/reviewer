@@ -59,6 +59,9 @@ const CHANNELS: { key: "naver_blog" | "instagram" | "tiktok"; label: string }[] 
 ];
 
 const DAY_CHOICES = [7, 14, 30];
+// 진행 일수 직접입력 허용 범위 (2026-08-03) — 서버(/api/campaigns)도 동일 범위로 클램프
+const DAYS_MIN = 7;
+const DAYS_MAX = 30;
 
 export default function NewCampaign() {
   const router = useRouter();
@@ -122,6 +125,8 @@ export default function NewCampaign() {
     setPhotos(next.slice(0, 20));
   }
   const [days, setDays] = useState(7); // 진행 일수 — 시안 칩 7/14/30
+  const [daysCustom, setDaysCustom] = useState(false); // 진행 일수 직접입력 모드 (2026-08-03 — 7~30일)
+  const [customDays, setCustomDays] = useState(""); // 직접입력 값 (숫자 문자열)
   const [supportAmount, setSupportAmount] = useState("");
   const [totalQuota, setTotalQuota] = useState("");
   const [useCode, setUseCode] = useState(""); // 매장 확인 번호 (숫자 4자리)
@@ -201,12 +206,20 @@ export default function NewCampaign() {
   const baseLimit = monthlyLimit === null ? null : monthlyLimit - refillAmt;
   const shownUsed = baseLimit === null ? 0 : Math.min(baseLimit, Math.max(0, monthlyUsed - refillAmt));
 
+  // 진행 일수 — 직접입력이면 7~30일 범위 내에서만 유효 (2026-08-03)
+  const effDays = daysCustom ? Number(customDays) : days;
+  const daysValid = !daysCustom || (customDays !== "" && effDays >= DAYS_MIN && effDays <= DAYS_MAX);
+
   // 진행 일수 → 마감일 (생성일 기준 n일차 자정 KST 직전 — 2026-07-28 확정)
   const deadlineLabel = useMemo(() => {
+    if (!Number.isFinite(effDays) || effDays < DAYS_MIN || effDays > DAYS_MAX) return null;
     const d = new Date(Date.now() + 9 * 3600000);
-    const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + days * 86400000 - 1);
+    const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + effDays * 86400000 - 1);
     return `${end.getUTCMonth() + 1}월 ${end.getUTCDate()}일 (${"일월화수목금토"[end.getUTCDay()]})`;
-  }, [days]);
+  }, [effDays]);
+
+  // 예약 가능 시작일 하한 = 내일(KST) — 예약형은 오픈 당일 예약 불가 (2026-08-03)
+  const rsvOpenMin = new Date(Date.now() + (9 + 24) * 3600000).toISOString().slice(0, 10);
 
   // 이탈 확인 (시안) — 입력이 있으면 뒤로가기 시 확인 모달
   const dirty =
@@ -273,6 +286,10 @@ export default function NewCampaign() {
       setErr("매장 확인 번호는 숫자 4자리로 입력해주세요");
       return;
     }
+    if (!daysValid) {
+      setErr(`진행 일수는 ${DAYS_MIN}일에서 ${DAYS_MAX}일 사이로 입력해주세요`);
+      return;
+    }
     if (isReserve) {
       if (rsvDays.length === 0) {
         setErr("예약 가능한 요일을 1개 이상 선택해주세요");
@@ -311,7 +328,7 @@ export default function NewCampaign() {
         newStore: tempSelected && tempStore ? { ...tempStore, id: undefined } : undefined,
         kind,
         title: title.trim() || undefined,
-        days: Number(days),
+        days: Number(effDays),
         supportAmount: supportNum,
         totalQuota: totalQuotaNum,
         useCode: isDelivery ? undefined : useCode,
@@ -850,7 +867,8 @@ export default function NewCampaign() {
               )}
             </div>
 
-            {/* 예약 가능 시작일 (2-5) — 캠페인 공개일과 구분 */}
+            {/* 예약 가능 시작일 (2-5) — 캠페인 공개일과 구분. 오픈 당일 예약 불가라 지정도
+                내일부터만 가능 (2026-08-03 — min 하한, 서버는 max(opensAt, 오픈일+1)로 이중 방어) */}
             <div>
               <div className="text-[13px] font-semibold text-ink mb-2">
                 예약 가능 시작일 <span className="text-[12px] text-muted font-normal">(선택)</span>
@@ -858,12 +876,13 @@ export default function NewCampaign() {
               <input
                 type="date"
                 value={rsvOpenDate}
-                onChange={(e) => setRsvOpenDate(e.target.value)}
+                min={rsvOpenMin}
+                onChange={(e) => setRsvOpenDate(e.target.value && e.target.value < rsvOpenMin ? rsvOpenMin : e.target.value)}
                 className="w-full h-11 px-3 rounded-sm border border-hairline bg-canvas text-[14px] text-ink"
               />
               <p className="mt-1.5 text-[11px] text-muted leading-[1.5]">
-                비워두면 캠페인 공개와 동시에 예약을 받아요. 날짜를 설정하면 그 전까지 상세 페이지는 열람 가능하지만
-                예약 버튼은 <span className="text-ink font-medium">예약 오픈 예정</span>으로 비활성돼요 (권장: 공개 3일 뒤).
+                설정하지 않으면 <span className="text-ink font-medium">내일부터</span> 예약을 받을 수 있어요.
+                예약 필수 캠페인은 오픈 당일 예약을 받지 않으며, 날짜를 설정하면 체험자 캘린더에서 그 전날까지 비활성으로 표시돼요.
               </p>
             </div>
 
@@ -887,7 +906,8 @@ export default function NewCampaign() {
           </section>
         )}
 
-        {/* 진행 일수 — 시안 칩 7/14/30 + 마감일 안내 (종료 = 생성일 기준 n일차 자정 KST 직전) */}
+        {/* 진행 일수 — 시안 칩 7/14/30 + 직접입력(7~30일 — 2026-08-03) + 마감일 안내
+            (종료 = 생성일 기준 n일차 자정 KST 직전) */}
         <section>
           <div className="text-[15px] font-bold text-ink mb-2">진행 일수</div>
           <div className="flex gap-2">
@@ -895,17 +915,49 @@ export default function NewCampaign() {
               <button
                 key={d}
                 type="button"
-                onClick={() => setDays(d)}
-                aria-pressed={days === d}
+                onClick={() => {
+                  setDays(d);
+                  setDaysCustom(false);
+                }}
+                aria-pressed={!daysCustom && days === d}
                 className={`h-11 px-5 rounded-md text-[14px] bg-canvas tabular-nums ${
-                  days === d ? "border-[1.5px] border-brand text-brand font-bold" : "border border-hairline text-ink font-medium"
+                  !daysCustom && days === d ? "border-[1.5px] border-brand text-brand font-bold" : "border border-hairline text-ink font-medium"
                 }`}
               >
                 {d}일
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setDaysCustom(true)}
+              aria-pressed={daysCustom}
+              className={`h-11 px-4 rounded-md text-[14px] bg-canvas ${
+                daysCustom ? "border-[1.5px] border-brand text-brand font-bold" : "border border-hairline text-ink font-medium"
+              }`}
+            >
+              직접입력
+            </button>
           </div>
-          <p className="mt-2 text-[12px] font-medium text-successStrong">캠페인 마감일은 {deadlineLabel} 입니다.</p>
+          {daysCustom && (
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                inputMode="numeric"
+                placeholder={`${DAYS_MIN}~${DAYS_MAX}`}
+                aria-label="진행 일수 직접입력"
+                className="w-[96px] h-11 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] text-center tabular-nums"
+              />
+              <span className="text-[14px] text-ink">일</span>
+              <span className="text-[12px] text-muted">최소 {DAYS_MIN}일 ~ 최대 {DAYS_MAX}일</span>
+            </div>
+          )}
+          {daysCustom && customDays !== "" && !daysValid && (
+            <p className="mt-1.5 text-[12px] text-error">진행 일수는 {DAYS_MIN}일에서 {DAYS_MAX}일 사이로 입력해주세요</p>
+          )}
+          {deadlineLabel && (
+            <p className="mt-2 text-[12px] font-medium text-successStrong">캠페인 마감일은 {deadlineLabel} 입니다.</p>
+          )}
         </section>
 
         {/* 매장·상품 사진 (2026-07-17 회의) — 대표 이미지 + 추가 사진, 3~20장 필수 */}

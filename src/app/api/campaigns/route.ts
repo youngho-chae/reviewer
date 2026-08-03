@@ -146,7 +146,8 @@ export async function POST(req: NextRequest) {
   // 종료 시각 (2026-07-28 확정) — 생성일 기준 n일 지정이므로 시간 단위가 아니라
   // **n일차 자정(KST 00시) 직전**까지 유효: 생성일 00시(KST) + n일 − 1ms.
   // 예) 7/28 생성 · 30일 → 8/26 23:59:59.999 종료 (생성일 포함 30일).
-  const days = Math.max(1, Math.floor(Number(body.days) || 30));
+  // 진행 일수 = 7~30일 (2026-08-03 직접입력 허용 — 칩 7/14/30 + 직접입력, 범위 밖은 클램프)
+  const days = Math.min(30, Math.max(7, Math.floor(Number(body.days) || 30)));
   const endAt = Date.parse(`${kstTodayStr(now)}T00:00:00+09:00`) + days * 86400000 - 1;
   // 캠페인명 — 사장님 내부 관리용 제목 (확정 정책 7). 미입력 시 매장명 자동.
   // 체험자 화면은 항상 매장명(store.name) 중심으로 노출한다.
