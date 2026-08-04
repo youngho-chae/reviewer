@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 
 /**
  * 모집 한도 리필권 플로우 (2026-07-31 2차 보완 — 쿠폰형, 정본 src/lib/limit-refill.ts).
- * 트리거 버튼 + 바텀시트:
- *  - 보유 쿠폰 없음 → "리필권을 구매할까요?" → 구매(쿠폰 발급) → "지금 쓸까요?"
- *    [지금 쓰기](이번 주기 한도 가산) / [나중에 쓰기](쿠폰함 보관)
- *  - 보유 쿠폰 있음 → "보유한 리필권 n개 중 1개를 사용할까요?" → 사용(오래된 쿠폰부터)
+ * 트리거 버튼 + 구매 확인 바텀시트, 그 외 안내는 중앙 모달 (2026-08-04 개편):
+ *  - 보유 쿠폰 없음 → 시트 "리필권을 구매할까요?"([구매하기] — 금액 미표기) → 구매(쿠폰 발급)
+ *    → **모달** "리필권을 구매했어요" [지금 쓰기](이번 주기 한도 가산) / [나중에 쓰기](쿠폰함 보관)
+ *  - 보유 쿠폰 있음 → **모달** "보유한 리필권 n개 중 1개를 사용할까요?" → 사용(오래된 쿠폰부터)
  * 홈·새 캠페인 등록의 모집 한도 카드·쿠폰함이 공유한다. Free는 트리거를 렌더하지 않는다.
  */
 export default function RefillFlow({
@@ -93,6 +93,15 @@ export default function RefillFlow({
     </div>
   );
 
+  // 중앙 모달 (2026-08-04) — 구매 완료 안내·보유 쿠폰 사용 확인은 시트 대신 모달로
+  const modal = (content: ReactNode) => (
+    <div className="fixed inset-0 bg-ink/45 z-50 grid place-items-center px-6" onClick={() => !busy && setStep("closed")}>
+      <div className="w-full rounded-xl bg-canvas p-5" onClick={(e) => e.stopPropagation()}>
+        {content}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <button type="button" onClick={open} className={className}>
@@ -135,15 +144,15 @@ export default function RefillFlow({
                 disabled={busy}
                 className="cp-action flex-1 h-12 rounded-md bg-brand text-white text-[15px] font-bold disabled:opacity-60"
               >
-                {busy ? "구매 중..." : `${price.toLocaleString()}원에 구매하기`}
+                {busy ? "구매 중..." : "구매하기"}
               </button>
             </div>
           </>,
         )}
 
-      {/* 구매 완료 — 지금 쓰기 / 나중에 쓰기 */}
+      {/* 구매 완료 — 지금 쓰기 / 나중에 쓰기 (2026-08-04 — 시트 대신 모달) */}
       {step === "useNow" &&
-        sheet(
+        modal(
           <>
             <h3 className="text-center text-[17px] font-bold text-ink tracking-title">리필권을 구매했어요</h3>
             <p className="mt-2.5 text-center text-[13px] text-ink2 leading-[1.6]">
@@ -173,9 +182,9 @@ export default function RefillFlow({
           </>,
         )}
 
-      {/* 사용 확인 — 보유 쿠폰이 있을 때 */}
+      {/* 사용 확인 — 보유 쿠폰이 있을 때 (2026-08-04 — 시트 대신 모달) */}
       {step === "use" &&
-        sheet(
+        modal(
           <>
             <h3 className="text-center text-[17px] font-bold text-ink tracking-title">
               보유한 리필권 {owned}개 중 1개를 사용할까요?
