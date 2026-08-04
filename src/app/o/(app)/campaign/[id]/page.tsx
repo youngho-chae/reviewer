@@ -340,8 +340,8 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
       <div className="mt-3 rounded-md bg-sunken px-3.5 py-3 text-[13px] tabular-nums">
         <div className="font-bold text-ink">이용 완료 {reviewSummary.usedTotal}건</div>
         <div className="mt-1 text-[12px] text-ink2">
-          작성 대기 {reviewSummary.pending}건 · 검수 중 {reviewSummary.reviewing}건 · 완료 {reviewSummary.done}건
-          {reviewSummary.resubmit > 0 && <> · 재작성 요청 {reviewSummary.resubmit}건</>}
+          작성 대기 {reviewSummary.pending}건 · 검수중 {reviewSummary.reviewing}건 · 검수 완료 {reviewSummary.done}건
+          {reviewSummary.resubmit > 0 && <> · 반려 {reviewSummary.resubmit}건</>}
         </div>
       </div>
       <div className="mt-3 space-y-2">

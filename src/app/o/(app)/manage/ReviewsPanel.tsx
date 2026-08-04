@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Campaign, Pass, Store } from "@/lib/types";
 import Icon from "@/components/Icon";
+import ChannelIcons from "@/components/ChannelIcons";
 import ReviewActions from "./ReviewActions";
 import {
   ownerReviewState,
@@ -11,17 +12,11 @@ import {
 } from "@/lib/owner-review-status";
 import { reviewDeadline } from "@/lib/pass-lifecycle";
 
-const ch_label: Record<string, string> = {
-  naver_blog: "네이버 블로그",
-  instagram: "인스타그램",
-  tiktok: "틱톡",
-};
-
-// 상태 칩 — *Soft 배경 + 강조 텍스트 (v2 상태 문법, §4-1 상태 정의)
+// 상태 칩 (2026-08-04 시안) — 검수중/검수 완료 = 뉴트럴, 반려만 에러 톤
 const stateTone: Record<OwnerReviewState, string> = {
   pending: "bg-sunken text-muted",
-  reviewing: "bg-warningSoft text-warning",
-  done: "bg-successSoft text-successStrong",
+  reviewing: "bg-sunken text-ink2",
+  done: "bg-sunken text-muted",
   resubmit: "bg-errorSoft text-error",
 };
 
@@ -31,11 +26,11 @@ const fmtKst = (t: number) =>
 // 상태 필터 딥링크 — [관리] 병합(2026-08-03)으로 탭 컨텍스트 유지가 필요해 URL 고정
 const hrefOf = (st?: OwnerReviewState) => (st ? `/o/manage?tab=reviews&st=${st}` : "/o/manage?tab=reviews");
 
-// 리뷰 관리 (2026-07-31 개선안 — 구 '후기' 메뉴, 용어 통일 §4-6).
-// 2026-08-03: 단독 페이지(/o/reviews)에서 [관리] 탭 내부 패널로 병합 — 구 경로는 리다이렉트.
-// 모수 = 이용 완료(사용 처리) 체험권 — 작성 대기·검수 중·완료·재작성 요청을 구분해
-// 캠페인별 리뷰 작성 현황을 파악할 수 있게 한다 (§4-3).
-// [§4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 캠페인명(폴백 매장명)·이용 일시·상태로 구분.
+// 리뷰 관리 (2026-07-31 개선안 · 2026-08-04 시안 개편 — 정본 owner-review-status.ts §4).
+// 구성: 인트로 카드(리뷰 모니터링 + [채널톡 문의하기] 단일 진입 — 카드별 문의 버튼 제거) →
+// 요약 타일(이용 완료 | 작성 대기·검수중·검수 완료 3분할) → 필터 칩(전체/검수중/검수 완료/반려)
+// → 리뷰 카드(캠페인명·상태 칩·채널 파스텔 배지·날짜·[리뷰 보러가기]·본문 3줄·상태 밴드).
+// 모수 = 이용 완료 체험권 (§4-1) · [§4-5] 체험자 식별정보 비노출 — 캠페인명(폴백 매장명)으로 구분.
 export default function ReviewsPanel({
   passes: all,
   stores,
@@ -54,121 +49,147 @@ export default function ReviewsPanel({
     st === "pending" || st === "reviewing" || st === "done" || st === "resubmit" ? st : "all";
   const passes = filter === "all" ? all : all.filter((p) => ownerReviewState(p) === filter);
 
-  // 상단 요약 — 선택 시 해당 상태만 필터 (§4-3). 재작성 요청은 목록 내 별도 상태로 표시.
-  const tiles: Array<{ key: OwnerReviewState; label: string; count: number }> = [
-    { key: "pending", label: "작성 대기", count: summary.pending },
-    { key: "reviewing", label: "검수 중", count: summary.reviewing },
-    { key: "done", label: "완료", count: summary.done },
+  // 필터 칩 (시안) — 작성 대기는 칩 없이 전체에서 노출 (구 ?st=pending 딥링크는 계속 동작)
+  const chips: Array<{ key: OwnerReviewState | "all"; label: string }> = [
+    { key: "all", label: "전체" },
+    { key: "reviewing", label: "검수중" },
+    { key: "done", label: "검수 완료" },
+    { key: "resubmit", label: "반려" },
   ];
 
   return (
     <div>
-      <section className="px-5 pt-2">
-        <p className="text-[14px] text-ink2 leading-[1.5]">
-          이용을 완료한 체험자의 리뷰 현황을 확인할 수 있습니다. 사장님은 직접 검수하지 않으며,
-          재작성 요청 등 문제는 채널톡으로 운영팀에 접수해주세요.
-        </p>
+      {/* 인트로 카드 (시안) — 아이콘 + 리뷰 모니터링 + [채널톡 문의하기] (시안 블루 → v2 퍼플) */}
+      <section className="px-5 pt-3">
+        <div className="flex items-start gap-3.5">
+          <div className="shrink-0 w-[56px] h-[56px] rounded-full border-[1.5px] border-brandSoft bg-canvas grid place-items-center text-brand">
+            <Icon name="clipboard" variant="border" size={26} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[16px] font-bold text-ink tracking-title">리뷰 모니터링</h2>
+              <ReviewActions
+                trigger={<>채널톡 문의하기 ↗</>}
+                className="cp-action shrink-0 text-[13px] font-semibold text-brand"
+              />
+            </div>
+            <p className="mt-1 text-[12px] text-ink2 leading-[1.55]">
+              사장님은 직접 검수하지 않으며, 운영팀이 대신 확인해요.
+              <br />
+              광고 표시 누락·재작성 요청 등은 채널톡으로 문의해주세요.
+            </p>
+          </div>
+        </div>
 
-        {/* 전체 캠페인 요약 — 이용 완료 기준 집계 (§4-1·§4-7) */}
-        <div className="mt-5 grid grid-cols-3 gap-2">
-          {tiles.map((t) => {
-            const active = filter === t.key;
+        {/* 요약 타일 (시안) — 이용 완료(모수 §4-1) + 작성 대기·검수중·검수 완료 3분할 */}
+        <div className="mt-5 flex gap-2">
+          <div className="shrink-0 w-[92px] rounded-lg bg-brandSoft py-4 text-center">
+            <div className="text-[20px] font-bold text-ink tabular-nums">{summary.usedTotal}</div>
+            <div className="mt-0.5 text-[12px] text-muted">이용 완료</div>
+          </div>
+          <div className="flex-1 rounded-lg bg-brandSoft py-4 grid grid-cols-3 text-center">
+            <div>
+              <div className="text-[20px] font-bold text-ink tabular-nums">{summary.pending}</div>
+              <div className="mt-0.5 text-[12px] text-muted">작성 대기</div>
+            </div>
+            <div className="border-l border-r border-hairlineSoft">
+              <div className="text-[20px] font-bold text-ink tabular-nums">{summary.reviewing}</div>
+              <div className="mt-0.5 text-[12px] text-muted">검수중</div>
+            </div>
+            <div>
+              <div className="text-[20px] font-bold text-ink tabular-nums">{summary.done}</div>
+              <div className="mt-0.5 text-[12px] text-muted">검수 완료</div>
+            </div>
+          </div>
+        </div>
+
+        {/* 상태 필터 칩 (시안) — 전체/검수중/검수 완료/반려 */}
+        <div className="mt-4 flex gap-1.5 overflow-x-auto scrollbar-none">
+          {chips.map((c) => {
+            const active = filter === c.key || (c.key === "all" && filter === "pending");
             return (
               <Link
-                key={t.key}
-                href={active ? hrefOf() : hrefOf(t.key)}
-                className={`cp-action rounded-lg p-4 bg-canvas ${active ? "border-[1.5px] border-brand" : "border border-hairline"}`}
+                key={c.key}
+                href={c.key === "all" ? hrefOf() : hrefOf(c.key)}
+                className={`cp-action h-10 px-4 rounded-pill text-[13px] whitespace-nowrap shrink-0 inline-flex items-center ${
+                  active ? "bg-ink text-white font-bold" : "bg-canvas border border-hairline text-ink2 font-medium"
+                }`}
               >
-                <div className={`text-[12px] ${active ? "text-brand font-semibold" : "text-muted"}`}>{t.label}</div>
-                <div className="text-[20px] font-bold text-ink tabular-nums mt-2 tracking-title">{t.count}건</div>
+                {c.label}
               </Link>
             );
           })}
         </div>
-        <div className="mt-2 flex items-center justify-between text-[12px] text-muted tabular-nums">
-          <span>이용 완료 {summary.usedTotal}건 기준</span>
-          {summary.resubmit > 0 && (
-            <Link
-              href={filter === "resubmit" ? hrefOf() : hrefOf("resubmit")}
-              className={`cp-action font-semibold ${filter === "resubmit" ? "text-brand" : "text-error"}`}
-            >
-              재작성 요청 {summary.resubmit}건 →
-            </Link>
-          )}
-        </div>
       </section>
 
-      <section className="px-5 mt-6 space-y-3 pb-6">
+      <section className="px-5 mt-4 space-y-3 pb-6">
         {passes.map((p) => {
           const store = stores.find((s) => s.id === p.storeId);
           const campaign = campaigns.find((c) => c.id === p.campaignId);
           const state = ownerReviewState(p)!;
           const overdue = isReviewOverdue(p, now);
           const deadline = reviewDeadline(p);
+          const dateAt = state === "pending" ? p.usedAt : (p.reviewSubmittedAt ?? p.usedAt);
           return (
             <article key={p.id} className="bg-canvas border border-hairline rounded-lg p-5">
-              <div className="flex items-center justify-between gap-2">
-                {/* [2026-07-31 보완] 체험권 번호 대신 캠페인명 표기 — 캠페인명은 선택 입력이라
-                    미작성(구버전 포함) 캠페인은 매장명으로 폴백 (§4-5 식별정보 비노출은 유지) */}
-                <span className="text-[12px] text-muted truncate min-w-0">{campaign?.title || store?.name}</span>
-                <span className="flex items-center gap-1.5">
+              {/* 캠페인명 최대 2줄 + 상태 칩 — [§4-5] 캠페인명(선택 입력) 미작성은 매장명 폴백 */}
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="flex-1 min-w-0 text-[17px] font-bold text-ink tracking-title leading-[1.35] line-clamp-2">
+                  {campaign?.title || store?.name}
+                </h3>
+                <span className="shrink-0 flex items-center gap-1.5 pt-0.5">
                   {overdue && (
-                    <span className="text-[11px] px-2 py-0.5 rounded-pill font-semibold bg-errorSoft text-error">기한 초과</span>
+                    <span className="text-[11px] px-2 py-1 rounded-pill font-semibold bg-errorSoft text-error">기한 초과</span>
                   )}
-                  <span className={`text-[11px] px-2 py-0.5 rounded-pill font-semibold ${stateTone[state]}`}>
+                  <span className={`text-[11px] px-2 py-1 rounded-pill font-semibold ${stateTone[state]}`}>
                     {OWNER_REVIEW_LABEL[state]}
                   </span>
                 </span>
               </div>
 
-              <h3 className="mt-3 text-[16px] font-bold text-ink">{store?.name}</h3>
-              <div className="text-[12px] text-muted mt-1 tabular-nums">
-                {p.usedAt ? `이용 ${fmtKst(p.usedAt)}` : "이용 일시 미기록"}
-                {state === "pending" && deadline != null && <> · 리뷰 기한 {fmtKst(deadline)}</>}
-                {state !== "pending" && p.reviewChannel && <> · {ch_label[p.reviewChannel]}</>}
-                {p.reviewSubmittedAt && <> · 제출 {fmtKst(p.reviewSubmittedAt)}</>}
+              {/* 채널 파스텔 배지 + 날짜 (시안 — 작성 대기는 이용일·리뷰 기한) */}
+              <div className="mt-2 flex items-center gap-2 text-[13px] text-ink2 tabular-nums">
+                {state !== "pending" && p.reviewChannel && <ChannelIcons channels={[p.reviewChannel]} />}
+                <span>
+                  {dateAt ? fmtKst(dateAt) : "일시 미기록"}
+                  {state === "pending" && deadline != null && <> · 리뷰 기한 {fmtKst(deadline)}</>}
+                </span>
               </div>
-
-              {/* 작성 대기 — 독촉 기능 없음 (§4-3), 기한 내/기한 초과 안내 카피 */}
-              {state === "pending" && (
-                <div className="mt-3 px-3 py-2.5 rounded-md bg-sunken text-[12px] text-muted leading-[1.5]">
-                  {overdue
-                    ? "리뷰 작성 기한이 지났어요. 운영팀에서 확인 및 안내를 진행합니다."
-                    : "체험자가 아직 리뷰를 제출하지 않았어요. 작성 기한 내에는 별도의 조치가 필요하지 않습니다."}
-                </div>
-              )}
 
               {state !== "pending" && p.reviewUrl && (
                 <a
                   href={p.reviewUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="cp-action mt-3 flex items-center gap-2 text-[13px] text-brand"
+                  className="cp-action mt-2.5 inline-flex items-center gap-1 text-[14px] font-semibold text-brand"
                 >
-                  <Icon name="arrow-right" variant="border" size={14} />
-                  <span className="truncate underline">{p.reviewUrl}</span>
+                  리뷰 보러가기 <Icon name="arrow-right" variant="border" size={13} />
                 </a>
               )}
 
               {state !== "pending" && p.reviewBody && (
-                <p className="mt-3 text-[14px] text-ink2 leading-[1.55] line-clamp-3">{p.reviewBody}</p>
+                <p className="mt-2.5 text-[14px] text-ink2 leading-[1.6] line-clamp-3">{p.reviewBody}</p>
               )}
 
+              {/* 상태 밴드 (시안) — 검수중 = 안내 / 반려 = 반려 사유. 검수 완료는 밴드 없음 */}
               {state === "reviewing" && (
-                <div className="mt-3 px-3 py-2.5 rounded-md bg-sunken text-[12px] text-muted leading-[1.5]">
-                  운영팀이 광고 표시·작성 조건을 점검하고 있어요 (영업일 기준 최대 3일). 사장님이 직접
-                  검수하실 필요가 없습니다.
+                <div className="mt-3 rounded-md bg-brandSoft px-3 py-2.5 text-center text-[12px] text-ink2">
+                  영업일 기준 최대 3일 이내로 검수 완료되어요
                 </div>
               )}
-
               {state === "resubmit" && (
-                <div className="mt-3 px-3 py-2.5 rounded-md bg-sunken text-[12px] text-muted leading-[1.5]">
-                  운영팀이 리뷰를 반려했어요. 체험자의 수정·재제출을 기다리고 있습니다.
+                <div className="mt-3 rounded-md bg-errorSoft px-3 py-2.5 text-[12px] text-error leading-[1.5]">
+                  반려 사유{p.rejectReason ? <> — <span className="text-ink2">{p.rejectReason}</span></> : "는 채널톡으로 확인해주세요"}
                 </div>
               )}
 
-              {state !== "pending" && (
-                <ReviewActions passId={p.id} storeName={store?.name} reviewUrl={p.reviewUrl} />
+              {/* 작성 대기 — 독촉 기능 없음 (§4-3), 기한 내/기한 초과 안내 카피 */}
+              {state === "pending" && (
+                <div className="mt-3 rounded-md bg-sunken px-3 py-2.5 text-[12px] text-muted leading-[1.5]">
+                  {overdue
+                    ? "리뷰 작성 기한이 지났어요. 운영팀에서 확인 및 안내를 진행합니다."
+                    : "체험자가 아직 리뷰를 제출하지 않았어요. 작성 기한 내에는 별도의 조치가 필요하지 않습니다."}
+                </div>
               )}
             </article>
           );

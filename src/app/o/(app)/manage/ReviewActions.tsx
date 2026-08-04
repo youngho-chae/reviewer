@@ -3,14 +3,20 @@ import { useState } from "react";
 
 // 사장님은 리뷰를 직접 검수/판정하지 않는다.
 // 재작성·수정·문제 발견 시 채널톡으로 운영팀에 문의 → 운영팀이 체험자와 소통.
+// 2026-08-04 시안: 카드별 버튼 대신 리뷰 관리 헤더의 "채널톡 문의하기 ↗" 단일 진입 —
+// trigger/className으로 트리거 형태를 커스텀한다 (채널톡 위젯 미로드 시 이메일 폴백 시트 동일).
 export default function ReviewActions({
   passId,
   storeName,
   reviewUrl,
+  trigger = "💬 채널톡으로 문의하기",
+  className = "cp-action mt-3 w-full h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink",
 }: {
-  passId: string;
+  passId?: string;
   storeName?: string;
   reviewUrl?: string;
+  trigger?: React.ReactNode;
+  className?: string;
 }) {
   const [opened, setOpened] = useState(false);
 
@@ -18,7 +24,7 @@ export default function ReviewActions({
     // 채널톡 위젯이 로드되어 있으면 호출, 아니면 모달로 안내
     const w = window as unknown as { ChannelIO?: (...args: unknown[]) => void };
     const payload = {
-      message: `[리뷰 문의]\n매장: ${storeName ?? "-"}\n패스 ID: ${passId}\nURL: ${reviewUrl ?? "-"}\n\n문의 내용: `,
+      message: `[리뷰 문의]\n매장: ${storeName ?? "-"}\n패스 ID: ${passId ?? "-"}\nURL: ${reviewUrl ?? "-"}\n\n문의 내용: `,
     };
     if (typeof w.ChannelIO === "function") {
       try {
@@ -33,12 +39,8 @@ export default function ReviewActions({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={openChanneltalk}
-        className="cp-action mt-3 w-full h-11 rounded-md border border-hairline bg-canvas text-[14px] font-semibold text-ink"
-      >
-        💬 채널톡으로 문의하기
+      <button type="button" onClick={openChanneltalk} className={className}>
+        {trigger}
       </button>
       {opened && (
         <div
@@ -57,11 +59,11 @@ export default function ReviewActions({
             </p>
             <div className="mt-4 rounded-md bg-sunken p-4 text-[13px] text-ink leading-[1.6] space-y-1">
               <div><span className="text-muted mr-2">매장</span>{storeName ?? "-"}</div>
-              <div><span className="text-muted mr-2">패스 ID</span>{passId}</div>
+              <div><span className="text-muted mr-2">패스 ID</span>{passId ?? "-"}</div>
               <div className="truncate"><span className="text-muted mr-2">URL</span>{reviewUrl ?? "-"}</div>
             </div>
             <a
-              href={`mailto:help@catchrank.co.kr?subject=${encodeURIComponent("[리뷰 문의] " + (storeName ?? passId))}&body=${encodeURIComponent(`매장: ${storeName ?? "-"}\n패스 ID: ${passId}\nURL: ${reviewUrl ?? "-"}\n\n문의 내용:\n`)}`}
+              href={`mailto:help@catchrank.co.kr?subject=${encodeURIComponent("[리뷰 문의] " + (storeName ?? passId ?? "리뷰 관리"))}&body=${encodeURIComponent(`매장: ${storeName ?? "-"}\n패스 ID: ${passId ?? "-"}\nURL: ${reviewUrl ?? "-"}\n\n문의 내용:\n`)}`}
               className="cp-action mt-5 block h-[52px] rounded-md bg-brand text-white grid place-items-center text-[16px] font-bold"
             >
               이메일로 보내기
