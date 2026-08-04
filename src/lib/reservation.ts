@@ -343,9 +343,45 @@ export function reservationStatusLabel(rsv: PassReservation): string {
   return RESERVATION_STATUS_LABEL[rsv.status];
 }
 
+// ── 사장님 확정 예약 취소 사유 (2026-08-04 — 4지선다 + 직접 입력, 데이터화·어드민 통계) ──
+// custom이면 Pass.cancelReason에 직접 입력 원문(100자), 그 외에는 라벨이 저장된다.
+export const OWNER_CANCEL_REASONS = [
+  { code: "time_error", label: "예약 가능 시간 착오" },
+  { code: "party_error", label: "예약 인원 확인 착오" },
+  { code: "menu_unavailable", label: "메뉴·상품 준비 불가" },
+  { code: "store_issue", label: "매장 운영 문제" },
+  { code: "custom", label: "직접 입력" },
+] as const;
+export type OwnerCancelReasonCode = NonNullable<Pass["cancelReasonCode"]>;
+
+export function ownerCancelReasonLabel(code: OwnerCancelReasonCode): string {
+  return OWNER_CANCEL_REASONS.find((r) => r.code === code)?.label ?? "직접 입력";
+}
+
+// 체험자 안내 문구 (2026-08-04) — 사장님이 선택한 사유를 단답이 아니라 **사과 톤 2~3줄로
+// 정제**해 노출한다 (확정 취소 = 매장 귀책, 체험자 무패널티·재신청 제한 없음 동반 안내).
+// 체험권 상세·목록 취소 서브 문구(cancelledCopy)와 취소 알림이 공유한다. 카피 원문주의.
+export function ownerCancelledReviewerCopy(code?: OwnerCancelReasonCode, cancelReason?: string): string {
+  const cause = (() => {
+    switch (code) {
+      case "time_error":
+        return "매장에서 예약 가능 시간을 잘못 확인해";
+      case "party_error":
+        return "매장에서 예약 인원을 잘못 확인해";
+      case "menu_unavailable":
+        return "매장에서 메뉴·상품 준비가 어려워져";
+      case "store_issue":
+        return "매장 운영에 문제가 생겨";
+      default:
+        return cancelReason ? `매장 사정(${cancelReason})으로` : "매장 사정으로";
+    }
+  })();
+  return `${cause} 확정된 예약을 부득이하게 취소하게 되었어요. 확정까지 마친 일정을 지켜드리지 못해 진심으로 사과드립니다. 체험자님께는 어떤 불이익도 없으며, 모집 중이라면 바로 다시 신청하실 수 있어요.`;
+}
+
 // 취소 상태 서브 문구 (§15-3) — 상태명은 '취소'로 통일하고 주체·원인은 서브 문구로 구분.
 // key: Pass.cancelledVia (undefined = 체험자 직접 취소)
-export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string): string {
+export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string, cancelReasonCode?: OwnerCancelReasonCode): string {
   switch (via) {
     case "proposal_declined":
       return "제안된 시간이 맞지 않아 취소했어요. 재신청 제한은 없어요.";
@@ -353,9 +389,8 @@ export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string):
       // 2026-07-23 시안 — 원인(시간 조율 실패)을 구체적으로 안내 (무응답 자동 취소도 동일 경위·동일 문구)
       return "예약 가능한 시간이 없어 사장님이 요청을 취소했어요.";
     case "owner_cancelled":
-      return cancelReason
-        ? `매장 사정으로 확정된 예약이 취소됐어요. (사유: ${cancelReason})`
-        : "매장 사정으로 확정된 예약이 취소됐어요.";
+      // 2026-08-04 — 단답형 "(사유: X)" 폐기, 선택 사유를 정제한 사과 톤 안내로
+      return ownerCancelledReviewerCopy(cancelReasonCode, cancelReason);
     case "admin_cancelled":
       return "운영 정책에 따라 예약이 취소됐어요.";
     case "campaign_closed":

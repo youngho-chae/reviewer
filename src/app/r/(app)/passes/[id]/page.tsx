@@ -463,7 +463,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           <div className="mt-6 rounded-md bg-sunken p-5">
             {/* 상태명은 '취소'로 통일, 주체·원인은 서브 문구로 구분 (§15-3·§10-3) */}
             <div className="text-[15px] font-semibold text-ink">취소된 체험권입니다</div>
-            <p className="mt-1.5 text-[14px] text-muted leading-[1.6]">{cancelledCopy(pass.cancelledVia, pass.cancelReason)}</p>
+            <p className="mt-1.5 text-[14px] text-muted leading-[1.6]">{cancelledCopy(pass.cancelledVia, pass.cancelReason, pass.cancelReasonCode)}</p>
           </div>
         )}
       </div>

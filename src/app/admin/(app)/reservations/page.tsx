@@ -7,6 +7,7 @@ import {
   reservationEpoch,
   reservationHistoryLines,
   reviewerCounterUsed,
+  OWNER_CANCEL_REASONS,
 } from "@/lib/reservation";
 import AdminReservationCancel from "./AdminReservationCancel";
 
@@ -86,6 +87,15 @@ export default async function AdminReservations({
     .filter((r) => (reviewer ? r.p.reviewerId === reviewer : true))
     .sort((a, b) => b.epoch - a.epoch);
 
+  // 매장 확정 취소 사유 통계 (2026-08-04 — 4지선다+직접 입력 데이터화, 필터와 무관한 전체 집계).
+  // 코드 도입 전 구버전 건은 "미분류"로 별도 표기.
+  const ownerCancelled = db.passes.filter((p) => p.reservation && p.cancelledVia === "owner_cancelled");
+  const reasonStats = OWNER_CANCEL_REASONS.map((r) => ({
+    ...r,
+    count: ownerCancelled.filter((p) => p.cancelReasonCode === r.code).length,
+  }));
+  const unclassified = ownerCancelled.filter((p) => !p.cancelReasonCode).length;
+
   const campaignsWithRsv = db.campaigns.filter((c) => db.passes.some((p) => p.campaignId === c.id && p.reservation));
   const ownersWithRsv = db.owners.filter((o) => db.passes.some((p) => p.ownerId === o.id && p.reservation));
   const reviewersWithRsv = db.reviewers.filter((r) => db.passes.some((p) => p.reviewerId === r.id && p.reservation));
@@ -105,6 +115,32 @@ export default async function AdminReservations({
           <div className="text-[12px] text-muted mt-2">
             변경·취소 주체와 사유는 각 건의 협상 이력에서 확인 — 수동 취소는 §15-3 고정 문구로 안내된다
           </div>
+        </div>
+
+        {/* 매장 확정 취소 사유 통계 (2026-08-04 §15.3) — 확정 후 매장 취소는 모집 슬롯
+            미복원(사용 처리 간주) 패널티 대상이라 사유 분포를 상시 모니터링한다 */}
+        <div className="mt-3 rounded-lg border border-hairline bg-canvas p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-[12px] text-muted">매장 확정 취소 사유 통계</div>
+            <div className="text-[13px] font-bold text-ink tabular-nums">총 {ownerCancelled.length}건</div>
+          </div>
+          <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {reasonStats.map((r) => (
+              <div key={r.code} className="flex items-center justify-between text-[12px]">
+                <span className="text-ink2">{r.label}</span>
+                <span className={`font-bold tabular-nums ${r.count > 0 ? "text-ink" : "text-mutedSoft"}`}>{r.count}건</span>
+              </div>
+            ))}
+            {unclassified > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-muted">미분류 (사유 코드 도입 전)</span>
+                <span className="font-bold text-ink tabular-nums">{unclassified}건</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-2.5 text-[11px] text-muted leading-[1.5]">
+            직접 입력 원문은 아래 취소 건 카드의 사유에서 확인 — 확정 후 매장 취소 건은 모집 인원이 복원되지 않는다.
+          </p>
         </div>
       </section>
 

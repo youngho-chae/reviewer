@@ -304,6 +304,10 @@ export interface Pass {
   //  - "admin_cancelled"    : 운영자 수동 취소 (13-1)
   // undefined 외 모든 경위는 패널티·12h 재신청 제한을 적용하지 않는다 (체험자 귀책 아님).
   cancelledVia?: "proposal_declined" | "owner_declined" | "owner_cancelled" | "admin_cancelled" | "campaign_closed";
+  // 사장님 확정 취소 사유 코드 (2026-08-04 — 4지선다+직접 입력 데이터화, 어드민 통계용.
+  // 정본 라벨·정제 안내 문구: src/lib/reservation.ts OWNER_CANCEL_REASONS. custom이면
+  // cancelReason에 직접 입력 원문, 그 외에는 라벨이 저장된다)
+  cancelReasonCode?: "time_error" | "party_error" | "menu_unavailable" | "store_issue" | "custom";
   // 사장님(확정 취소)·운영자 취소 사유 — 체험자 화면에 그대로 노출 (5-3)
   cancelReason?: string;
   paidAmount?: number;
