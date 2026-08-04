@@ -205,6 +205,13 @@ export default function NewCampaign() {
   const refillAmt = refill?.bonus ?? 0;
   const baseLimit = monthlyLimit === null ? null : monthlyLimit - refillAmt;
   const shownUsed = baseLimit === null ? 0 : Math.min(baseLimit, Math.max(0, monthlyUsed - refillAmt));
+  // 잔여 카운팅 표기 (2026-08-04 — 홈과 동일 통일: 사용량 표기는 홈의 "n 남음"과 달라 혼선).
+  // 단계 색도 홈과 동일: 잔여 50% 초과 퍼플 / 11~50% 노랑 / 1~10% 빨강(숫자도 빨강)
+  const shownRemain = baseLimit === null ? null : baseLimit - shownUsed;
+  const remainPct =
+    baseLimit === null || shownRemain === null ? 100 : Math.max(0, Math.round((shownRemain / Math.max(baseLimit, 1)) * 100));
+  const barTone = remainPct > 50 ? "bg-brand" : remainPct > 10 ? "bg-warning" : "bg-error";
+  const remainTone = remainPct > 10 ? "text-ink" : "text-error";
 
   // 진행 일수 — 직접입력이면 7~30일 범위 내에서만 유효 (2026-08-03)
   const effDays = daysCustom ? Number(customDays) : days;
@@ -506,8 +513,9 @@ export default function NewCampaign() {
           <div className="mt-3 rounded-md bg-sunken p-4">
             <div className="flex items-center gap-2">
               <span className="text-[14px] font-semibold text-ink2">{plan}</span>
-              <span className="text-[15px] font-bold text-ink tabular-nums">
-                {shownUsed} / {baseLimit ?? "—"}
+              <span className="text-[15px] font-bold tabular-nums">
+                <span className={remainTone}>{shownRemain ?? "—"} 남음</span>
+                <span className="text-ink"> / {baseLimit ?? "—"}</span>
               </span>
               {/* [리필하기] (2026-07-31 2차 보완) — 보유 쿠폰 없으면 구매, 있으면 사용 (홈과 동일 플로우) */}
               {refill && (
@@ -522,17 +530,12 @@ export default function NewCampaign() {
                 />
               )}
             </div>
-            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조).
+            {/* 잔여 게이지 — 100%에서 시작해 사용할수록 줄어든다 (홈과 동일 구조·단계 색).
                 리필 구매 시 표시 사용량이 차감되어 다시 차오른다 (누적 한도 비노출) */}
             <div className="mt-2.5 h-2 rounded-pill bg-canvas overflow-hidden">
               <div
-                className="h-full rounded-pill bg-brand"
-                style={{
-                  width:
-                    baseLimit === null
-                      ? "0%"
-                      : `${Math.max(0, Math.round(((baseLimit - shownUsed) / Math.max(baseLimit, 1)) * 100))}%`,
-                }}
+                className={`h-full rounded-pill ${barTone}`}
+                style={{ width: baseLimit === null ? "0%" : `${remainPct}%` }}
               />
             </div>
             {/* [확정 정책 8-3] 등급 우선 모집(부스팅) 표기는 도입하지 않는다 — 전 플랜 균등 배분 */}
