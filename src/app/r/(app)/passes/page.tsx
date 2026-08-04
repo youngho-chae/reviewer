@@ -108,7 +108,7 @@ export default async function MyPasses({
       reservationStatus: p.reservation?.status ?? null,
       reservationStatusLabel: p.reservation ? reservationStatusLabel(p.reservation) : null,
       // 취소 서브 문구 (§15-3) — 주체·원인 구분 (상태명은 '취소'로 통일)
-      cancelledNote: p.status === "cancelled" ? cancelledCopy(p.cancelledVia, p.cancelReason) : null,
+      cancelledNote: p.status === "cancelled" ? cancelledCopy(p.cancelledVia, p.cancelReason, p.cancelReasonCode) : null,
       // 매장·운영 귀책 취소 — 안내 박스 연보라 강조 (2026-07-23 시안)
       cancelledByOwner: ["owner_declined", "owner_cancelled", "admin_cancelled"].includes(p.cancelledVia ?? ""),
     };

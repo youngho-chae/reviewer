@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SBUI, sbNum } from "@/lib/storyboard";
-import { PROPOSAL_MAX_SLOTS, PROPOSAL_NOTE_MAX } from "@/lib/reservation";
+import { PROPOSAL_MAX_SLOTS, PROPOSAL_NOTE_MAX, OWNER_CANCEL_REASONS } from "@/lib/reservation";
 
 /**
  * 예약 정보 상세 (2026-07-28 시안) — [관리]-[예약관리] 카드에서 진입하는 다음 depth.
@@ -58,7 +58,9 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
   const [monthIdx, setMonthIdx] = useState(0); // 표시 월 (첫 선택 가능일 기준 오프셋)
   const [pickDate, setPickDate] = useState<string | null>(null); // 시트에서 현재 고른 날짜
   const [cancelling, setCancelling] = useState(false); // 확정 취소 폼 (§5-3 — 홈 큐에서 이관)
-  const [cancelReason, setCancelReason] = useState("");
+  // 취소 사유 = 4지선다 + 직접 입력 (2026-08-04 — cancelReasonCode 데이터화·어드민 통계)
+  const [cancelCode, setCancelCode] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState(""); // 직접 입력 텍스트 (custom 전용)
 
   const actionable = data.state === "requested" || data.state === "counter";
   const chip = STATE_CHIP[data.state];
@@ -252,8 +254,9 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
           </div>
         )}
 
-        {/* 확정 예약 취소 (§5-3 — 2026-07-28 홈 큐 제거로 상세에 이관): 매장 사정 예외 처리,
-            사유 필수·체험자 원문 안내·QR 즉시 무효. 체험자 패널티·재신청 제한 없음 */}
+        {/* 확정 예약 취소 (§5-3 — 2026-07-28 홈 큐 제거로 상세에 이관 · 2026-08-04 개정):
+            사유 = 4지선다 + 직접 입력(데이터화), 체험자에게는 정제된 사과 안내로 노출.
+            패널티: 확정 취소 건은 사용 처리 완료로 간주 — 모집 인원 미복원 (§15.3) */}
         {data.state === "confirmed" && (
           <div className="mt-5">
             {!cancelling ? (
@@ -261,6 +264,7 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
                 type="button"
                 onClick={() => {
                   setCancelling(true);
+                  setCancelCode(null);
                   setCancelReason("");
                   setErr(null);
                 }}
@@ -271,16 +275,42 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
             ) : (
               <div className="rounded-sm bg-sunken px-3 py-2.5">
                 <p className="text-[12px] text-ink2 leading-[1.5]">
-                  확정된 예약을 취소해요 — 사유는 체험자에게 그대로 안내되고, QR은 즉시 사용할 수 없게 돼요. 체험자
-                  패널티·재신청 제한은 없어요.
+                  확정된 예약을 취소해요 — 선택한 사유는 체험자에게 안내되고, QR은 즉시 사용할 수 없게 돼요.
+                  <br />
+                  <span className="font-semibold text-error">
+                    확정 후 취소한 건은 사용 처리가 완료된 것으로 간주되어 모집 인원이 복원되지 않아요.
+                  </span>{" "}
+                  체험자 패널티·재신청 제한은 없어요.
                 </p>
-                <input
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value.slice(0, 100))}
-                  placeholder="취소 사유 (필수) — 예: 매장 사정으로 휴무예요"
-                  className="mt-2 w-full h-9 px-3 rounded-sm border border-hairline bg-canvas text-[13px] text-ink placeholder:text-mutedSoft"
-                />
-                <div className="mt-2 flex gap-2">
+                {/* 취소 사유 4지선다 + 직접 입력 (2026-08-04) */}
+                <div className="mt-2.5 space-y-1.5" role="radiogroup" aria-label="취소 사유">
+                  {OWNER_CANCEL_REASONS.map((r) => (
+                    <label
+                      key={r.code}
+                      className={`flex items-center gap-2 h-10 px-3 rounded-sm border bg-canvas text-[13px] cursor-pointer ${
+                        cancelCode === r.code ? "border-brand text-ink font-semibold" : "border-hairline text-ink2"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancel-reason"
+                        checked={cancelCode === r.code}
+                        onChange={() => setCancelCode(r.code)}
+                        className="accent-[#9333EA]"
+                      />
+                      {r.label}
+                    </label>
+                  ))}
+                </div>
+                {cancelCode === "custom" && (
+                  <input
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value.slice(0, 100))}
+                    placeholder="취소 사유 직접 입력 (필수)"
+                    className="mt-2 w-full h-9 px-3 rounded-sm border border-hairline bg-canvas text-[13px] text-ink placeholder:text-mutedSoft"
+                  />
+                )}
+                <div className="mt-2.5 flex gap-2">
                   <button
                     type="button"
                     onClick={() => setCancelling(false)}
@@ -291,13 +321,17 @@ export default function ReservationDetail({ data }: { data: ReservationDetailDat
                   <button
                     type="button"
                     onClick={async () => {
-                      const ok = await post("/api/owner/reserve-cancel", { passId: data.passId, reason: cancelReason.trim() });
+                      const ok = await post("/api/owner/reserve-cancel", {
+                        passId: data.passId,
+                        reasonCode: cancelCode,
+                        reason: cancelCode === "custom" ? cancelReason.trim() : undefined,
+                      });
                       if (ok) {
                         setCancelling(false);
                         router.refresh();
                       }
                     }}
-                    disabled={busy || !cancelReason.trim()}
+                    disabled={busy || !cancelCode || (cancelCode === "custom" && !cancelReason.trim())}
                     className="cp-action h-8 px-3.5 rounded-sm bg-errorSoft text-error text-[12px] font-bold disabled:opacity-60"
                   >
                     {busy ? "취소 중..." : "예약 취소하기"}
