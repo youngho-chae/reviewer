@@ -51,6 +51,15 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
   const shownUsed = Math.min(monthLimit, Math.max(0, monthUsed - refill));
   const ownedCoupons = ownedRefills(db, me.id).length; // 보유(미사용) 리필권 — [리필하기] 분기
 
+  // 잔여 카운팅 표기 (2026-08-03 시안) — 게이지와 동일하게 "n 남음 / 한도"로 감소.
+  // 단계 색: 잔여 50% 초과 = 퍼플(기본, 시안 블루는 v2 규칙으로 치환) / 11~50% = 노랑 /
+  // 1~10% = 빨강(숫자도 빨강) / 0 = 소진 상태(errorSoft 배경 + 안내 + 플랜 업셀 CTA)
+  const shownRemain = monthLimit - shownUsed;
+  const remainPct = Math.max(0, Math.round((shownRemain / Math.max(monthLimit, 1)) * 100));
+  const depleted = shownRemain <= 0;
+  const barTone = remainPct > 50 ? "bg-brand" : remainPct > 10 ? "bg-warning" : "bg-error";
+  const remainTone = remainPct > 10 ? "text-ink" : "text-error";
+
   // ── 진행 중인 캠페인 카드 ──
   const now = Date.now();
   const items: HomeCampaignItem[] = myCampaigns
@@ -110,10 +119,13 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
             <div className="mt-0.5 text-[12px] text-muted">검수 중인 리뷰</div>
           </div>
         </div>
-        <div className="mt-4 pt-3 border-t border-hairlineSoft">
+        {/* 소진 시(잔여 0) 하단 영역은 errorSoft로 카드 가장자리까지 확장 (2026-08-03 시안) */}
+        <div className={`mt-4 pt-3 border-t border-hairlineSoft ${depleted ? "-mx-4 -mb-4 px-4 pb-4 rounded-b-lg bg-errorSoft" : ""}`}>
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-[13px] font-semibold text-ink tabular-nums">
-              모집 한도 {shownUsed}/{monthLimit}
+            <span className="flex items-center gap-2 text-[13px] text-ink tabular-nums">
+              모집 한도
+              <span className={`font-bold ${remainTone}`}>{shownRemain} 남음</span>
+              <span className="-ml-0.5 font-semibold">/ {monthLimit}</span>
               {/* [리필하기] (2026-07-31 2차 보완) — 보유 쿠폰 없으면 구매, 있으면 사용 플로우 */}
               <RefillFlow
                 plan={me.plan}
@@ -131,13 +143,33 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
           {/* 잔여 게이지 (2026-07-28) — 100%에서 시작해 사용할수록 줄어든다 (전 플랜 유한 한도).
               리필 구매 시 표시 사용량이 차감되어 게이지가 다시 차오른다 (누적 한도 비노출) */}
           <div className="mt-2 h-2 rounded-pill bg-canvas overflow-hidden">
-            <div
-              className="h-full rounded-pill bg-brand"
-              style={{
-                width: `${Math.max(0, Math.round(((monthLimit - shownUsed) / Math.max(monthLimit, 1)) * 100))}%`,
-              }}
-            />
+            <div className={`h-full rounded-pill ${barTone}`} style={{ width: `${remainPct}%` }} />
           </div>
+          {depleted && (
+            <>
+              <p className="mt-3 text-[12px] font-medium text-error leading-[1.5]">
+                ⚠️ 이번 주기 모집 한도를 모두 사용했어요. 새 캠페인을 만들려면 한도를 늘려주세요.
+              </p>
+              {/* 업셀 CTA — Premium은 최고 플랜이라 리필 플로우로 대체 (§3.1 업셀 원칙과 정합) */}
+              {me.plan === "Premium" ? (
+                <RefillFlow
+                  plan={me.plan}
+                  grant={refillGrantFor(me.plan)}
+                  price={REFILL_PRICE}
+                  owned={ownedCoupons}
+                  trigger="리필권으로 한도 늘리기"
+                  className="cp-action mt-3 w-full h-12 rounded-md bg-brand text-white text-[15px] font-bold grid place-items-center"
+                />
+              ) : (
+                <Link
+                  href="/o/membership"
+                  className="cp-action mt-3 w-full h-12 rounded-md bg-brand text-white text-[15px] font-bold grid place-items-center"
+                >
+                  플랜 올리기
+                </Link>
+              )}
+            </>
+          )}
         </div>
       </div>
 
