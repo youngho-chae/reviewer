@@ -19,11 +19,13 @@ import { reviewDeadline } from "./pass-lifecycle";
 
 export type OwnerReviewState = "pending" | "reviewing" | "done" | "resubmit";
 
+// 라벨 (2026-08-04 리뷰 관리 시안 개편 — "검수 중"→"검수중"·"완료"→"검수 완료"·
+// "재작성 요청"→"반려". 상태 정의·집계는 §4-1 그대로, 표기 라벨만 정리)
 export const OWNER_REVIEW_LABEL: Record<OwnerReviewState, string> = {
   pending: "작성 대기",
-  reviewing: "검수 중",
-  done: "완료",
-  resubmit: "재작성 요청",
+  reviewing: "검수중",
+  done: "검수 완료",
+  resubmit: "반려",
 };
 
 export function ownerReviewState(p: Pick<Pass, "status">): OwnerReviewState | null {
