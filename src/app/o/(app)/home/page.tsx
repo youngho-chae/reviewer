@@ -7,24 +7,21 @@ import { billingCycle, cycleLabel } from "@/lib/billing-cycle";
 import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import Icon from "@/components/Icon";
-import StoreSwitcher from "./StoreSwitcher";
 import HomeCampaigns, { type HomeCampaignItem } from "./HomeCampaigns";
 
 export const dynamic = "force-dynamic";
 
-// 사장님 홈 (2026-07-28 개편 2단계 — 시안) — 로고+매장 스위처 → 모집 현황(결제 주기 기간 표기)
+// 사장님 홈 (2026-07-28 개편 2단계 — 시안) — 로고 → 모집 현황(결제 주기 기간 표기)
 // (방문 예정·사용 완료·검수 중인 리뷰 + 모집 한도 프로그레스·플랜) → [새 캠페인 등록 |
 // 예약 관리] → 진행 중인 캠페인(유형 칩 + 신형 카드, 전체보기 = [관리] 탭).
 // 구 홈의 [방문 예약|발송 대기] 큐는 제거 — 예약 처리(확정·제안·거절·확정 취소)는
 // [관리]-[예약관리]·예약 정보 상세로 이관 (2026-07-28).
-export default async function OwnerHome({ searchParams }: { searchParams: Promise<{ store?: string }> }) {
-  const { store: storeParam } = await searchParams;
+// 매장별 드롭다운 필터(StoreSwitcher·?store=)는 2026-08-04 제거 — 홈은 항상 전 매장 기준.
+export default async function OwnerHome() {
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const myStores = db.stores.filter((s) => s.ownerId === me.id);
-  const currentStore = myStores.some((s) => s.id === storeParam) ? storeParam! : "all";
-  const storeIds = currentStore === "all" ? myStores.map((s) => s.id) : [currentStore];
-  const myCampaigns = db.campaigns.filter((c) => storeIds.includes(c.storeId));
+  const myCampaigns = db.campaigns.filter((c) => myStores.some((s) => s.id === c.storeId));
   const campaignIds = new Set(myCampaigns.map((c) => c.id));
   const myPasses = db.passes.filter((p) => p.ownerId === me.id && campaignIds.has(p.campaignId));
 
@@ -91,10 +88,9 @@ export default async function OwnerHome({ searchParams }: { searchParams: Promis
 
   return (
     <div className="pb-24 bg-canvas">
-      {/* 로고 + 매장 스위처 (시안 — 로고 영역 + ▾) */}
-      <div className="px-5 pt-12 pb-4 flex items-center gap-3">
+      {/* 로고 (매장별 드롭다운 필터는 2026-08-04 제거) */}
+      <div className="px-5 pt-12 pb-4 flex items-center">
         <span className="text-[15px] font-bold text-brand tracking-title">CATCHPASS</span>
-        <StoreSwitcher stores={myStores.map((s) => ({ id: s.id, name: s.name }))} current={currentStore} />
       </div>
 
       {/* 모집 현황 — 파스텔 카드 + 모집 한도 프로그레스 (시안).

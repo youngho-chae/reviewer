@@ -11,6 +11,8 @@ export default async function OwnerMe() {
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const stores = db.stores.filter((s) => s.ownerId === me.id);
+  // 대표 매장 (2026-07-31 — Owner.primaryStoreId, 미지정 시 첫 매장. 지정은 [매장 정보])
+  const primaryStore = stores.find((s) => s.id === me.primaryStoreId) ?? stores[0];
   const passes = db.passes.filter((p) => p.ownerId === me.id);
   const totalReviews = passes.filter((p) => p.status === "completed").length;
   const totalSupport = passes.reduce((s, p) => s + (p.supportApplied || 0), 0);
@@ -34,10 +36,11 @@ export default async function OwnerMe() {
       </div>
 
       <div className="px-5">
+        {/* 프로필 카드 (2026-08-04) — 이메일 제거, '대표매장' 라벨 + 매장명 + 카테고리 */}
         <div className="rounded-lg border border-hairline bg-canvas p-5">
-          <div className="text-[12px] text-muted">{me.email}</div>
-          <div className="text-[18px] font-bold text-ink mt-1 tracking-title">{me.storeName}</div>
-          <div className="text-[13px] text-muted mt-0.5">{me.area} · {me.category}</div>
+          <div className="text-[12px] font-semibold text-brand">대표매장</div>
+          <div className="text-[18px] font-bold text-ink mt-1 tracking-title">{primaryStore?.name ?? me.storeName}</div>
+          <div className="text-[13px] text-muted mt-0.5">{primaryStore?.category ?? me.category}</div>
         </div>
 
         <div className="mt-3 rounded-lg border border-hairline bg-canvas p-4">
