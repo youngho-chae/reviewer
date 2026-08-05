@@ -52,14 +52,15 @@ export default async function OwnerStores() {
             (지역·평점·영업시간·이모지 커버는 제거) */}
         {stores.map((s) => (
           <div key={s.id} className="rounded-lg border border-hairline bg-canvas overflow-hidden">
-            <div className="flex items-stretch">
+            {/* 썸네일 비율 = 체험자 체험권 화면과 동일 88×66 (4:3 — 2026-08-05 통일) */}
+            <div className="flex items-start gap-3 p-3.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={thumbOf(s.id, s.category, s.thumbnailUrl)}
                 alt={`${s.name} 썸네일`}
-                className="w-24 shrink-0 object-cover bg-sunken"
+                className="w-[88px] h-[66px] shrink-0 rounded-md object-cover bg-sunken"
               />
-              <div className="flex-1 min-w-0 p-3.5">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[15px] font-semibold text-ink truncate">{s.name}</div>
                   <PrimaryStoreButton storeId={s.id} isPrimary={s.id === primaryStoreId} />
