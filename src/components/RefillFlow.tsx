@@ -39,12 +39,22 @@ export default function RefillFlow({
 
   const done = () => (onDone ? onDone() : router.refresh());
 
+  // 닫기 — 구매 완료 안내(useNow)에서 닫으면(오버레이·[나중에 쓰기]) 구매가 이미 이뤄진
+  // 상태이므로 done()으로 보유 수·화면 갱신을 마무리한다 (2026-08-05)
+  const close = () => {
+    const purchased = step === "useNow";
+    setStep("closed");
+    if (purchased) done();
+  };
+
   function open() {
     setErr(null);
     setStep(mode === "buy" ? "buy" : owned > 0 ? "use" : "buy");
   }
 
-  // 구매 = 쿠폰 발급 (자동 적용 아님) → [지금 쓰기]/[나중에 쓰기] 선택 단계로
+  // 구매 = 쿠폰 발급 (자동 적용 아님) → [지금 쓰기]/[나중에 쓰기] 선택 단계로.
+  // done()은 여기서 호출하지 않는다 (2026-08-05) — onDone이 부모 시트를 닫는 화면(업셀 시트)에서
+  // 구매 직후 호출하면 RefillFlow가 언마운트되어 완료 모달이 사라진다. 플로우 종료 시점에 호출.
   async function buy() {
     setBusy(true);
     setErr(null);
@@ -61,7 +71,6 @@ export default function RefillFlow({
     }
     setBoughtAmount(j.amount ?? grant);
     setStep("useNow");
-    done(); // 보유 수 갱신
   }
 
   async function useOne() {
@@ -83,7 +92,7 @@ export default function RefillFlow({
   }
 
   const sheet = (content: ReactNode) => (
-    <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => !busy && setStep("closed")}>
+    <div className="fixed inset-0 bg-ink/45 z-50 flex items-end" onClick={() => !busy && close()}>
       <div className="w-full rounded-t-xl bg-canvas p-5 pb-8" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-center mb-3">
           <span className="w-9 h-1 rounded-pill bg-borderStrong" />
@@ -95,7 +104,7 @@ export default function RefillFlow({
 
   // 중앙 모달 (2026-08-04) — 구매 완료 안내·보유 쿠폰 사용 확인은 시트 대신 모달로
   const modal = (content: ReactNode) => (
-    <div className="fixed inset-0 bg-ink/45 z-50 grid place-items-center px-6" onClick={() => !busy && setStep("closed")}>
+    <div className="fixed inset-0 bg-ink/45 z-50 grid place-items-center px-6" onClick={() => !busy && close()}>
       <div className="w-full rounded-xl bg-canvas p-5" onClick={(e) => e.stopPropagation()}>
         {content}
       </div>
@@ -164,7 +173,7 @@ export default function RefillFlow({
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
-                onClick={() => setStep("closed")}
+                onClick={close}
                 disabled={busy}
                 className="cp-action flex-1 h-12 rounded-md bg-sunken text-[15px] font-semibold text-ink disabled:opacity-60"
               >

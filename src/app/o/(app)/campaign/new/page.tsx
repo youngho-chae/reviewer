@@ -1293,6 +1293,7 @@ export default function NewCampaign() {
                     </div>
                   );
                 })()}
+              {/* 리필권 구매 카드 (2026-08-05 시안 — 구매/보유 사용 분리, CTA = [리필권 구매] 고정 구매 플로우) */}
               {plan !== "Free" && (
                 <div className={`rounded-lg bg-canvas p-4 ${plan === "Premium" ? "border-[1.5px] border-brand" : "border border-hairline"}`}>
                   <div className="text-[15px] font-bold text-ink">모집 한도 리필권</div>
@@ -1305,7 +1306,8 @@ export default function NewCampaign() {
                     grant={refill.grant}
                     price={refill.price}
                     owned={refill.owned}
-                    trigger="리필하기"
+                    mode="buy"
+                    trigger="리필권 구매"
                     className={`cp-action mt-3 w-full h-12 rounded-md text-[15px] font-bold ${
                       plan === "Premium" ? "bg-brand text-white" : "border border-hairline bg-canvas text-ink"
                     }`}
@@ -1320,6 +1322,27 @@ export default function NewCampaign() {
                   {plan === "Premium" && (
                     <p className="mt-2 text-[11px] text-muted leading-[1.5]">추가 한도는 다음 결제일 전까지 사용할 수 있어요.</p>
                   )}
+                </div>
+              )}
+              {/* 보유한 리필권 사용 카드 (2026-08-05 시안 — 보유 쿠폰이 있을 때만) */}
+              {plan !== "Free" && refill.owned > 0 && (
+                <div className="rounded-lg bg-canvas p-4 border border-hairline">
+                  <div className="text-[15px] font-bold text-ink">보유한 리필권 사용</div>
+                  <p className="mt-1.5 text-[13px] text-ink2 leading-[1.5]">
+                    사용하면 이번 결제 주기 모집 한도가 늘어나고, 추가된 한도는 이번 결제 주기까지만 유효해요.
+                  </p>
+                  <RefillFlow
+                    plan={plan}
+                    grant={refill.grant}
+                    price={refill.price}
+                    owned={refill.owned}
+                    trigger="사용하기"
+                    className="cp-action mt-3 w-full h-12 rounded-md text-[15px] font-bold border border-hairline bg-canvas text-ink"
+                    onDone={() => {
+                      setUpsellOpen(false);
+                      loadMe(false);
+                    }}
+                  />
                 </div>
               )}
             </div>
