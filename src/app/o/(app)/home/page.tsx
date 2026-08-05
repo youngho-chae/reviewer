@@ -4,6 +4,7 @@ import { getDBAsync } from "@/lib/db";
 import { PLAN_POLICY } from "@/lib/plan-policy";
 import { refillBonus, refillGrantFor, ownedRefills, REFILL_PRICE } from "@/lib/limit-refill";
 import { billingCycle, cycleLabel } from "@/lib/billing-cycle";
+import { coverForCampaign } from "@/lib/store-photo";
 import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import Icon from "@/components/Icon";
@@ -78,6 +79,8 @@ export default async function OwnerHome() {
         reserveRequired,
         title: c.title,
         storeName: store?.name ?? "",
+        // 썸네일 (2026-08-05) — 캠페인 대표 사진([0]), 체험자 카드와 동일 소스
+        thumb: coverForCampaign(c.photos, c.storeId, store?.category),
         daysLeft: Math.max(0, Math.ceil((c.endAt - now) / 86400000)),
         pendingLabel: isDelivery ? "발송 대기" : reserveRequired ? "예약 확인 필요" : "방문 예정",
         pendingCount,
