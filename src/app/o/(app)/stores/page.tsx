@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
+import { coverForCampaign } from "@/lib/store-photo";
 import PrimaryStoreButton from "./PrimaryStoreButton";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,13 @@ export default async function OwnerStores() {
   // 대표 매장 (2026-07-31) — 미지정/소유 아님이면 첫 매장 폴백 (새 캠페인 생성 기본 선택)
   const primaryStoreId =
     me.primaryStoreId && stores.some((s) => s.id === me.primaryStoreId) ? me.primaryStoreId : stores[0]?.id;
+  // 실제 썸네일 1장 (2026-08-04) — 플레이스 첫 썸네일(thumbnailUrl) 우선,
+  // 없으면 최신 캠페인 대표 사진([0]) → 결정론 폴백 (coverForCampaign)
+  const thumbOf = (storeId: string, category: string, thumbnailUrl?: string) => {
+    if (thumbnailUrl) return thumbnailUrl;
+    const latest = db.campaigns.filter((c) => c.storeId === storeId).sort((a, b) => b.createdAt - a.createdAt)[0];
+    return coverForCampaign(latest?.photos, storeId, category);
+  };
 
   return (
     <div className="pb-24 bg-canvas">
@@ -39,18 +47,25 @@ export default async function OwnerStores() {
 
       <h2 className="px-5 mt-7 text-[18px] font-bold text-ink tracking-title">내 매장 {stores.length}곳</h2>
       <div className="px-5 mt-3 space-y-3">
+        {/* 매장 카드 (2026-08-04 개선) — 표기 항목 고정: 실제 썸네일 1장 · 매장명 ·
+            카테고리 · 전체 주소 · [대표 매장으로 지정] · [네이버 플레이스에서 보기]
+            (지역·평점·영업시간·이모지 커버는 제거) */}
         {stores.map((s) => (
           <div key={s.id} className="rounded-lg border border-hairline bg-canvas overflow-hidden">
-            <div className="flex">
-              <div className="w-24 bg-sunken grid place-items-center text-[44px]">{s.coverEmoji}</div>
-              <div className="flex-1 p-3">
+            <div className="flex items-stretch">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={thumbOf(s.id, s.category, s.thumbnailUrl)}
+                alt={`${s.name} 썸네일`}
+                className="w-24 shrink-0 object-cover bg-sunken"
+              />
+              <div className="flex-1 min-w-0 p-3.5">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[15px] font-semibold text-ink">{s.name}</div>
+                  <div className="text-[15px] font-semibold text-ink truncate">{s.name}</div>
                   <PrimaryStoreButton storeId={s.id} isPrimary={s.id === primaryStoreId} />
                 </div>
-                <div className="text-[12px] text-muted mt-0.5">{s.area} · {s.category} · ★ {s.rating}</div>
-                {s.address && <div className="text-[12px] text-muted mt-1">📍 {s.address}</div>}
-                <div className="text-[12px] text-muted mt-1">🕐 {s.hours}</div>
+                <div className="text-[12px] text-muted mt-0.5">{s.category}</div>
+                {s.address && <div className="text-[12px] text-ink2 mt-1 leading-[1.5]">{s.address}</div>}
                 {s.naverPlaceId && (
                   <a
                     href={`https://m.place.naver.com/place/${s.naverPlaceId}`}
