@@ -72,6 +72,9 @@ export interface Reviewer {
   // 상생 리뷰어 뱃지 — 표면적 신뢰 표식(지원금 배율·참여 조건 무영향, P1 무관).
   // 유예 1개월: lastQualifiedMonth가 평가월 직전 월이면 유지, 2개월 연속 미달 시 회수.
   winWinBadge?: { since: number; lastQualifiedMonth: string };
+  // 프로필 사진 (2026-08-05 — 마이페이지 아바타 꾸미기, dataURL 240px JPEG).
+  // 본인 마이페이지 전용 표시 — 사장님·어드민 화면 노출 없음 (§4-5 식별정보 비노출과 무관)
+  profileImage?: string;
 }
 
 export interface Owner {
