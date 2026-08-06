@@ -8,6 +8,7 @@ import { getDBAsync } from "@/lib/db";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import { pointBalance } from "@/lib/points";
 import { SBUI, sbNum } from "@/lib/storyboard";
+import ProfileAvatar from "./ProfileAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -45,42 +46,39 @@ export default async function Me() {
         </div>
       </div>
 
-      {/* Parchment profile hero */}
-      <section className="bg-parchment px-6 pt-12 pb-10 text-center">
-        <div className="w-20 h-20 mx-auto rounded-full bg-canvas border border-hairline flex items-center justify-center mb-4">
-          <span className="text-[22px] font-bold text-ink leading-none">{me.nickname.slice(0, 1)}</span>
-        </div>
-        <h1 className="text-[20px] font-bold tracking-title leading-[1.3] text-ink">{me.nickname}</h1>
-        <p className="mt-2 text-[15px] text-ink2">{me.email}</p>
-        <Link href="/r/grade" className="cp-action mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-canvas rounded-pill border border-hairline">
-          <GradeBadge grade={eff.grade} size="sm" />
-          <span className="text-[14px] text-ink">{eff.grade}등급</span>
-          <span className="text-[13px] text-brand">자세히 →</span>
-        </Link>
-        {me.winWinBadge && (
-          <div className="mt-2.5 flex justify-center">
-            {/* 상생 리뷰어 — 표시용 신뢰 표식 (지원금 배율·참여 조건 무영향) */}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-brandSoft text-brand text-[13px] font-semibold">
-              🤝 상생 리뷰어
-            </span>
+      {/* 프로필 카드 (2026-08-05 개편) — 구 parchment 히어로(중앙 정렬·과대 여백)와 스탯
+          스트립을 한 카드로 병합. 이메일·리뷰 점수(qualityScore — deprecated) 표기 제거,
+          아바타는 사진 업로드로 꾸미기 (ProfileAvatar — 미설정 시 첫 글자) */}
+      <section className="px-5 pt-2 pb-2">
+        <div className="rounded-lg border border-hairline bg-canvas p-4">
+          <div className="flex items-center gap-3.5">
+            <ProfileAvatar image={me.profileImage} initial={me.nickname.slice(0, 1)} />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-[17px] font-bold tracking-title text-ink truncate">{me.nickname}</h1>
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <Link href="/r/grade" className="cp-action inline-flex items-center gap-1.5 px-2.5 py-1 bg-canvas rounded-pill border border-hairline">
+                  <GradeBadge grade={eff.grade} size="sm" />
+                  <span className="text-[13px] text-ink">{eff.grade}등급</span>
+                  <span className="text-[12px] text-brand">자세히 →</span>
+                </Link>
+                {me.winWinBadge && (
+                  // 상생 리뷰어 — 표시용 신뢰 표식 (지원금 배율·참여 조건 무영향)
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill bg-brandSoft text-brand text-[12px] font-semibold">
+                    🤝 상생 리뷰어
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-        )}
-      </section>
-
-      {/* stat-strip — 내 활동 요약 (v2) */}
-      <section className="px-5 py-2">
-        <div className="rounded-lg border border-hairline bg-canvas px-4 py-5 grid grid-cols-3 gap-3 text-center text-ink">
-          <div>
-            <div className="text-[18px] font-bold tabular-nums leading-none">{completed}</div>
-            <div className="text-[12px] text-muted mt-2">완료 리뷰</div>
-          </div>
-          <div className="border-l border-r border-hairlineSoft">
-            <div className="text-[18px] font-bold tabular-nums leading-none">{me.qualityScore || "—"}</div>
-            <div className="text-[12px] text-muted mt-2">리뷰 점수</div>
-          </div>
-          <div>
-            <div className="text-[16px] font-bold tabular-nums leading-none">{totalSupport.toLocaleString()}원</div>
-            <div className="text-[12px] text-muted mt-2">누적 혜택</div>
+          <div className="mt-4 pt-3.5 border-t border-hairlineSoft grid grid-cols-2 text-center text-ink">
+            <div>
+              <div className="text-[18px] font-bold tabular-nums leading-none">{completed}</div>
+              <div className="text-[12px] text-muted mt-1.5">완료 리뷰</div>
+            </div>
+            <div className="border-l border-hairlineSoft">
+              <div className="text-[16px] font-bold tabular-nums leading-none">{totalSupport.toLocaleString()}원</div>
+              <div className="text-[12px] text-muted mt-1.5">누적 혜택</div>
+            </div>
           </div>
         </div>
       </section>
