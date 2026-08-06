@@ -32,6 +32,9 @@ export interface GradeHistoryEntry {
   to: Grade;
   breakdown: { I: number; F: number; W: number; P: number; GS: number };
   neutralized?: boolean; // 표본 부족(당월 이벤트 <2건) — F/W 중립, GS = I − P
+  // 상생 중립 (2026-08-05 D3) — 당월 결제 표본 0건(배송형 전용 등): W를 평가에서 제외하고
+  // GS = (0.70·I + 0.20·F) / 0.90 − P 로 재정규화 (W=0을 그대로 넣어 구조 손실 주지 않음)
+  wNeutral?: boolean;
   skipped?: boolean; // 당월 이벤트 0건 — 등급 유지, 기록만
   sCandidate?: boolean; // GS≥90 & 당월 노쇼 0 & 완료 5건↑ — S는 운영팀 부여(자동 승급 없음)
   winWinQualified?: boolean; // 당월 상생 리뷰어 기준(W≥60 & 완료 3건↑) 충족 여부

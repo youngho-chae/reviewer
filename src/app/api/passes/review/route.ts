@@ -3,7 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { selfCheckConditions } from "@/lib/channels";
-import { REVIEW_DEADLINE_MS } from "@/lib/pass-lifecycle";
+import { REVIEW_DEADLINE_MS, reviewDeadline } from "@/lib/pass-lifecycle";
 import { SnsKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -27,10 +27,12 @@ export async function POST(req: NextRequest) {
   if (pass.status !== "used" && !isResubmit) {
     return NextResponse.json({ error: "사용 후에만 리뷰 등록 가능" }, { status: 400 });
   }
-  // 제출 기한 — 최초: 이용(사용 처리) 후 7일 / 재제출: 반려 시점 후 7일 (검수 지연이 체험자에게 불리하지 않도록)
+  // 제출 기한 — 최초: reviewDeadline 정본(예약형 = 확정 방문일 말 + 7일, 그 외 이용 후 7일 —
+  // 2026-08-05 D7: 스윕 기한 초과 판정과 동일 기준으로 통일) / 재제출: 반려 시점 후 7일
+  // (검수 지연이 체험자에게 불리하지 않도록)
   const deadline = isResubmit
     ? (pass.rejectedAt ?? Date.now()) + REVIEW_DEADLINE_MS
-    : (pass.usedAt ?? 0) + REVIEW_DEADLINE_MS;
+    : (reviewDeadline(pass) ?? (pass.usedAt ?? 0) + REVIEW_DEADLINE_MS);
   if (Date.now() > deadline) {
     return NextResponse.json(
       { error: isResubmit ? "재제출 기한(반려 후 7일)이 지났습니다" : "리뷰 제출 기한(이용 후 7일)이 지났습니다" },
