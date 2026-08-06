@@ -12,6 +12,7 @@ const TABS = [
   // 출금(포인트) — 배송형 비활성(main 릴리스) 시 숨김 (적립 경로가 배송형 리뷰 승인뿐)
   ...(DELIVERY_ENABLED ? [{ href: "/admin/points", label: "출금" }] : []),
   { href: "/admin/refills", label: "리필" }, // 모집 한도 리필권 구매 내역 (2026-07-31 BM)
+  { href: "/admin/grading", label: "등급 기준" }, // 평가 기준표 — 산식 수치는 내부 전용 (2026-08-06)
 ];
 
 export default function AdminTabs() {
