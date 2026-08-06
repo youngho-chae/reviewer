@@ -4,6 +4,7 @@ import { readSession } from "@/lib/auth";
 import { rid, normalizePassCode } from "@/lib/ids";
 import { supportForGrade } from "@/lib/grade";
 import { findSupportBoost, boostedLimit } from "@/lib/referral";
+import { expirePass } from "@/lib/pass-lifecycle";
 
 export const runtime = "nodejs";
 
@@ -22,7 +23,8 @@ export async function POST(req: NextRequest) {
   }
   if (pass.status !== "active") return NextResponse.json({ error: "사용할 수 없는 체험권입니다" }, { status: 400 });
   if (Date.now() > pass.expiresAt) {
-    pass.status = "expired";
+    // 즉석 만료 — 스윕과 동일 정본(expirePass: 슬롯 복구·노쇼 카운트·양측 알림) 공유 (2026-08-05 D7)
+    expirePass(db, pass);
     await saveDBAsync();
     return NextResponse.json({ error: "만료된 체험권입니다" }, { status: 400 });
   }

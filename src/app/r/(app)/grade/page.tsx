@@ -41,8 +41,8 @@ const TIER_REQUIRE: Record<Grade, string> = {
 // 점수 분해 행 정의 — 가중치는 유한 범주(정책 상수)라 원문 노출
 const SCORE_ROWS: { key: "I" | "F" | "W"; name: string; weight: string; hint: string }[] = [
   { key: "I", name: "지수 점수", weight: "70%", hint: "캐치랭크 지수 평가 모델 — 채널 영향력 기반" },
-  { key: "F", name: "성실 이행", weight: "20%", hint: "지난달 체험 완료율 (노쇼·기한 초과·최종 반려 제외)" },
-  { key: "W", name: "상생지수", weight: "10%", hint: "추가 결제의 비율·빈도만 반영 (금액 아님)" },
+  { key: "F", name: "성실 이행", weight: "20%", hint: "지난달 완료율(60%) + 리뷰를 기한보다 일찍 낼수록 가점(40%)" },
+  { key: "W", name: "상생지수", weight: "10%", hint: "추가 결제의 비율·빈도만 반영 (금액 아님) — 여러 건일수록 온전히 반영" },
 ];
 
 function fmtKstDate(ts: number): string {
@@ -158,7 +158,7 @@ export default async function ReviewerGrade() {
                     {row.name} <span className="text-[11px] text-muted">({row.weight})</span>
                   </span>
                   <span className="text-[14px] font-semibold text-ink tabular-nums">
-                    {latestScored.neutralized && row.key !== "I"
+                    {(latestScored.neutralized && row.key !== "I") || (latestScored.wNeutral && row.key === "W")
                       ? "중립"
                       : sbNum(SBUI.score, `${latestScored.breakdown[row.key]}점`)}
                   </span>
@@ -187,6 +187,12 @@ export default async function ReviewerGrade() {
               {latestScored.neutralized && (
                 <div className="text-[11px] text-muted mt-0.5">지난달 활동 표본이 적어 지수 중심으로 평가했어요.</div>
               )}
+              {!latestScored.neutralized && latestScored.wNeutral && (
+                // 상생 중립 (D3) — 결제 표본이 없는 달은 W를 빼고 지수·성실 이행만으로 재계산
+                <div className="text-[11px] text-muted mt-0.5">
+                  지난달엔 결제 체험 기록이 없어 상생지수를 빼고 평가했어요 (불이익 없음).
+                </div>
+              )}
               {latestScored.sCandidate && (
                 <div className="text-[11px] text-brand font-semibold mt-0.5">S 등급 후보 — 운영팀 확인 후 부여됩니다.</div>
               )}
@@ -206,7 +212,8 @@ export default async function ReviewerGrade() {
           <div className="text-[14px] font-bold text-ink">🤝 상생지수와 상생 리뷰어</div>
           <p className="mt-1.5 text-[12px] text-ink2 leading-[1.6]">
             상생지수는 추가 결제의 <b>비율과 빈도</b>만 반영해요. 결제 금액 자체는 반영되지 않으며, 리뷰까지 완료한
-            체험만 집계됩니다. 상생지수만으로는 등급이 오르지 않아요(가중치 10%).
+            체험만 집계됩니다. 한 달에 여러 건이 쌓일수록(3건 기준) 온전히 반영되고, 결제 체험이 없는 달은 빼고
+            평가해요. 상생지수만으로는 등급이 오르지 않아요(가중치 10%).
           </p>
           <p className="mt-2 text-[12px] text-ink2 leading-[1.6]">
             한 달 상생지수 {WINWIN_BADGE.minW}점 이상 + 완료 {WINWIN_BADGE.minCompleted}건 이상이면{" "}
