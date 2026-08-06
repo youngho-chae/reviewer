@@ -51,6 +51,41 @@ export function restoreQuotaSlot(db: DBShape, pass: Pass): void {
   }
 }
 
+// 미사용 만료 처리 정본 (2026-08-05 D7 공통화) — 스윕과 사용 API(use/use-by-code)의 즉석 만료가
+// 공유한다. 구현이 갈려 사용 API 경로에서 슬롯 복구·노쇼 카운트가 누락되던 문제 봉합.
+// active가 아닌 패스는 무시(멱등 — 이중 복구 방지).
+export function expirePass(db: DBShape, p: Pass, now: number = Date.now()): void {
+  if (p.status !== "active") return;
+  p.status = "expired";
+  restoreQuotaSlot(db, p);
+  const rv = db.reviewers.find((r) => r.id === p.reviewerId);
+  if (rv) rv.noShowCount += 1;
+  const store = db.stores.find((s) => s.id === p.storeId);
+  db.notifications.push({
+    id: rid("nt"),
+    userId: p.reviewerId,
+    role: "reviewer",
+    title: "체험권 만료",
+    // 예약형 미방문 만료는 문구로만 구분 (§10-4 — 별도 노쇼 신고·추가 패널티 없음, §13-D 기본안).
+    body: p.reservation
+      ? `${store?.name ?? "매장"} 예약 방문일이 지나 체험권이 만료되었습니다. 모집 슬롯은 다른 체험자에게 돌아갑니다.`
+      : `${store?.name ?? "매장"} 체험권이 사용되지 않아 만료되었습니다. 모집 슬롯은 다른 체험자에게 돌아갑니다.`,
+    createdAt: now,
+    read: false,
+    link: `/r/passes/${p.id}`,
+  });
+  db.notifications.push({
+    id: rid("nt"),
+    userId: p.ownerId,
+    role: "owner",
+    title: "체험권 만료 (미방문)",
+    body: `발급된 체험권 1매가 미사용 만료되어 모집 슬롯이 복구되었습니다.`,
+    createdAt: now,
+    read: false,
+    link: "/o/home",
+  });
+}
+
 export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boolean {
   let changed = false;
 
@@ -139,36 +174,9 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
       changed = true;
     }
 
-    // 1) 만료 확정 + 슬롯 복구
+    // 1) 만료 확정 + 슬롯 복구 (정본 expirePass — 사용 API의 즉석 만료 경로와 공유)
     if (p.status === "active" && now > p.expiresAt) {
-      p.status = "expired";
-      restoreQuotaSlot(db, p);
-      const rv = db.reviewers.find((r) => r.id === p.reviewerId);
-      if (rv) rv.noShowCount += 1;
-      const store = db.stores.find((s) => s.id === p.storeId);
-      db.notifications.push({
-        id: rid("nt"),
-        userId: p.reviewerId,
-        role: "reviewer",
-        title: "체험권 만료",
-        // 예약형 미방문 만료는 문구로만 구분 (§10-4 — 별도 노쇼 신고·추가 패널티 없음, §13-D 기본안).
-        body: p.reservation
-          ? `${store?.name ?? "매장"} 예약 방문일이 지나 체험권이 만료되었습니다. 모집 슬롯은 다른 체험자에게 돌아갑니다.`
-          : `${store?.name ?? "매장"} 체험권이 사용되지 않아 만료되었습니다. 모집 슬롯은 다른 체험자에게 돌아갑니다.`,
-        createdAt: now,
-        read: false,
-        link: `/r/passes/${p.id}`,
-      });
-      db.notifications.push({
-        id: rid("nt"),
-        userId: p.ownerId,
-        role: "owner",
-        title: "체험권 만료 (미방문)",
-        body: `발급된 체험권 1매가 미사용 만료되어 모집 슬롯이 복구되었습니다.`,
-        createdAt: now,
-        read: false,
-        link: "/o/home",
-      });
+      expirePass(db, p, now);
       changed = true;
       continue;
     }
