@@ -58,6 +58,7 @@ const config: Config = {
         snsTiktokBg: "#ECFEFF",
         snsTiktokText: "#0891B2",
         // Grades — 배지 컬러 (P1: 등급은 혜택 크기만)
+        gradeSplus: "#C9A227", // S+ 골드 (2026-08-06 6단계 개편)
         gradeS: "#171717",
         gradeA: "#9333EA",
         gradeB: "#3B82F6",

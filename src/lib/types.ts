@@ -1,4 +1,7 @@
-export type Grade = "S" | "A" | "B" | "C" | "N";
+// 등급 6단계 (2026-08-06 개편) — S+ = 계정(표기) 등급 전용(채널 등급 상한은 S,
+// 조건: 채널 최고 등급 S + 성실 이행 만점 + 상생 만점 + 패널티 0 — grade-regrade sweep 판정).
+// N = 채널 미연동 전용 상태 — 채널을 연동하면 최하라도 C.
+export type Grade = "S+" | "S" | "A" | "B" | "C" | "N";
 
 // 연동 가능한 채널은 네이버 블로그 / 인스타그램 / 틱톡 3종으로 한정 (v2.16)
 export type SnsKind = "naver_blog" | "instagram" | "tiktok";
@@ -36,7 +39,8 @@ export interface GradeHistoryEntry {
   // GS = (0.70·I + 0.20·F) / 0.90 − P 로 재정규화 (W=0을 그대로 넣어 구조 손실 주지 않음)
   wNeutral?: boolean;
   skipped?: boolean; // 당월 이벤트 0건 — 등급 유지, 기록만
-  sCandidate?: boolean; // GS≥90 & 당월 노쇼 0 & 완료 5건↑ — S는 운영팀 부여(자동 승급 없음)
+  // @deprecated 6단계 개편(2026-08-06)으로 S 자동 평가 도입 — 신규 기록 중단, 과거 이력 호환용 유지
+  sCandidate?: boolean;
   winWinQualified?: boolean; // 당월 상생 리뷰어 기준(W≥60 & 완료 3건↑) 충족 여부
   at: number; // 재평가 실행 시각
 }

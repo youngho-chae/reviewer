@@ -19,7 +19,9 @@
 //      취소는 무패널티(12h 쿨다운이 담당). 반려 방치는 F 분모에만 반영(감점 없음 — D5).
 //   리뷰 품질은 주관 평가 배제 원칙으로 점수 요소에서 제외 — 반려 종착만 P로 반영.
 //
-// 안정 장치: 등급 컷 S90/A70/B50/C30 · S는 자동 부여 금지(sCandidate 기록만) · 월 변동 ±1등급 ·
+// 안정 장치 (2026-08-06 6단계 개편): 등급 컷 S90/A70/B50/C(연동 바닥) — N은 미연동 전용 ·
+// S까지 자동 평가(구 "S 수동 부여" 폐기) · S+ = 계정 표기 등급 레이어(채널 최고 S + F 만점 +
+// W 만점(중립 불가) + P 0 — 매월 재판정, 미충족 시 S로) · 월 변동 ±1등급 ·
 // 표본 부족(당월 이벤트 <2건)이면 F/W 중립(GS = I − P, 밴드가 컷과 일치해 지수 단독 산정과 동치) ·
 // 이벤트 0건이면 스킵(등급 유지). 소급 없음 — 직전 1개월만 평가.
 //
@@ -35,12 +37,13 @@ const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 // 가중치·컷·패널티 상수 (운영정책서 §등급 월간 재평가와 원문 일치)
 export const REGRADE_WEIGHTS = { I: 0.7, F: 0.2, W: 0.1 } as const;
+// 6단계 개편 (2026-08-06): N 컷 폐지 — N은 채널 미연동 전용 상태. 연동 채널의 바닥 = C.
+// S+는 점수 컷이 아니라 조건 판정(sweep의 isSPlusQualified — 채널 S + F/W 만점 + P 0).
 export const GRADE_CUTS: Array<{ grade: Grade; min: number }> = [
   { grade: "S", min: 90 },
   { grade: "A", min: 70 },
   { grade: "B", min: 50 },
-  { grade: "C", min: 30 },
-  { grade: "N", min: 0 },
+  { grade: "C", min: 0 },
 ];
 export const PENALTY = { noShow: 10, overdue: 7, rejectedFinal: 5, monthlyCap: 30, repeatFactor: 1.5 } as const;
 // 성실 이행 F 구성 (2026-08-05 D1) — 완료율 60% + 리뷰 제출 기한 준수 40%
@@ -51,8 +54,6 @@ export const W_MIN_SUPPORT = 1000;
 export const W_FULL_SAMPLE = 3;
 // 상생 리뷰어 뱃지 기준 — W ≥ 60 & 당월 완료 3건 이상. 유예 1개월(2개월 연속 미달 시 회수).
 export const WINWIN_BADGE = { minW: 60, minCompleted: 3 } as const;
-// S 후보 기준 — 부여는 운영팀 수동 (자동 승급 없음)
-export const S_CANDIDATE = { minGS: 90, minCompleted: 5 } as const;
 // 표본 부족 기준 — 당월 이벤트(완료+패널티 사건)가 이 값 미만이면 F/W 중립
 const MIN_SAMPLE = 2;
 
@@ -213,25 +214,22 @@ export function computeChannelScore(
   return { I: indexScore, F, W, P, GS, neutralized: false, wNeutral };
 }
 
-// GS → 등급. S 컷 도달 시 A로 캡(sCandidate는 호출부에서 기록) + 현재 등급 대비 ±1 클램프.
-// 이미 운영팀이 S를 부여한 사용자가 S컷 점수를 유지하면 강등하지 않는다.
-export function gradeFromScore(gs: number, current: Grade): { next: Grade; hitSCut: boolean } {
-  let raw: Grade = "N";
+// GS → 채널 등급 (2026-08-06 6단계 — S까지 자동 평가, 구 "S 수동 부여" 캡 폐기).
+// 채널 등급 상한 = S — S+는 계정 표기 레이어에서 sweep이 별도 판정한다.
+// 바닥 = C (연동 채널 — N은 미연동 전용). 현재 등급 대비 ±1 클램프 유지.
+export function gradeFromScore(gs: number, current: Grade): Grade {
+  let raw: Grade = "C";
   for (const c of GRADE_CUTS) {
     if (gs >= c.min) {
       raw = c.grade;
       break;
     }
   }
-  const hitSCut = raw === "S";
-  if (hitSCut) raw = current === "S" ? "S" : "A"; // S는 운영팀 부여 — 자동 승급 금지
-
-  // ±1등급 클램프 (gradeOrder 랭크: S=0 … N=4, 숫자가 작을수록 상위)
-  const cur = gradeRank(current);
-  const clampedRank = Math.max(cur - 1, Math.min(cur + 1, gradeRank(raw)));
-  // 자동 승급이 S(rank 0)에 진입하지 않도록 방어 (현재 S 유지 케이스만 허용)
-  const rank = clampedRank === 0 && current !== "S" ? 1 : clampedRank;
-  return { next: gradeOrder[rank], hitSCut };
+  // ±1등급 클램프 (gradeOrder 랭크: S+=0 · S=1 … N=5, 숫자가 작을수록 상위).
+  // current가 구버전 N이거나 방어적 S+여도 채널 등급 범위(S~C)로 정규화해 계산한다.
+  const cur = Math.min(Math.max(gradeRank(current), gradeRank("S")), gradeRank("C"));
+  const rank = Math.max(cur - 1, Math.min(cur + 1, gradeRank(raw)));
+  return gradeOrder[rank];
 }
 
 // ── 월말 재평가 스윕 ─────────────────────────────────────────
@@ -250,15 +248,18 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
     const history: GradeHistoryEntry[] = rv.gradeHistory ?? [];
 
     if (events === 0) {
-      // 활동 없음 — 등급 유지, 이력만 기록
+      // 활동 없음 — 등급 유지, 이력만 기록. 단 S+는 "당월 활동 만점"이 유지 조건이라
+      // 무활동 월에도 S로 내려간다(중립·스킵 월 = S+ 불가 — 채널 등급은 그대로, 표기 레이어만).
+      const to: Grade = rv.grade === "S+" ? "S" : rv.grade;
       history.push({
         month: target,
         from: rv.grade,
-        to: rv.grade,
+        to,
         breakdown: { I: 0, F: 0, W: 0, P: 0, GS: 0 },
         skipped: true,
         at: now,
       });
+      rv.grade = to;
       rv.gradeHistory = history;
       rv.lastRegradeAt = now;
       updateWinWinBadge(db, rv, target, false, now);
@@ -270,17 +271,15 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
     const oldGrade = rv.grade;
     const cg = { ...(rv.channelGrades ?? {}) };
     let summary: ScoreBreakdown | null = null;
-    let anySCandidate = false;
 
     // URL 유무로 걸러내지 않는다 (2026-08-05 D7 정정 — OAuth 연동 채널은 url이 없을 수 있음,
     // grade.ts channelGradesFromSns와 동일 원칙. 지수는 influence 기준으로 동일하게 산정)
     for (const s of rv.sns) {
       const kind: SnsKind = s.kind;
       const bd = computeChannelScore(indexScoreV1(kind, s.influence), act, prevHadPenalty);
-      const current = cg[kind] ?? "N";
-      const { next, hitSCut } = gradeFromScore(bd.GS, current);
-      const sCandidate = hitSCut && act.noShow === 0 && act.completed >= S_CANDIDATE.minCompleted;
-      anySCandidate = anySCandidate || sCandidate;
+      // 신규(이력 없는) 연동 채널 폴백 = C — 연동 채널의 바닥 등급 (2026-08-06, 구 "N" 폴백 폐기)
+      const current = cg[kind] ?? "C";
+      const next = gradeFromScore(bd.GS, current);
       cg[kind] = next;
       history.push({
         month: target,
@@ -290,7 +289,6 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
         breakdown: { I: bd.I, F: bd.F, W: bd.W, P: bd.P, GS: bd.GS },
         neutralized: bd.neutralized || undefined,
         wNeutral: bd.wNeutral || undefined,
-        sCandidate: sCandidate || undefined,
         at: now,
       });
       // 표기 등급 요약(연동 채널 중 최고)에는 최고 GS 채널의 분해를 사용
@@ -298,7 +296,21 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
     }
 
     rv.channelGrades = cg;
-    rv.grade = bestGrade(Object.values(cg));
+    // S+ 판정 (2026-08-06 6단계) — 채널 최고 등급 S + 성실 이행 만점 + 상생 만점(중립 월 불가) +
+    // 패널티 0. 매월 재판정 — 미충족 시 S로 내려간다(계정 표기 등급 레이어, 채널 등급 상한은 S).
+    // 전월 표기 등급도 S 이상이어야 한다 — 당월 A→S 승급과 동시에 S+가 되는 2단 점프 방지(±1 정합):
+    // "S 등급인 상태로 만점 한 달"이 조건이므로, 갓 S가 된 달의 만점은 다음 달 S+로 이어진다.
+    const best = bestGrade(Object.values(cg));
+    const isSPlus =
+      best === "S" &&
+      (oldGrade === "S" || oldGrade === "S+") &&
+      !!summary &&
+      !summary.neutralized &&
+      !summary.wNeutral &&
+      summary.F === 100 &&
+      summary.W === 100 &&
+      summary.P === 0;
+    rv.grade = isSPlus ? "S+" : best;
 
     // 상생 리뷰어 뱃지 판정 (플랫폼 공통 — W·완료 건수 기준)
     const winWinQualified =
@@ -315,7 +327,6 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
         : { I: 0, F: 0, W: 0, P: 0, GS: 0 },
       neutralized: summary?.neutralized || undefined,
       wNeutral: summary?.wNeutral || undefined,
-      sCandidate: anySCandidate || undefined,
       winWinQualified: winWinQualified || undefined,
       at: now,
     });
@@ -328,10 +339,13 @@ export function sweepMonthlyRegrade(db: DBShape, now: number = Date.now()): bool
         id: rid("nt"),
         userId: rv.id,
         role: "reviewer",
-        title: up ? "등급이 올랐어요 🎉" : "등급이 조정되었어요",
-        body: up
-          ? `월간 재평가 결과 ${oldGrade}등급 → ${rv.grade}등급으로 상승했습니다. 지원금 혜택이 커졌어요.`
-          : `월간 재평가 결과 ${oldGrade}등급 → ${rv.grade}등급으로 조정되었습니다. 다음 달 성실한 체험으로 다시 올릴 수 있어요.`,
+        title: rv.grade === "S+" ? "S+ 등급을 달성했어요 👑" : up ? "등급이 올랐어요 🎉" : "등급이 조정되었어요",
+        body:
+          rv.grade === "S+"
+            ? "한 달 동안 성실 이행·상생 만점에 감점 없이 S 등급을 유지한 체험자에게 드리는 최고 등급이에요. 포인트 적립 보너스와 프로모션 최우선 혜택이 적용됩니다."
+            : up
+              ? `월간 재평가 결과 ${oldGrade}등급 → ${rv.grade}등급으로 상승했습니다. 지원금 혜택이 커졌어요.`
+              : `월간 재평가 결과 ${oldGrade}등급 → ${rv.grade}등급으로 조정되었습니다. 다음 달 성실한 체험으로 다시 올릴 수 있어요.`,
         createdAt: now,
         read: false,
         link: "/r/grade",

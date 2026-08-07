@@ -5,10 +5,12 @@ import { Grade, SnsAccount, SnsKind } from "./types";
 // gradeFromSns(최초 연동 등급)와 indexScoreV1(월간 재평가 지수점수)이 이 상수를
 // 공유해 두 산정의 드리프트를 막는다. 실모델 API 도입 시 indexScoreV1만 교체.
 export const INDEX_BANDS = [
+  // 6단계 개편 (2026-08-06): S 밴드 신설 — 지수 단독으로도 S 컷(90) 도달 가능(자동 S 평가).
+  // N 밴드 폐지 — N은 채널 미연동 전용 상태, 연동 채널은 최저 C (C 밴드 lo=1로 확장).
+  { grade: "S" as Grade, lo: 500000, hi: 5000000, slo: 90, shi: 100 },
   { grade: "A" as Grade, lo: 50000, hi: 500000, slo: 70, shi: 89 },
   { grade: "B" as Grade, lo: 10000, hi: 50000, slo: 50, shi: 69 },
-  { grade: "C" as Grade, lo: 1000, hi: 10000, slo: 30, shi: 49 },
-  { grade: "N" as Grade, lo: 1, hi: 1000, slo: 10, shi: 29 },
+  { grade: "C" as Grade, lo: 1, hi: 10000, slo: 30, shi: 49 },
 ] as const;
 
 export function channelWeight(kind: SnsKind): number {
@@ -18,22 +20,21 @@ export function channelWeight(kind: SnsKind): number {
 // SNS 영향력 수치 기반 초기 등급 산정 (PRD 6.1.1)
 // 합산 가중치: instagram·tiktok 1 : naver_blog 1.2
 export function gradeFromSns(sns: SnsAccount[]): Grade {
-  if (sns.length === 0) return "N";
+  if (sns.length === 0) return "N"; // N = 채널 미연동 전용 (2026-08-06)
   const sum = sns.reduce((acc, s) => acc + s.influence * channelWeight(s.kind), 0);
   for (const b of INDEX_BANDS) {
-    if (b.grade !== "N" && sum >= b.lo) return b.grade;
+    if (sum >= b.lo) return b.grade;
   }
-  return "N";
+  return "C"; // 연동했으면 최하라도 C (영향력 0 포함)
 }
 
-// 지수점수 I (0~100) — 캐치랭크 지수 평가 모델 v1.
-// 가중 영향력을 등급 밴드 내 로그 보간으로 정규화한다.
-//   A [50k,500k)→70~89 · B [10k,50k)→50~69 · C [1k,10k)→30~49 · N [1,1k)→10~29
-// 90~100은 S 전용 예약 구간 — v1은 산출하지 않는다(S는 운영팀 부여 원칙과 일치).
-// 밴드 경계가 등급 컷(A≥70/B≥50/C≥30)과 일치하므로 I 단독 매핑 = 현행 임계값 산정과 동치.
+// 지수점수 I (30~100) — 캐치랭크 지수 평가 모델 v1 (2026-08-06 6단계 개편).
+//   S [500k,5M)→90~100 · A [50k,500k)→70~89 · B [10k,50k)→50~69 · C [1,10k)→30~49
+// 연동 채널의 바닥 점수 = 30(C 컷) — N은 미연동 전용 상태라 지수 밴드가 없다.
+// 밴드 경계가 등급 컷(S≥90/A≥70/B≥50/C 바닥)과 일치하므로 I 단독 매핑 = 임계값 산정과 동치.
 export function indexScoreV1(kind: SnsKind, influence: number): number {
   const x = Math.max(0, influence) * channelWeight(kind);
-  if (x < 1) return 10;
+  if (x < 1) return 30; // 연동 채널 바닥 = C
   for (const b of INDEX_BANDS) {
     if (x >= b.lo) {
       const clamped = Math.min(x, b.hi);
@@ -41,7 +42,7 @@ export function indexScoreV1(kind: SnsKind, influence: number): number {
       return Math.round(b.slo + (b.shi - b.slo) * t);
     }
   }
-  return 10;
+  return 30;
 }
 
 // 채널별 등급 — 각 채널의 영향력을 독립적으로 평가 (v2.16).
@@ -75,8 +76,12 @@ export function bestGrade(grades: Array<Grade | undefined>): Grade {
 }
 
 // 등급별 지원금 배율 (등급 탭 혜택 사다리와 일치).
-//   S 100% · A 80% · B 60% · C 40% · N 10%
+//   S+ 100% · S 100% · A 80% · B 60% · C 40% · N 10%
+// S+ 배율은 S와 동일 — 기준 지원금(=S 100%)이 절대 상한(P2 매장 직접 할인·boostedLimit 전제)이라
+// 100% 초과 배율은 구조적으로 불가. S+ 추가 혜택은 배율 외(포인트 보너스·배지·프로모션 우선 — §10.6).
+// N 배율은 미연동 전용 상태가 되어 사실상 도먼트(참여 게이트가 미연동을 차단) — 구 패스 스냅샷 호환 유지.
 export const SUPPORT_MULTIPLIER: Record<Grade, number> = {
+  "S+": 1,
   S: 1,
   A: 0.8,
   B: 0.6,
@@ -118,23 +123,9 @@ export function bestEligibleSupport(offers: ChannelOffer[]): number {
   return offers.filter((o) => o.connected).reduce((m, o) => Math.max(m, o.support), 0);
 }
 
-export const gradeLabel: Record<Grade, string> = {
-  S: "S",
-  A: "A",
-  B: "B",
-  C: "C",
-  N: "N",
-};
-
-export const gradeBg: Record<Grade, string> = {
-  S: "bg-gradeS text-white",
-  A: "bg-gradeA text-white",
-  B: "bg-gradeB text-white",
-  C: "bg-gradeC text-white",
-  N: "bg-gradeN text-white",
-};
-
-export const gradeOrder: Grade[] = ["S", "A", "B", "C", "N"];
+// 등급 서열 정본 (2026-08-06 6단계) — S+가 최상위. 채널 등급의 상한은 S이며
+// S+는 계정(표기) 등급 레이어에서만 부여된다 (grade-regrade sweep의 S+ 판정).
+export const gradeOrder: Grade[] = ["S+", "S", "A", "B", "C", "N"];
 export function gradeRank(g: Grade): number {
   return gradeOrder.indexOf(g);
 }

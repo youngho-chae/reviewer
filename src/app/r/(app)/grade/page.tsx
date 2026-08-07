@@ -13,15 +13,18 @@ import type { Grade, SnsKind } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 const TIER_COPY: Record<Grade, { label: string; desc: string }> = {
+  "S+": { label: "S+ 등급", desc: "최상위 0.1% 리뷰어" },
   S: { label: "S 등급", desc: "상위 5% 리뷰어" },
   A: { label: "A 등급", desc: "검증된 리뷰어" },
   B: { label: "B 등급", desc: "일반 리뷰어" },
   C: { label: "C 등급", desc: "성장 단계" },
-  N: { label: "New", desc: "검증 전" },
+  N: { label: "New", desc: "채널 연동 전" },
 };
 
 // [P1] 모든 등급이 모든 캠페인에 참여할 수 있다 — 등급 차이는 지원금 배율(혜택 크기)뿐.
+// S+의 추가 혜택은 배율 외 영역(포인트 보너스·프로모션 최우선·전용 배지 — §10.6).
 const BENEFITS: { g: Grade; d: string; amt: string }[] = [
+  { g: "S+", d: "모든 캠페인 참여 · 기준 지원금 전액 + 포인트 적립 +10% · 프로모션 최우선", amt: "100% 지원금" },
   { g: "S", d: "모든 캠페인 참여 · 기준 지원금 전액", amt: "100% 지원금" },
   { g: "A", d: "모든 캠페인 참여 · 기준 지원금의 80%", amt: "80% 지원금" },
   { g: "B", d: "모든 캠페인 참여 · 기준 지원금의 60%", amt: "60% 지원금" },
@@ -32,11 +35,12 @@ const BENEFITS: { g: Grade; d: string; amt: string }[] = [
 // 진입 조건 — 정성 서술 (2026-08-06: 가중치·점수 등 산식 수치는 유저 화면 비노출,
 // 상세 기준표는 운영팀 콘솔 /admin/grading 전용)
 const TIER_REQUIRE: Record<Grade, string> = {
-  S: "최상위 활동 리뷰어에게 운영팀이 직접 부여 (자동 승급 없음)",
+  "S+": "S 등급 + 한 달 동안 성실 이행·상생 활동 모두 만점, 감점 요인 0건",
+  S: "최상위 채널 영향력 + 꾸준하고 성실한 체험 완료 (매월 자동 평가)",
   A: "높은 채널 영향력 + 꾸준하고 성실한 체험 완료",
   B: "안정적인 채널 영향력과 활동 유지",
-  C: "채널을 키우며 활동을 시작하는 단계",
-  N: "SNS 1개 이상 연동 시 평가 시작",
+  C: "채널을 연동하고 활동을 시작하는 단계",
+  N: "SNS 1개 이상 연동 시 평가 시작 (연동하면 바로 C 등급부터)",
 };
 
 function fmtKstDate(ts: number): string {
@@ -181,6 +185,22 @@ export default async function ReviewerGrade() {
           ))}
         </div>
       </section>
+
+      {/* S+ 도전/유지 안내 — S·S+ 등급에게만 (2026-08-06 6단계) */}
+      {(eff.grade === "S" || eff.grade === "S+") && (
+        <section className="px-5 mt-3">
+          <div className="rounded-md border border-hairline bg-canvas p-4">
+            <div className="text-[14px] font-bold text-ink">
+              👑 {eff.grade === "S+" ? "S+ 등급을 유지하려면" : "S+ 등급에 도전해보세요"}
+            </div>
+            <p className="mt-1.5 text-[12px] text-ink2 leading-[1.6]">
+              한 달 동안 노쇼·기한 초과·반려 없이 모든 체험을 완료하고, 리뷰를 빠르게 올리고, 결제한 체험마다
+              지원금 이상으로 결제하면 S 등급 위의 <b>S+</b>가 부여돼요. 포인트 적립 +10%와 프로모션 최우선
+              혜택이 있어요. 조건을 하나라도 놓치면 다음 달 S로 돌아갑니다.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* 상생지수 안내 — 모순 방지 원칙 카피 (운영정책서 원문주의) */}
       <section className="px-5 mt-5">
@@ -338,7 +358,7 @@ export default async function ReviewerGrade() {
         </div>
         <p className="mt-6 text-[11px] text-muted leading-[1.5] text-center">
           등급은 매월 말 채널 영향력·성실한 완료·상생 활동과 감점 요인을 종합해 재평가됩니다. 변동 폭은 월
-          ±1등급이며, 등급은 지원금 비율에만 영향을 주고 참여 자격을 제한하지 않아요.
+          ±1등급이며, 등급은 혜택의 크기에만 영향을 주고 참여 자격을 제한하지 않아요.
         </p>
       </section>
     </div>
