@@ -9,7 +9,6 @@ import {
   CHANNEL_REVIEW_CONDITIONS,
   CHANNEL_AD_NOTICE,
   RECEIPT_LABEL,
-  RECEIPT_AD_NOTICE,
   RECEIPT_REVIEW_CONDITIONS,
 } from "@/lib/channels";
 import { SUPPORT_MULTIPLIER, RECEIPT_DISCOUNT_LABEL } from "@/lib/grade";
@@ -114,7 +113,8 @@ export default function StoreParticipate({
       ? (CHANNEL_REVIEW_CONDITIONS[selected] ?? []).filter((c) => !c.keep)
       : [];
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
-  const adNotice = isReceipt ? RECEIPT_AD_NOTICE : selected ? CHANNEL_AD_NOTICE[selected] : "";
+  // 영수증 리뷰는 광고 문구 표기 대상이 아니다 (2026-08-07) — SNS 채널 선택 시에만 사용
+  const adNotice = !isReceipt && selected ? CHANNEL_AD_NOTICE[selected as SnsKind] : "";
   const shippingValid =
     !isDelivery || (recipient.trim() && phone.trim() && address.trim() && (productOptions.length === 0 || !!option));
 
@@ -290,24 +290,27 @@ export default function StoreParticipate({
               ))}
             </div>
 
-            {/* 광고 표시 문구 — 게시물에 반드시 포함 (공정위 추천·보증 광고 안내) */}
-            <div className="mt-3 rounded-md border border-brand bg-brandSoft p-4">
-              <div className="text-[14px] font-semibold text-ink">광고 표시 문구 (필수 포함)</div>
-              <div className="mt-2 p-3 bg-canvas rounded-sm text-[14px] text-ink leading-[1.5] break-keep">
-                {adNotice}
+            {/* 광고 표시 문구 — 게시물에 반드시 포함 (공정위 추천·보증 광고 안내).
+                영수증 리뷰는 광고 문구 표기 대상이 아님 — 카드 미노출 (2026-08-07) */}
+            {!isReceipt && (
+              <div className="mt-3 rounded-md border border-brand bg-brandSoft p-4">
+                <div className="text-[14px] font-semibold text-ink">광고 표시 문구 (필수 포함)</div>
+                <div className="mt-2 p-3 bg-canvas rounded-sm text-[14px] text-ink leading-[1.5] break-keep">
+                  {adNotice}
+                </div>
+                <button
+                  type="button"
+                  onClick={copyNotice}
+                  className="cp-action mt-2.5 inline-flex items-center gap-1.5 h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold"
+                >
+                  <span>📋</span>
+                  <span>{copied ? "복사됨" : "문구 복사"}</span>
+                </button>
+                <div className="text-[11px] text-ink2 mt-3 pt-3 border-t border-dashed border-hairline leading-[1.5]">
+                  공정거래위원회 추천·보증 광고 안내에 따라 경제적 이해관계는 명확히 표시되어야 합니다.
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={copyNotice}
-                className="cp-action mt-2.5 inline-flex items-center gap-1.5 h-8 px-3 rounded-sm border border-hairline bg-canvas text-[12px] font-semibold"
-              >
-                <span>📋</span>
-                <span>{copied ? "복사됨" : "문구 복사"}</span>
-              </button>
-              <div className="text-[11px] text-ink2 mt-3 pt-3 border-t border-dashed border-hairline leading-[1.5]">
-                공정거래위원회 추천·보증 광고 안내에 따라 경제적 이해관계는 명확히 표시되어야 합니다.
-              </div>
-            </div>
+            )}
           </>
         ) : guest ? (
           <>

@@ -48,8 +48,9 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  // 경제적 대가(광고) 표기 확인 — 클라이언트 체크만으로는 우회 가능하므로 서버가 강제
-  if (!adNotice) {
+  // 경제적 대가(광고) 표기 확인 — 클라이언트 체크만으로는 우회 가능하므로 서버가 강제.
+  // 영수증 리뷰는 광고 문구 표기 대상이 아니다 (2026-08-07 — 확인 항목 자체가 없음)
+  if (!isReceipt && !adNotice) {
     return NextResponse.json({ error: "경제적 대가 표기(광고 문구) 포함 여부를 확인해주세요" }, { status: 400 });
   }
   // 참여 시 확정된 채널을 신뢰 (없으면 제출값 사용) — 영수증 리뷰는 채널 없음
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
   pass.reviewSelfCheck = Object.fromEntries(conditions.map((c) => [c.key, !!sc[c.key]]));
   pass.keepAgreed = true;
   if (channel) pass.reviewChannel = channel;
-  pass.adNoticeConfirmed = true;
+  if (!isReceipt) pass.adNoticeConfirmed = true;
 
   if (isResubmit) pass.resubmitCount = (pass.resubmitCount ?? 0) + 1;
   pass.reviewUrl = reviewUrl;

@@ -41,7 +41,8 @@ export default function ReviewForm({
   const allSelfChecked = conditions.every((c) => selfCheck[c.key]);
   // [2026-07-12 회의 §11-2] 입력 URL 형식 검증 — http(s):// 로 시작하는 유효한 주소만 제출
   const urlValid = /^https?:\/\/\S+\.\S+/.test(reviewUrl.trim());
-  const canSubmit = !!reviewUrl && urlValid && adChecked && allSelfChecked && keepAgreed && !loading;
+  // 영수증 리뷰는 광고 문구 표기 대상이 아니다 (2026-08-07 — 매장 방문 인증 기반 리뷰) — 확인 항목 제외
+  const canSubmit = !!reviewUrl && urlValid && (receipt || adChecked) && allSelfChecked && keepAgreed && !loading;
 
   async function submit() {
     setLoading(true);
@@ -64,15 +65,19 @@ export default function ReviewForm({
     router.refresh();
   }
 
-  // '제출 전 마지막 확인' 행 — 광고 문구 → 채널별 자가점검 → 90일 유지 동의 순
+  // '제출 전 마지막 확인' 행 — 광고 문구(영수증 리뷰 제외) → 채널별 자가점검 → 90일 유지 동의 순
   const checkRows: { key: string; label: string; hint: string; checked: boolean; toggle: (v: boolean) => void }[] = [
-    {
-      key: "__ad_notice",
-      label: "광고 표시 문구 표시",
-      hint: "문구 원문은 매장 상세의 '리뷰 작성 조건'에서 복사할 수 있어요",
-      checked: adChecked,
-      toggle: setAdChecked,
-    },
+    ...(receipt
+      ? [] // 영수증 리뷰는 광고 문구 표기 불요 (2026-08-07)
+      : [
+          {
+            key: "__ad_notice",
+            label: "광고 표시 문구 표시",
+            hint: "문구 원문은 매장 상세의 '리뷰 작성 조건'에서 복사할 수 있어요",
+            checked: adChecked,
+            toggle: setAdChecked,
+          },
+        ]),
     ...conditions.map((c) => ({
       key: c.key,
       label: c.label,
