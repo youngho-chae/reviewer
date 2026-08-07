@@ -240,7 +240,9 @@ export default async function ReviewerGrade() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[13px] text-ink">
-                지원금의 2배 이상 결제한 체험 <b className="tabular-nums">{sbNum(SBUI.count, `${wFull}건`)}</b>
+                이번 달 결제 체험 <b className="tabular-nums">{sbNum(SBUI.count, `${thisAct.wRatios.length}건`)}</b>
+                <span className="text-muted"> · 온전히 반영 </span>
+                <b className="tabular-nums">{sbNum(SBUI.count, `${wFull}건`)}</b>
                 <span className="text-muted"> / 3건</span>
               </span>
               <span className="flex gap-1" aria-hidden>
@@ -249,15 +251,15 @@ export default async function ReviewerGrade() {
                 ))}
               </span>
             </div>
+            {/* 소비 유도 금지 (2026-08-07) — "더 담아보세요"류 부추김 없이 반영 기준만 사실 안내.
+                기준(결제액 ≥ 지원금 2배·표본 3건)은 스윕 공식과 동일 값. */}
             <p className="mt-1.5 text-[12px] text-muted leading-[1.55]">
               {wFull >= 3 && wPartial === 0
-                ? "이 페이스면 상생 만점이에요 — 남은 체험도 꾸준히 이어가세요."
+                ? "이 페이스면 상생 만점이에요 — 지금처럼 꾸준히면 충분해요."
                 : thisAct.wRatios.length === 0
-                  ? "이번 달 결제 체험이 없으면 상생은 평가에서 빠져요 — 불이익은 없지만 만점 기회도 없어요."
-                  : `만점까지 ${Math.max(0, 3 - wFull)}건 더 필요해요 — 리뷰 완료까지 마친 체험만 집계돼요.`}
-              {wPartial > 0 && (
-                <> 결제했지만 2배에 못 미친 체험이 {sbNum(SBUI.count, `${wPartial}건`)} 있어요 — 다음엔 조금만 더 담아보세요.</>
-              )}
+                  ? "이번 달 결제 체험이 없으면 상생은 평가에서 빠져요 — 불이익은 없어요."
+                  : "지원금을 넘는 결제는 부분 반영되고, 결제 금액이 지원금의 2배를 넘으면 한 건이 온전히 반영돼요(리뷰 완료 건만 집계)."}{" "}
+              무리해서 결제할 필요는 없어요 — 실제로 이용한 만큼만, 꾸준히 쌓이는 게 중요해요.
             </p>
           </div>
 
@@ -299,17 +301,66 @@ export default async function ReviewerGrade() {
         </div>
       </section>
 
-      {/* S+ 도전/유지 안내 — S·S+ 등급에게만 (2026-08-06 6단계) */}
+      {/* S+ 도전/유지 안내 — S·S+ 등급에게만 (2026-08-06 6단계 · 2026-08-07 조건 체크리스트化).
+          이번 달 실측(스윕과 동일 집계)으로 조건별 충족/부족을 바로 보여준다. */}
       {(eff.grade === "S" || eff.grade === "S+") && (
         <section className="px-5 mt-3">
           <div className="rounded-md border border-hairline bg-canvas p-4">
             <div className="text-[14px] font-bold text-ink">
               👑 {eff.grade === "S+" ? "S+ 등급을 유지하려면" : "S+ 등급에 도전해보세요"}
             </div>
-            <p className="mt-1.5 text-[12px] text-ink2 leading-[1.6]">
-              한 달 동안 노쇼·기한 초과·반려 없이 모든 체험을 완료하고, 리뷰를 빠르게 올리고, 결제한 체험마다
-              지원금 이상으로 결제하면 S 등급 위의 <b>S+</b>가 부여돼요. 포인트 적립 +10%와 프로모션 최우선
-              혜택이 있어요. 조건을 하나라도 놓치면 다음 달 S로 돌아갑니다.
+            <p className="mt-1.5 text-[12px] text-muted leading-[1.5]">
+              이번 달 아래 조건을 <b>모두</b> 충족하면 S 위의 S+가 부여돼요 — 하나라도 놓치면 다음 달 S로 돌아가요.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {[
+                {
+                  ok: bestChannelGrade === "S",
+                  label: "채널 최고 등급 S 유지",
+                  note: bestChannelGrade === "S" ? "충족하고 있어요" : "채널 등급을 먼저 S로 올려야 해요",
+                },
+                {
+                  ok: thisDemerits + thisAct.rejectedAbandoned === 0,
+                  label: "감점 요인 0건 (노쇼·기한 초과·반려)",
+                  note:
+                    thisDemerits + thisAct.rejectedAbandoned === 0
+                      ? "지금까지 0건 — 이대로 유지하세요"
+                      : `이미 ${sbNum(SBUI.count, `${thisDemerits + thisAct.rejectedAbandoned}건`)} — 이번 달 S+는 어려워요`,
+                },
+                {
+                  ok: thisDemerits + thisAct.rejectedAbandoned === 0 && ongoingCnt === 0 && thisAct.completed >= 2 ? true : null,
+                  label: "모든 체험 완료 + 리뷰 즉시 제출 (완료 2건 이상)",
+                  note:
+                    ongoingCnt > 0
+                      ? `진행 중 ${sbNum(SBUI.count, `${ongoingCnt}건`)} 남음 — 기한 안에 마치고 바로 제출하세요`
+                      : thisAct.completed >= 2
+                        ? `이번 달 완료 ${sbNum(SBUI.count, `${thisAct.completed}건`)}`
+                        : `완료 ${sbNum(SBUI.count, `${thisAct.completed}건`)} — 2건 이상 필요해요`,
+                },
+                {
+                  ok: wFull >= 3 && wPartial === 0 && thisAct.wRatios.length > 0,
+                  label: "상생 활동 만점",
+                  note: `온전히 반영된 결제 체험 ${sbNum(SBUI.count, `${wFull}건`)} / 3건${wPartial > 0 ? " · 부분 반영이 있어 만점은 아니에요" : ""}`,
+                },
+              ].map((c) => (
+                <li key={c.label} className="flex items-start gap-2.5">
+                  <span
+                    className={`shrink-0 mt-0.5 w-[18px] h-[18px] rounded-full grid place-items-center text-[11px] font-bold ${
+                      c.ok === true ? "bg-successSoft text-successStrong" : c.ok === false ? "bg-errorSoft text-error" : "bg-sunken text-muted"
+                    }`}
+                    aria-hidden
+                  >
+                    {c.ok === true ? "✓" : c.ok === false ? "!" : "…"}
+                  </span>
+                  <span className="min-w-0 text-[12px] leading-[1.5]">
+                    <span className="font-semibold text-ink">{c.label}</span>
+                    <span className="block text-muted">{c.note}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 pt-3 border-t border-hairlineSoft text-[11px] text-muted leading-[1.5]">
+              S+ 혜택: 포인트 적립 +10% · 프로모션 최우선 · 골드 배지. 무리한 결제가 아니라 꾸준하고 성실한 완료가 핵심이에요.
             </p>
           </div>
         </section>
