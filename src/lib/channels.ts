@@ -81,7 +81,7 @@ export function selfCheckConditions(channel: SnsKind): ReviewCondition[] {
 // SNS 채널이 아니라 매장 결제 영수증 기반 리뷰로 참여한다. 지원금 = N 배율(10%),
 // 제출물 = 작성한 영수증 리뷰 화면 캡처(URL 없음). 배송형은 대상 아님(영수증 개념 없음).
 export const RECEIPT_LABEL = "영수증 리뷰";
-export const RECEIPT_AD_NOTICE = "캐치랭크를 통해 방문 혜택을 제공받고 작성한 리뷰입니다.";
+// 광고 문구 표기 대상 아님(2026-08-07 — 매장 방문 인증 기반 리뷰, 구 RECEIPT_AD_NOTICE 폐기).
 // 제출 = 작성한 영수증 리뷰의 **URL**(2026-08-07 개정 — 구 캡처 업로드 폐기).
 // URL은 네이버 > My 플레이스에서 확인 — 제출 폼이 안내 카드와 이동 버튼을 제공한다.
 export const NAVER_MY_PLACE_URL = "https://m.place.naver.com/my/review";
