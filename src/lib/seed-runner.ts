@@ -551,6 +551,9 @@ export function runSeed(db: DBShape) {
     noShowCount: 1, // 지난달 리뷰 기한 초과 1건 (스윕이 집계했을 값과 일치)
     // 바이럴 — 이미 2명 초대해서 일반 박스 단계
     inviteStats: { sent: 3, clicked: 3, accepted: 2, boxGrade: "basic" },
+    // 상생 리뷰어 지정 (2026-08-07) — 직전 평가월 충족으로 시드해 유예 로직상 유지 상태.
+    // 닉네임 옆 하트 악수 뱃지(WinWinBadge) 데모용 — 표시 전용 (P1 무영향)
+    winWinBadge: { since: now - 1000 * 60 * 60 * 24 * 35, lastQualifiedMonth: prevMonthKey(kstMonthKey(now)) },
   };
   db.reviewers.push(reviewer);
 
