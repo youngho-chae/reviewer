@@ -9,6 +9,7 @@ import { effectiveChannelState } from "@/lib/sns-cookie";
 import { pointBalance } from "@/lib/points";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import ProfileAvatar from "./ProfileAvatar";
+import WinWinBadge from "@/components/WinWinBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -54,19 +55,17 @@ export default async function Me() {
           <div className="flex items-center gap-3.5">
             <ProfileAvatar image={me.profileImage} initial={me.nickname.slice(0, 1)} />
             <div className="flex-1 min-w-0">
-              <h1 className="text-[17px] font-bold tracking-title text-ink truncate">{me.nickname}</h1>
+              <h1 className="text-[17px] font-bold tracking-title text-ink truncate flex items-center gap-1.5">
+                {me.nickname}
+                {me.winWinBadge && <WinWinBadge size={17} />}
+              </h1>
               <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <Link href="/r/grade" className="cp-action inline-flex items-center gap-1.5 px-2.5 py-1 bg-canvas rounded-pill border border-hairline">
                   <GradeBadge grade={eff.grade} size="sm" />
                   <span className="text-[13px] text-ink">{eff.grade}등급</span>
                   <span className="text-[12px] text-brand">자세히 →</span>
                 </Link>
-                {me.winWinBadge && (
-                  // 상생 리뷰어 — 표시용 신뢰 표식 (지원금 배율·참여 조건 무영향)
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill bg-brandSoft text-brand text-[12px] font-semibold">
-                    🤝 상생 리뷰어
-                  </span>
-                )}
+                {/* 상생 리뷰어 뱃지는 닉네임 옆 아이콘으로 이동 (2026-08-07 — 인스타 인증 배지 스타일) */}
               </div>
             </div>
           </div>

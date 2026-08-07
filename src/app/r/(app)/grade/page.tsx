@@ -7,6 +7,7 @@ import { SUPPORT_MULTIPLIER, gradeRank, bestGrade } from "@/lib/grade";
 import { WINWIN_BADGE, kstMonthKey, kstMonthEnd, prevMonthKey, collectMonthlyActivity } from "@/lib/grade-regrade";
 import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import GradeBadge from "@/components/GradeBadge";
+import WinWinBadge from "@/components/WinWinBadge";
 import Icon from "@/components/Icon";
 import type { Grade, SnsKind } from "@/lib/types";
 
@@ -138,7 +139,7 @@ export default async function ReviewerGrade() {
         {me.winWinBadge && (
           <div className="mt-3 flex justify-center">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-brandSoft text-brand text-[13px] font-semibold">
-              🤝 상생 리뷰어
+              <WinWinBadge size={15} /> 상생 리뷰어
             </span>
           </div>
         )}

@@ -48,7 +48,7 @@ function persist(db: DBShape) {
 // 운영 환경에서 KV/디스크에 남아있던 옛 시드를 자동 정리.
 // 스토리보드 브랜치(design/storyboard-schema)는 시드 내용이 다르므로 별도 버전(1000+).
 // realtest 브랜치(내부 실사용 테스트 — 데모 시드 없음·운영팀 계정만)는 2000+ 시리즈.
-const SEED_VERSION = 2000;
+const SEED_VERSION = 2001;
 
 function ensureSeeded(db: DBShape) {
   if (!db.seeded || (db.seedVersion ?? 0) < SEED_VERSION) {
