@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     // 이벤트에만 적립(P4). 지급액 = pointReward × 참여 채널 등급 배율 (P1: 등급은 혜택 크기).
     const campaign = db.campaigns.find((x) => x.id === pass.campaignId);
     if (campaign?.kind === "delivery" && (campaign.pointReward ?? 0) > 0) {
-      const points = pointsForGrade(campaign.pointReward as number, pass.reviewerGrade);
+      // S+ 보너스 +10% (2026-08-06 §10.6) — 적립 시점의 계정 표기 등급 기준
+      const points = pointsForGrade(campaign.pointReward as number, pass.reviewerGrade, reviewer?.grade === "S+");
       if (points > 0) {
         appendPointTxn(db, {
           reviewerId: pass.reviewerId,

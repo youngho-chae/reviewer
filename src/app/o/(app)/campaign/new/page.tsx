@@ -14,8 +14,9 @@ import { SUPPORT_MULTIPLIER, supportForGrade } from "@/lib/grade";
 import type { Grade } from "@/lib/types";
 
 // 등급별 지원금 시트 행 (시안 — "New" = N등급 표기)
+// S+·S는 배율이 동일(100%)해 한 행으로 묶어 표기 — 기준 지원금이 절대 상한(P2)이라 S+도 초과 없음.
 const GRADE_ROWS: Array<{ grade: Grade; label: string }> = [
-  { grade: "S", label: "S등급" },
+  { grade: "S", label: "S+·S" },
   { grade: "A", label: "A등급" },
   { grade: "B", label: "B등급" },
   { grade: "C", label: "C등급" },
