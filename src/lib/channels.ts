@@ -77,6 +77,20 @@ export function selfCheckConditions(channel: SnsKind): ReviewCondition[] {
   return CHANNEL_REVIEW_CONDITIONS[channel].filter((c) => !c.keep);
 }
 
+// ── 영수증 리뷰 (2026-08-07 — SNS 미연동(N) 참여 경로, 방문형 전용) ──────────
+// SNS 채널이 아니라 매장 결제 영수증 기반 리뷰로 참여한다. 지원금 = N 배율(10%),
+// 제출물 = 작성한 영수증 리뷰 화면 캡처(URL 없음). 배송형은 대상 아님(영수증 개념 없음).
+export const RECEIPT_LABEL = "영수증 리뷰";
+export const RECEIPT_AD_NOTICE = "캐치랭크를 통해 방문 혜택을 제공받고 작성한 리뷰입니다.";
+export const RECEIPT_REVIEW_CONDITIONS: ReviewCondition[] = [
+  { key: "receiptWrite", label: "네이버 영수증 리뷰 작성", hint: "결제 영수증으로 방문을 인증하고 리뷰를 남겼어요" },
+  { key: "receiptText", label: "방문 경험이 담긴 내용", hint: "메뉴·매장 경험을 한두 줄 이상 적었어요" },
+  { key: "days90", label: "90일 이상 게시 유지", hint: "조기 삭제 시 등급 점수가 차감될 수 있어요", keep: true },
+];
+export function receiptSelfCheckConditions(): ReviewCondition[] {
+  return RECEIPT_REVIEW_CONDITIONS.filter((c) => !c.keep);
+}
+
 // 캠페인의 필수 채널 중 우선순위(블로그→인스타→틱톡)가 가장 높은 채널.
 export function defaultChannel(required: SnsKind[]): SnsKind | null {
   for (const ch of CHANNEL_ORDER) {

@@ -325,8 +325,13 @@ export interface Pass {
   // 초대 보상(지원금 부스트)이 사용 처리에 적용된 경우 기록
   supportBoostPct?: number;
   boostRewardId?: string;
+  // 영수증 리뷰 참여 (2026-08-07 — SNS 미연동(N) 참여 경로, 방문형 전용): SNS 채널 대신
+  // 매장 영수증 리뷰를 작성한다. reviewChannel 없음 · reviewerGrade N(10%) · 제출 = 캡처 업로드.
+  receiptReview?: boolean;
   reviewSubmittedAt?: number;
   reviewUrl?: string;
+  // 영수증 리뷰 제출물 — 작성한 영수증 리뷰 화면 캡처 (data URL, 검수 근거)
+  reviewImage?: string;
   reviewPhotos?: string[]; // data URL or placeholder
   reviewBody?: string;
   reviewChannel?: SnsKind;

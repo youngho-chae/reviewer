@@ -254,7 +254,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           passId={pass.id}
           code={pass.code}
           storeName={store?.name ?? "매장"}
-          channelLabel={pass.reviewChannel ? CHANNEL_LABEL[pass.reviewChannel] : "채널 미정"}
+          channelLabel={pass.reviewChannel ? CHANNEL_LABEL[pass.reviewChannel] : pass.receiptReview ? "영수증 리뷰" : "채널 미정"}
           grade={pass.reviewerGrade}
           support={displaySupport}
           expiresAt={pass.expiresAt}
@@ -280,13 +280,17 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
   // 히어로(매장명·혜택·마감 카드) → [반려 시] 반려 사유 카드 → 파스텔 채널 배너 → URL·최종 확인 폼.
   if (pass.status === "used" || pass.status === "rejected") {
     const isRejected = pass.status === "rejected";
+    const isReceipt = !!pass.receiptReview;
     const channel = pass.reviewChannel ?? defaultChannel(campaign?.requiredChannels ?? []) ?? "naver_blog";
-    // 파스텔 채널 배너 — 디자인 시스템 SNS 토큰 재사용 (블로그 그린 / 인스타 핑크 / 틱톡 틸)
-    const banner = {
-      naver_blog: { label: "네이버 블로그", box: "bg-snsBlogBg", strong: "text-snsBlogText" },
-      instagram: { label: "인스타", box: "bg-snsInstaBg", strong: "text-snsInstaText" },
-      tiktok: { label: "틱톡", box: "bg-snsTiktokBg", strong: "text-snsTiktokText" },
-    }[channel];
+    // 파스텔 채널 배너 — 디자인 시스템 SNS 토큰 재사용 (블로그 그린 / 인스타 핑크 / 틱톡 틸).
+    // 영수증 리뷰(2026-08-07)는 채널이 없으므로 중립 배너.
+    const banner = isReceipt
+      ? { label: "영수증 리뷰", box: "bg-sunken", strong: "text-ink" }
+      : {
+          naver_blog: { label: "네이버 블로그", box: "bg-snsBlogBg", strong: "text-snsBlogText" },
+          instagram: { label: "인스타", box: "bg-snsInstaBg", strong: "text-snsInstaText" },
+          tiktok: { label: "틱톡", box: "bg-snsTiktokBg", strong: "text-snsTiktokText" },
+        }[channel];
     // 마감 기산점 — used: 이용 후 7일 / rejected: 반려 후 7일 (1회 재제출)
     // 리뷰 마감 (§8-2) — 예약형은 확정 방문일 기준 +7일 (reviewDeadline), 그 외 이용 후 7일
     const deadline = isRejected
@@ -373,9 +377,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           )}
         </section>
 
-        {/* 파스텔 채널 배너 — 참여 채널 고정 표기 */}
+        {/* 파스텔 채널 배너 — 참여 채널 고정 표기 (영수증 리뷰는 중립 톤) */}
         <div className={`mx-5 mt-5 rounded-lg px-4 py-4 text-center text-[15px] text-ink ${banner.box}`}>
-          이번 체험은 <span className={`font-bold ${banner.strong}`}>{banner.label}</span> 참여했어요
+          이번 체험은 <span className={`font-bold ${banner.strong}`}>{banner.label}</span>{isReceipt ? "로" : ""} 참여했어요
         </div>
 
         {/* 배송형 — 운송장·배송 조회 유지 */}
@@ -400,7 +404,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
               : "리뷰 제출 기한(이용 후 7일)이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요."}
           </div>
         ) : (
-          <ReviewForm passId={pass.id} storeId={pass.storeId} channel={channel} resubmit={isRejected} />
+          <ReviewForm passId={pass.id} storeId={pass.storeId} channel={channel} resubmit={isRejected} receipt={isReceipt} />
         )}
       </div>
     );
@@ -433,7 +437,11 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           ) : (
             <>지원금 <span className="font-bold text-ink tabular-nums">{sbNum(SBUI.support, `${(pass.supportApplied ?? entitledSupport).toLocaleString()}원`)}</span></>
           )}
-          {pass.reviewChannel ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급` : ""}
+          {pass.reviewChannel
+            ? ` · ${CHANNEL_LABEL[pass.reviewChannel]} ${pass.reviewerGrade}등급`
+            : pass.receiptReview
+              ? ` · 영수증 리뷰 ${pass.reviewerGrade}등급`
+              : ""}
         </p>
       </section>
 

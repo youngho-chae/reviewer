@@ -147,9 +147,15 @@ export default function ReviewsPanel({
                 </span>
               </div>
 
-              {/* 채널 파스텔 배지 + 날짜 (시안 — 작성 대기는 이용일·리뷰 기한) */}
+              {/* 채널 파스텔 배지 + 날짜 (시안 — 작성 대기는 이용일·리뷰 기한).
+                  영수증 리뷰(2026-08-07)는 채널 배지 대신 중립 칩 — 게시물 링크 없음 */}
               <div className="mt-2 flex items-center gap-2 text-[13px] text-ink2 tabular-nums">
                 {state !== "pending" && p.reviewChannel && <ChannelIcons channels={[p.reviewChannel]} />}
+                {state !== "pending" && !p.reviewChannel && p.receiptReview && (
+                  <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill bg-sunken text-[11px] font-semibold text-ink2">
+                    🧾 영수증 리뷰
+                  </span>
+                )}
                 <span>
                   {dateAt ? fmtKst(dateAt) : "일시 미기록"}
                   {state === "pending" && deadline != null && <> · 리뷰 기한 {fmtKst(deadline)}</>}

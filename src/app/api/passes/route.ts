@@ -77,15 +77,28 @@ export async function POST(req: NextRequest) {
       history: [{ at, by: "reviewer", kind: "request", date: rd, time: rt }],
     };
   }
-  const selectedChannel: SnsKind | undefined = channel as SnsKind | undefined;
-  // 인스턴스 불일치 스톱갭 — 연동 직후 다른 인스턴스에서도 최신 연동 상태로 참여 판정 (sns-cookie.ts)
-  const eff = await effectiveChannelState(me);
-  if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
-    return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
+  // 영수증 리뷰 참여 (2026-08-07) — SNS 미연동(N)의 방문형 참여 경로: 채널 없이 참여하고
+  // 매장 영수증 리뷰를 작성한다. 지원금 = N 배율(10%). 배송형은 영수증 개념이 없어 대상 제외.
+  const isReceipt = channel === "receipt";
+  if (isReceipt && isDelivery) {
+    return NextResponse.json({ error: "배송형 체험은 SNS 채널 연동 후 참여할 수 있어요" }, { status: 400 });
   }
-  const channelGrade: Grade | undefined = eff.channelGrades[selectedChannel];
-  if (!channelGrade) {
-    return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
+  let selectedChannel: SnsKind | undefined;
+  let channelGrade: Grade;
+  if (isReceipt) {
+    channelGrade = "N";
+  } else {
+    selectedChannel = channel as SnsKind | undefined;
+    // 인스턴스 불일치 스톱갭 — 연동 직후 다른 인스턴스에서도 최신 연동 상태로 참여 판정 (sns-cookie.ts)
+    const eff = await effectiveChannelState(me);
+    if (!selectedChannel || !c.requiredChannels.includes(selectedChannel)) {
+      return NextResponse.json({ error: "참여할 채널을 선택해주세요" }, { status: 400 });
+    }
+    const g: Grade | undefined = eff.channelGrades[selectedChannel];
+    if (!g) {
+      return NextResponse.json({ error: "선택한 채널이 연동되어 있지 않습니다" }, { status: 403 });
+    }
+    channelGrade = g;
   }
 
   // 기간 종료 캠페인 — 상세는 열람 가능(관심 목록 경유)하지만 발급은 차단
@@ -178,7 +191,7 @@ export async function POST(req: NextRequest) {
     ownerId: db.stores.find((s) => s.id === c.storeId)!.ownerId,
     reviewerGrade: channelGrade,
     consumedSlot, // 만료/취소 시 이 슬롯을 복구
-    reviewChannel: selectedChannel,
+    ...(isReceipt ? { receiptReview: true } : { reviewChannel: selectedChannel }),
     issuedAt: now,
     // 방문형은 발급 후 72시간 사용 기한(연장·복구 없음).
     // 배송형은 캠페인 종료까지 발송 대기(발송 후 리뷰 7일).
@@ -201,7 +214,7 @@ export async function POST(req: NextRequest) {
     title: isDelivery ? "배송형 신청 (발송 대기)" : reservationInfo ? "예약 방문 신청" : "체험권 발급",
     // [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호로 구분
     // (배송형 수령인 정보는 알림이 아니라 발송 처리 화면에서만 — 목적 제한 노출)
-    body: `새 체험자가 캠페인에 참여했습니다 (체험권 ${passRefNo(pass.id)})${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : ""}.${
+    body: `새 체험자가 캠페인에 참여했습니다 (체험권 ${passRefNo(pass.id)})${selectedChannel ? ` (${CHANNEL_LABEL[selectedChannel]})` : isReceipt ? " (영수증 리뷰)" : ""}.${
       isDelivery
         ? " 발송 처리를 진행해주세요."
         : reservationInfo
