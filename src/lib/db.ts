@@ -51,8 +51,28 @@ function persist(db: DBShape) {
 const SEED_VERSION = 1029;
 
 function ensureSeeded(db: DBShape) {
+  // [realtest 2000계열 — 비파괴 원칙 (2026-08-07 사고의 교훈)] 실사용 데이터가 담기는
+  // 브랜치에서는 SEED_VERSION bump가 절대 기존 데이터를 지우지 않는다. 최초 부트스트랩
+  // (미시드)에만 시드하고, 이후 버전 bump는 seedVersion 갱신만 한다 (시드 = 운영팀 계정뿐
+  // 이라 보충할 것도 없음 — 계정이 사라진 비정상 상태만 보충).
+  // (실사고: 2001 bump가 ensureSeeded 전체 wipe를 태워 realtest KV의 실사용 DB가 초기화됨)
+  const isRealtestSeries = Math.floor(SEED_VERSION / 1000) === 2;
+  if (isRealtestSeries && db.seeded) {
+    if ((db.seedVersion ?? 0) < SEED_VERSION) {
+      if (!db.admins || db.admins.length === 0) {
+        // REALTEST 시드는 admins만 세팅하고 반환 — 기존 데이터 무접촉.
+        // (runSeed는 db.seeded 가드로 즉시 반환하므로 일시 해제 후 호출)
+        db.seeded = false;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { runSeed } = require("./seed-runner");
+        runSeed(db);
+      }
+      db.seedVersion = SEED_VERSION;
+    }
+    return;
+  }
   if (!db.seeded || (db.seedVersion ?? 0) < SEED_VERSION) {
-    // 기존 상태 초기화 후 재시드
+    // 기존 상태 초기화 후 재시드 (데모 시드 계열 전용 — 실사용 계열은 위에서 반환)
     db.reviewers = [];
     db.owners = [];
     db.admins = [];

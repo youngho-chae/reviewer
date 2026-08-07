@@ -57,6 +57,56 @@ async function kvLoadKey<T>(key: string): Promise<T | null> {
   }
 }
 
+// ── 복구·진단 프리미티브 (2026-08-07 — realtest DB 초기화 사고 대응) ──────────
+// 어드민 KV 콘솔(/api/admin/kv) 전용: 키 스캔·임의 키 원문 로드·임의 키 저장.
+
+export function kvCurrentKey(): string {
+  return KEY;
+}
+
+// catchpass:db:* 키 전수 스캔 — Upstash REST SCAN (cursor 순회)
+export async function kvScanKeys(prefix = "catchpass:db:"): Promise<string[]> {
+  const e = endpoint();
+  if (!e) return [];
+  const keys: string[] = [];
+  let cursor = "0";
+  try {
+    do {
+      const r = await fetch(
+        `${e.url}/scan/${encodeURIComponent(cursor)}?match=${encodeURIComponent(prefix + "*")}&count=100`,
+        { headers: { Authorization: `Bearer ${e.token}` }, cache: "no-store" },
+      );
+      if (!r.ok) break;
+      const data = (await r.json()) as { result: [string, string[]] };
+      cursor = data.result?.[0] ?? "0";
+      keys.push(...(data.result?.[1] ?? []));
+    } while (cursor !== "0" && keys.length < 1000);
+  } catch {}
+  return keys;
+}
+
+// 임의 키 로드 (이중 직렬화 호환 — kvLoadKey와 동일 파서)
+export async function kvLoadRaw<T>(key: string): Promise<T | null> {
+  return kvLoadKey<T>(key);
+}
+
+// 임의 키 저장 — 복구 전 현재 상태 백업(rescue 키)·복원 쓰기에 사용
+export async function kvSaveRaw<T>(key: string, value: T): Promise<boolean> {
+  const e = endpoint();
+  if (!e) return false;
+  try {
+    const r = await fetch(`${e.url}/set/${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${e.token}` },
+      body: JSON.stringify(value),
+      cache: "no-store",
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function kvSave<T>(value: T): Promise<boolean> {
   const e = endpoint();
   if (!e) return false;
