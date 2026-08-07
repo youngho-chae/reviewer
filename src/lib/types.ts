@@ -330,7 +330,8 @@ export interface Pass {
   receiptReview?: boolean;
   reviewSubmittedAt?: number;
   reviewUrl?: string;
-  // 영수증 리뷰 제출물 — 작성한 영수증 리뷰 화면 캡처 (data URL, 검수 근거)
+  // @deprecated 영수증 리뷰 제출물(캡처 dataURL) — 2026-08-07 당일 개정으로 URL 제출로 전환
+  // (reviewUrl 공통 사용). 신규 기록 중단 — 구 제출분 표시 호환용만 유지.
   reviewImage?: string;
   reviewPhotos?: string[]; // data URL or placeholder
   reviewBody?: string;

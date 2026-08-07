@@ -148,7 +148,8 @@ export default function ReviewsPanel({
               </div>
 
               {/* 채널 파스텔 배지 + 날짜 (시안 — 작성 대기는 이용일·리뷰 기한).
-                  영수증 리뷰(2026-08-07)는 채널 배지 대신 중립 칩 — 게시물 링크 없음 */}
+                  영수증 리뷰(2026-08-07)는 채널 배지 대신 중립 칩 — 리뷰 URL(My 플레이스)은
+                  아래 [리뷰 보러가기] 공통 링크로 열린다 */}
               <div className="mt-2 flex items-center gap-2 text-[13px] text-ink2 tabular-nums">
                 {state !== "pending" && p.reviewChannel && <ChannelIcons channels={[p.reviewChannel]} />}
                 {state !== "pending" && !p.reviewChannel && p.receiptReview && (

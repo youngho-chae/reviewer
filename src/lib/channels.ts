@@ -82,6 +82,9 @@ export function selfCheckConditions(channel: SnsKind): ReviewCondition[] {
 // 제출물 = 작성한 영수증 리뷰 화면 캡처(URL 없음). 배송형은 대상 아님(영수증 개념 없음).
 export const RECEIPT_LABEL = "영수증 리뷰";
 export const RECEIPT_AD_NOTICE = "캐치랭크를 통해 방문 혜택을 제공받고 작성한 리뷰입니다.";
+// 제출 = 작성한 영수증 리뷰의 **URL**(2026-08-07 개정 — 구 캡처 업로드 폐기).
+// URL은 네이버 > My 플레이스에서 확인 — 제출 폼이 안내 카드와 이동 버튼을 제공한다.
+export const NAVER_MY_PLACE_URL = "https://m.place.naver.com/my/review";
 export const RECEIPT_REVIEW_CONDITIONS: ReviewCondition[] = [
   { key: "receiptWrite", label: "네이버 영수증 리뷰 작성", hint: "결제 영수증으로 방문을 인증하고 리뷰를 남겼어요" },
   { key: "receiptText", label: "방문 경험이 담긴 내용", hint: "메뉴·매장 경험을 한두 줄 이상 적었어요" },
