@@ -91,7 +91,8 @@ export default async function AdminReviews() {
               </a>
             )}
 
-            {/* 영수증 리뷰 (2026-08-07) — 제출물 = 작성 화면 캡처 (URL 없음) */}
+            {/* 영수증 리뷰 구 제출분(캡처) 표시 호환 — 2026-08-07 당일 개정으로 URL 제출로
+                전환(위 '게시물 열기' 링크 공통), 신규 캡처 기록은 없다 */}
             {p.receiptReview && p.reviewImage && (
               <div className="mt-2 rounded-md border border-hairline overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

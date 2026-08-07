@@ -1,9 +1,9 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SnsKind } from "@/lib/types";
-import { KEEP_DAYS, selfCheckConditions, receiptSelfCheckConditions } from "@/lib/channels";
+import { KEEP_DAYS, selfCheckConditions, receiptSelfCheckConditions, NAVER_MY_PLACE_URL } from "@/lib/channels";
 import Icon from "@/components/Icon";
 
 // 리뷰 제출 폼 (2026-07-17 시안 개편) — 리뷰 URL + '제출 전 마지막 확인' 단일 카드.
@@ -11,7 +11,9 @@ import Icon from "@/components/Icon";
 //  - 자가 점검(광고 문구 포함·채널별 조건)과 90일 유지 동의를 한 카드의 행으로 통합,
 //    체크박스는 우측 라운드 사각형. keepAgreed는 여전히 별도 필드로 서버 필수 검증.
 //  - 제출 CTA는 하단 고정 바(검수 안내 캡션 포함).
-//  - 영수증 리뷰 (2026-08-07): URL 대신 작성한 영수증 리뷰 화면 캡처 업로드 (서버 필수 검증).
+//  - 영수증 리뷰 (2026-08-07 개정): SNS와 동일하게 **리뷰 URL 제출** — 작성한 영수증 리뷰의
+//    URL은 네이버 > My 플레이스에서 확인 가능(안내 카드 + [My 플레이스로 이동하기] 제공).
+//    구 캡처 업로드 방식은 폐기.
 export default function ReviewForm({
   passId,
   channel,
@@ -23,13 +25,11 @@ export default function ReviewForm({
   channel: SnsKind;
   storeId?: string;
   resubmit?: boolean; // 반려 후 재제출 — CTA 라벨만 분기
-  receipt?: boolean; // 영수증 리뷰 참여 — URL 대신 캡처 업로드
+  receipt?: boolean; // 영수증 리뷰 참여 — URL 안내가 My 플레이스 기준으로 바뀐다
 }) {
   const router = useRouter();
   const conditions = receipt ? receiptSelfCheckConditions() : selfCheckConditions(channel);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [reviewUrl, setReviewUrl] = useState("");
-  const [reviewImage, setReviewImage] = useState<string | null>(null);
   const [adChecked, setAdChecked] = useState(false);
   const [keepAgreed, setKeepAgreed] = useState(false);
   const [selfCheck, setSelfCheck] = useState<Record<string, boolean>>(
@@ -41,30 +41,7 @@ export default function ReviewForm({
   const allSelfChecked = conditions.every((c) => selfCheck[c.key]);
   // [2026-07-12 회의 §11-2] 입력 URL 형식 검증 — http(s):// 로 시작하는 유효한 주소만 제출
   const urlValid = /^https?:\/\/\S+\.\S+/.test(reviewUrl.trim());
-  const evidenceReady = receipt ? !!reviewImage : !!reviewUrl && urlValid;
-  const canSubmit = evidenceReady && adChecked && allSelfChecked && keepAgreed && !loading;
-
-  // 캡처 업로드 — 클라이언트에서 최대 폭 720px JPEG로 축소해 dataURL 생성 (서버 상한 512KB)
-  async function onPickImage(file: File | undefined) {
-    if (!file) return;
-    setErr(null);
-    try {
-      const bmp = await createImageBitmap(file);
-      const scale = Math.min(1, 720 / bmp.width);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(bmp.width * scale);
-      canvas.height = Math.round(bmp.height * scale);
-      canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-      if (dataUrl.length > 700_000) {
-        setErr("이미지 용량이 너무 커요. 화면을 다시 캡처해 업로드해주세요.");
-        return;
-      }
-      setReviewImage(dataUrl);
-    } catch {
-      setErr("이미지를 불러오지 못했어요. 다른 파일로 시도해주세요.");
-    }
-  }
+  const canSubmit = !!reviewUrl && urlValid && adChecked && allSelfChecked && keepAgreed && !loading;
 
   async function submit() {
     setLoading(true);
@@ -74,7 +51,7 @@ export default function ReviewForm({
       headers: { "content-type": "application/json" },
       body: JSON.stringify(
         receipt
-          ? { passId, reviewImage, selfCheck, adNotice: adChecked, keepAgreed }
+          ? { passId, reviewUrl, selfCheck, adNotice: adChecked, keepAgreed }
           : { passId, reviewChannel: channel, reviewUrl, selfCheck, adNotice: adChecked, keepAgreed },
       ),
     });
@@ -115,56 +92,37 @@ export default function ReviewForm({
   return (
     <>
       <div className="px-5 mt-8 space-y-8">
-        {receipt ? (
-          /* 영수증 리뷰 — 작성한 리뷰 화면 캡처 업로드 (검수 근거) */
-          <div>
-            <h3 className="text-[18px] font-bold text-ink tracking-title mb-3">영수증 리뷰 캡처</h3>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(e) => onPickImage(e.target.files?.[0])}
-            />
-            {reviewImage ? (
-              <div className="rounded-md border border-hairline overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={reviewImage} alt="영수증 리뷰 캡처 미리보기" className="w-full max-h-[320px] object-contain bg-sunken" />
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="cp-action w-full h-11 border-t border-hairlineSoft text-[13px] font-semibold text-brand"
-                >
-                  다른 이미지로 변경
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="cp-action w-full rounded-md border border-dashed border-borderStrong bg-canvas py-8 text-center"
+        {/* 리뷰 URL */}
+        <div>
+          <h3 className="text-[18px] font-bold text-ink tracking-title mb-3">리뷰 URL</h3>
+          <input
+            value={reviewUrl}
+            onChange={(e) => setReviewUrl(e.target.value)}
+            placeholder="복사한 url을 붙여넣어주세요"
+            className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] placeholder:text-mutedSoft"
+          />
+          {reviewUrl.trim() !== "" && !urlValid && (
+            <p className="mt-1.5 text-[12px] text-error">http:// 또는 https:// 로 시작하는 게시물 주소를 입력해주세요.</p>
+          )}
+
+          {/* 영수증 리뷰 — 리뷰 URL 확인 위치 안내 + My 플레이스 이동 (2026-08-07) */}
+          {receipt && (
+            <div className="mt-3 rounded-md bg-sunken p-4">
+              <div className="text-[13px] font-bold text-ink">🧾 작성한 영수증 리뷰의 URL은 어디서 보나요?</div>
+              <p className="mt-1.5 text-[12px] text-ink2 leading-[1.6]">
+                네이버 &gt; <b>My 플레이스</b>에서 내가 작성한 리뷰를 열면 URL을 확인·복사할 수 있어요.
+              </p>
+              <a
+                href={NAVER_MY_PLACE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cp-action mt-3 inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-md border border-hairline bg-canvas text-[13px] font-semibold text-ink"
               >
-                <span className="block text-[24px]" aria-hidden>🧾</span>
-                <span className="mt-1.5 block text-[14px] font-semibold text-ink">작성한 영수증 리뷰 화면 업로드</span>
-                <span className="mt-0.5 block text-[12px] text-muted">리뷰 내용이 보이게 캡처해주세요</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          /* 리뷰 URL */
-          <div>
-            <h3 className="text-[18px] font-bold text-ink tracking-title mb-3">리뷰 URL</h3>
-            <input
-              value={reviewUrl}
-              onChange={(e) => setReviewUrl(e.target.value)}
-              placeholder="복사한 url을 붙여넣어주세요"
-              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[15px] placeholder:text-mutedSoft"
-            />
-            {reviewUrl.trim() !== "" && !urlValid && (
-              <p className="mt-1.5 text-[12px] text-error">http:// 또는 https:// 로 시작하는 게시물 주소를 입력해주세요.</p>
-            )}
-          </div>
-        )}
+                My 플레이스로 이동하기 <Icon name="arrow-right" variant="border" size={13} />
+              </a>
+            </div>
+          )}
+        </div>
 
         {/* 제출 전 마지막 확인 — 자가점검 + 90일 유지 동의 통합 카드 (체크박스 우측) */}
         <div>

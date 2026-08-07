@@ -110,7 +110,7 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         tone: state === "done" ? "ok" : state === "resubmit" ? "bad" : "wait",
         reservationLabel: p.reservation ? fmtReservationLabel(p.reservation.date, p.reservation.time) : null,
         reviewUrl: p.reviewUrl ?? null,
-        receipt: !!p.receiptReview, // 영수증 리뷰 (2026-08-07) — 링크 없음, 표기만
+        receipt: !!p.receiptReview, // 영수증 리뷰 (2026-08-07) — 표기용 (URL은 reviewUrl 공통)
       };
     });
 

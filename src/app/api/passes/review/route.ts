@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { passId, reviewUrl, reviewImage, reviewChannel, selfCheck, adNotice, keepAgreed } = await req.json();
+  const { passId, reviewUrl, reviewChannel, selfCheck, adNotice, keepAgreed } = await req.json();
   const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === passId);
   if (!pass || pass.reviewerId !== s.userId) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -39,20 +39,14 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  // 영수증 리뷰 참여 (2026-08-07) — 제출물 = 작성한 영수증 리뷰 화면 캡처 (URL·채널 없음)
+  // 영수증 리뷰 참여 (2026-08-07 개정) — SNS와 동일하게 리뷰 URL 제출 (My 플레이스에서 확인,
+  // 구 캡처 업로드 폐기). 채널만 없다 — URL·자가점검·광고 표기·90일 동의는 공통 필수.
   const isReceipt = !!pass.receiptReview;
-  if (isReceipt) {
-    const img = String(reviewImage || "");
-    // data URL 이미지 + 용량 상한 (base64 ≈ 512KB — profileImage 관례와 동일 규모)
-    if (!img.startsWith("data:image/")) {
-      return NextResponse.json({ error: "작성한 영수증 리뷰 화면 캡처를 업로드해주세요" }, { status: 400 });
-    }
-    if (img.length > 700_000) {
-      return NextResponse.json({ error: "이미지 용량이 너무 커요. 다시 캡처해 업로드해주세요." }, { status: 400 });
-    }
-  } else if (!reviewUrl) {
-    // 방문형(SNS 채널)은 URL + 채널 + 채널별 자가점검 항목 모두 체크 필수
-    return NextResponse.json({ error: "URL을 입력해주세요" }, { status: 400 });
+  if (!reviewUrl) {
+    return NextResponse.json(
+      { error: isReceipt ? "리뷰 URL을 입력해주세요 — 네이버 > My 플레이스에서 확인할 수 있어요" : "URL을 입력해주세요" },
+      { status: 400 },
+    );
   }
   // 경제적 대가(광고) 표기 확인 — 클라이언트 체크만으로는 우회 가능하므로 서버가 강제
   if (!adNotice) {
@@ -79,8 +73,7 @@ export async function POST(req: NextRequest) {
   pass.adNoticeConfirmed = true;
 
   if (isResubmit) pass.resubmitCount = (pass.resubmitCount ?? 0) + 1;
-  if (isReceipt) pass.reviewImage = String(reviewImage);
-  else pass.reviewUrl = reviewUrl;
+  pass.reviewUrl = reviewUrl;
   pass.reviewSubmittedAt = Date.now();
   pass.reviewStatus = "pending";
   pass.status = "review_submitted";
