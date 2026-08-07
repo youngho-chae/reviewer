@@ -12,7 +12,7 @@ import {
   RECEIPT_AD_NOTICE,
   RECEIPT_REVIEW_CONDITIONS,
 } from "@/lib/channels";
-import { SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { SUPPORT_MULTIPLIER, RECEIPT_DISCOUNT_LABEL } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { fmtKoDateTime } from "@/lib/dates";
 import { PASS_VALIDITY_MS } from "@/lib/pass-lifecycle";
@@ -251,9 +251,8 @@ export default function StoreParticipate({
                 <span className="block text-[15px] font-semibold text-ink truncate">{RECEIPT_LABEL}</span>
                 <span className="block text-[11px] text-muted mt-0.5">SNS 연동 없이 참여 · 영수증 리뷰 작성</span>
               </span>
-              <span className="text-[16px] font-bold text-ink tabular-nums shrink-0">
-                {sbNum(SBUI.support, `${supportFor(base, "N").toLocaleString()}원`)}
-              </span>
+              {/* 정액이 아니라 "직접 결제한 금액의 10% 할인" — 금액 표기 금지 (2026-08-07 정정) */}
+              <span className="text-[16px] font-bold text-ink shrink-0">{RECEIPT_DISCOUNT_LABEL}</span>
             </button>
           )}
         </div>
@@ -356,11 +355,13 @@ export default function StoreParticipate({
                 ? "로그인 후 확인"
                 : !connected
                 ? "—"
-                : isDelivery
-                  ? pointReward > 0
-                    ? sbNum(SBUI.point, `+${selectedPoints.toLocaleString()}P`)
-                    : "제품 제공"
-                  : sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}
+                : isReceipt
+                  ? RECEIPT_DISCOUNT_LABEL // 결제 금액의 10% 할인 — 정액 아님 (2026-08-07)
+                  : isDelivery
+                    ? pointReward > 0
+                      ? sbNum(SBUI.point, `+${selectedPoints.toLocaleString()}P`)
+                      : "제품 제공"
+                    : sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}
             </div>
           </div>
           {/* CTA 우선순위 (2026-07-10 §1): [게스트 로그인 유도(2026-07-24 시안 — 최우선)] >
@@ -413,7 +414,11 @@ export default function StoreParticipate({
         <ReserveSheet
           channelLabel={isReceipt ? RECEIPT_LABEL : CHANNEL_LABEL[selected as SnsKind]}
           gradeLabel={`${myGrade}등급`}
-          supportText={sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) as string}
+          supportText={
+            isReceipt
+              ? `결제 금액의 ${RECEIPT_DISCOUNT_LABEL}`
+              : (sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) as string)
+          }
           picker={rsvPicker}
           busy={busy}
           err={err}
@@ -479,8 +484,10 @@ export default function StoreParticipate({
                 </>
               ) : (
                 <div className="flex justify-between">
-                  <span className="text-muted">지원 금액</span>
-                  <span className="text-ink font-bold tabular-nums">{sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}</span>
+                  <span className="text-muted">{isReceipt ? "할인 혜택" : "지원 금액"}</span>
+                  <span className="text-ink font-bold tabular-nums">
+                    {isReceipt ? `결제 금액의 ${RECEIPT_DISCOUNT_LABEL}` : sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`)}
+                  </span>
                 </div>
               )}
             </div>
