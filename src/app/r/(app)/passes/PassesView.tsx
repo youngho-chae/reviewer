@@ -32,6 +32,7 @@ export interface VisitPassItem {
   receipt?: boolean; // 영수증 리뷰 참여 (2026-08-07 — 채널 없음·N 10%)
   grade: string;
   support: number; // 이 체험권으로 받는 지원금 (등급 적용액)
+  supportLabel?: string | null; // 금액 대신 표기할 라벨 (영수증 리뷰 "10% 할인" — 2026-08-07)
   expiresAt: number;
   // 유효기간 표기 (2026-07-23 시안) — 예약형 "0월 00일 (0)" / 그 외 "0월 00일 (0) 오후 0시" (12시간제)
   expiryLabel?: string;
@@ -308,8 +309,8 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
               </>
             ) : (
               <>
-                <span className="font-bold text-ink">{sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
-                <span className="text-[13px] text-muted">지원</span>
+                <span className="font-bold text-ink">{it.supportLabel ?? sbNum(SBUI.support, `${it.support.toLocaleString()}원`)}</span>{" "}
+                <span className="text-[13px] text-muted">{it.supportLabel ? "할인" : "지원"}</span>
               </>
             )}
           </p>

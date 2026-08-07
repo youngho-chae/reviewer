@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { receiptSupportFor } from "@/lib/grade";
 
 const Html5QrScanner = dynamic(() => import("./Html5QrScanner"), { ssr: false });
 
@@ -140,7 +141,12 @@ export default function ScanPage() {
             {/* [2026-07-31 §4-5] 체험자 식별정보(익명 ID 포함) 비노출 — 체험권 번호(거래 단위)로 구분 */}
             <div className="mt-1 text-[18px] font-bold text-ink tracking-title tabular-nums">체험권 {result.passNo}</div>
             <div className="mt-2 text-[13px] text-muted">상태: {STATUS_LABEL[result.pass.status] ?? result.pass.status}</div>
-            <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{result.campaign?.supportAmount.toLocaleString()}원</span></div>
+            {/* 영수증 리뷰 (2026-08-07 정정) — 정액 한도가 아니라 결제 금액의 10% 할인 */}
+            {result.pass.receiptReview ? (
+              <div className="mt-1 text-[13px] text-ink2">할인 혜택: <span className="text-[14px] font-bold text-ink">결제 금액의 10% (영수증 리뷰)</span></div>
+            ) : (
+              <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{result.campaign?.supportAmount.toLocaleString()}원</span></div>
+            )}
 
             {result.pass.status === "active" ? (
               <>
@@ -148,7 +154,9 @@ export default function ScanPage() {
                   <div className="text-[14px] font-semibold text-ink mb-2">실 결제 금액 입력</div>
                   <input value={paidAmount} onChange={(e) => setPaidAmount(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" className="w-full h-12 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px] tabular-nums" />
                   <div className="mt-1 text-[12px] text-muted tabular-nums">
-                    적용 지원금: {Math.min(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원
+                    {result.pass.receiptReview
+                      ? `적용 할인 (10%): ${receiptSupportFor(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원`
+                      : `적용 지원금: ${Math.min(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원`}
                   </div>
                 </div>
                 <button onClick={useNow} disabled={busy || !paidAmount} className="mt-4 w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft">

@@ -79,7 +79,8 @@ export function bestGrade(grades: Array<Grade | undefined>): Grade {
 //   S+ 100% · S 100% · A 80% · B 60% · C 40% · N 10%
 // S+ 배율은 S와 동일 — 기준 지원금(=S 100%)이 절대 상한(P2 매장 직접 할인·boostedLimit 전제)이라
 // 100% 초과 배율은 구조적으로 불가. S+ 추가 혜택은 배율 외(포인트 보너스·배지·프로모션 우선 — §10.6).
-// N 배율은 미연동 전용 상태가 되어 사실상 도먼트(참여 게이트가 미연동을 차단) — 구 패스 스냅샷 호환 유지.
+// N 배율(0.1)은 "기준 지원금의 10% 정액"이 아니라 구 패스 스냅샷 호환용 — 영수증 리뷰(N) 참여의
+// 실제 혜택은 **결제 금액의 10% 할인**(receiptSupportFor, 2026-08-07 정정)이며 표기도 "10% 할인"뿐.
 export const SUPPORT_MULTIPLIER: Record<Grade, number> = {
   "S+": 1,
   S: 1,
@@ -94,6 +95,16 @@ export const SUPPORT_MULTIPLIER: Record<Grade, number> = {
 export function supportForGrade(base: number, g: Grade): number {
   const raw = (base || 0) * SUPPORT_MULTIPLIER[g];
   return Math.round(raw / 100) * 100;
+}
+
+// 영수증 리뷰(N) 할인 — 정액이 아니라 "직접 결제한 금액의 10% 할인" (2026-08-07 정정).
+// 표기는 금액이 아닌 "10% 할인"으로 통일하고, 실제 할인액은 사용 처리 시점에 결제액으로 산정.
+// 상한 = 기준 지원금(P2 — 기준 지원금은 어떤 경우에도 절대 상한). 100원 단위 반올림.
+export const RECEIPT_DISCOUNT_RATE = 0.1;
+export const RECEIPT_DISCOUNT_LABEL = "10% 할인";
+export function receiptSupportFor(paid: number, base: number): number {
+  const raw = Math.max(0, paid) * RECEIPT_DISCOUNT_RATE;
+  return Math.min(Math.round(raw / 100) * 100, Math.max(0, base || 0));
 }
 
 export interface ChannelOffer {
