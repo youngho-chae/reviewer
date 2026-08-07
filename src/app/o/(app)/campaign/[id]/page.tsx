@@ -110,6 +110,7 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
         tone: state === "done" ? "ok" : state === "resubmit" ? "bad" : "wait",
         reservationLabel: p.reservation ? fmtReservationLabel(p.reservation.date, p.reservation.time) : null,
         reviewUrl: p.reviewUrl ?? null,
+        receipt: !!p.receiptReview, // 영수증 리뷰 (2026-08-07) — 링크 없음, 표기만
       };
     });
 
@@ -375,7 +376,7 @@ export default async function OwnerCampaignDetail({ params }: { params: Promise<
               </span>
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 text-[12px] text-muted">
-              <span className="tabular-nums">{r.reservationLabel ? `📅 ${sbNum(SBUI.dateTime, r.reservationLabel)} 방문` : "방문 체험"}</span>
+              <span className="tabular-nums">{r.reservationLabel ? `📅 ${sbNum(SBUI.dateTime, r.reservationLabel)} 방문` : r.receipt ? "방문 체험 · 🧾 영수증 리뷰" : "방문 체험"}</span>
               {r.reviewUrl && (
                 <a href={r.reviewUrl} target="_blank" rel="noreferrer" className="cp-action shrink-0 font-semibold text-brand">
                   리뷰 보기 →

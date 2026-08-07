@@ -89,6 +89,7 @@ export default async function MyPasses({
       status: p.status,
       displayStatus: passDisplayStatus(p, now),
       channel: p.reviewChannel ?? null,
+      receipt: !!p.receiptReview,
       grade: p.reviewerGrade,
       support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
       expiresAt: p.expiresAt,
