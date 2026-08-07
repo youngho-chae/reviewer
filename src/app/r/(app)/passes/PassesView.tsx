@@ -29,6 +29,7 @@ export interface VisitPassItem {
   // 탭 분류는 실상태(status), 뱃지·칩 필터·카드 액션은 displayStatus 기준.
   displayStatus: PassDisplayStatus;
   channel: SnsKind | null;
+  receipt?: boolean; // 영수증 리뷰 참여 (2026-08-07 — 채널 없음·N 10%)
   grade: string;
   support: number; // 이 체험권으로 받는 지원금 (등급 적용액)
   expiresAt: number;
@@ -295,7 +296,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             </span>
           </div>
           <p className="text-[13px] text-muted mt-0.5 truncate">
-            {it.channel ? CHANNEL_LABEL[it.channel] : "채널 미정"} · {it.grade}등급 적용
+            {it.channel ? CHANNEL_LABEL[it.channel] : it.receipt ? "영수증 리뷰" : "채널 미정"} · {it.grade}등급 적용
           </p>
           <p className="mt-1.5 text-[16px] tabular-nums">
             {it.isDelivery ? (

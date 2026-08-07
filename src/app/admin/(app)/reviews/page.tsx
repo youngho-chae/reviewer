@@ -1,7 +1,7 @@
 import { getCurrentAdmin } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import GradeBadge from "@/components/GradeBadge";
-import { CHANNEL_LABEL, CHANNEL_REVIEW_CONDITIONS } from "@/lib/channels";
+import { CHANNEL_LABEL, CHANNEL_REVIEW_CONDITIONS, RECEIPT_REVIEW_CONDITIONS } from "@/lib/channels";
 import type { SnsKind } from "@/lib/types";
 import ReviewDecisionActions from "./ReviewDecisionActions";
 
@@ -74,7 +74,7 @@ export default async function AdminReviews() {
 
             <div className="mt-2 text-[16px] font-bold text-ink">{store?.name}</div>
             <div className="text-[12px] text-muted mt-0.5">
-              {campaign?.title} · {p.reviewChannel ? CH_LABEL[p.reviewChannel] ?? p.reviewChannel : "채널 미상"}
+              {campaign?.title} · {p.reviewChannel ? CH_LABEL[p.reviewChannel] ?? p.reviewChannel : p.receiptReview ? "영수증 리뷰" : "채널 미상"}
               {p.reviewSubmittedAt
                 ? ` · ${new Date(p.reviewSubmittedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} 제출`
                 : ""}
@@ -91,6 +91,14 @@ export default async function AdminReviews() {
               </a>
             )}
 
+            {/* 영수증 리뷰 (2026-08-07) — 제출물 = 작성 화면 캡처 (URL 없음) */}
+            {p.receiptReview && p.reviewImage && (
+              <div className="mt-2 rounded-md border border-hairline overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.reviewImage} alt="영수증 리뷰 캡처" className="w-full max-h-[280px] object-contain bg-sunken" />
+              </div>
+            )}
+
             {/* 검수 기준 보조 (확정 정책 11) — 사장님이 입력한 강조 키워드 포함 여부를 수기 확인 */}
             {campaign?.highlightKeywords && campaign.highlightKeywords.length > 0 && (
               <div className="mt-2">
@@ -105,10 +113,10 @@ export default async function AdminReviews() {
               </div>
             )}
 
-            {/* 자가 점검 표시 — 채널별 조건 */}
-            {p.reviewSelfCheck && p.reviewChannel && (
+            {/* 자가 점검 표시 — 채널별 조건 (영수증 리뷰는 전용 조건) */}
+            {p.reviewSelfCheck && (p.reviewChannel || p.receiptReview) && (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {(CHANNEL_REVIEW_CONDITIONS[p.reviewChannel as SnsKind] ?? []).map((cond) => {
+                {(p.receiptReview ? RECEIPT_REVIEW_CONDITIONS : CHANNEL_REVIEW_CONDITIONS[p.reviewChannel as SnsKind] ?? []).map((cond) => {
                   const ok = p.reviewSelfCheck?.[cond.key];
                   return (
                     <span

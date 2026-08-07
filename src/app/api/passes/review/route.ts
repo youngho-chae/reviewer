@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
-import { selfCheckConditions } from "@/lib/channels";
+import { selfCheckConditions, receiptSelfCheckConditions } from "@/lib/channels";
 import { REVIEW_DEADLINE_MS, reviewDeadline } from "@/lib/pass-lifecycle";
 import { SnsKind } from "@/lib/types";
 
@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const s = await readSession();
   if (!s || s.role !== "reviewer") return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  const { passId, reviewUrl, reviewChannel, selfCheck, adNotice, keepAgreed } = await req.json();
+  const { passId, reviewUrl, reviewImage, reviewChannel, selfCheck, adNotice, keepAgreed } = await req.json();
   const db = await getDBAsync();
   const pass = db.passes.find((p) => p.id === passId);
   if (!pass || pass.reviewerId !== s.userId) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -39,21 +39,32 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  // 방문형은 URL + 채널 + 채널별 자가점검 항목 모두 체크 필수
-  if (!reviewUrl) {
+  // 영수증 리뷰 참여 (2026-08-07) — 제출물 = 작성한 영수증 리뷰 화면 캡처 (URL·채널 없음)
+  const isReceipt = !!pass.receiptReview;
+  if (isReceipt) {
+    const img = String(reviewImage || "");
+    // data URL 이미지 + 용량 상한 (base64 ≈ 512KB — profileImage 관례와 동일 규모)
+    if (!img.startsWith("data:image/")) {
+      return NextResponse.json({ error: "작성한 영수증 리뷰 화면 캡처를 업로드해주세요" }, { status: 400 });
+    }
+    if (img.length > 700_000) {
+      return NextResponse.json({ error: "이미지 용량이 너무 커요. 다시 캡처해 업로드해주세요." }, { status: 400 });
+    }
+  } else if (!reviewUrl) {
+    // 방문형(SNS 채널)은 URL + 채널 + 채널별 자가점검 항목 모두 체크 필수
     return NextResponse.json({ error: "URL을 입력해주세요" }, { status: 400 });
   }
   // 경제적 대가(광고) 표기 확인 — 클라이언트 체크만으로는 우회 가능하므로 서버가 강제
   if (!adNotice) {
     return NextResponse.json({ error: "경제적 대가 표기(광고 문구) 포함 여부를 확인해주세요" }, { status: 400 });
   }
-  // 참여 시 확정된 채널을 신뢰 (없으면 제출값 사용)
-  const channel: SnsKind | undefined = (pass.reviewChannel ?? reviewChannel) as SnsKind | undefined;
-  if (!channel) {
+  // 참여 시 확정된 채널을 신뢰 (없으면 제출값 사용) — 영수증 리뷰는 채널 없음
+  const channel: SnsKind | undefined = isReceipt ? undefined : ((pass.reviewChannel ?? reviewChannel) as SnsKind | undefined);
+  if (!isReceipt && !channel) {
     return NextResponse.json({ error: "작성 채널을 선택해주세요" }, { status: 400 });
   }
   // 자가점검 = 제출 시점에 완료된 사실만 (게시 유지 keep 항목은 별도 동의로 분리)
-  const conditions = selfCheckConditions(channel);
+  const conditions = isReceipt ? receiptSelfCheckConditions() : selfCheckConditions(channel as SnsKind);
   const sc = (selfCheck ?? {}) as Record<string, boolean>;
   if (!conditions.every((c) => sc[c.key])) {
     return NextResponse.json({ error: "자가점검 항목을 모두 체크해주세요" }, { status: 400 });
@@ -64,11 +75,12 @@ export async function POST(req: NextRequest) {
   }
   pass.reviewSelfCheck = Object.fromEntries(conditions.map((c) => [c.key, !!sc[c.key]]));
   pass.keepAgreed = true;
-  pass.reviewChannel = channel;
+  if (channel) pass.reviewChannel = channel;
   pass.adNoticeConfirmed = true;
 
   if (isResubmit) pass.resubmitCount = (pass.resubmitCount ?? 0) + 1;
-  pass.reviewUrl = reviewUrl;
+  if (isReceipt) pass.reviewImage = String(reviewImage);
+  else pass.reviewUrl = reviewUrl;
   pass.reviewSubmittedAt = Date.now();
   pass.reviewStatus = "pending";
   pass.status = "review_submitted";

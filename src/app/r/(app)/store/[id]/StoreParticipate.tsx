@@ -8,6 +8,9 @@ import {
   CHANNEL_LABEL,
   CHANNEL_REVIEW_CONDITIONS,
   CHANNEL_AD_NOTICE,
+  RECEIPT_LABEL,
+  RECEIPT_AD_NOTICE,
+  RECEIPT_REVIEW_CONDITIONS,
 } from "@/lib/channels";
 import { SUPPORT_MULTIPLIER } from "@/lib/grade";
 import { SBUI, sbNum } from "@/lib/storyboard";
@@ -76,12 +79,15 @@ export default function StoreParticipate({
     [requiredChannels],
   );
 
-  // Default = 연동된 채널 중 우선순위(블로그→인스타→틱톡) 첫 번째
-  const initial = useMemo(() => {
-    return ordered.find((c) => !!myChannelGrades[c]) ?? null;
-  }, [ordered, myChannelGrades]);
+  // 영수증 리뷰 (2026-08-07) — SNS 미연동(N)의 방문형 참여 경로. 배송형은 대상 아님.
+  const receiptAvailable = kind !== "delivery";
 
-  const [selected, setSelected] = useState<SnsKind | null>(initial);
+  // Default = 연동된 채널 중 우선순위(블로그→인스타→틱톡) 첫 번째 — 없으면 영수증 리뷰(방문형)
+  const initial = useMemo<SnsKind | "receipt" | null>(() => {
+    return ordered.find((c) => !!myChannelGrades[c]) ?? (receiptAvailable ? "receipt" : null);
+  }, [ordered, myChannelGrades, receiptAvailable]);
+
+  const [selected, setSelected] = useState<SnsKind | "receipt" | null>(initial);
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,21 +100,28 @@ export default function StoreParticipate({
 
   const isDelivery = kind === "delivery";
   const isReserve = !isDelivery && reservationRequired;
-  const myGrade: Grade | undefined = selected ? myChannelGrades[selected] : undefined;
+  const isReceipt = selected === "receipt";
+  // 영수증 리뷰 = N 등급 적용 (지원금 10%) — 채널 등급이 아니라 참여 방식의 등급
+  const myGrade: Grade | undefined = isReceipt ? "N" : selected ? myChannelGrades[selected] : undefined;
   const connected = !!myGrade;
   const selectedSupport = connected ? supportFor(base, myGrade as Grade) : 0;
   // 배송형 적립 포인트 — 기준 포인트 × 등급 배율 (points.ts pointsForGrade와 동일 반올림)
   const selectedPoints = connected && pointReward > 0 ? supportFor(pointReward, myGrade as Grade) : 0;
   // [2026-07-12 회의 §10-3] 리뷰 조건에는 실제 작성 요건만 — 90일 유지(keep)는 유의사항으로 분리
-  const conditions = selected ? (CHANNEL_REVIEW_CONDITIONS[selected] ?? []).filter((c) => !c.keep) : [];
+  const conditions = isReceipt
+    ? RECEIPT_REVIEW_CONDITIONS.filter((c) => !c.keep)
+    : selected
+      ? (CHANNEL_REVIEW_CONDITIONS[selected] ?? []).filter((c) => !c.keep)
+      : [];
   const anyConnected = ordered.some((c) => !!myChannelGrades[c]);
+  const adNotice = isReceipt ? RECEIPT_AD_NOTICE : selected ? CHANNEL_AD_NOTICE[selected] : "";
   const shippingValid =
     !isDelivery || (recipient.trim() && phone.trim() && address.trim() && (productOptions.length === 0 || !!option));
 
   async function copyNotice() {
     if (!selected) return;
     try {
-      await navigator.clipboard.writeText(CHANNEL_AD_NOTICE[selected]);
+      await navigator.clipboard.writeText(adNotice);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -217,12 +230,38 @@ export default function StoreParticipate({
               </button>
             );
           })}
+
+          {/* 영수증 리뷰 (2026-08-07) — SNS 연동 없이 참여하는 N등급 경로 (방문형 전용, 지원금 10%).
+              [P1] 미연동은 채널 선택이 불가할 뿐 참여 자체를 막지 않는다. */}
+          {receiptAvailable && !guest && (
+            <button
+              type="button"
+              onClick={() => setSelected("receipt")}
+              aria-pressed={isReceipt}
+              className={`w-full rounded-md px-4 py-3.5 flex items-center gap-3 bg-canvas text-left ${
+                isReceipt ? "border-[1.5px] border-brand" : "border border-hairline"
+              }`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full shrink-0 grid place-items-center ${
+                  isReceipt ? "border-[6px] border-brand bg-canvas" : "border-[1.5px] border-borderStrong bg-canvas"
+                }`}
+              />
+              <span className="flex-1 min-w-0">
+                <span className="block text-[15px] font-semibold text-ink truncate">{RECEIPT_LABEL}</span>
+                <span className="block text-[11px] text-muted mt-0.5">SNS 연동 없이 참여 · 영수증 리뷰 작성</span>
+              </span>
+              <span className="text-[16px] font-bold text-ink tabular-nums shrink-0">
+                {sbNum(SBUI.support, `${supportFor(base, "N").toLocaleString()}원`)}
+              </span>
+            </button>
+          )}
         </div>
         {/* [2026-07-07 회의] 타 등급 최대 지원금 비교·동기부여 문구는 노출하지 않는다 — 등급별 상이 사실만 안내 */}
         <p className="mt-2 text-[12px] text-muted">
           {isDelivery
             ? "체험 상품은 동일하게 제공돼요 · 포인트는 채널별 내 등급에 따라 달라지고 리뷰 검수 승인 후 적립돼요."
-            : "지원금은 채널별 내 등급에 따라 달라져요 · 매장이 결제 시 직접 할인해 드리는 금액이에요."}
+            : "지원금은 채널별 내 등급에 따라 달라져요 · 매장이 결제 시 직접 할인해 드리는 금액이에요. 영수증 리뷰는 SNS 연동 없이 참여할 수 있어요."}
         </p>
       </section>
 
@@ -256,7 +295,7 @@ export default function StoreParticipate({
             <div className="mt-3 rounded-md border border-brand bg-brandSoft p-4">
               <div className="text-[14px] font-semibold text-ink">광고 표시 문구 (필수 포함)</div>
               <div className="mt-2 p-3 bg-canvas rounded-sm text-[14px] text-ink leading-[1.5] break-keep">
-                {CHANNEL_AD_NOTICE[selected]}
+                {adNotice}
               </div>
               <button
                 type="button"
@@ -352,7 +391,8 @@ export default function StoreParticipate({
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
               현재 신청 가능한 체험권이 없습니다
             </button>
-          ) : !anyConnected ? (
+          ) : !anyConnected && isDelivery ? (
+            /* 배송형만 SNS 연동 필수 — 방문형은 영수증 리뷰(N 10%)로 미연동도 참여 가능 (2026-08-07) */
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[16px] font-bold">
               SNS 연동 필요
             </button>
@@ -371,7 +411,7 @@ export default function StoreParticipate({
       {/* 예약형 — "언제 방문할까요?" 시트 (2026-07-23 시안: 캘린더·시간 칩·인원 스테퍼) */}
       {open && selected && isReserve && (
         <ReserveSheet
-          channelLabel={CHANNEL_LABEL[selected]}
+          channelLabel={isReceipt ? RECEIPT_LABEL : CHANNEL_LABEL[selected as SnsKind]}
           gradeLabel={`${myGrade}등급`}
           supportText={sbNum(SBUI.support, `${selectedSupport.toLocaleString()}원`) as string}
           picker={rsvPicker}
@@ -417,11 +457,11 @@ export default function StoreParticipate({
 
             <div className="mt-5 space-y-3 text-[15px]">
               <div className="flex justify-between">
-                <span className="text-muted">참여 채널</span>
-                <span className="text-ink font-semibold">{CHANNEL_LABEL[selected]}</span>
+                <span className="text-muted">{isReceipt ? "참여 방식" : "참여 채널"}</span>
+                <span className="text-ink font-semibold">{isReceipt ? RECEIPT_LABEL : CHANNEL_LABEL[selected as SnsKind]}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">채널 등급</span>
+                <span className="text-muted">{isReceipt ? "적용 등급" : "채널 등급"}</span>
                 <span className="text-ink font-semibold">{myGrade}등급</span>
               </div>
               {isDelivery ? (
