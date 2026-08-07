@@ -256,7 +256,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           storeName={store?.name ?? "매장"}
           channelLabel={pass.reviewChannel ? CHANNEL_LABEL[pass.reviewChannel] : pass.receiptReview ? "영수증 리뷰" : "채널 미정"}
           grade={pass.reviewerGrade}
-          support={displaySupport}
+          // 영수증 리뷰 — 표기는 "10% 할인", support는 할인 상한(기준 지원금 P2)으로 전달 (2026-08-07 정정)
+          support={pass.receiptReview ? (campaign?.supportAmount ?? 0) : displaySupport}
+          receipt={!!pass.receiptReview}
           expiresAt={pass.expiresAt}
           expiryLabel={fmtExpiryLabel(pass.expiresAt, !!pass.reservation)}
           reservation={
@@ -434,6 +436,9 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
         <p className="mt-1 text-[13px] text-muted">
           {isDelivery ? (
             <>제품 제공{campaign?.pointReward ? <> + 포인트 <span className="font-bold text-ink tabular-nums">{SBUI.point}</span></> : null}</>
+          ) : pass.receiptReview && pass.supportApplied == null ? (
+            /* 영수증 리뷰 사용 전 — 정액이 아니라 결제액 기준이라 금액 미표기 (2026-08-07 정정) */
+            <>할인 혜택 <span className="font-bold text-ink">결제 금액의 10% 할인</span></>
           ) : (
             <>지원금 <span className="font-bold text-ink tabular-nums">{SBUI.support}</span></>
           )}

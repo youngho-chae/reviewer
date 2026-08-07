@@ -92,6 +92,8 @@ export default async function MyPasses({
       receipt: !!p.receiptReview,
       grade: p.reviewerGrade,
       support: p.supportApplied ?? supportForGrade(c?.supportAmount ?? 0, p.reviewerGrade),
+      // 영수증 리뷰 사용 전 — 정액이 아니라 결제액의 10% 할인이라 금액 대신 라벨 표기 (2026-08-07)
+      supportLabel: p.receiptReview && p.supportApplied == null ? "10% 할인" : null,
       expiresAt: p.expiresAt,
       expiryLabel: fmtExpiryLabel(p.expiresAt, !!p.reservation),
       usedAt: p.usedAt ?? null,

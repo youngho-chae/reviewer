@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid, normalizeUseCode } from "@/lib/ids";
-import { supportForGrade } from "@/lib/grade";
+import { supportForGrade, receiptSupportFor } from "@/lib/grade";
 import { findSupportBoost, boostedLimit } from "@/lib/referral";
 import { expirePass } from "@/lib/pass-lifecycle";
 
@@ -83,20 +83,35 @@ export async function POST(req: NextRequest) {
   pass.useCodeFailCount = 0;
   pass.useCodeLockUntil = undefined;
 
-  // 지원금 한도 = 기준 지원금 × 채널 등급 배율 (v2.16)
-  const baseLimit = supportForGrade(campaign.supportAmount || 0, pass.reviewerGrade);
-  // 초대 보상(지원금 부스트) 자동 적용 — 기준 지원금(S등급 100%)을 넘지 않는 선에서 가산
-  const boost = findSupportBoost(db, pass.reviewerId);
-  const support = boost ? boostedLimit(campaign.supportAmount || 0, baseLimit, boost.value) : baseLimit;
-  const paid = paidAmount === undefined || paidAmount === null || paidAmount === ""
-    ? support
-    : Math.max(0, Number(paidAmount) || 0);
-  const applied = Math.min(paid, support);
-  // 부스트가 실제 이득을 준 경우에만 보상 소진
-  if (boost && applied > baseLimit) {
-    boost.usedAt = Date.now();
-    pass.supportBoostPct = boost.value;
-    pass.boostRewardId = boost.id;
+  let paid: number;
+  let applied: number;
+  if (pass.receiptReview) {
+    // 영수증 리뷰 (2026-08-07 정정) — 할인 = 결제 금액의 10% (정액 아님 · 상한 = 기준 지원금 P2).
+    // 결제액 기반 산정이라 결제 금액 입력이 필수이며, 정액 한도 개념인 초대 부스트는 미적용.
+    paid = Math.max(0, Number(paidAmount) || 0);
+    if (paid <= 0) {
+      return NextResponse.json(
+        { error: "결제 금액을 입력해주세요 — 영수증 리뷰는 결제 금액의 10%가 할인돼요" },
+        { status: 400 },
+      );
+    }
+    applied = receiptSupportFor(paid, campaign.supportAmount || 0);
+  } else {
+    // 지원금 한도 = 기준 지원금 × 채널 등급 배율 (v2.16)
+    const baseLimit = supportForGrade(campaign.supportAmount || 0, pass.reviewerGrade);
+    // 초대 보상(지원금 부스트) 자동 적용 — 기준 지원금(S등급 100%)을 넘지 않는 선에서 가산
+    const boost = findSupportBoost(db, pass.reviewerId);
+    const support = boost ? boostedLimit(campaign.supportAmount || 0, baseLimit, boost.value) : baseLimit;
+    paid = paidAmount === undefined || paidAmount === null || paidAmount === ""
+      ? support
+      : Math.max(0, Number(paidAmount) || 0);
+    applied = Math.min(paid, support);
+    // 부스트가 실제 이득을 준 경우에만 보상 소진
+    if (boost && applied > baseLimit) {
+      boost.usedAt = Date.now();
+      pass.supportBoostPct = boost.value;
+      pass.boostRewardId = boost.id;
+    }
   }
 
   pass.paidAmount = paid;

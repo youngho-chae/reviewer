@@ -1227,7 +1227,8 @@ export default function NewCampaign() {
                         <span className="text-[14px] font-bold text-brand w-12">{label}</span>
                         <span className="text-[13px] text-ink2 tabular-nums">{Math.round(SUPPORT_MULTIPLIER[grade] * 100)}%</span>
                         <span className="ml-auto text-[15px] font-bold text-ink tabular-nums">
-                          {supportForGrade(base, grade).toLocaleString()}원
+                          {/* N(영수증 리뷰)은 정액이 아니라 결제 금액의 10% 할인 (2026-08-07 정정) */}
+                          {grade === "N" ? "결제액의 10% 할인" : `${supportForGrade(base, grade).toLocaleString()}원`}
                         </span>
                       </div>
                     ))}

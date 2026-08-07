@@ -118,7 +118,9 @@ export function collectMonthlyActivity(db: DBShape, reviewerId: string, month: s
         // 상생 집계는 결제 기록이 있는 방문형 건만 — 배송형 등 결제 개념이 없는 완료 건은
         // W 표본에 넣지 않는다 (0으로 끌어내리면 비율 원칙 훼손). F(성실 이행)에는 포함.
         // 적용 지원금 1,000원 미만(지원금 0원 캠페인 등)은 제외 — 소액 결제 만점 어뷰징 차단 (D2)
-        if (p.paidAmount != null && p.supportApplied != null && p.supportApplied >= W_MIN_SUPPORT) {
+        // 영수증 리뷰(2026-08-07)도 제외 — 할인액이 결제액의 10%로 파생되어 초과 결제율
+        // r=(paid−support)/support가 항상 9(캡 1.0 만점)로 왜곡된다. F에는 포함.
+        if (!p.receiptReview && p.paidAmount != null && p.supportApplied != null && p.supportApplied >= W_MIN_SUPPORT) {
           const over = Math.max(0, p.paidAmount - p.supportApplied) / p.supportApplied;
           act.wRatios.push(Math.min(over, 1));
         }
