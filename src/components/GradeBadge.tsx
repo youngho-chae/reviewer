@@ -1,8 +1,9 @@
 import { Grade } from "@/lib/types";
 
-// v2 등급 배지 — grade 토큰 컬러(gradeS..gradeN)의 소형 pill.
+// v2 등급 배지 — grade 토큰 컬러(gradeSplus..gradeN)의 소형 pill.
 // [P1] 등급은 참여 자격이 아니라 혜택 크기만 나타낸다 — 잠금/오버레이 표현 금지.
 const CLS: Record<Grade, string> = {
+  "S+": "bg-gradeSplus text-white",
   S: "bg-gradeS text-white",
   A: "bg-gradeA text-white",
   B: "bg-gradeB text-white",
@@ -30,12 +31,21 @@ export default function GradeBadge({
   inverted?: boolean;
 }) {
   const s = SIZE[size];
+  // "S+"는 2글자 — 정사각 고정 대신 min-width + 가로 패딩으로 pill이 늘어나게 하고
+  // 폰트를 소폭 줄여 잘림을 막는다. 1글자 등급은 기존과 동일한 정원형 렌더.
+  const wide = grade === "S+";
   return (
     <span
       className={`inline-flex items-center justify-center rounded-pill flex-shrink-0 font-bold leading-none ${
         inverted ? INVERTED_CLS : CLS[grade]
       }`}
-      style={{ width: s.box, height: s.box, fontSize: s.text }}
+      style={{
+        minWidth: s.box,
+        height: s.box,
+        fontSize: wide ? Math.round(s.text * 0.86) : s.text,
+        paddingLeft: wide ? Math.round(s.box * 0.18) : 0,
+        paddingRight: wide ? Math.round(s.box * 0.18) : 0,
+      }}
     >
       {grade}
     </span>

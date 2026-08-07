@@ -25,10 +25,16 @@ export const OTHER_INCOME_EXEMPT_MAX_PAYMENT = 125000;
 // 소액부징수 — 원천징수세액 1,000원 미만이면 징수하지 않음 (소득세법 §86).
 export const DE_MINIMIS_TAX = 1000;
 
+// S+ 포인트 적립 보너스 (2026-08-06 6단계 — §10.6 S+ 혜택): 검수 승인 적립 시
+// 계정 표기 등급이 S+면 +10%. 혜택 "크기"의 확대라 P1 정합(참여/발급 분기 무관),
+// 실이벤트 기반(P4)·포인트는 출금 소비 경로 보유(P5).
+export const SPLUS_POINT_BONUS = 0.1;
+
 // 배송형 리뷰 승인 시 지급 포인트 — 기준 포인트 × 등급 배율, 100P 단위 반올림
 // (supportForGrade와 동일한 반올림 규칙 — 정책 드리프트 방지).
-export function pointsForGrade(base: number, g: Grade): number {
-  const raw = (base || 0) * SUPPORT_MULTIPLIER[g];
+// splus = 적립 시점의 계정 표기 등급이 S+인지 (pass.reviewerGrade는 참여 채널 등급 스냅샷이라 별도 판정)
+export function pointsForGrade(base: number, g: Grade, splus = false): number {
+  const raw = (base || 0) * SUPPORT_MULTIPLIER[g] * (splus ? 1 + SPLUS_POINT_BONUS : 1);
   return Math.round(raw / 100) * 100;
 }
 

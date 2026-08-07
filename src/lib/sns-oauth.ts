@@ -230,6 +230,8 @@ export function deriveChannelUrl(kind: SnsKind, identity: SnsIdentity, pendingUr
 // 연동 커밋 — sns upsert + 채널별 등급·표기 등급(연동 채널 중 최고) 재계산 (signup·demo-verify·OAuth 콜백 공용).
 // 등급 재계산은 가입 시 관례(channelGradesFromSns + bestGrade)와 동일. [P1] 참여 게이트는
 // "연동 여부"뿐 — verified는 신뢰 표식이며 참여·지원금 산정에 영향을 주지 않는다.
+// S+ 유의(2026-08-06 6단계): 채널 구성이 바뀌면 표기 등급을 채널 최고(상한 S)로 재계산하므로
+// S+는 S로 내려가고, 다음 월간 재평가 스윕에서 조건 충족 시 다시 부여된다 — 의도된 동작.
 export function applySnsConnect(
   db: DBShape,
   reviewerId: string,

@@ -5,7 +5,6 @@ import {
   PENALTY,
   GRADE_CUTS,
   WINWIN_BADGE,
-  S_CANDIDATE,
   W_MIN_SUPPORT,
   W_FULL_SAMPLE,
 } from "@/lib/grade-regrade";
@@ -54,8 +53,9 @@ export default async function AdminGrading() {
             </div>
           ))}
           <div className="px-4 py-2.5 border-t border-hairlineSoft text-[11px] text-muted leading-[1.5]">
-            가중 영향력 = 채널 영향력 × 채널 가중(네이버 블로그 ×1.2, 그 외 ×1). 90~100점은 S 예약 구간 —
-            v1은 산출하지 않는다(I 최대 89). 연동 채널 전부 평가 대상(URL 유무 무관).
+            가중 영향력 = 채널 영향력 × 채널 가중(네이버 블로그 ×1.2, 그 외 ×1). 연동 채널 전부 평가
+            대상(URL 유무 무관). <b>연동 채널의 바닥 점수 = 30(C 컷)</b> — N 밴드는 없다(N = 채널 미연동
+            전용 상태, 2026-08-06 6단계 개편).
           </div>
         </div>
       </section>
@@ -118,14 +118,17 @@ export default async function AdminGrading() {
         <h2 className="text-[15px] font-bold text-ink mb-2">등급 컷·안정 장치</h2>
         <div className="rounded-lg border border-hairline bg-canvas p-4 text-[12px] text-ink leading-[1.7]">
           <div className="font-semibold tabular-nums">
-            컷: {GRADE_CUTS.filter((c) => c.grade !== "N").map((c) => `${c.grade} ≥ ${c.min}`).join(" · ")} · N &lt; {GRADE_CUTS.find((c) => c.grade === "C")?.min}
+            컷: {GRADE_CUTS.map((c) => `${c.grade} ≥ ${c.min}`).join(" · ")} · N = 채널 미연동 전용(컷 없음)
           </div>
           <ul className="mt-2 space-y-1 text-ink2 list-disc pl-4">
-            <li>월 변동 폭 ±1등급 · S는 자동 부여 금지 — GS ≥ {S_CANDIDATE.minGS} & 노쇼 0 & 완료 {S_CANDIDATE.minCompleted}건↑이면 <b>S 후보</b>로 기록만(부여는 운영팀 수동)</li>
-            <li>표본 부족(당월 이벤트 &lt; 2건) = F/W 중립 → GS = I − P · 이벤트 0건 = 스킵(등급 유지)</li>
+            <li>6단계 체계(2026-08-06): S+ / S / A / B / C / N. <b>S까지 자동 평가</b>(구 &quot;S 수동 부여&quot; 폐기) — 채널 등급 상한은 S</li>
+            <li><b>S+ = 계정 표기 등급</b> — 전월 표기 등급 S 이상 + 채널 최고 등급 S + F 100 + W 100(중립 아님) + P 0 + 표본 충족을 전부 만족한 달에만 부여(갓 S로 승급한 달은 불가 — 다음 달부터). 하나라도 미충족이면 다음 스윕에서 S로 하강(±1 정합). 혜택: 골드 배지 · 배송형 포인트 적립 +10% · 프로모션 최우선 · 검수 우선 처리 — <b>지원금 배율은 S와 동일 100%</b>(기준 지원금이 절대 상한, P2)</li>
+            <li>연동 채널이 있으면 최저 C(GS 바닥) — N으로 강등되는 경우는 없다. N→평가 진입은 채널 연동 시 즉시</li>
+            <li>월 변동 폭 ±1등급(채널 등급 기준) · S+는 조건 배지 성격 — 조건 미충족 시 즉시 해제(통상 S로, 채널이 함께 내려간 달은 그 등급으로)</li>
+            <li>표본 부족(당월 이벤트 &lt; 2건) = F/W 중립 → GS = I − P · 이벤트 0건 = 스킵(등급 유지) — 중립·스킵(무활동) 월은 S+ 불가(보유 중이면 S로)</li>
             <li>평가월 중 가입자 제외(첫 재평가는 가입 다음 달 말) · 소급 없음 — 직전 1개월만</li>
             <li>리뷰 품질은 점수 요소에서 배제 — 반려 종착만 P로 반영 (<code>qualityScore</code> deprecated)</li>
-            <li>[P1] 재평가 산출물(GS·패널티·뱃지)은 등급(지원금 배율)에만 영향 — 참여/발급 분기 참조 금지</li>
+            <li>[P1] 재평가 산출물(GS·패널티·뱃지·S+)은 혜택 크기에만 영향 — 참여/발급 분기 참조 금지</li>
           </ul>
         </div>
       </section>

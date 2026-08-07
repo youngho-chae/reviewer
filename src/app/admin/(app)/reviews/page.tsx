@@ -13,9 +13,16 @@ export default async function AdminReviews() {
   await getCurrentAdmin(); // 인증 게이트
   const db = await getDBAsync();
 
+  // S+ 혜택 ④ 검수 우선 처리 (2026-08-06 §10.6) — S+ 계정의 제출 건을 큐 상단으로.
+  // 검수 기준·주체는 동일(P3) — 처리 순서(운영 SLA)만 우대. 그 안에서는 오래된 것 우선.
+  const splusFirst = (rid: string) => (db.reviewers.find((r) => r.id === rid)?.grade === "S+" ? 0 : 1);
   const pending = db.passes
     .filter((p) => p.status === "review_submitted")
-    .sort((a, b) => (a.reviewSubmittedAt ?? 0) - (b.reviewSubmittedAt ?? 0)); // 오래된 것 우선
+    .sort(
+      (a, b) =>
+        splusFirst(a.reviewerId) - splusFirst(b.reviewerId) ||
+        (a.reviewSubmittedAt ?? 0) - (b.reviewSubmittedAt ?? 0),
+    );
 
   const processedToday = db.passes.filter(
     (p) =>
@@ -56,6 +63,9 @@ export default async function AdminReviews() {
                     — 익명 표기는 사장님 화면 전용 정책 */}
                 <span className="text-[12px] text-ink font-semibold">{reviewer?.nickname ?? "(탈퇴 회원)"}</span>
                 <span className="text-[12px] text-muted">· {p.reviewerGrade}등급</span>
+                {reviewer?.grade === "S+" && (
+                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-pill bg-gradeSplus text-white">S+ 우선</span>
+                )}
               </div>
               <span className="text-[11px] text-muted">
                 {campaign?.kind === "delivery" ? "배송형" : "방문형"}
