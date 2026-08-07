@@ -3,7 +3,7 @@ import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import { SBUI, sbNum } from "@/lib/storyboard";
-import { SUPPORT_MULTIPLIER, gradeRank } from "@/lib/grade";
+import { SUPPORT_MULTIPLIER, gradeRank, bestGrade } from "@/lib/grade";
 import { WINWIN_BADGE, kstMonthKey, kstMonthEnd, prevMonthKey, collectMonthlyActivity } from "@/lib/grade-regrade";
 import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
 import GradeBadge from "@/components/GradeBadge";
@@ -66,6 +66,17 @@ export default async function ReviewerGrade() {
 
   // 지난달 감점 요인 (2026-08-06 — 점수·비율 대신 행동 피드백: 건수만 노출)
   const lastMonthAct = collectMonthlyActivity(db, me.id, prevMonthKey(kstMonthKey(Date.now())));
+
+  // ── 이번 달(평가 대상월) 실측 현황 (2026-08-07 — 개인화 행동 가이드) ─────────
+  // 산식 수치(가중치·점수·컷)는 비노출 원칙 유지 — 행동 단위 수치(건수·표본)만 보여준다.
+  // 집계 기준은 재평가 스윕과 동일 정본(collectMonthlyActivity)이라 안내와 평가가 어긋나지 않는다.
+  const thisMonth = kstMonthKey(Date.now());
+  const thisMonthLabel = `${Number(thisMonth.slice(5))}월`;
+  const thisAct = collectMonthlyActivity(db, me.id, thisMonth);
+  const thisDemerits = thisAct.noShow + thisAct.overdue + thisAct.rejectedFinal;
+  // 상생 만점 표본 = 지원금의 2배 이상 결제(r≥1, 스윕과 동일 캡) — 3건부터 온전히 반영
+  const wFull = thisAct.wRatios.filter((r) => r >= 1).length;
+  const wPartial = thisAct.wRatios.length - wFull;
   const demeritItems: Array<{ label: string; count: number; tip: string }> = [
     { label: "노쇼(미사용 만료)", count: lastMonthAct.noShow, tip: "받은 체험권은 기한 안에 방문해 사용해 주세요" },
     { label: "리뷰 기한 초과", count: lastMonthAct.overdue, tip: "리뷰는 이용 후 7일 안에 올려 주세요" },
@@ -77,6 +88,26 @@ export default async function ReviewerGrade() {
   ].filter((d) => d.count > 0);
 
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
+
+  // 3-stat 실값 — 진행 중(사용 전~리뷰 검수 중) · 내 최대 지원금(연동 채널 최고 등급 배율) · 사용 가능(active)
+  const myPasses = db.passes.filter((p) => p.reviewerId === me.id);
+  const inProgressCnt = myPasses.filter((p) => ["active", "used", "review_submitted"].includes(p.status)).length;
+  const usableCnt = myPasses.filter((p) => p.status === "active").length;
+  const maxSupportPct = SUPPORT_MULTIPLIER[eff.grade];
+
+  // 행동 가이드 보조 — 지금 처리하면 바로 좋아지는 대기 건들
+  const reviewWaitCnt = myPasses.filter((p) => p.status === "used").length; // 리뷰 작성 대기
+  const resubmitWaitCnt = myPasses.filter((p) => p.status === "rejected").length; // 반려 재제출 대기
+  const ongoingCnt = usableCnt + reviewWaitCnt; // 이번 달 안에 마무리할 수 있는 진행 건
+  const connectedChannels = CHANNEL_ORDER.filter((ch) => !!eff.channelGrades[ch]);
+  const bestChannelGrade = bestGrade(Object.values(eff.channelGrades));
+  // 상태 칩 톤 (v2 토큰) — 만점 페이스/진행 중/주의/중립
+  const CHIP: Record<"success" | "progress" | "warn" | "neutral", string> = {
+    success: "bg-successSoft text-successStrong",
+    progress: "bg-brandSoft text-brand",
+    warn: "bg-errorSoft text-error",
+    neutral: "bg-sunken text-muted",
+  };
 
   return (
     <div className="pb-24 bg-canvas">
@@ -118,12 +149,13 @@ export default async function ReviewerGrade() {
         </div>
       </section>
 
-      {/* 다음 달 등급 올리기 — 행동 가이드 (2026-08-06: 점수·가중치 분해 표 폐기 — 산식 수치는
-          운영팀 콘솔 /admin/grading 전용. 유저에게는 "무엇을 하면 되는지"만 보여준다) */}
+      {/* 다음 달 등급 올리기 — 이번 달 실측 기반 개인화 가이드 (2026-08-07 개편).
+          산식 수치(가중치·점수·컷)는 계속 비노출(운영팀 콘솔 전용) — 대신 스윕과 동일한
+          집계로 "지금 상태 → 만점까지 무엇이 얼마나 더 필요한지"를 행동 단위 수치로 보여준다. */}
       <section className="px-5 mt-1">
         <h2 className="text-[18px] font-bold text-ink tracking-title mb-2">다음 달 등급을 올리려면</h2>
         <p className="text-[12px] text-muted mb-3 leading-[1.5]">
-          매월 말 직전 한 달의 활동을 평가해요. 등급은 오를 수도, 내려갈 수도 있어요.
+          이번 달({thisMonthLabel}) 활동 기준이에요 — 매월 말 이 현황 그대로 평가돼요. 등급은 오를 수도, 내려갈 수도 있어요.
         </p>
 
         {/* 지난달 감점 요인 — 있을 때만, 건수·행동 안내 (점수 비노출) */}
@@ -141,42 +173,129 @@ export default async function ReviewerGrade() {
           </div>
         )}
 
-        <div className="rounded-lg border border-hairline overflow-hidden">
-          {[
-            {
-              icon: "✅",
-              title: "체험을 끝까지 완료해요",
-              tip: "리뷰 검수 승인까지 마친 체험이 많을수록 평가에 유리해요. 노쇼·기한 초과 없이 한 달을 보내는 게 가장 중요해요.",
-            },
-            {
-              icon: "⏱️",
-              title: "리뷰는 이용 직후 바로 올려요",
-              tip: "마감일을 기다렸다 내는 것보다 방문 직후 바로 올릴수록 성실 이행 평가가 좋아져요.",
-            },
-            {
-              icon: "🤝",
-              title: "지원금보다 조금 더 결제해보세요",
-              tip: "지원금을 넘는 추가 결제는 상생 활동으로 반영돼요. 금액 크기가 아니라 꾸준함이 중요해요 — 여러 체험에서 쌓일수록 좋아요.",
-            },
-            {
-              icon: "📣",
-              title: "채널 영향력을 키워요",
-              tip: "블로그 방문자·팔로워가 늘면 기본 평가가 올라가요. 채널 관리에서 최신 지표로 갱신할 수 있어요.",
-            },
-            {
-              icon: "✍️",
-              title: "반려되면 기한 안에 다시 제출해요",
-              tip: "반려 후 7일 안에 수정·재제출하면 완료로 인정돼요. 그대로 두면 이행하지 않은 것으로 집계됩니다.",
-            },
-          ].map((g, i, arr) => (
-            <div key={g.title} className={`px-4 py-3.5 flex gap-3 ${i < arr.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
-              <span className="shrink-0 text-[16px] leading-[1.4]" aria-hidden>{g.icon}</span>
-              <div className="min-w-0">
-                <div className="text-[14px] font-semibold text-ink">{g.title}</div>
-                <div className="text-[12px] text-muted mt-0.5 leading-[1.5]">{g.tip}</div>
-              </div>
+        <div className="space-y-2.5">
+          {/* ① 성실 이행 — 이번 달 완료·감점 실측 + 만점 조건 */}
+          <div className="rounded-lg border border-hairline bg-canvas p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[14px] font-bold text-ink">✅ 성실하게 완료하기</div>
+              <span
+                className={`shrink-0 text-[11px] px-2 py-0.5 rounded-pill font-semibold ${
+                  thisDemerits + thisAct.rejectedAbandoned > 0 ? CHIP.warn : thisAct.completed > 0 ? CHIP.success : CHIP.neutral
+                }`}
+              >
+                {thisDemerits + thisAct.rejectedAbandoned > 0 ? "주의" : thisAct.completed > 0 ? "만점 페이스" : "시작 전"}
+              </span>
             </div>
-          ))}
+            <div className="mt-2 text-[13px] text-ink">
+              이번 달 완료 <b className="tabular-nums">{sbNum(SBUI.count, `${thisAct.completed}건`)}</b> · 감점 요인{" "}
+              <b className={`tabular-nums ${thisDemerits > 0 ? "text-error" : ""}`}>{sbNum(SBUI.count, `${thisDemerits}건`)}</b>
+              {thisAct.rejectedAbandoned > 0 && (
+                <> · 반려 방치 <b className="tabular-nums text-error">{sbNum(SBUI.count, `${thisAct.rejectedAbandoned}건`)}</b></>
+              )}
+            </div>
+            <p className="mt-1.5 text-[12px] text-muted leading-[1.55]">
+              {thisDemerits + thisAct.rejectedAbandoned > 0
+                ? "이미 감점 요인이 있어요 — 남은 체험을 빠짐없이 완료하면 만회할 수 있어요."
+                : ongoingCnt > 0
+                  ? `진행 중인 체험 ${ongoingCnt}건을 노쇼·기한 초과 없이 마치면 이번 달 만점이에요.`
+                  : "노쇼·기한 초과·반려 없이 완료한 체험이 쌓일수록 만점에 가까워져요."}
+            </p>
+            {reviewWaitCnt > 0 && (
+              <Link href="/r/passes" className="cp-action mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand">
+                리뷰 작성 대기 {sbNum(SBUI.count, `${reviewWaitCnt}건`)} — 지금 올릴수록 평가가 좋아져요 →
+              </Link>
+            )}
+          </div>
+
+          {/* ② 반려 재제출 — 대기 건이 있을 때만 (방치 = 미이행 집계) */}
+          {resubmitWaitCnt > 0 && (
+            <div className="rounded-lg border border-hairline bg-canvas p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[14px] font-bold text-ink">✍️ 반려 리뷰 다시 제출하기</div>
+                <span className={`shrink-0 text-[11px] px-2 py-0.5 rounded-pill font-semibold ${CHIP.warn}`}>주의</span>
+              </div>
+              <div className="mt-2 text-[13px] text-ink">
+                재제출 대기 <b className="tabular-nums text-error">{sbNum(SBUI.count, `${resubmitWaitCnt}건`)}</b>
+              </div>
+              <p className="mt-1.5 text-[12px] text-muted leading-[1.55]">
+                반려 후 7일 안에 다시 제출하면 완료로 인정돼요. 그대로 두면 이행하지 않은 것으로 집계됩니다.
+              </p>
+              <Link href="/r/passes" className="cp-action mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand">
+                내 체험권에서 재제출하기 →
+              </Link>
+            </div>
+          )}
+
+          {/* ③ 상생 활동 — 만점 표본 진행도 (지원금 2배 이상 결제 × 3건, 스윕과 동일 판정) */}
+          <div className="rounded-lg border border-hairline bg-canvas p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[14px] font-bold text-ink">🤝 상생 활동 쌓기</div>
+              <span
+                className={`shrink-0 text-[11px] px-2 py-0.5 rounded-pill font-semibold ${
+                  wFull >= 3 && wPartial === 0 ? CHIP.success : thisAct.wRatios.length === 0 ? CHIP.neutral : CHIP.progress
+                }`}
+              >
+                {wFull >= 3 && wPartial === 0 ? "만점 페이스" : thisAct.wRatios.length === 0 ? "표본 없음" : "진행 중"}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[13px] text-ink">
+                지원금의 2배 이상 결제한 체험 <b className="tabular-nums">{sbNum(SBUI.count, `${wFull}건`)}</b>
+                <span className="text-muted"> / 3건</span>
+              </span>
+              <span className="flex gap-1" aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className={`w-2 h-2 rounded-full ${i < Math.min(wFull, 3) ? "bg-brand" : "bg-borderStrong/40"}`} />
+                ))}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[12px] text-muted leading-[1.55]">
+              {wFull >= 3 && wPartial === 0
+                ? "이 페이스면 상생 만점이에요 — 남은 체험도 꾸준히 이어가세요."
+                : thisAct.wRatios.length === 0
+                  ? "이번 달 결제 체험이 없으면 상생은 평가에서 빠져요 — 불이익은 없지만 만점 기회도 없어요."
+                  : `만점까지 ${Math.max(0, 3 - wFull)}건 더 필요해요 — 리뷰 완료까지 마친 체험만 집계돼요.`}
+              {wPartial > 0 && (
+                <> 결제했지만 2배에 못 미친 체험이 {sbNum(SBUI.count, `${wPartial}건`)} 있어요 — 다음엔 조금만 더 담아보세요.</>
+              )}
+            </p>
+          </div>
+
+          {/* ④ 채널 영향력 — 현재 채널 등급 + 갱신/성장 유도 (지수 점수는 비노출) */}
+          <div className="rounded-lg border border-hairline bg-canvas p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[14px] font-bold text-ink">📣 채널 영향력 키우기</div>
+              <span
+                className={`shrink-0 text-[11px] px-2 py-0.5 rounded-pill font-semibold ${
+                  connectedChannels.length === 0 ? CHIP.neutral : bestChannelGrade === "S" ? CHIP.success : CHIP.progress
+                }`}
+              >
+                {connectedChannels.length === 0 ? "미연동" : bestChannelGrade === "S" ? "최고 수준" : "성장 여지"}
+              </span>
+            </div>
+            {connectedChannels.length > 0 ? (
+              <div className="mt-2 flex items-center gap-2.5">
+                {connectedChannels.map((ch) => (
+                  <span key={ch} className="inline-flex items-center gap-1.5 text-[13px] text-ink">
+                    <GradeBadge grade={eff.channelGrades[ch] as Grade} size="sm" />
+                    {CHANNEL_SHORT[ch]}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-2 text-[13px] text-ink">연동된 채널이 없어요</div>
+            )}
+            <p className="mt-1.5 text-[12px] text-muted leading-[1.55]">
+              {connectedChannels.length === 0
+                ? "채널을 연동하면 기본 평가가 시작돼요 — 연동 즉시 최소 C 등급부터예요."
+                : bestChannelGrade === "S"
+                  ? "채널 영향력은 이미 최고 수준이에요 — 지표를 최신으로 유지하는 게 중요해요."
+                  : "블로그 방문자·팔로워가 늘면 기본 평가가 올라가요 — 채널 관리에서 최신 지표로 갱신해 반영하세요."}
+            </p>
+            <Link href="/r/me/channels" className="cp-action mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand">
+              채널 관리에서 {connectedChannels.length === 0 ? "연동하기" : "지표 갱신하기"} →
+            </Link>
+          </div>
         </div>
       </section>
 
