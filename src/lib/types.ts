@@ -537,4 +537,7 @@ export interface DBShape {
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거
   lastRegradeMonth?: string; // 등급 월간 재평가가 완료된 마지막 평가 대상 월 "YYYY-MM" (KST)
   naverDataFetched?: number; // 마지막 Naver Place 자동 갱신 timestamp
+  // 자가 실행 데이터 패치 적용 이력 (2026-08-07 — src/lib/data-patches.ts) —
+  // 시드와 달리 기존 데이터를 지우지 않고 특정 레코드만 보정/추가하는 1회성 마이그레이션
+  appliedPatches?: string[];
 }
