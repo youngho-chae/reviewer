@@ -122,7 +122,8 @@ export async function getDBAsync(): Promise<DBShape> {
       ensureSeeded(fresh);
       const swept = sweepPassLifecycle(fresh);
       const regraded = sweepMonthlyRegrade(fresh);
-      if (swept || regraded) {
+      const patched = await runDataPatches(fresh);
+      if (swept || regraded || patched) {
         await kvSave(fresh);
         persist(fresh);
       }
@@ -149,8 +150,26 @@ export async function getDBAsync(): Promise<DBShape> {
   }
   // KV 미설정 — sync 폴백 + best-effort refresh
   const db = getDB();
+  if (await runDataPatches(db)) persist(db);
   await maybeAutoRefresh(db);
   return db;
+}
+
+// 자가 실행 데이터 패치 (2026-08-07 — src/lib/data-patches.ts) — 시드와 달리 비파괴
+// 레코드 추가/보정만 수행. 실행 중 중복 방지 in-flight 가드 (요청마다 재진입 금지).
+let patchInFlight = false;
+async function runDataPatches(db: DBShape): Promise<boolean> {
+  if (patchInFlight) return false;
+  patchInFlight = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { applyDataPatches } = require("./data-patches");
+    return (await applyDataPatches(db)) as boolean;
+  } catch {
+    return false;
+  } finally {
+    patchInFlight = false;
+  }
 }
 
 // 첫 cold start 시 1회만 호출 (홈 페이지의 after()에서).
