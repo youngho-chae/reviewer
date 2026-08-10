@@ -47,7 +47,7 @@ export default async function OwnerMe() {
   const OPS_MENU: { href: string; icon: IconName; label: string; sub?: string }[] = [
     { href: "/o/campaign/new", icon: "plus", label: "새 캠페인 등록", sub: "방문형·예약형 모집" },
     { href: "/o/logs", icon: "ticket", label: "체험권 사용 로그", sub: `${passes.length}건` },
-    { href: "/o/report", icon: "clipboard", label: "성과 리포트", sub: "최근 30일" },
+    { href: "/o/report", icon: "clipboard", label: "성과 리포트", sub: "방문·리뷰·게시 현황" },
     { href: "/o/stores", icon: "store", label: "매장 정보", sub: `${stores.length}곳` },
   ];
 
