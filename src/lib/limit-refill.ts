@@ -59,6 +59,25 @@ export function yearlySavings(plan: PlanKey): number {
 export function yearlyMonthlyEquivalent(plan: PlanKey): number {
   return Math.round(yearlyPrice(plan) / 12);
 }
+// ── 연간 셀링 포인트 (2026-08-10 — 플랜 비교 연간 탭) ──────────────────────
+// "구구절절 설명" 대신 핵심 수치 2개: 연간 환산 모집 팀 수 + 모집 한 팀당 비용.
+// 연간 모집 가능 팀 수 = 월 한도 × 12 (예: Standard 50 → 연간 600팀)
+export function yearlyTeamCapacity(plan: PlanKey): number {
+  return PLAN_POLICY[plan].monthlyTeamLimit * 12;
+}
+// 모집 한 팀당 비용 — 연간: 연간가 ÷ 연간 팀 수 (Standard 259,000÷600 = 432원),
+// 월간: 월가 ÷ 월 한도 (Standard 25,900÷50 = 518원). 비교 강조용.
+export function yearlyCostPerTeam(plan: PlanKey): number {
+  return Math.round(yearlyPrice(plan) / Math.max(1, yearlyTeamCapacity(plan)));
+}
+export function monthlyCostPerTeam(plan: PlanKey): number {
+  return Math.round(PLAN_PRICE[plan] / Math.max(1, PLAN_POLICY[plan].monthlyTeamLimit));
+}
+// "400원대" 버킷 라벨 (백원 단위 내림) — 카피 정본
+export function costBucketLabel(cost: number): string {
+  return `${(Math.floor(cost / 100) * 100).toLocaleString()}원대`;
+}
+
 // 다음 연간 결제일 = 최근 결제(planStartedAt) + 1년 (KST 날짜, 월 말일 클램프)
 export function nextYearlyBillingAt(planStartedAt: number): number {
   const KST = 9 * 3600000;

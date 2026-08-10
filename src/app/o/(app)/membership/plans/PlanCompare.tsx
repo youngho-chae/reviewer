@@ -7,7 +7,10 @@ import {
   yearlyPrice,
   yearlyListPrice,
   yearlySavings,
-  yearlyMonthlyEquivalent,
+  yearlyTeamCapacity,
+  yearlyCostPerTeam,
+  monthlyCostPerTeam,
+  costBucketLabel,
 } from "@/lib/limit-refill";
 
 // 플랜 비교 (2026-08-10 설계안 ②) — 결제 방식 토글 + Basic/Standard/Premium 3카드.
@@ -84,7 +87,12 @@ export default function PlanCompare({
         {PLANS.map((plan) => {
           const isCurrent = plan === currentPlan && currentBilling === billing;
           const benefits = PLAN_BENEFITS[plan];
-          const headline = [benefits.catchpass[0], benefits.catchrank[0]].filter(Boolean);
+          // 연간 탭은 대표 혜택도 연간 환산 — "월 50건"이 아니라 "연간 600팀" (2026-08-10 셀링 포인트)
+          const yearlyCap = yearlyTeamCapacity(plan);
+          const headline = [
+            billing === "yearly" ? `연간 ${yearlyCap.toLocaleString()}팀의 체험단 모집` : benefits.catchpass[0],
+            benefits.catchrank[0],
+          ].filter(Boolean);
           const price = billing === "yearly" ? yearlyPrice(plan) : PLAN_PRICE[plan];
           return (
             <div
@@ -108,10 +116,25 @@ export default function PlanCompare({
                 </div>
                 <div className="mt-1 text-[12px] font-semibold text-brand tabular-nums">
                   {billing === "yearly"
-                    ? `${yearlySavings(plan).toLocaleString()}원 절약 · 2개월 무료 · 월 환산 약 ${yearlyMonthlyEquivalent(plan).toLocaleString()}원`
+                    ? `${yearlySavings(plan).toLocaleString()}원 절약 · 2개월 무료`
                     : `월 ${PLAN_POLICY[plan].monthlyTeamLimit}건 모집 한도`}
                 </div>
               </div>
+
+              {/* 연간 셀링 포인트 (2026-08-10) — 연간 환산 모집 수 + 팀당 모집 비용 */}
+              {billing === "yearly" && (
+                <div className="mt-2.5 rounded-md bg-brandSoft px-3.5 py-2.5 space-y-1 tabular-nums">
+                  <div className="text-[13px] text-ink">
+                    연간 <span className="font-bold">{yearlyCap.toLocaleString()}팀</span>의 체험단 모집
+                  </div>
+                  <div className="text-[13px] text-ink">
+                    체험단 모집 한 팀당 <span className="font-bold">{costBucketLabel(yearlyCostPerTeam(plan))}</span>
+                    <span className="ml-1 text-[11px] text-muted">
+                      월간 {monthlyCostPerTeam(plan).toLocaleString()}원 → {yearlyCostPerTeam(plan).toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* 대표 혜택 — 체험단 모집 → 플레이스 (§8) */}
               <ul className="mt-3.5 pt-3.5 border-t border-hairlineSoft space-y-1.5">
