@@ -104,9 +104,13 @@ export async function POST(req: NextRequest) {
   // 기간 종료 캠페인 — 상세는 열람 가능(관심 목록 경유)하지만 발급은 차단
   if (c.endAt <= Date.now()) return NextResponse.json({ error: "마감된 체험입니다" }, { status: 400 });
 
-  const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
-  const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
-  if (totalQ - usedQ <= 0) return NextResponse.json({ error: "마감되었습니다" }, { status: 400 });
+  // 영수증 리뷰(N) 참여는 모집 인원을 차감하지 않는다 (2026-08-07) — 캠페인이 열려 있는
+  // 동안(종료 전)은 슬롯 소진과 무관하게 모집. 소진 게이트는 SNS 채널 참여에만 적용.
+  if (!isReceipt) {
+    const totalQ = c.quota.S + c.quota.A + c.quota.B + c.quota.C;
+    const usedQ = c.used.S + c.used.A + c.used.B + c.used.C;
+    if (totalQ - usedQ <= 0) return NextResponse.json({ error: "마감되었습니다" }, { status: 400 });
+  }
 
   // 동시 보유 제한 — 사용 전(active) 체험권은 최대 5장 (2026-07-07 회의 확정)
   const activeCount = db.passes.filter((p) => p.reviewerId === me.id && p.status === "active").length;
@@ -164,22 +168,25 @@ export async function POST(req: NextRequest) {
   // 등급은 지원금 배율(혜택 크기)만 결정한다. 자격 조건은 ①진행 중 ②채널 연동 ③잔여 슬롯뿐.
 
   // 등급별 quota 차감 — 버킷은 참여 자격이 아니라 배분 기록용.
-  // 자기 등급 버킷 우선 소진, 소진 시 잔여 버킷(하위→상위 순) 사용. N등급은 C 버킷부터.
-  const order: Array<"S" | "A" | "B" | "C"> = ["S", "A", "B", "C"];
-  const fromIdx = order.indexOf(channelGrade === "N" ? "C" : (channelGrade as any));
+  // 자기 등급 버킷 우선 소진, 소진 시 잔여 버킷(하위→상위 순) 사용.
+  // 영수증 리뷰(N) 참여는 차감하지 않는다 (2026-08-07 — consumedSlot 없음·복구 대상 아님).
   let consumedSlot: "S" | "A" | "B" | "C" | null = null;
-  for (let i = order.length - 1; i >= fromIdx; i--) {
-    const g = order[i];
-    if (c.used[g] < c.quota[g]) { c.used[g] += 1; consumedSlot = g; break; }
-  }
-  if (!consumedSlot) {
-    // 상위 슬롯도 시도
-    for (let i = fromIdx - 1; i >= 0; i--) {
+  if (!isReceipt) {
+    const order: Array<"S" | "A" | "B" | "C"> = ["S", "A", "B", "C"];
+    const fromIdx = order.indexOf(channelGrade === "N" ? "C" : (channelGrade as any));
+    for (let i = order.length - 1; i >= fromIdx; i--) {
       const g = order[i];
       if (c.used[g] < c.quota[g]) { c.used[g] += 1; consumedSlot = g; break; }
     }
+    if (!consumedSlot) {
+      // 상위 슬롯도 시도
+      for (let i = fromIdx - 1; i >= 0; i--) {
+        const g = order[i];
+        if (c.used[g] < c.quota[g]) { c.used[g] += 1; consumedSlot = g; break; }
+      }
+    }
+    if (!consumedSlot) return NextResponse.json({ error: "마감되었습니다" }, { status: 400 });
   }
-  if (!consumedSlot) return NextResponse.json({ error: "마감되었습니다" }, { status: 400 });
 
   const now = Date.now();
   const pass: Pass = {
@@ -190,7 +197,7 @@ export async function POST(req: NextRequest) {
     storeId: c.storeId,
     ownerId: db.stores.find((s) => s.id === c.storeId)!.ownerId,
     reviewerGrade: channelGrade,
-    consumedSlot, // 만료/취소 시 이 슬롯을 복구
+    ...(consumedSlot ? { consumedSlot } : {}), // 만료/취소 시 이 슬롯을 복구 (영수증 참여는 미차감·없음)
     ...(isReceipt ? { receiptReview: true } : { reviewChannel: selectedChannel }),
     issuedAt: now,
     // 방문형은 발급 후 72시간 사용 기한(연장·복구 없음).
