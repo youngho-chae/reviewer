@@ -41,6 +41,34 @@ export const NEXT_PLAN: Partial<Record<PlanKey, PlanKey>> = {
   Standard: "Premium",
 };
 
+// ── 연간 결제 (2026-08-10 통합 멤버십 설계안 §2) ─────────────────────────────
+// 연간 = 10개월분 요금으로 12개월 이용 — "할인율" 대신 절감 금액과 "2개월 무료"로 표기(§2②).
+export const YEARLY_FREE_MONTHS = 2;
+export function yearlyPrice(plan: PlanKey): number {
+  return PLAN_PRICE[plan] * (12 - YEARLY_FREE_MONTHS);
+}
+// 정가(월간 12개월분) — 플랜 비교 카드의 취소선 표기
+export function yearlyListPrice(plan: PlanKey): number {
+  return PLAN_PRICE[plan] * 12;
+}
+// 절감 금액(2개월분) — "27,800원 절약" 표기
+export function yearlySavings(plan: PlanKey): number {
+  return PLAN_PRICE[plan] * YEARLY_FREE_MONTHS;
+}
+// 월 환산가 — "월 환산 약 11,583원" 표기
+export function yearlyMonthlyEquivalent(plan: PlanKey): number {
+  return Math.round(yearlyPrice(plan) / 12);
+}
+// 다음 연간 결제일 = 최근 결제(planStartedAt) + 1년 (KST 날짜, 월 말일 클램프)
+export function nextYearlyBillingAt(planStartedAt: number): number {
+  const KST = 9 * 3600000;
+  const d = new Date(planStartedAt + KST);
+  const y = d.getUTCFullYear() + 1;
+  const m = d.getUTCMonth();
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return Date.UTC(y, m, Math.min(d.getUTCDate(), lastDay), 0, 0, 0) - KST;
+}
+
 // 현재 결제 주기 키 — 월 한도 기산(currentMonthStart)과 동일하게 캘린더 월(KST) 기준
 export function kstMonth(now: number = Date.now()): string {
   return new Date(now + 9 * 3600000).toISOString().slice(0, 7);

@@ -107,6 +107,10 @@ export interface Owner {
   // 결제 주기 anchor (2026-08-03 — 정본 src/lib/billing-cycle.ts): 유료 플랜의 최근 결제(플랜
   // 시작/변경) 시각. 미기록(구버전·Free)은 가입일(createdAt) 폴백 — Free 주기 = 가입일 기준.
   planStartedAt?: number;
+  // 결제 방식 (2026-08-10 통합 멤버십 설계안 §2① — 월간/연간은 별개 상품이 아니라 결제 방식).
+  // 연간 = 10개월분 요금으로 12개월 이용(2개월 무료). 미기록(구버전·Free)은 monthly 간주.
+  // 모집 주기(billingCycle)는 결제 방식과 무관하게 월 단위 anchor 그대로 — 연간의 "다음 결제"만 +1년.
+  billing?: "monthly" | "yearly";
 }
 
 // 운영팀(검수) 계정 — 리뷰 통과/반려 백오피스 전용.
