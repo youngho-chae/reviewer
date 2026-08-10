@@ -35,7 +35,8 @@ export type IconName =
   | "copy"
   | "heart"
   | "crosshair"
-  | "calendar-check";
+  | "calendar-check"
+  | "chat";
 
 export type IconVariant = "border" | "bold";
 
@@ -100,6 +101,8 @@ const PATHS: Record<IconName, string> = {
   // 체크 달린 캘린더 — 사장님 [관리] 탭 (2026-07-28)
   "calendar-check":
     "M5 5.5h14A1.5 1.5 0 0 1 20.5 7v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V7A1.5 1.5 0 0 1 5 5.5ZM3.5 9.5h17M8 3.5v3.5M16 3.5v3.5M8.8 14.6l2.2 2.2 4.2-4.2",
+  // 말풍선 — 고객센터/문의 (사장님 마이페이지 2026-08-10)
+  chat: "M4 7a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 7v7a2.5 2.5 0 0 1-2.5 2.5H9.5l-3.7 3.1c-.7.5-1.8 0-1.8-.9V7ZM8.5 10.8h.01M12 10.8h.01M15.5 10.8h.01",
 };
 
 // 아이콘 별로 bold 모드에서 fill을 쓸지(닫힌 형태) stroke만 굵게 쓸지(선형) 결정.
