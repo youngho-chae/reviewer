@@ -44,12 +44,14 @@ export default async function OwnerReport({
 
   const myPasses = db.passes.filter((p) => p.ownerId === me.id);
   const campaignTitle = (id: string) => db.campaigns.find((c) => c.id === id)?.title ?? "";
+  // 발행 시점 — completedAt이 없는 과거 completed 데이터 폴백 (퍼널 "검수 완료" 건수와 정합 유지)
+  const doneAt = (p: Pass) => p.completedAt ?? p.reviewSubmittedAt ?? p.usedAt ?? p.issuedAt;
 
   // ── ① 요약 타일 — 기간 내 실이벤트 카운트 ──
   const visited = myPasses.filter((p) => inRange(p.usedAt));
-  const published = myPasses.filter((p) => p.status === "completed" && inRange(p.completedAt));
+  const published = myPasses.filter((p) => p.status === "completed" && inRange(doneAt(p)));
   // 게시 중 = 검수 완료 후 게시 유지 기간(90일) 이내 — 기간 필터와 무관한 "지금" 기준
-  const live = myPasses.filter((p) => p.status === "completed" && p.completedAt != null && now - p.completedAt <= KEEP_DAYS * DAY);
+  const live = myPasses.filter((p) => p.status === "completed" && now - doneAt(p) <= KEEP_DAYS * DAY);
 
   // ── ② 퍼널 — 기간 내 발급 코호트 기준 (단계 = 부분집합이라 전환율 ≤100%) ──
   const cohort = myPasses.filter((p) => inRange(p.issuedAt));
@@ -87,9 +89,7 @@ export default async function OwnerReport({
   ].filter((r) => r.n > 0);
 
   // ── ⑤ 최근 발행 리뷰 5건 ──
-  const recent = [...published]
-    .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
-    .slice(0, 5);
+  const recent = [...published].sort((a, b) => doneAt(b) - doneAt(a)).slice(0, 5);
 
   // ── ⑥ 투자 효율 — 기간 내 사용 처리 건의 적용 지원금 합 (실지출) ──
   const totalSupport = visited.reduce((s, p) => s + (p.supportApplied || 0), 0);
@@ -293,7 +293,7 @@ export default async function OwnerReport({
                       ) : p.receiptReview ? (
                         <span className="inline-flex items-center px-1 py-0.5 rounded-xs bg-sunken text-[10px] font-semibold text-ink2 leading-none">🧾 영수증</span>
                       ) : null}
-                      <span>{p.completedAt ? fmtD(p.completedAt) : ""} 발행</span>
+                      <span>{fmtD(doneAt(p))} 발행</span>
                     </div>
                   </div>
                   {p.reviewUrl && (
