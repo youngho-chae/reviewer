@@ -19,8 +19,9 @@ export const dynamic = "force-dynamic";
 //  ③ 최근 8주 방문 추이 (usedAt 기준)
 //  ④ 채널별 발행 리뷰 분포 — 영수증 리뷰 별도 행 (구 화면의 블로그 오집계 수정)
 //  ⑤ 최근 발행 리뷰 [리뷰 보러가기] — 실제 게시물 확인 (리텐션 핵심)
-//  ⑥ 투자 효율 — supportApplied 실지출 합계 + 리뷰 1건당 (P2: 매장 직접 할인·무정산.
-//     paidAmount는 use-by-code 미입력 폴백으로 실결제액 신뢰 불가 — 매출 지표 미사용)
+//  ⑥ 상생 매출 — Σ max(0, paidAmount − supportApplied): 지원금을 넘어서 발생한 실결제
+//     매출 (2026-08-10 개정 — 구 "제공한 할인 혜택"은 지출 프레임이라 폐기. use-by-code
+//     폴백(paid=support)은 초과분 0으로 떨어지는 하한 집계라 과대 표시 불가 — §12)
 //  ⑦ 운영 품질 — 작성 완료율(§4-1 모수 = ownerReviewSummary)·방문 후 평균 제출 소요
 
 const DAY = 86400000;
@@ -91,9 +92,15 @@ export default async function OwnerReport({
   // ── ⑤ 최근 발행 리뷰 5건 ──
   const recent = [...published].sort((a, b) => doneAt(b) - doneAt(a)).slice(0, 5);
 
-  // ── ⑥ 투자 효율 — 기간 내 사용 처리 건의 적용 지원금 합 (실지출) ──
-  const totalSupport = visited.reduce((s, p) => s + (p.supportApplied || 0), 0);
-  const perReview = published.length ? Math.round(totalSupport / published.length) : null;
+  // ── ⑥ 상생 매출 (2026-08-10 개정 — 구 "제공한 할인 혜택" 대체) ──
+  // "쓴 돈"(지원금 합)이 아니라 지원금을 **넘어서** 발생한 실결제 매출을 보여준다:
+  // 상생 매출 = Σ max(0, paidAmount − supportApplied). use-by-code 미입력 폴백(paid=support)은
+  // 초과분이 정확히 0으로 떨어져 과대 표시가 불가능한 **하한 집계**다 (§12 원칙 개정).
+  const paidVisits = visited.filter((p) => (p.paidAmount ?? 0) > 0);
+  const totalPaid = paidVisits.reduce((s, p) => s + (p.paidAmount || 0), 0);
+  const winwin = paidVisits.reduce((s, p) => s + Math.max(0, (p.paidAmount || 0) - (p.supportApplied || 0)), 0);
+  const winwinCount = paidVisits.filter((p) => (p.paidAmount || 0) > (p.supportApplied || 0)).length;
+  const discountShare = totalPaid - winwin; // 결제액 중 할인 지원으로 돌려준 부분
 
   // ── ⑦ 운영 품질 — 누적 (§4-1 모수: 이용 완료 체험권, 홈·리뷰 관리와 동일 집계) ──
   const summary = ownerReviewSummary(myPasses);
@@ -219,16 +226,44 @@ export default async function OwnerReport({
             </div>
           </div>
 
-          {/* ⑥ 투자 효율 — 실지출 기준 */}
+          {/* ⑥ 상생 매출 — 지원금을 넘어서 발생한 실결제 매출 (아하 모먼트) */}
           <div className="mx-5 mt-3 rounded-lg border border-hairline bg-canvas p-4">
-            <div className="text-[14px] font-bold text-ink">제공한 할인 혜택</div>
-            <div className="mt-1 text-[22px] font-bold text-ink tracking-title tabular-nums">{totalSupport.toLocaleString()}원</div>
-            {perReview != null && (
-              <div className="mt-1 text-[12px] text-muted tabular-nums">발행 리뷰 1건당 약 {perReview.toLocaleString()}원</div>
+            <div className="text-[14px] font-bold text-ink">상생 매출</div>
+            {paidVisits.length === 0 ? (
+              <p className="mt-2 text-[13px] text-muted leading-[1.6]">
+                사용 처리에서 결제 금액이 기록되면, 지원금을 넘어서 발생한 실제 매출이 여기에 집계돼요.
+              </p>
+            ) : (
+              <>
+                <div className="mt-1 text-[22px] font-bold text-ink tracking-title tabular-nums">{winwin.toLocaleString()}원</div>
+                <p className="mt-1 text-[13px] text-ink2 leading-[1.6]">
+                  체험자들이 지원금 할인보다 <span className="font-bold text-ink">{winwin.toLocaleString()}원 더 결제</span>했어요 — 리뷰와 함께
+                  실제 매출로 돌아오고 있어요.
+                </p>
+                {totalPaid > 0 && (
+                  <>
+                    {/* 결제 구성 바 — 할인 지원(틴트) vs 상생 매출(퍼플) */}
+                    <div className="mt-3 h-2.5 rounded-pill bg-sunken overflow-hidden flex">
+                      <div className="h-full bg-brandTint" style={{ width: `${(discountShare / totalPaid) * 100}%` }} />
+                      <div className="h-full bg-brand" style={{ width: `${(winwin / totalPaid) * 100}%` }} />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-muted tabular-nums">
+                      <span>
+                        <span className="inline-block w-2 h-2 rounded-full bg-brandTint mr-1 align-middle" aria-hidden />
+                        할인 지원 {discountShare.toLocaleString()}원
+                      </span>
+                      <span>
+                        <span className="inline-block w-2 h-2 rounded-full bg-brand mr-1 align-middle" aria-hidden />
+                        상생 매출 {winwin.toLocaleString()}원
+                      </span>
+                    </div>
+                  </>
+                )}
+                <p className="mt-2 text-[11px] text-muted leading-[1.5] tabular-nums">
+                  결제 금액이 기록된 방문 {paidVisits.length}건 중 {winwinCount}건에서 지원금보다 많이 결제했어요. (총 결제 {totalPaid.toLocaleString()}원 기준)
+                </p>
+              </>
             )}
-            <p className="mt-2 text-[11px] text-muted leading-[1.5]">
-              체험자 방문 시 결제에서 직접 할인해 준 금액의 합계예요. 별도 광고비 정산 없이 이 금액만으로 리뷰가 발행돼요.
-            </p>
           </div>
 
           {/* ⑦ 운영 품질 */}
