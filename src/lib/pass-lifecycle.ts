@@ -43,6 +43,9 @@ const REVIEW_DUE_REMINDER_MS = 24 * 60 * 60 * 1000;
 // 발급 시 차감했던 등급 슬롯을 복구한다 (만료/취소 공용).
 // consumedSlot이 없는 구버전 패스는 체험자 등급 슬롯으로 폴백 (N등급은 C 슬롯).
 export function restoreQuotaSlot(db: DBShape, pass: Pass): void {
+  // 영수증 리뷰 참여(2026-08-07)는 모집 인원을 차감하지 않으므로 복구할 슬롯도 없다 —
+  // 아래 레거시 폴백(N→C)이 미차감 슬롯을 잘못 복구하지 않도록 선반환
+  if (pass.receiptReview) return;
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
   if (!c) return;
   const slot = pass.consumedSlot ?? (pass.reviewerGrade === "N" ? "C" : pass.reviewerGrade);

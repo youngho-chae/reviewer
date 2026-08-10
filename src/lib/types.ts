@@ -301,6 +301,7 @@ export interface Pass {
   ownerId: string;
   reviewerGrade: Grade;
   // 발급 시 차감한 등급 슬롯 — 만료/취소 시 이 슬롯을 복구한다.
+  // 영수증 리뷰 참여(2026-08-07)는 모집 인원을 차감하지 않으므로 이 필드가 없다(복구도 없음).
   consumedSlot?: "S" | "A" | "B" | "C";
   issuedAt: number;
   expiresAt: number;

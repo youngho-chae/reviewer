@@ -248,7 +248,15 @@ export default function StoreParticipate({
                 }`}
               />
               <span className="flex-1 min-w-0">
-                <span className="block text-[15px] font-semibold text-ink truncate">{RECEIPT_LABEL}</span>
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[15px] font-semibold text-ink truncate">{RECEIPT_LABEL}</span>
+                  {/* 모집 소진 시에도 영수증 참여는 열려 있음 — 모집 인원 미차감 (2026-08-07) */}
+                  {remain <= 0 && (
+                    <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-pill border border-success text-[11px] font-semibold text-successStrong">
+                      지금도 참여 가능
+                    </span>
+                  )}
+                </span>
                 <span className="block text-[11px] text-muted mt-0.5">SNS 연동 없이 참여 · 영수증 리뷰 작성</span>
               </span>
               {/* 정액이 아니라 "직접 결제한 금액의 10% 할인" — 금액 표기 금지 (2026-08-07 정정) */}
@@ -391,7 +399,9 @@ export default function StoreParticipate({
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
               12시간 후 재신청 가능 ({sbNum("약 00시간", `약 ${cooldownLeftH}시간`)} 남음)
             </button>
-          ) : remain <= 0 ? (
+          ) : remain <= 0 && !isReceipt ? (
+            /* 모집 소진 — SNS 채널 참여만 마감. 영수증 리뷰(N)는 모집 인원을 차감하지 않아
+               캠페인 종료 전까지 계속 참여 가능 (2026-08-07 — 라디오에서 영수증 선택 시 발급 활성) */
             <button disabled className="flex-1 h-[52px] rounded-md bg-sunken text-mutedSoft text-[15px] font-bold">
               현재 신청 가능한 체험권이 없습니다
             </button>
