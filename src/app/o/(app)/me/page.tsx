@@ -21,8 +21,8 @@ export default async function OwnerMe() {
 
   const MENU: { href: string; icon: string; label: string; sub?: string; badge?: number }[] = [
     { href: "/o/campaign/new", icon: "🎯", label: "새 캠페인", sub: "방문형·예약형 모집" },
-    { href: "/o/membership", icon: "💎", label: "멤버십 / 구독", sub: `${me.plan} 플랜` },
-    { href: "/o/coupons", icon: "🎟️", label: "쿠폰함", sub: ownedCoupons ? `리필권 ${ownedCoupons}장 보유` : "모집 한도 리필권 구매" },
+    // 멤버십 + 쿠폰함 통합 (2026-08-10 설계안) — 리필권 구매·보유는 멤버십 화면 안에서
+    { href: "/o/membership", icon: "💎", label: "멤버십", sub: `${me.plan} 플랜${ownedCoupons ? ` · 리필권 ${ownedCoupons}장` : ""}` },
     { href: "/o/logs", icon: "📋", label: "체험권 사용 로그", sub: `${passes.length}건` },
     { href: "/o/report", icon: "📊", label: "성과 리포트", sub: "최근 30일" },
     { href: "/o/stores", icon: "🏪", label: "매장 정보", sub: `${stores.length}곳` },

@@ -84,3 +84,47 @@ export function currentMonthStart(now: number = Date.now()): number {
   const d = new Date(now);
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 }
+
+// ── 플랜 혜택 카피 정본 (2026-08-10 통합 멤버십 설계안 §2③·§8) ────────────────
+// 캐치패스·캐치랭크 두 서비스의 혜택을 한 카드 안에서 서비스별 섹션으로 보여준다.
+// 항목 우선순위: 체험단 모집 → 플레이스 → 키워드 → 공통(§8). 표기 원문주의 —
+// 멤버십 화면·플랜 비교가 이 목록을 공유한다 (드리프트 방지).
+export interface PlanBenefits {
+  tagline: string; // 플랜 비교 카드 서브 카피
+  catchpass: string[]; // 캐치패스 혜택 (첫 항목 = 체험단 모집)
+  catchrank: string[]; // 캐치랭크 혜택 (첫 항목 = 플레이스)
+  common: string[]; // "전체 혜택 보기" 펼침 공통 혜택
+}
+
+const COMMON_BENEFITS = [
+  "전 등급(S+~N) 체험자 모집",
+  "운영팀 리뷰 검수 대행",
+  "채널톡 운영 지원",
+];
+
+export const PLAN_BENEFITS: Record<PlanKey, PlanBenefits> = {
+  Free: {
+    tagline: "체험단을 먼저 경험해 보는 매장",
+    catchpass: ["캐치패스 체험단 모집 월 5건"],
+    catchrank: [],
+    common: COMMON_BENEFITS,
+  },
+  Basic: {
+    tagline: "가볍게 시작하는 매장",
+    catchpass: ["캐치패스 체험단 모집 월 15건", "체험자 '추천순' 필터 노출 우대"],
+    catchrank: ["플레이스 2곳 등록", "키워드 분석 매일 5건", "실시간 순위 분석 무제한"],
+    common: COMMON_BENEFITS,
+  },
+  Standard: {
+    tagline: "꾸준히 마케팅하는 매장",
+    catchpass: ["캐치패스 체험단 모집 월 50건", "체험자 '추천순' 필터 상위 노출 우선"],
+    catchrank: ["플레이스 20곳 등록", "키워드 분석 매일 20건", "실시간 순위 분석 무제한"],
+    common: COMMON_BENEFITS,
+  },
+  Premium: {
+    tagline: "여러 캠페인을 적극적으로 운영하는 매장",
+    catchpass: ["캐치패스 체험단 모집 월 100건", "체험자 '추천순' 필터 최상위 노출"],
+    catchrank: ["플레이스 100곳 등록", "키워드 분석 매일 100건", "실시간 순위 분석 무제한"],
+    common: COMMON_BENEFITS,
+  },
+};
