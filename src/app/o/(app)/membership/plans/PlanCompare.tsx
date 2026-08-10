@@ -121,12 +121,9 @@ export default function PlanCompare({
                 </div>
               </div>
 
-              {/* 연간 셀링 포인트 (2026-08-10) — 연간 환산 모집 수 + 팀당 모집 비용 */}
+              {/* 연간 셀링 포인트 (2026-08-10) — 팀당 모집 비용 강조 (연간 환산 모집 수는 아래 대표 혜택 첫 줄) */}
               {billing === "yearly" && (
-                <div className="mt-2.5 rounded-md bg-brandSoft px-3.5 py-2.5 space-y-1 tabular-nums">
-                  <div className="text-[13px] text-ink">
-                    연간 <span className="font-bold">{yearlyCap.toLocaleString()}팀</span>의 체험단 모집
-                  </div>
+                <div className="mt-2.5 rounded-md bg-brandSoft px-3.5 py-2.5 tabular-nums">
                   <div className="text-[13px] text-ink">
                     체험단 모집 한 팀당 <span className="font-bold">{costBucketLabel(yearlyCostPerTeam(plan))}</span>
                     <span className="ml-1 text-[11px] text-muted">
