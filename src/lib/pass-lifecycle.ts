@@ -104,7 +104,9 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
     ) {
       p.status = "cancelled";
       p.cancelledAt = now;
-      p.cancelledVia = "owner_declined";
+      // 자동 취소 전용 경위 (2026-08-11) — owner_declined(명시 거절)와 분리해 체험자 화면이
+      // "사장님이 취소" 대신 "확정되지 않아 자동 취소"로 정확히 안내한다 (무패널티 동일)
+      p.cancelledVia = "auto_unconfirmed";
       p.reservation.history = [...reservationHistory(p.reservation), { at: now, by: "owner", kind: "decline" }];
       restoreQuotaSlot(db, p);
       const store0 = db.stores.find((s) => s.id === p.storeId);

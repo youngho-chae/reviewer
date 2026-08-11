@@ -386,8 +386,12 @@ export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string, 
     case "proposal_declined":
       return "제안된 시간이 맞지 않아 취소했어요. 재신청 제한은 없어요.";
     case "owner_declined":
-      // 2026-07-23 시안 — 원인(시간 조율 실패)을 구체적으로 안내 (무응답 자동 취소도 동일 경위·동일 문구)
+      // 2026-07-23 시안 — 원인(시간 조율 실패)을 구체적으로 안내 (명시 거절 전용 — 자동 취소는 분리)
       return "예약 가능한 시간이 없어 사장님이 요청을 취소했어요.";
+    case "auto_unconfirmed":
+      // 2026-08-11 — 구 owner_declined 겸용 문구가 "사장님이 취소"로 읽혀 미확정 상태를
+      // 취소로 오인하게 하던 표기 개선: 경위(시간 경과 자동 취소)를 그대로 안내
+      return "방문 희망 시간까지 예약이 확정되지 않아 자동으로 취소된 신청이에요. 페널티나 재신청 제한 없이 다른 일정으로 바로 다시 신청할 수 있어요.";
     case "owner_cancelled":
       // 2026-08-04 — 단답형 "(사유: X)" 폐기, 선택 사유를 정제한 사과 톤 안내로
       return ownerCancelledReviewerCopy(cancelReasonCode, cancelReason);
