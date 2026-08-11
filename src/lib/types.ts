@@ -314,11 +314,14 @@ export interface Pass {
   // 취소 경위 (2026-07-22 §5-4 — 운영/CS 화면은 주체를 구분, 체험자 화면은 '취소' + 서브 문구).
   //  - undefined            : 체험자 직접 취소 — 12h 재신청 제한 적용 (유일하게 쿨다운이 걸리는 경위)
   //  - "proposal_declined"  : 체험자가 사장님 시간 제안을 거절 (2026-07-16 v2)
-  //  - "owner_declined"     : 사장님이 미확정 예약 요청을 거절 (5-1) 또는 응답 기한 경과 자동 취소 (§13-B)
+  //  - "owner_declined"     : 사장님이 미확정 예약 요청을 **명시적으로** 거절 (5-1)
+  //  - "auto_unconfirmed"   : 방문 희망 시각까지 미확정 — 스윕 자동 취소 (§13-B, 2026-08-11 분리:
+  //                           구 owner_declined 재사용 시 "사장님이 취소했어요"로 읽혀 취소 아닌
+  //                           단순 미확정으로 오인되던 표기 문제 — 전용 카피로 구분)
   //  - "owner_cancelled"    : 사장님이 확정된 예약을 취소 (5-3 — cancelReason 필수)
   //  - "admin_cancelled"    : 운영자 수동 취소 (13-1)
   // undefined 외 모든 경위는 패널티·12h 재신청 제한을 적용하지 않는다 (체험자 귀책 아님).
-  cancelledVia?: "proposal_declined" | "owner_declined" | "owner_cancelled" | "admin_cancelled" | "campaign_closed";
+  cancelledVia?: "proposal_declined" | "owner_declined" | "auto_unconfirmed" | "owner_cancelled" | "admin_cancelled" | "campaign_closed";
   // 사장님 확정 취소 사유 코드 (2026-08-04 — 4지선다+직접 입력 데이터화, 어드민 통계용.
   // 정본 라벨·정제 안내 문구: src/lib/reservation.ts OWNER_CANCEL_REASONS. custom이면
   // cancelReason에 직접 입력 원문, 그 외에는 라벨이 저장된다)

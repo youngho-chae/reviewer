@@ -25,6 +25,8 @@ export function ReservationNotes() {
     <ul className="mt-4 space-y-1.5 text-[13px] text-muted leading-[1.55]">
       <li className="flex gap-2"><span className="shrink-0">·</span><span>예약 변경은 1번만 가능해요.</span></li>
       <li className="flex gap-2"><span className="shrink-0">·</span><span>사장님 승인 후 알림과 함께 체험권 QR이 발급돼요.</span></li>
+      {/* 무응답 자동 취소 사전 안내 (2026-08-11) — 갑작스러운 취소 표기로 보이지 않게 기대 설정 */}
+      <li className="flex gap-2"><span className="shrink-0">·</span><span>방문 희망 시간까지 확정되지 않으면 신청이 자동 취소돼요. 페널티 없이 다시 신청할 수 있어요.</span></li>
       <li className="flex gap-2">
         <span className="shrink-0">·</span>
         <span>사장님이 다른 방문 시간을 제안하고 일정이 맞지 않아 취소하는 경우 패널티나 재신청 제한이 없어요.</span>
