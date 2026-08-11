@@ -60,7 +60,10 @@ export function channelGradesFromSns(sns: SnsAccount[]): Partial<Record<SnsKind,
   for (const s of sns) {
     // apiGrade = 자체 등급평가 API 산정 등급 (네이버 블로그 소개글 인증, 2026-07-25) —
     // 있으면 영향력 공식 대신 사용. 월간 재평가(§10)는 기존 로직대로 이후 등급을 관리한다.
-    out[s.kind] = s.apiGrade ?? gradeForChannel(s.kind, s.influence);
+    // 단 "N"은 미연동 전용 상태라 연동 채널의 apiGrade로 유효하지 않다 — 파서 클램프(2026-08-10)
+    // 이전에 저장된 레거시 N은 여기서 무시하고 영향력 공식(최저 C)으로 폴백해 자가 치유한다.
+    const api = s.apiGrade === "N" ? undefined : s.apiGrade;
+    out[s.kind] = api ?? gradeForChannel(s.kind, s.influence);
   }
   return out;
 }
