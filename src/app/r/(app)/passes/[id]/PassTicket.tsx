@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRView from "./QRView";
 import Countdown from "./Countdown";
@@ -49,6 +49,31 @@ export default function PassTicket({
   const [done, setDone] = useState(false);
   const hiddenInput = useRef<HTMLInputElement | null>(null);
 
+  // QR 실시간 동기화 (2026-08-11) — 사장님 스캐너가 사용 처리(use API)를 마치면
+  // 체험자 화면이 이탈 없이 그대로 남던 문제: 3초 폴링(/api/passes/status)으로 감지해
+  // 완료 안내(/r/passes/[id]/complete)로 자동 전환한다 (탭 백그라운드 중엔 스킵).
+  useEffect(() => {
+    if (done) return;
+    let alive = true;
+    const timer = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch(`/api/passes/status?id=${encodeURIComponent(passId)}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const j = await res.json();
+        if (!alive || j.status === "active") return;
+        setDone(true);
+        router.replace(`/r/passes/${passId}/complete`);
+      } catch {
+        // 일시적 네트워크 오류 — 다음 폴링에서 재시도
+      }
+    }, 3000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [passId, done, router]);
+
   const paidNum = paid === "" ? null : Math.max(0, Number(paid) || 0);
   // 영수증 리뷰 = 결제액 × 10% (100원 반올림·기준 지원금 상한 — 서버 receiptSupportFor와 동일 산정)
   const applied =
@@ -79,7 +104,8 @@ export default function PassTicket({
         return;
       }
       setDone(true);
-      setTimeout(() => router.refresh(), 900);
+      // 완료 안내 화면으로 통일 (2026-08-11) — QR 폴링 감지 경로와 동일 목적지
+      setTimeout(() => router.replace(`/r/passes/${passId}/complete`), 900);
     } catch {
       // 인증 성공 전에는 체험권 상태가 바뀌지 않으므로 같은 입력으로 재시도해도 안전하다.
       setErr("네트워크 오류가 발생했습니다. 연결을 확인해주세요.");
@@ -167,7 +193,7 @@ export default function PassTicket({
       {done ? (
         <div className="mt-10 pb-10 text-center">
           <div className="text-[16px] font-bold text-successStrong">✓ 사용 처리 완료</div>
-          <div className="mt-1.5 text-[13px] text-muted">잠시 후 리뷰 작성 화면으로 이동합니다…</div>
+          <div className="mt-1.5 text-[13px] text-muted">잠시 후 완료 안내 화면으로 이동합니다…</div>
         </div>
       ) : tab === "qr" ? (
         /* ── QR 스캔 탭 — 금액 입력 없음 (사장님 스캐너에서 입력) ── */
