@@ -57,8 +57,10 @@ export default async function AdminReservations({
         p.status !== "cancelled"
           ? null
           : p.cancelledVia === "owner_declined"
-            ? "매장 거절/무응답"
-            : p.cancelledVia === "owner_cancelled"
+            ? "매장 거절"
+            : p.cancelledVia === "auto_unconfirmed"
+              ? "무응답 자동 취소"
+              : p.cancelledVia === "owner_cancelled"
               ? "매장 취소"
               : p.cancelledVia === "admin_cancelled"
                 ? "운영자 취소"

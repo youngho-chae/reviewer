@@ -44,6 +44,12 @@ export default async function OwnerHome() {
   // 모집 한도 리필권(2026-07-31 BM 보완) — 홈 게이지는 **기본 플랜 한도 기준**으로 표기하고
   // 리필 누적 수량은 노출하지 않는다(누적 지출 부담 인지 방지). 대신 사용량에서 리필분을
   // 차감해 게이지가 다시 차오르게 한다: 표시 사용량 = max(0, 사용 − 리필).
+  // [예약 관리] 레드닷 (2026-08-11) — 사장님 응답이 필요한 예약(확인 대기 = requested)이
+  // 있으면 표시. proposed는 체험자 응답 대기라 제외. 홈에서 큐 진입 전에도 인지 가능하게.
+  const reservationActionNeeded = myPasses.some(
+    (p) => p.status === "active" && p.reservation && p.reservation.status === "requested",
+  );
+
   const refill = refillBonus(db, me);
   const monthLimit = PLAN_POLICY[me.plan].monthlyTeamLimit;
   const shownUsed = Math.min(monthLimit, Math.max(0, monthUsed - refill));
@@ -182,9 +188,13 @@ export default async function OwnerHome() {
         </Link>
         <Link
           href="/o/manage?tab=reservations"
-          className="cp-action h-[52px] rounded-md border border-brand bg-canvas flex items-center justify-center gap-1.5 text-[14px] font-semibold text-brand"
+          className="cp-action relative h-[52px] rounded-md border border-brand bg-canvas flex items-center justify-center gap-1.5 text-[14px] font-semibold text-brand"
         >
           <Icon name="calendar-check" variant="border" size={18} /> 예약 관리
+          {/* 레드닷 (2026-08-11) — 확인이 필요한 예약 신청(requested)이 있음을 홈에서 인지 */}
+          {reservationActionNeeded && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error" aria-label="확인이 필요한 예약이 있어요" />
+          )}
         </Link>
       </div>
 
