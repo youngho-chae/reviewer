@@ -252,16 +252,21 @@ export interface BlogAnalysis {
   dailyVisitors: number; // 일 방문자 (blog.visitor_trend.current — 2026-07-28 확정)
 }
 
-function normalizeGrade(v: unknown): Grade | null {
+export function normalizeGrade(v: unknown): Grade | null {
   const s = String(v ?? "").trim().toUpperCase();
   if (!s) return null;
   // "S+"는 채널 등급 상한(S)으로 명시 클램프 (2026-08-06 6단계 — S+는 계정 표기 레이어 전용.
   // 외부 분석 API가 S+를 반환해도 조용히 흡수되지 않고 여기서 의도적으로 S 처리)
   if (s.startsWith("S+")) return "S";
+  // "N"도 클램프 — N은 **미연동 전용 상태**라 연동(분석)된 채널의 등급이 될 수 없다
+  // (2026-08-10 정정: 6단계 개편 때 gradeFromScore는 최저 C로 고쳤으나 블로그 분석기의
+  //  텍스트 등급 파서는 N을 통과시켜 "연동했는데 N" 버그 발생 — realtest 실사용 리포트)
   const first = s.charAt(0);
-  if ("SABCN".includes(first)) return first as Grade; // "C" · "C등급" · "b+"
+  if (first === "N") return "C";
+  if ("SABC".includes(first)) return first as Grade; // "C" · "C등급" · "b+"
   const m = s.match(/[SABCN](?![A-Z])/); // 장식 섞인 값("일반(C)")에서 단독 등급 문자
-  return m ? (m[0] as Grade) : null;
+  if (!m) return null;
+  return m[0] === "N" ? "C" : (m[0] as Grade);
 }
 
 // score → 등급 밴드 (2026-07-25 스펙): S 88+ · A 78+ · B 66+ · 미만 C.

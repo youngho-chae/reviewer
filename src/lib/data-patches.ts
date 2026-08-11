@@ -1,8 +1,9 @@
-import { DBShape, Store } from "./types";
+import { DBShape, SnsKind, Store } from "./types";
 import { rid } from "./ids";
 import { scrapePlace } from "./naver-scraper";
 import { regionFromAddress } from "./regions";
 import { regionCenter } from "./geo";
+import { bestGrade, channelGradesFromSns } from "./grade";
 
 // 자가 실행 데이터 패치 (2026-08-07 신설) — 시드(전체 재구성)와 달리 기존 데이터를
 // 건드리지 않고 특정 레코드만 추가/보정하는 1회성 마이그레이션. 배포 후 첫 요청에서
@@ -72,9 +73,44 @@ async function patchAmplifyStores(db: DBShape): Promise<{ changed: boolean; done
   return { changed, done };
 }
 
+// ── PATCH 2026-08-10: 연동 채널 N등급 보정 ──────────────────────────────────
+// 블로그 분석기 텍스트 등급 파서(normalizeGrade)가 "N"을 통과시켜, 채널을 연동했는데
+// apiGrade/계정 등급이 N으로 저장된 버그(realtest 실사용 리포트)의 기존 데이터 보정.
+// N = 미연동 전용 상태(6단계 개편) — 연동 채널 apiGrade N → C, 계정 등급 재계산.
+// [주의] 재평가 스윕(§10)이 관리하는 channelGrades를 통째로 재계산해 덮지 않는다 —
+// 무효 상태(N)인 항목만 좁게 보정하고 나머지는 그대로 둔다.
+async function patchLinkedNGrade(db: DBShape): Promise<{ changed: boolean; done: boolean }> {
+  let changed = false;
+  for (const rv of db.reviewers) {
+    if (rv.sns.length === 0) continue;
+    for (const s of rv.sns) {
+      if (s.apiGrade === "N") {
+        s.apiGrade = "C";
+        changed = true;
+      }
+    }
+    const fresh = channelGradesFromSns(rv.sns); // apiGrade N 가드 + 영향력 공식(최저 C)
+    if (rv.channelGrades) {
+      for (const k of Object.keys(rv.channelGrades) as SnsKind[]) {
+        if (rv.channelGrades[k] === "N") {
+          rv.channelGrades[k] = fresh[k] ?? "C";
+          changed = true;
+        }
+      }
+    }
+    // 연동 중인데 계정 표기 등급이 N — 무효 상태만 재계산 (S+/정상 등급은 불변)
+    if (rv.grade === "N") {
+      rv.grade = bestGrade(Object.values(rv.channelGrades ?? fresh));
+      changed = true;
+    }
+  }
+  return { changed, done: true };
+}
+
 // ── 패치 레지스트리 ───────────────────────────────────────────
 const PATCHES: Array<{ id: string; run: (db: DBShape) => Promise<{ changed: boolean; done: boolean }> }> = [
   { id: "2026-08-07-amplify-stores", run: patchAmplifyStores },
+  { id: "2026-08-10-linked-n-grade", run: patchLinkedNGrade },
 ];
 
 // 미적용 패치 실행 — 변경이 있었으면 true (호출부가 persist/kvSave)
