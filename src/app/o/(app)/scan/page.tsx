@@ -145,7 +145,9 @@ export default function ScanPage() {
             {result.pass.receiptReview ? (
               <div className="mt-1 text-[13px] text-ink2">할인 혜택: <span className="text-[14px] font-bold text-ink">결제 금액의 10% (영수증 리뷰)</span></div>
             ) : (
-              <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{result.campaign?.supportAmount.toLocaleString()}원</span></div>
+              /* 이 체험권의 실제 한도 (2026-08-11) — 등급 배율·부스트 반영 (서버 entitledSupport,
+                 구 campaign.supportAmount 표기는 C 40% 체험자도 기준가 전액이 보이던 버그) */
+              <div className="mt-1 text-[13px] text-ink2">지원금 한도: <span className="text-[14px] font-bold text-ink tabular-nums">{(result.entitledSupport ?? result.campaign?.supportAmount ?? 0).toLocaleString()}원</span></div>
             )}
 
             {result.pass.status === "active" ? (
@@ -156,7 +158,7 @@ export default function ScanPage() {
                   <div className="mt-1 text-[12px] text-muted tabular-nums">
                     {result.pass.receiptReview
                       ? `적용 할인 (10%): ${receiptSupportFor(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원`
-                      : `적용 지원금: ${Math.min(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원`}
+                      : `적용 지원금: ${Math.min(Number(paidAmount) || 0, result.entitledSupport ?? result.campaign?.supportAmount ?? 0).toLocaleString()}원`}
                   </div>
                 </div>
                 <button onClick={useNow} disabled={busy || !paidAmount} className="mt-4 w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft">
