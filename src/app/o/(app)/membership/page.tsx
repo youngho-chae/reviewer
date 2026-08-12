@@ -5,6 +5,7 @@ import Icon from "@/components/Icon";
 import RefillFlow from "@/components/RefillFlow";
 import CouponUseButton from "../coupons/CouponUseButton";
 import BillingSwitchRow from "./BillingSwitchRow";
+import CancelMembershipRow from "./CancelMembershipRow";
 import { PLAN_POLICY, PLAN_BENEFITS } from "@/lib/plan-policy";
 import {
   ownedRefills,
@@ -312,10 +313,16 @@ export default async function MembershipPage() {
             <span className="text-[14px] font-semibold text-ink">자동 갱신 해지</span>
             <span className="text-[11px] text-muted">결제(PG) 연동 전 — 운영팀 문의</span>
           </div>
-          <div className="flex items-center justify-between px-4 py-4">
-            <span className="text-[14px] font-semibold text-mutedSoft">멤버십 해지</span>
-            <span className="text-[11px] text-muted">help@catchrank.co.kr</span>
-          </div>
+          {/* 멤버십 해지 (2026-08-11 임시 활성) — 유료 플랜만: 확인 모달 → Free 전환.
+              Free는 해지 대상이 없어 기존 문의 표기 유지 */}
+          {isFree ? (
+            <div className="flex items-center justify-between px-4 py-4">
+              <span className="text-[14px] font-semibold text-mutedSoft">멤버십 해지</span>
+              <span className="text-[11px] text-muted">이용 중인 멤버십이 없어요</span>
+            </div>
+          ) : (
+            <CancelMembershipRow plan={me.plan} />
+          )}
         </div>
         {/* 각주 — 연간 상품 성격·월간 전환 정산 (시안 원문) */}
         <p className="mt-3 text-[11px] text-muted leading-[1.6]">

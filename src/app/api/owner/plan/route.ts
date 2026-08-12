@@ -24,7 +24,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "현재 이용 중인 플랜과 동일합니다" }, { status: 400 });
   }
   owner.plan = plan;
-  if (billing !== undefined) owner.billing = plan === "Free" ? undefined : billing;
+  // Free = 멤버십 없음 — 결제 방식도 함께 소거 (2026-08-11: billing 미전달 해지 시 연간 표기가
+  // 잔존하던 결함 수정. 유료 플랜은 billing 전달 시에만 갱신 — 미전달은 기존 방식 유지)
+  if (plan === "Free") owner.billing = undefined;
+  else if (billing !== undefined) owner.billing = billing;
   // 결제 주기 anchor 갱신 (2026-08-03) — 결제(플랜 변경) 시점에 한도 부여·주기 재시작.
   // 결제 방식만 바꾼 경우(연간↔월간)는 anchor 유지 — 모집 주기가 초기화되면 한도가 이중 부여된다.
   if (planChanged) owner.planStartedAt = Date.now();
