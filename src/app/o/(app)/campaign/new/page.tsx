@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { PLAN_POLICY, type PlanKey } from "@/lib/plan-policy";
-import { NEXT_PLAN, PLAN_PRICE } from "@/lib/limit-refill";
+import { NEXT_PLAN, PLAN_PRICE, yearlyPrice } from "@/lib/limit-refill";
 import RefillFlow from "@/components/RefillFlow";
 import { DELIVERY_CAT_GROUPS } from "@/lib/delivery-categories";
 import { DELIVERY_ENABLED } from "@/lib/flags";
@@ -68,6 +68,7 @@ export default function NewCampaign() {
   const router = useRouter();
   const [stores, setStores] = useState<OwnerStore[]>([]);
   const [plan, setPlan] = useState<PlanKey>("Free");
+  const [billing, setBilling] = useState<"monthly" | "yearly" | null>(null);
   const [storeId, setStoreId] = useState("");
   const [title, setTitle] = useState(""); // 캠페인명 — 사장님 내부 관리용 (미입력 시 매장명 자동, 확정 정책 7)
   // URL로 매장정보 불러오기 (2026-07-31 개편 — 조회 전용, 확정 정책 5-1: 프리 배제 금지)
@@ -165,6 +166,7 @@ export default function NewCampaign() {
           if (first) setStoreId(first.id);
         }
         if (d.owner?.plan) setPlan(d.owner.plan as PlanKey);
+        setBilling(d.owner?.billing ?? null); // 결제 방식 (2026-08-12 — 업셀 금액 문구 분기)
         if (d.monthly) {
           setMonthlyUsed(Number(d.monthly.used) || 0);
           setMonthlyLimit(d.monthly.limit === null || d.monthly.limit === undefined ? null : Number(d.monthly.limit));
@@ -1281,6 +1283,11 @@ export default function NewCampaign() {
                         {plan === "Free" ? (
                           <>월 <span className="font-bold text-ink">{PLAN_PRICE[next].toLocaleString()}원</span>으로 매월{" "}
                           <span className="font-bold text-brand">{nextLimit}건</span> 모집할 수 있어요.</>
+                        ) : billing === "yearly" ? (
+                          /* 연간 구독자 (2026-08-12) — 월간가 차액은 맥락 불일치: 실제 추가 결제는 연간가 차액 */
+                          <>연 <span className="font-bold text-ink">{(yearlyPrice(next) - yearlyPrice(plan)).toLocaleString()}원</span>
+                          <span className="text-muted"> (월 환산 {Math.round((yearlyPrice(next) - yearlyPrice(plan)) / 12).toLocaleString()}원)</span>만
+                          추가하면 매달 <span className="font-bold text-brand">{gain}건</span> 더 모집할 수 있어요.</>
                         ) : (
                           <>월 <span className="font-bold text-ink">{diff.toLocaleString()}원</span>만 추가하면 매달{" "}
                           <span className="font-bold text-brand">{gain}건</span> 더 모집할 수 있어요.</>
