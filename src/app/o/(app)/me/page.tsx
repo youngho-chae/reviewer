@@ -9,13 +9,13 @@ import { coverForCampaign } from "@/lib/store-photo";
 
 export const dynamic = "force-dynamic";
 
-// 사장님 마이페이지 (2026-08-10 개편) — 와이어프레임 톤(이모지 아이콘·텍스트 화살표·
-// 밋밋한 지표 카드)을 디자인 시스템 v2 문법으로 재구성:
-//  · 프로필 카드 = 대표매장 실썸네일(88×66 — 매장 정보 카드와 동일 소스)+매장명+카테고리
-//    +스탯 스트립 병합 (체험자 마이 프로필 카드와 동일 문법, 2026-08-05)
-//  · 멤버십 = 메뉴 행에서 전용 다크 카드로 승격 — /o/membership 다크 히어로와 동일 아이덴티티
-//    (플랜명·결제 방식 칩·보유 리필권, Free는 "플랜 시작하기" 유도)
-//  · 메뉴 = SVG 아이콘 시스템(Icon — 이모지 폐기)+chevron, [운영 관리]/[알림·지원] 섹션 분리
+// 사장님 마이 (2026-08-12 와이어프레임 개편 v2 — 2026-08-10 v1 개정):
+//  · 헤더 = 로고(홈과 동일) + 벨(새 알림 도트)
+//  · 프로필 = 플랫(테두리 없음): 정사각 썸네일 + 대표매장 라벨 + 가게명 1줄 + 카테고리 → 매장 정보
+//  · 스탯 바(sunken 1행) = 완료 리뷰 | 누적 지원 (매장 수 제거)
+//  · 멤버십 = 퍼플 아웃라인 카드: 플랜명 + "{월간|연간} 이용 중" 칩 + 리필권 n장 보유 → 내 멤버십
+//  · 메뉴 = 플랫 아이콘 행(서브텍스트·섹션 헤더·원형 타일 폐기) + **약관 행 신설**
+//  · 로그아웃 아웃라인 풀폭 + 회원 탈퇴 텍스트. 바텀 네비 5탭(캐치랭크 외부)은 layout.
 export default async function OwnerMe() {
   const me = await getCurrentOwner();
   const db = await getDBAsync();
@@ -26,10 +26,9 @@ export default async function OwnerMe() {
   const totalReviews = passes.filter((p) => p.status === "completed").length;
   const totalSupport = passes.reduce((s, p) => s + (p.supportApplied || 0), 0);
   const unreadNotifications = db.notifications.filter((n) => n.role === "owner" && n.userId === me.id && !n.read).length;
-  const ownedCoupons = ownedRefills(db, me.id).length; // 보유(미사용) 리필권
+  const ownedCoupons = ownedRefills(db, me.id).length;
 
-  // 대표매장 썸네일 — 매장 정보 카드와 동일 우선순위 (2026-08-04):
-  // 플레이스 썸네일 → 최신 캠페인 대표 사진([0]) → 결정론 폴백
+  // 대표매장 썸네일 — 매장 정보 카드와 동일 우선순위 (플레이스 썸네일 → 최신 캠페인 대표 → 폴백)
   const primaryThumb = primaryStore
     ? primaryStore.thumbnailUrl ??
       coverForCampaign(
@@ -41,20 +40,24 @@ export default async function OwnerMe() {
       )
     : null;
 
-  const isPaid = me.plan !== "Free";
-  const billingLabel = me.billing === "yearly" ? "연간 결제" : "월간 결제";
+  const isFree = me.plan === "Free";
+  const billingLabel = (me.billing ?? "monthly") === "yearly" ? "연간 이용 중" : "월간 이용 중";
 
-  const OPS_MENU: { href: string; icon: IconName; label: string; sub?: string }[] = [
-    { href: "/o/campaign/new", icon: "plus", label: "새 캠페인 등록", sub: "방문형·예약형 모집" },
-    { href: "/o/logs", icon: "ticket", label: "체험권 사용 로그", sub: `${passes.length}건` },
-    { href: "/o/report", icon: "clipboard", label: "성과 리포트", sub: "방문·리뷰·게시 현황" },
-    { href: "/o/stores", icon: "store", label: "매장 정보", sub: `${stores.length}곳` },
+  const MENU: { href: string; icon: IconName; label: string; external?: boolean }[] = [
+    { href: "/o/campaign/new", icon: "plus", label: "새 캠페인 등록" },
+    { href: "/o/logs", icon: "ticket", label: "체험권 사용 로그" },
+    { href: "/o/report", icon: "pie", label: "성과 리포트" },
+    { href: "/o/stores", icon: "store", label: "매장 정보" },
+    { href: "/o/notifications", icon: "bell", label: "알림함" },
+    { href: "mailto:help@catchrank.co.kr?subject=[CATCHPASS] 사장님 문의", icon: "chat", label: "고객센터/문의", external: true },
+    { href: "/legal/terms", icon: "clipboard", label: "약관" },
   ];
 
   return (
     <div className="pb-24 bg-canvas">
-      <div className="px-5 pt-12 pb-3 flex items-center justify-between">
-        <h1 className="text-[20px] font-bold text-ink tracking-title">마이</h1>
+      {/* 헤더 — 로고(홈과 동일) + 벨 (와이어프레임) */}
+      <div className="px-5 pt-12 pb-4 flex items-center justify-between">
+        <span className="text-[15px] font-bold text-brand tracking-title">CATCHPASS</span>
         <Link
           href="/o/notifications"
           className="cp-action relative w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-ink"
@@ -68,137 +71,89 @@ export default async function OwnerMe() {
       </div>
 
       <div className="px-5">
-        {/* 프로필 카드 — 대표매장 썸네일 + 매장명/카테고리 + 스탯 스트립 병합 */}
-        <div className="rounded-lg border border-hairline bg-canvas p-4">
-          <div className="flex items-center gap-3.5">
-            {primaryThumb && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={primaryThumb}
-                alt={`${primaryStore?.name ?? ""} 썸네일`}
-                width={88}
-                height={66}
-                className="w-[88px] h-[66px] rounded-md object-cover bg-sunken shrink-0"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-brand">대표매장</div>
-              <div className="mt-0.5 text-[17px] font-bold text-ink tracking-title truncate">
-                {primaryStore?.name ?? me.storeName}
-              </div>
-              <div className="mt-0.5 text-[12px] text-muted truncate">{primaryStore?.category ?? me.category}</div>
-            </div>
-            <Link href="/o/stores" className="cp-action shrink-0 text-mutedSoft" aria-label="매장 정보">
-              <Icon name="chevron-right" variant="border" size={16} />
-            </Link>
-          </div>
-          <div className="mt-4 pt-3.5 border-t border-hairlineSoft grid grid-cols-3 text-center text-ink">
-            <div>
-              <div className="text-[18px] font-bold tabular-nums leading-none">{stores.length}</div>
-              <div className="mt-1.5 text-[12px] text-muted">매장 수</div>
-            </div>
-            <div className="border-l border-r border-hairlineSoft">
-              <div className="text-[18px] font-bold tabular-nums leading-none">{totalReviews}</div>
-              <div className="mt-1.5 text-[12px] text-muted">완료 리뷰</div>
-            </div>
-            <div>
-              <div className="text-[16px] font-bold tabular-nums leading-none pt-0.5">{totalSupport.toLocaleString()}원</div>
-              <div className="mt-1.5 text-[12px] text-muted">누적 지원</div>
-            </div>
-          </div>
-        </div>
-
-        {/* 멤버십 카드 — /o/membership 다크 히어로와 동일 아이덴티티 (통합 화면 진입점) */}
-        <Link href="/o/membership" className="cp-action mt-3 rounded-lg bg-ink text-white p-4 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold text-white/60">내 멤버십</div>
-            {isPaid ? (
-              <>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-[17px] font-bold tracking-title">{me.plan} 플랜</span>
-                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-[5px] bg-white/15 text-[10px] font-semibold">
-                    {billingLabel}
-                  </span>
-                </div>
-                <div className="mt-1 text-[12px] text-white/70">
-                  {ownedCoupons ? `리필권 ${ownedCoupons}장 보유` : "혜택·리필권·결제 관리"}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mt-1 text-[17px] font-bold tracking-title">멤버십 플랜 시작하기</div>
-                <div className="mt-1 text-[12px] text-white/70">더 많은 체험단 모집과 캐치랭크 혜택</div>
-              </>
-            )}
-          </div>
-          <Icon name="chevron-right" variant="border" size={18} className="shrink-0 text-white/70" />
+        {/* 프로필 — 플랫: 정사각 썸네일 + 대표매장 + 가게명 1줄 + 카테고리 → 매장 정보 */}
+        <Link href="/o/stores" className="cp-action flex items-center gap-4">
+          {primaryThumb && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={primaryThumb}
+              alt={`${primaryStore?.name ?? ""} 썸네일`}
+              width={88}
+              height={88}
+              className="w-[88px] h-[88px] rounded-lg object-cover bg-sunken shrink-0"
+            />
+          )}
+          <span className="flex-1 min-w-0">
+            <span className="block text-[12px] font-semibold text-brand">대표매장</span>
+            <span className="mt-1 block text-[18px] font-bold text-ink tracking-title leading-[1.3] truncate">
+              {primaryStore?.name ?? me.storeName}
+            </span>
+            <span className="mt-0.5 block text-[13px] text-muted truncate">{primaryStore?.category ?? me.category}</span>
+          </span>
+          <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
         </Link>
 
-        {/* 운영 관리 */}
-        <h2 className="mt-7 text-[13px] font-semibold text-muted">운영 관리</h2>
-        <div className="mt-2 rounded-lg border border-hairline bg-canvas divide-y divide-hairlineSoft overflow-hidden">
-          {OPS_MENU.map((m) => (
-            <Link key={m.href} href={m.href} className="cp-action flex items-center gap-3 px-4 py-3.5 active:bg-parchment">
-              <span className="w-9 h-9 rounded-full bg-sunken flex items-center justify-center text-ink shrink-0">
-                <Icon name={m.icon} variant="border" size={18} />
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-semibold text-ink">{m.label}</div>
-                {m.sub && <div className="text-[12px] text-muted mt-0.5">{m.sub}</div>}
-              </div>
-              <Icon name="chevron-right" variant="border" size={16} className="text-mutedSoft shrink-0" />
-            </Link>
-          ))}
+        {/* 스탯 바 — 완료 리뷰 | 누적 지원 (와이어프레임 — 매장 수 제거, 좌우 2분할) */}
+        <div className="mt-4 rounded-lg bg-sunken px-4 py-3.5 grid grid-cols-[1fr_auto_1.4fr] items-center gap-3 text-[13px] tabular-nums">
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-muted">완료 리뷰</span>
+            <span className="text-[16px] font-bold text-ink">{totalReviews}</span>
+          </span>
+          <span className="h-4 w-px bg-hairline" aria-hidden />
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-muted">누적 지원</span>
+            <span className="text-[16px] font-bold text-ink">{totalSupport.toLocaleString()}원</span>
+          </span>
         </div>
 
-        {/* 알림 · 지원 */}
-        <h2 className="mt-6 text-[13px] font-semibold text-muted">알림 · 지원</h2>
-        <div className="mt-2 rounded-lg border border-hairline bg-canvas divide-y divide-hairlineSoft overflow-hidden">
-          <Link href="/o/notifications" className="cp-action flex items-center gap-3 px-4 py-3.5 active:bg-parchment">
-            <span className="w-9 h-9 rounded-full bg-sunken flex items-center justify-center text-ink shrink-0">
-              <Icon name="bell" variant="border" size={18} />
+        {/* 멤버십 카드 — 퍼플 아웃라인 (내 멤버십 플랜 카드와 동일 아이덴티티) */}
+        <Link
+          href="/o/membership"
+          className="cp-action mt-3 rounded-lg border-[1.5px] border-brand bg-canvas p-4 flex items-center gap-3"
+        >
+          <span className="flex-1 min-w-0">
+            <span className="flex items-center gap-2">
+              <span className="text-[17px] font-bold text-ink tracking-title">{me.plan}</span>
+              {!isFree && (
+                <span className="shrink-0 inline-flex items-center px-2 py-1 rounded-pill bg-brandSoft text-[11px] font-bold text-brand">
+                  {billingLabel}
+                </span>
+              )}
             </span>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-ink flex items-center gap-2">
-                알림함
-                {unreadNotifications > 0 && (
-                  <span className="text-[10px] font-semibold bg-error text-white px-1.5 py-0.5 rounded-pill tabular-nums">
-                    {unreadNotifications}
-                  </span>
-                )}
-              </div>
-              <div className="text-[12px] text-muted mt-0.5">
-                {unreadNotifications ? `${unreadNotifications}건 새 알림` : "모두 읽음"}
-              </div>
-            </div>
-            <Icon name="chevron-right" variant="border" size={16} className="text-mutedSoft shrink-0" />
-          </Link>
-          <a
-            href="mailto:help@catchrank.co.kr?subject=[CATCHPASS] 사장님 문의"
-            className="cp-action flex items-center gap-3 px-4 py-3.5 active:bg-parchment"
-          >
-            <span className="w-9 h-9 rounded-full bg-sunken flex items-center justify-center text-ink shrink-0">
-              <Icon name="chat" variant="border" size={18} />
+            <span className="mt-1.5 block text-[13px] text-ink2">
+              {isFree ? "이용 중인 멤버십이 없어요" : `리필권 ${ownedCoupons}장 보유`}
             </span>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-ink">고객센터 / 문의</div>
-              <div className="text-[12px] text-muted mt-0.5">매장 정보·결제·구독 해지 문의</div>
-            </div>
-            <Icon name="chevron-right" variant="border" size={16} className="text-mutedSoft shrink-0" />
-          </a>
+          </span>
+          <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
+        </Link>
+
+        {/* 메뉴 — 플랫 아이콘 행 (서브텍스트·섹션·타일 없음, 와이어프레임) */}
+        <div className="mt-5">
+          {MENU.map((m) =>
+            m.external ? (
+              <a key={m.label} href={m.href} className="cp-action flex items-center gap-3.5 py-4">
+                <Icon name={m.icon} variant="border" size={22} className="shrink-0 text-ink" />
+                <span className="flex-1 text-[15px] font-medium text-ink">{m.label}</span>
+                <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
+              </a>
+            ) : (
+              <Link key={m.label} href={m.href} className="cp-action flex items-center gap-3.5 py-4">
+                <Icon name={m.icon} variant="border" size={22} className="shrink-0 text-ink" />
+                <span className="flex-1 text-[15px] font-medium text-ink">{m.label}</span>
+                <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
+              </Link>
+            ),
+          )}
         </div>
 
-        {/* 법적 고지 */}
-        <div className="mt-6 flex items-center gap-4 text-[12px]">
-          <Link href="/legal/terms" className="text-muted underline">이용약관</Link>
-          <Link href="/legal/privacy" className="text-muted underline">개인정보처리방침</Link>
-        </div>
-
-        <div className="mt-8">
+        <div className="mt-6">
           <LogoutButton />
         </div>
-        <div className="mt-6">
+        <div className="mt-5 flex items-center gap-4">
           <DeleteAccountButton />
+          <Link href="/legal/privacy" className="text-[12px] text-muted underline">
+            개인정보처리방침
+          </Link>
         </div>
       </div>
     </div>
