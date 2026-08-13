@@ -93,13 +93,17 @@ export default async function OwnerMe() {
           <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
         </Link>
 
-        {/* 스탯 바 — 완료 리뷰 | 누적 지원 (와이어프레임 — 매장 수 제거) */}
-        <div className="mt-4 rounded-lg bg-sunken px-4 py-3.5 flex items-center text-[13px] tabular-nums">
-          <span className="text-muted">완료 리뷰</span>
-          <span className="ml-auto text-[16px] font-bold text-ink">{totalReviews}</span>
-          <span className="mx-3.5 h-4 w-px bg-hairline" aria-hidden />
-          <span className="text-muted">누적 지원</span>
-          <span className="ml-3 text-[16px] font-bold text-ink">{totalSupport.toLocaleString()}원</span>
+        {/* 스탯 바 — 완료 리뷰 | 누적 지원 (와이어프레임 — 매장 수 제거, 좌우 2분할) */}
+        <div className="mt-4 rounded-lg bg-sunken px-4 py-3.5 grid grid-cols-[1fr_auto_1.4fr] items-center gap-3 text-[13px] tabular-nums">
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-muted">완료 리뷰</span>
+            <span className="text-[16px] font-bold text-ink">{totalReviews}</span>
+          </span>
+          <span className="h-4 w-px bg-hairline" aria-hidden />
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-muted">누적 지원</span>
+            <span className="text-[16px] font-bold text-ink">{totalSupport.toLocaleString()}원</span>
+          </span>
         </div>
 
         {/* 멤버십 카드 — 퍼플 아웃라인 (내 멤버십 플랜 카드와 동일 아이덴티티) */}
