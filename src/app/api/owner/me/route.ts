@@ -36,7 +36,14 @@ export async function GET() {
       : stores[0]?.id;
 
   return NextResponse.json({
-    owner: { id: owner?.id, storeName: owner?.storeName, plan: owner?.plan, primaryStoreId },
+    // billing (2026-08-12) — 업셀 문구가 결제 방식(월간/연간)에 맞는 금액을 쓰기 위해 노출
+    owner: {
+      id: owner?.id,
+      storeName: owner?.storeName,
+      plan: owner?.plan,
+      billing: owner && owner.plan !== "Free" ? (owner.billing ?? "monthly") : null,
+      primaryStoreId,
+    },
     stores,
     monthly: { used: monthlyUsed, limit: monthlyLimit },
     refill, // 모집 한도 리필권 상태 (2026-07-31 BM — bonus/grant/price/구매 횟수/구매 가능)
