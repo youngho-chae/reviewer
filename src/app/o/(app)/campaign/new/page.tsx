@@ -1284,9 +1284,8 @@ export default function NewCampaign() {
                           <>월 <span className="font-bold text-ink">{PLAN_PRICE[next].toLocaleString()}원</span>으로 매월{" "}
                           <span className="font-bold text-brand">{nextLimit}건</span> 모집할 수 있어요.</>
                         ) : billing === "yearly" ? (
-                          /* 연간 구독자 (2026-08-12) — 월간가 차액은 맥락 불일치: 실제 추가 결제는 연간가 차액 */
-                          <>연 <span className="font-bold text-ink">{(yearlyPrice(next) - yearlyPrice(plan)).toLocaleString()}원</span>
-                          <span className="text-muted"> (월 환산 {Math.round((yearlyPrice(next) - yearlyPrice(plan)) / 12).toLocaleString()}원)</span>만
+                          /* 연간 구독자 (2026-08-12) — 연간가 차액의 월 환산으로 표기 (연 총액 병기는 길어서 폐기, 당일 정정) */
+                          <>월 환산 <span className="font-bold text-ink">{Math.round((yearlyPrice(next) - yearlyPrice(plan)) / 12).toLocaleString()}원</span>만
                           추가하면 매달 <span className="font-bold text-brand">{gain}건</span> 더 모집할 수 있어요.</>
                         ) : (
                           <>월 <span className="font-bold text-ink">{diff.toLocaleString()}원</span>만 추가하면 매달{" "}
