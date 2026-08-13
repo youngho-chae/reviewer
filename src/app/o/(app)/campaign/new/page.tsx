@@ -1326,7 +1326,12 @@ export default function NewCampaign() {
                     }}
                   />
                   {plan === "Standard" && (
-                    <p className="mt-2 text-[11px] text-muted">리필권과 100원 차이로 매월 100건을 이용할 수 있어요.</p>
+                    /* 연간 구독자는 월 환산 차액(10,833원)이 리필권(12,900원)보다 저렴 — 비교 방향이 반대 (2026-08-12) */
+                    <p className="mt-2 text-[11px] text-muted">
+                      {billing === "yearly"
+                        ? "연간 구독은 월 환산 기준, 리필권보다 업그레이드가 더 저렴해요."
+                        : "리필권과 100원 차이로 매월 100건을 이용할 수 있어요."}
+                    </p>
                   )}
                   {plan === "Premium" && (
                     <p className="mt-2 text-[11px] text-muted leading-[1.5]">추가 한도는 다음 결제일 전까지 사용할 수 있어요.</p>
