@@ -51,6 +51,8 @@ export default async function OwnerAppLayout({ children }: { children: React.Rea
           { href: "/o/manage", label: "관리", icon: "calendar-check" },
           { href: "/o/scan", label: "QR 스캔", icon: "camera" },
           { href: "/o/me", label: "마이", icon: "user" },
+          // 캐치랭크 본체 (2026-08-12 마이 개편 와이어프레임 — 5번째 탭, 외부 새 탭)
+          { href: "https://www.catchrank.co.kr", label: "캐치랭크", icon: "rank" },
         ]}
       />
     </div>
