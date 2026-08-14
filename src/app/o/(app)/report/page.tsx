@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 //  ① 요약 타일 — 체험자 방문(usedAt)·발행 리뷰(completedAt)·**게시 중 리뷰**(검수 완료 후
 //     게시 유지 기간 KEEP_DAYS=90일 이내 — "지금 검색하면 보이는 리뷰")
 //  ② 모집→방문→리뷰 퍼널 — 기간 내 발급 코호트가 어디까지 진행됐는지 (전환율 ≤100%)
-//  ③ 최근 8주 방문 추이 (usedAt 기준)
+//  ③ 주간 방문 추이 (usedAt — 기간 연동: 30일=4주 / 90일=12주)
 //  ④ 채널별 발행 리뷰 분포 — 영수증 리뷰 별도 행 (구 화면의 블로그 오집계 수정)
 //  ⑤ 최근 발행 리뷰 [리뷰 보러가기] — 실제 게시물 확인 (리텐션 핵심)
 //  ⑥ 상생 매출 — Σ max(0, paidAmount − supportApplied): 지원금을 넘어서 발생한 실결제
@@ -36,11 +36,15 @@ export default async function OwnerReport({
   searchParams: Promise<{ range?: string }>;
 }) {
   const { range: rangeParam } = await searchParams;
-  const range: "30d" | "all" = rangeParam === "all" ? "all" : "30d";
+  // 기간 = 최근 30일 | 최근 90일 (2026-08-13 — 구 "전체 기간"은 무기한 누적이라 폐지.
+  // 90일 = 게시 유지 기간(KEEP_DAYS)과 정합 — 리포트가 다루는 실질 활동 창)
+  const range: "30d" | "90d" = rangeParam === "90d" || rangeParam === "all" ? "90d" : "30d";
+  const rangeDays = range === "30d" ? 30 : 90;
+  const rangeLabel = range === "30d" ? "최근 30일" : "최근 90일";
   const me = await getCurrentOwner();
   const db = await getDBAsync();
   const now = Date.now();
-  const since = range === "30d" ? now - 30 * DAY : 0;
+  const since = now - rangeDays * DAY;
   const inRange = (t?: number) => t != null && t >= since;
 
   const myPasses = db.passes.filter((p) => p.ownerId === me.id);
@@ -67,8 +71,9 @@ export default async function OwnerReport({
   ];
   const funnelMax = Math.max(1, cohort.length);
 
-  // ── ③ 최근 8주 방문 추이 (usedAt) ──
-  const WEEKS = 8;
+  // ── ③ 주간 방문 추이 (usedAt) — 기간 세그먼트와 연동 (구 8주 고정은 30일 선택 시
+  //     "8주 전" 라벨이 맥락과 어긋나던 문제, 2026-08-13) ──
+  const WEEKS = range === "30d" ? 4 : 12;
   const weekBuckets: number[] = new Array(WEEKS).fill(0);
   for (const p of myPasses) {
     if (p.usedAt == null) continue;
@@ -132,12 +137,12 @@ export default async function OwnerReport({
         {(
           [
             { key: "30d", label: "최근 30일" },
-            { key: "all", label: "전체 기간" },
+            { key: "90d", label: "최근 90일" },
           ] as const
         ).map((r) => (
           <Link
             key={r.key}
-            href={r.key === "30d" ? "/o/report" : "/o/report?range=all"}
+            href={r.key === "30d" ? "/o/report" : "/o/report?range=90d"}
             className={`cp-action inline-flex items-center px-3.5 h-9 rounded-pill text-[13px] font-semibold ${
               range === r.key ? "border-[1.5px] border-ink text-ink" : "border border-hairline text-muted"
             }`}
@@ -184,7 +189,7 @@ export default async function OwnerReport({
           {/* ② 모집→방문→리뷰 퍼널 */}
           <div className="mx-5 mt-4 rounded-lg border border-hairline bg-canvas p-4">
             <div className="text-[14px] font-bold text-ink">모집이 리뷰가 되기까지</div>
-            <p className="mt-0.5 text-[12px] text-muted">{range === "30d" ? "최근 30일" : "전체 기간"}에 발급된 체험권 기준</p>
+            <p className="mt-0.5 text-[12px] text-muted">{rangeLabel}에 발급된 체험권 기준</p>
             <div className="mt-3.5 space-y-2.5">
               {funnel.map((f, i) => {
                 const prev = i === 0 ? null : funnel[i - 1].n;
@@ -209,7 +214,7 @@ export default async function OwnerReport({
             </div>
           </div>
 
-          {/* ③ 최근 8주 방문 추이 */}
+          {/* ③ 주간 방문 추이 — 기간 연동 (30일=4주 / 90일=12주) */}
           <div className="mx-5 mt-3 rounded-lg border border-hairline bg-canvas p-4">
             <div className="text-[14px] font-bold text-ink">주간 방문 추이</div>
             <div className="mt-3 flex items-end gap-1.5 h-16">
@@ -314,7 +319,7 @@ export default async function OwnerReport({
           <div className="px-5 mt-3 space-y-2">
             {recent.length === 0 && (
               <div className="rounded-md border border-hairline bg-canvas px-4 py-5 text-center text-[13px] text-muted">
-                {range === "30d" ? "최근 30일에 발행된 리뷰가 없어요" : "발행된 리뷰가 아직 없어요"}
+                {rangeLabel}에 발행된 리뷰가 없어요
               </div>
             )}
             {recent.map((p) => (
