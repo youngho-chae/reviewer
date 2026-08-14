@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
+import { sendWebPushTo } from "@/lib/push";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,15 @@ export async function POST(req: NextRequest) {
       ...(l ? { link: l } : {}),
     });
   }
+  // 실제 웹푸시 동시 발송 (2026-08-13 — 정본 src/lib/push.ts). VAPID 미설정이면 0건 스킵,
+  // 만료 구독(404/410)은 자동 정리. 푸시 실패해도 인앱 알림함 발송은 이미 확정.
+  const push = await sendWebPushTo(
+    db,
+    audience,
+    targets,
+    { title: t, body: b, link: l || (audience === "reviewer" ? "/r/notifications" : "/o/notifications") },
+  ).catch(() => ({ sent: 0, cleaned: 0 }));
+
   await saveDBAsync();
-  return NextResponse.json({ ok: true, sent: targets.length });
+  return NextResponse.json({ ok: true, sent: targets.length, pushSent: push.sent });
 }

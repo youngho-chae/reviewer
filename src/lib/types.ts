@@ -521,6 +521,18 @@ export interface NotificationItem {
   link?: string;
 }
 
+// 웹푸시 구독 (2026-08-13 — 실제 모바일 웹푸시, 정본 src/lib/push.ts)
+// 브라우저 PushSubscription을 계정에 귀속 저장. endpoint가 고유 키(기기·브라우저 단위) —
+// 같은 계정이 여러 기기를 구독할 수 있고, 발송 실패(404/410 = 만료) 시 자동 정리된다.
+export interface PushSub {
+  id: string;
+  userId: string;
+  role: "reviewer" | "owner";
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  createdAt: number;
+}
+
 export interface DBShape {
   reviewers: Reviewer[];
   owners: Owner[];
@@ -540,6 +552,8 @@ export interface DBShape {
   withdrawals?: WithdrawalRequest[];
   // ── 모집 한도 리필권 (2026-07-31 BM 전략안 — 정본 src/lib/limit-refill.ts) ──
   limitRefills?: LimitRefill[];
+  // ── 웹푸시 구독 (2026-08-13 — 정본 src/lib/push.ts) ──
+  pushSubs?: PushSub[];
   // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거

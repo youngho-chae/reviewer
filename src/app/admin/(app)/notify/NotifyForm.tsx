@@ -19,7 +19,7 @@ export default function NotifyForm({ reviewers, owners }: { reviewers: Recipient
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [sentResult, setSentResult] = useState<number | null>(null);
+  const [sentResult, setSentResult] = useState<{ sent: number; push: number } | null>(null);
 
   const pool = audience === "reviewer" ? reviewers : owners;
   const filtered = useMemo(() => {
@@ -68,7 +68,7 @@ export default function NotifyForm({ reviewers, owners }: { reviewers: Recipient
       return;
     }
     setConfirm(false);
-    setSentResult(j.sent);
+    setSentResult({ sent: j.sent, push: j.pushSent ?? 0 });
     setTitle("");
     setBody("");
     setLink("");
@@ -81,8 +81,8 @@ export default function NotifyForm({ reviewers, owners }: { reviewers: Recipient
     <section className="px-5 mt-4">
       {sentResult !== null && (
         <div className="mb-3 rounded-md bg-successSoft px-4 py-3 text-[13px] text-ink">
-          <span className="font-bold text-successStrong">✓ 발송 완료</span> — {audienceLabel} {sentResult}명의 알림함으로
-          보냈어요.
+          <span className="font-bold text-successStrong">✓ 발송 완료</span> — {audienceLabel} {sentResult.sent}명의
+          알림함으로 보냈어요{sentResult.push > 0 ? ` (기기 푸시 ${sentResult.push}건 포함)` : ""}.
         </div>
       )}
 
