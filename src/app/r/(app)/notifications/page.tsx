@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PushOptIn from "@/components/PushOptIn";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 
@@ -61,6 +62,11 @@ export default async function ReviewerNotifications() {
         <Link href="/r/me" className="text-muted text-[14px]">← MY</Link>
         <h1 className="mt-3 text-[22px] font-bold">알림함</h1>
         <div className="text-[13px] text-muted mt-1">{items.length}건</div>
+      </div>
+
+      {/* 웹푸시 켜기 (2026-08-13) — VAPID 미설정·미지원 브라우저면 렌더 안 됨 */}
+      <div className="px-5 pb-2">
+        <PushOptIn />
       </div>
 
       <Section title="오늘" list={today} />

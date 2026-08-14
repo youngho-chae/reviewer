@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PushOptIn from "@/components/PushOptIn";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import Icon from "@/components/Icon";
@@ -69,6 +70,11 @@ export default async function OwnerNotifications() {
         </div>
       </div>
       <div className="px-5 pt-1 text-[13px] text-muted tabular-nums">{items.length}건</div>
+
+      {/* 웹푸시 켜기 (2026-08-13) — VAPID 미설정·미지원 브라우저면 렌더 안 됨 */}
+      <div className="px-5 pt-2">
+        <PushOptIn />
+      </div>
 
       <Section title="오늘" list={today} />
       <Section title="이번 주" list={week} />
