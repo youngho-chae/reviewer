@@ -18,17 +18,13 @@ export const dynamic = "force-dynamic";
 //  ② 모집→방문→리뷰 퍼널 — 기간 내 발급 코호트가 어디까지 진행됐는지 (전환율 ≤100%)
 //  ③ 주간 방문 추이 (usedAt — 기간 연동: 30일=4주 / 90일=12주)
 //  ④ 채널별 발행 리뷰 분포 — 영수증 리뷰 별도 행 (구 화면의 블로그 오집계 수정)
-//  ⑤ 최근 발행 리뷰 [리뷰 보러가기] — 실제 게시물 확인 (리텐션 핵심)
+//  (구 ⑤ 최근 발행 리뷰 리스트는 2026-08-13 제거 — 리뷰 관리(/o/manage?tab=reviews)와 중복)
 //  ⑥ 상생 매출 — Σ max(0, paidAmount − supportApplied): 지원금을 넘어서 발생한 실결제
 //     매출 (2026-08-10 개정 — 구 "제공한 할인 혜택"은 지출 프레임이라 폐기. use-by-code
 //     폴백(paid=support)은 초과분 0으로 떨어지는 하한 집계라 과대 표시 불가 — §12)
 //  ⑦ 운영 품질 — 작성 완료율(§4-1 모수 = ownerReviewSummary)·방문 후 평균 제출 소요
 
 const DAY = 86400000;
-
-function fmtD(t: number): string {
-  return new Date(t + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, ".");
-}
 
 export default async function OwnerReport({
   searchParams,
@@ -48,7 +44,6 @@ export default async function OwnerReport({
   const inRange = (t?: number) => t != null && t >= since;
 
   const myPasses = db.passes.filter((p) => p.ownerId === me.id);
-  const campaignTitle = (id: string) => db.campaigns.find((c) => c.id === id)?.title ?? "";
   // 발행 시점 — completedAt이 없는 과거 completed 데이터 폴백 (퍼널 "검수 완료" 건수와 정합 유지)
   const doneAt = (p: Pass) => p.completedAt ?? p.reviewSubmittedAt ?? p.usedAt ?? p.issuedAt;
 
@@ -93,9 +88,6 @@ export default async function OwnerReport({
     ...CHANNEL_ORDER.map((ch) => ({ key: ch as string, label: CHANNEL_LABEL[ch], badge: ch, n: byChannel[ch] })),
     { key: "receipt", label: RECEIPT_LABEL, n: receiptCount },
   ].filter((r) => r.n > 0);
-
-  // ── ⑤ 최근 발행 리뷰 5건 ──
-  const recent = [...published].sort((a, b) => doneAt(b) - doneAt(a)).slice(0, 5);
 
   // ── ⑥ 상생 매출 (2026-08-10 개정 — 구 "제공한 할인 혜택" 대체) ──
   // "쓴 돈"(지원금 합)이 아니라 지원금을 **넘어서** 발생한 실결제 매출을 보여준다:
@@ -309,47 +301,6 @@ export default async function OwnerReport({
             </>
           )}
 
-          {/* ⑤ 최근 발행 리뷰 — 실제 게시물 확인 */}
-          <div className="px-5 mt-7 flex items-baseline justify-between">
-            <h2 className="text-[18px] font-bold text-ink tracking-title">최근 발행된 리뷰</h2>
-            <Link href="/o/manage?tab=reviews" className="cp-action text-[13px] font-semibold text-brand">
-              전체 보기
-            </Link>
-          </div>
-          <div className="px-5 mt-3 space-y-2">
-            {recent.length === 0 && (
-              <div className="rounded-md border border-hairline bg-canvas px-4 py-5 text-center text-[13px] text-muted">
-                {rangeLabel}에 발행된 리뷰가 없어요
-              </div>
-            )}
-            {recent.map((p) => (
-              <div key={p.id} className="rounded-md border border-hairline bg-canvas px-4 py-3.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-semibold text-ink truncate">{campaignTitle(p.campaignId)}</div>
-                    <div className="mt-1 flex items-center gap-2 text-[12px] text-muted tabular-nums">
-                      {p.reviewChannel ? (
-                        <ChannelIcons channels={[p.reviewChannel]} size={14} />
-                      ) : p.receiptReview ? (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded-xs bg-sunken text-[10px] font-semibold text-ink2 leading-none">🧾 영수증</span>
-                      ) : null}
-                      <span>{fmtD(doneAt(p))} 발행</span>
-                    </div>
-                  </div>
-                  {p.reviewUrl && (
-                    <a
-                      href={p.reviewUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="cp-action shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold text-brand"
-                    >
-                      리뷰 보러가기 <Icon name="arrow-right" variant="border" size={13} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
         </>
       )}
     </div>
