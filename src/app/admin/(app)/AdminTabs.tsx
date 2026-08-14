@@ -13,6 +13,7 @@ const TABS = [
   ...(DELIVERY_ENABLED ? [{ href: "/admin/points", label: "출금" }] : []),
   { href: "/admin/refills", label: "리필" }, // 모집 한도 리필권 구매 내역 (2026-07-31 BM)
   { href: "/admin/grading", label: "등급 기준" }, // 평가 기준표 — 산식 수치는 내부 전용 (2026-08-06)
+  { href: "/admin/notify", label: "알림" }, // 체험자/사장님 알림함 공지 발송 (2026-08-13)
 ];
 
 export default function AdminTabs() {
