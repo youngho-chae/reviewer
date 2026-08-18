@@ -1,7 +1,7 @@
 # CATCHPASS 프로젝트 규칙 (CLAUDE.md)
 
 CATCHPASS: 등급 기반 리뷰 체험권 플랫폼 (Next.js 15 App Router, 모바일 웹 480px).
-문서 맵: 요구 `PRD.md` · 기능 `docs/기능정의서.md` · 운영 `docs/운영정책서.md` · 데이터 `docs/데이터정책서.md` · IA `docs/IA.md` · 시나리오 `flow.md` · 화면설계서 `docs/sdd/`.
+문서 맵: 요구 `PRD.md` · 기능 `docs/기능정의서.md` · 운영 `docs/운영정책서.md` · 데이터 `docs/데이터정책서.md` · IA `docs/IA.md` · 시나리오 `flow.md` · 화면설계서 `docs/sdd/` · 알림 카피 `docs/알림템플릿.md`(자동 발송 알림 카피 원문 정본 — 코드의 알림 문구 변경 시 반드시 동반 갱신).
 
 ## 핵심 정책 불변식 (PRD §1.0 — 절대 위반 금지)
 
