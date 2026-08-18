@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 // 예약 가능 일정 관리 (2026-07-22 §6 · 2026-07-31 시안 재작업) — 예약형 캠페인 전용.
 //  - 당일 예약 일시 중지: 토글 스위치 (오늘 남은 시간 전체 차단 — 자정 자연 해제)
 //  - 날짜 차단: 14일 칩 (기존 예약이 있으면 경고 — 확정 예약은 자동 취소하지 않음)
-//  - 특정 시간 차단: [일정 선택] 시트에서 날짜+시간 선택 → 차단 목록 (외부 플랫폼 예약 수동 반영)
+//  - 특정 시간 차단: [일정 선택] 시트에서 날짜+시간(다중 선택 — 2026-08-18) → 차단 목록 (외부 플랫폼 예약 수동 반영)
 export default function BlocksManager({
   campaignId,
   days,
@@ -27,7 +27,7 @@ export default function BlocksManager({
   const [warnDate, setWarnDate] = useState<string | null>(null); // 예약 존재 날짜 차단 경고 (§6-1)
   const [sheetOpen, setSheetOpen] = useState(false); // 특정 시간 차단 — 일정 선택 시트 (시안)
   const [slotDate, setSlotDate] = useState("");
-  const [slotTime, setSlotTime] = useState("");
+  const [slotTimes, setSlotTimes] = useState<string[]>([]); // 다중 선택 (2026-08-18)
   const [warnSlot, setWarnSlot] = useState(false);
 
   const timeLabel = useMemo(() => Object.fromEntries(times.map((t) => [t.time, t.label])), [times]);
@@ -53,14 +53,17 @@ export default function BlocksManager({
     return true;
   }
 
-  async function blockSlot(date: string, time: string) {
-    const ok = await act({ action: "block_slot", date, time });
+  async function blockSlots(date: string, timesToBlock: string[]) {
+    const ok = await act({ action: "block_slot", date, times: timesToBlock });
     if (ok) {
       setSheetOpen(false);
       setSlotDate("");
-      setSlotTime("");
+      setSlotTimes([]);
     }
   }
+
+  // 선택 중 예약(요청·확정)이 있는 시간 — 차단 전 경고 대상 (§6-2)
+  const conflictTimes = slotTimes.filter((tm) => (slotResCounts[`${slotDate}|${tm}`] ?? 0) > 0);
 
   return (
     <div className="mt-3 space-y-3">
@@ -213,6 +216,7 @@ export default function BlocksManager({
                   type="button"
                   onClick={() => {
                     setSlotDate(d.date);
+                    setSlotTimes([]); // 날짜별로 차단 상태가 달라 선택 초기화
                     setWarnSlot(false);
                   }}
                   aria-pressed={slotDate === d.date}
@@ -226,22 +230,27 @@ export default function BlocksManager({
               {selectableDays.length === 0 && <p className="text-[12px] text-muted">선택할 수 있는 날짜가 없어요.</p>}
             </div>
 
-            <div className="mt-4 text-[13px] font-semibold text-ink">시간</div>
+            {/* 시간 — 다중 선택 토글 (2026-08-18): 여러 시간을 한 번에 차단 */}
+            <div className="mt-4 flex items-baseline justify-between">
+              <div className="text-[13px] font-semibold text-ink">시간</div>
+              <span className="text-[11px] text-muted">여러 시간을 함께 선택할 수 있어요</span>
+            </div>
             <div className="mt-2 grid grid-cols-4 gap-1.5">
               {times.map((t) => {
                 const blocked = blockedSlots.some((s) => s.date === slotDate && s.time === t.time);
+                const selected = slotTimes.includes(t.time);
                 return (
                   <button
                     key={t.time}
                     type="button"
                     disabled={!slotDate || blocked}
                     onClick={() => {
-                      setSlotTime(t.time);
+                      setSlotTimes((prev) => (prev.includes(t.time) ? prev.filter((x) => x !== t.time) : [...prev, t.time]));
                       setWarnSlot(false);
                     }}
-                    aria-pressed={slotTime === t.time}
+                    aria-pressed={selected}
                     className={`h-9 rounded-sm text-[12px] font-semibold tabular-nums ${
-                      slotTime === t.time
+                      selected
                         ? "bg-brand text-white"
                         : blocked
                           ? "bg-sunken text-mutedSoft line-through"
@@ -257,11 +266,12 @@ export default function BlocksManager({
             {warnSlot && (
               <div className="mt-3 rounded-sm bg-warningSoft px-3 py-2.5">
                 <p className="text-[12px] text-ink2 leading-[1.5]">
-                  이 시간에 진행 중인 예약이 있어요. 차단해도 기존 예약은 유지돼요 — 받을 수 없다면 개별 취소해주세요.
+                  선택한 시간 중 <b className="tabular-nums">{conflictTimes.map((tm) => timeLabel[tm] ?? tm).join(" · ")}</b>에 진행
+                  중인 예약이 있어요. 차단해도 기존 예약은 유지돼요 — 받을 수 없다면 개별 취소해주세요.
                 </p>
                 <button
                   type="button"
-                  onClick={() => blockSlot(slotDate, slotTime)}
+                  onClick={() => blockSlots(slotDate, slotTimes)}
                   disabled={busy}
                   className="cp-action mt-2 h-8 px-3.5 rounded-sm bg-errorSoft text-error text-[12px] font-bold disabled:opacity-60"
                 >
@@ -272,17 +282,17 @@ export default function BlocksManager({
 
             <button
               type="button"
-              disabled={busy || !slotDate || !slotTime}
+              disabled={busy || !slotDate || slotTimes.length === 0}
               onClick={() => {
-                if ((slotResCounts[`${slotDate}|${slotTime}`] ?? 0) > 0) {
-                  setWarnSlot(true); // 예약 요청·확정이 있는 시간 — 경고 (§6-2)
+                if (conflictTimes.length > 0) {
+                  setWarnSlot(true); // 예약 요청·확정이 있는 시간 포함 — 경고 (§6-2)
                 } else {
-                  blockSlot(slotDate, slotTime);
+                  blockSlots(slotDate, slotTimes);
                 }
               }}
               className="cp-action mt-5 w-full h-12 rounded-md bg-brand text-white text-[15px] font-bold disabled:bg-sunken disabled:text-mutedSoft"
             >
-              {busy ? "처리 중..." : "차단하기"}
+              {busy ? "처리 중..." : slotTimes.length > 1 ? `${slotTimes.length}개 시간 차단하기` : "차단하기"}
             </button>
           </div>
         </div>
