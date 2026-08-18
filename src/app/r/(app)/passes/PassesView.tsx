@@ -123,6 +123,13 @@ export default function PassesView({
         );
   const chips = tab === "issued" ? (segment === "delivery" ? DELIVERY_ISSUED_CHIPS : ISSUED_CHIPS) : REVIEW_CHIPS;
 
+  // 리뷰작성 탭 레드닷 (2026-08-18) — 지금 행동이 필요한 건(작성 대기 used·반려 rejected)이
+  // 있으면 표기. 기한 초과(overdue/resubmit_expired)·검수중·완료는 행동 불가라 제외.
+  const reviewActionCount = useMemo(() => {
+    const base = segment === "delivery" ? deliveryItems : visitItems;
+    return base.filter((it) => it.displayStatus === "used" || it.displayStatus === "rejected").length;
+  }, [visitItems, deliveryItems, segment]);
+
   return (
     <div>
       {/* 세그먼트 타이틀 + 검색·알림 (탐색과 동일 문법) */}
@@ -185,7 +192,13 @@ export default function PassesView({
                       active ? "border-brand text-brand font-bold" : "border-transparent text-muted font-medium"
                     }`}
                   >
-                    {t.label}
+                    <span className="relative inline-block">
+                      {t.label}
+                      {/* 확인 필요 건(작성 대기·반려) 레드닷 — 라벨 우상단 (2026-08-18) */}
+                      {t.key === "review" && reviewActionCount > 0 && (
+                        <span className="absolute -top-0.5 -right-2 w-1.5 h-1.5 rounded-full bg-error" />
+                      )}
+                    </span>
                   </button>
                 );
           })}
