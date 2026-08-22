@@ -25,7 +25,8 @@ export default function DeleteConfirm() {
   }
 
   return (
-    <div className="fixed bottom-0 inset-x-0 max-w-[480px] mx-auto bg-canvas border-t border-hairlineSoft px-5 pt-4 pb-6">
+    /* z-20: (app) 레이아웃 바텀 네비 위에 고정 — 탈퇴 확인 중에는 확인 바가 최하단을 차지 (와이어프레임) */
+    <div className="fixed bottom-0 inset-x-0 z-20 max-w-[480px] mx-auto bg-canvas border-t border-hairlineSoft px-5 pt-4 pb-6">
       <label className="flex items-center gap-2.5 cursor-pointer">
         <input
           type="checkbox"
