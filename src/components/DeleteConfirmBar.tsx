@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// 탈퇴 확인 하단부 (2026-08-18 와이어프레임) — 동의 체크가 [탈퇴할게요]를 게이트한다.
-// 탈퇴 = DELETE /api/auth/account (계정·알림·미사용 리필권·푸시 구독 삭제, 진행 캠페인 모집 종료).
-export default function DeleteConfirm() {
+// 회원 탈퇴 확인 하단 바 (2026-08-18 와이어프레임 — 사장님·체험자 공용).
+// 동의 체크가 [탈퇴할게요]를 게이트, [계속 이용할게요] = backHref 복귀.
+// 탈퇴 = DELETE /api/auth/account — 역할별 삭제·정리 동작은 API 주석 참조.
+export default function DeleteConfirmBar({ backHref }: { backHref: string }) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,7 +52,7 @@ export default function DeleteConfirm() {
         <button
           type="button"
           disabled={busy}
-          onClick={() => router.push("/o/me")}
+          onClick={() => router.push(backHref)}
           className="cp-action h-[52px] rounded-md bg-ink text-white text-[15px] font-bold"
         >
           계속 이용할게요

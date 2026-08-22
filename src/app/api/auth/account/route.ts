@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession, destroySession } from "@/lib/auth";
+import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,16 @@ export async function DELETE() {
     const idx = db.reviewers.findIndex((r) => r.id === s.userId);
     if (idx === -1) return NextResponse.json({ error: "계정을 찾을 수 없습니다" }, { status: 404 });
     db.reviewers.splice(idx, 1);
+    // 진행 중인 체험권(예약 포함) 일괄 취소 + 모집 슬롯 즉시 복구 (2026-08-18 —
+    // 구현 전에는 스윕 만료까지 슬롯이 잠겨 있었다. 탈퇴 화면에서 사전 고지)
+    const now = Date.now();
+    for (const p of db.passes) {
+      if (p.reviewerId === s.userId && p.status === "active") {
+        p.status = "cancelled";
+        p.cancelledAt = now;
+        restoreQuotaSlot(db, p);
+      }
+    }
   } else {
     const idx = db.owners.findIndex((o) => o.id === s.userId);
     if (idx === -1) return NextResponse.json({ error: "계정을 찾을 수 없습니다" }, { status: 404 });
