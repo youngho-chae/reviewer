@@ -3,7 +3,6 @@ import { DELIVERY_ENABLED } from "@/lib/flags";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
-import DeleteAccountButton from "@/components/DeleteAccountButton";
 import { getDBAsync } from "@/lib/db";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import { pointBalance } from "@/lib/points";
@@ -208,7 +207,10 @@ export default async function Me() {
           <LogoutButton />
         </div>
         <div className="mt-6">
-          <DeleteAccountButton />
+          {/* 탈퇴 = 전용 화면 (2026-08-18 개편 — 구 인라인 확인 박스 폐기) */}
+          <Link href="/r/me/delete" className="cp-action text-[13px] text-muted underline">
+            회원 탈퇴
+          </Link>
         </div>
       </section>
     </div>
