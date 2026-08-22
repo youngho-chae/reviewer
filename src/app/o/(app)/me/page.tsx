@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getCurrentOwner } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import LogoutButton from "@/components/LogoutButton";
-import DeleteAccountButton from "@/components/DeleteAccountButton";
 import Icon, { type IconName } from "@/components/Icon";
 import { ownedRefills } from "@/lib/limit-refill";
 import { coverForCampaign } from "@/lib/store-photo";
@@ -150,7 +149,10 @@ export default async function OwnerMe() {
           <LogoutButton />
         </div>
         <div className="mt-5 flex items-center gap-4">
-          <DeleteAccountButton />
+          {/* 탈퇴 = 전용 화면 (2026-08-18 개편 — 구 인라인 확인 박스 폐기) */}
+          <Link href="/o/me/delete" className="cp-action text-[13px] text-muted underline">
+            회원 탈퇴
+          </Link>
           <Link href="/legal/privacy" className="text-[12px] text-muted underline">
             개인정보처리방침
           </Link>
