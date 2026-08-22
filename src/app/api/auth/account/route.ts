@@ -31,9 +31,11 @@ export async function DELETE() {
     }
   }
 
-  // 개인 알림·미사용 보상 삭제
+  // 개인 알림·미사용 보상·푸시 구독 삭제 (미사용 리필권도 소멸 — 탈퇴 화면 사전 고지)
   db.notifications = db.notifications.filter((n) => n.userId !== s.userId);
   if (db.rewards) db.rewards = db.rewards.filter((r) => r.ownerUserId !== s.userId || !!r.usedAt);
+  if (db.pushSubs) db.pushSubs = db.pushSubs.filter((p) => p.userId !== s.userId);
+  if (db.limitRefills) db.limitRefills = db.limitRefills.filter((r) => r.ownerId !== s.userId || !!r.usedAt);
 
   await saveDBAsync();
   await destroySession();
