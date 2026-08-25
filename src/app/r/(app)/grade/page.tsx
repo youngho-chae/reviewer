@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import { SUPPORT_MULTIPLIER, gradeRank, bestGrade } from "@/lib/grade";
 import { WINWIN_BADGE, kstMonthKey, kstMonthEnd, prevMonthKey, collectMonthlyActivity } from "@/lib/grade-regrade";
-import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
+import { CHANNEL_ORDER, CHANNEL_LABEL, CHANNEL_ICON_SRC } from "@/lib/channels";
 import GradeBadge from "@/components/GradeBadge";
 import WinWinBadge from "@/components/WinWinBadge";
 import Icon from "@/components/Icon";
@@ -281,7 +282,7 @@ export default async function ReviewerGrade() {
                 {connectedChannels.map((ch) => (
                   <span key={ch} className="inline-flex items-center gap-1.5 text-[13px] text-ink">
                     <GradeBadge grade={eff.channelGrades[ch] as Grade} size="sm" />
-                    {CHANNEL_SHORT[ch]}
+                    <Image src={CHANNEL_ICON_SRC[ch]} alt={CHANNEL_LABEL[ch]} width={16} height={16} className="rounded-[4px]" />
                   </span>
                 ))}
               </div>
@@ -437,9 +438,7 @@ export default async function ReviewerGrade() {
                 key={ch}
                 className={`flex items-center gap-3 px-4 py-3.5 ${i < CHANNEL_ORDER.length - 1 ? "border-b border-hairlineSoft" : ""}`}
               >
-                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-[6px] text-[12px] font-bold ${CHANNEL_BADGE_BG[ch]}`}>
-                  {CHANNEL_SHORT[ch]}
-                </span>
+                <Image src={CHANNEL_ICON_SRC[ch]} alt={CHANNEL_LABEL[ch]} width={28} height={28} className="shrink-0 rounded-[7px]" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[14px] text-ink font-medium">{CHANNEL_LABEL[ch]}</div>
                   <div className="text-[11px] text-muted mt-0.5">

@@ -18,7 +18,15 @@ export const CHANNEL_SHORT: Record<SnsKind, string> = {
   tiktok: "틱",
 };
 
-// 아이콘 배경색 (브랜드 톤 유지) — 임시 글자 아이콘용.
+// 브랜드 아이콘 PNG (2026-08-18 — public/ 업로드분, 96×96). 렌더는 next/image —
+// 배지형은 ChannelIcons, 타일형(채널 관리·등급 화면)은 각 화면이 크기만 달리 사용.
+export const CHANNEL_ICON_SRC: Record<SnsKind, string> = {
+  naver_blog: "/blog.png",
+  instagram: "/instagram.png",
+  tiktok: "/tiktok.png",
+};
+
+// 아이콘 배경색 (브랜드 톤 유지) — 구 글자 아이콘용 (2026-08-18 아이콘 전환으로 도먼트).
 export const CHANNEL_BADGE_BG: Record<SnsKind, string> = {
   naver_blog: "bg-[#03c75a] text-white", // 네이버 그린
   instagram: "bg-[#d62976] text-white", // 인스타 핑크
