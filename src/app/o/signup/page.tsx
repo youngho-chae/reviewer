@@ -2,6 +2,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { validatePassword, PASSWORD_RULE_TEXT } from "@/lib/password";
 
 export default function OwnerSignupPage() {
   return (
@@ -17,6 +18,7 @@ function OwnerSignup() {
   const inviteToken = sp.get("invite")?.trim() || null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState(""); // 비밀번호 확인 (2026-08-18 — 2회 기입)
   const [storeName, setStoreName] = useState("");
   const [category, setCategory] = useState("한식");
   const [area, setArea] = useState("");
@@ -30,6 +32,10 @@ function OwnerSignup() {
     e.preventDefault();
     setLoading(true); setErr(null);
     if (!email || !password || !storeName || !area) { setErr("모든 항목을 입력해주세요"); setLoading(false); return; }
+    // 비밀번호 정책 (2026-08-18) — 영문·숫자·특수문자 필수 (정본 src/lib/password.ts)
+    const pwRuleErr = validatePassword(password);
+    if (pwRuleErr) { setErr(pwRuleErr); setLoading(false); return; }
+    if (password !== password2) { setErr("비밀번호가 일치하지 않아요 — 다시 확인해주세요"); setLoading(false); return; }
     if (bizNumber.length !== 10) { setErr("사업자등록번호 10자리를 입력해주세요"); setLoading(false); return; }
     if (!agreeTerms || !agreePrivacy) { setErr("이용약관과 개인정보 수집·이용에 동의해주세요"); setLoading(false); return; }
     const res = await fetch("/api/auth/signup", {
@@ -59,7 +65,35 @@ function OwnerSignup() {
 
       <form onSubmit={submit} className="mt-8 space-y-3">
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="이메일" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]" />
-        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="비밀번호 (6자 이상)" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]" />
+        <div>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            placeholder="비밀번호"
+            className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[16px] ${
+              password && validatePassword(password) ? "border-error" : "border-hairline focus:border-brand"
+            }`}
+          />
+          <p className={`mt-1 text-[12px] ${!password ? "text-muted" : validatePassword(password) ? "text-error" : "text-successStrong"}`}>
+            {password ? validatePassword(password) ?? "사용할 수 있는 비밀번호예요." : PASSWORD_RULE_TEXT}
+          </p>
+        </div>
+        <div>
+          <input
+            value={password2}
+            onChange={(e) => setPassword2(e.target.value)}
+            type="password"
+            placeholder="비밀번호 확인"
+            className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[16px] ${
+              password2 && password !== password2 ? "border-error" : "border-hairline focus:border-brand"
+            }`}
+          />
+          {password2 && password !== password2 && <p className="mt-1 text-[12px] text-error">비밀번호가 일치하지 않아요.</p>}
+          {password2 && password === password2 && !validatePassword(password) && (
+            <p className="mt-1 text-[12px] text-successStrong">비밀번호가 일치해요.</p>
+          )}
+        </div>
         <input value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="매장명" className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]" />
         <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-12 px-4 rounded-md border border-hairline bg-canvas focus:border-brand focus:outline-none text-[16px]">
           <option>한식</option><option>일식</option><option>양식</option><option>중식</option><option>카페</option><option>주점</option>
