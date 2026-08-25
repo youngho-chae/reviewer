@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CHANNEL_LABEL, CHANNEL_SHORT, CHANNEL_BADGE_BG } from "@/lib/channels";
+import Image from "next/image";
+import { CHANNEL_LABEL, CHANNEL_ICON_SRC } from "@/lib/channels";
 import type { Grade, SnsKind } from "@/lib/types";
 
 export interface ChannelRow {
@@ -318,9 +319,8 @@ export default function ChannelManager({
         {rows.map((row, i) => (
           <div key={row.kind} className={`px-5 py-7 ${i < rows.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
             <button type="button" onClick={() => openSheet(row)} className="cp-action w-full flex items-center gap-4 text-left">
-              <span className={`w-12 h-12 rounded-full grid place-items-center text-[15px] font-bold shrink-0 ${CHANNEL_BADGE_BG[row.kind]}`}>
-                {CHANNEL_SHORT[row.kind]}
-              </span>
+              {/* 브랜드 아이콘 (2026-08-18 — 구 원형 이니셜 "블/인/틱" 타일 대체) */}
+              <Image src={CHANNEL_ICON_SRC[row.kind]} alt={CHANNEL_LABEL[row.kind]} width={48} height={48} className="shrink-0 rounded-[12px]" />
               <span className="flex-1 min-w-0">
                 <span className="flex items-center gap-2">
                   <span className="text-[17px] font-bold text-ink tracking-title">
@@ -369,9 +369,7 @@ export default function ChannelManager({
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className={`w-10 h-10 rounded-full grid place-items-center text-[14px] font-bold ${CHANNEL_BADGE_BG[sheetRow.kind]}`}>
-                  {CHANNEL_SHORT[sheetRow.kind]}
-                </span>
+                <Image src={CHANNEL_ICON_SRC[sheetRow.kind]} alt={CHANNEL_LABEL[sheetRow.kind]} width={40} height={40} className="shrink-0 rounded-[10px]" />
                 <h2 className="text-[18px] font-bold text-ink tracking-title">{CHANNEL_LABEL[sheetRow.kind]} 연결</h2>
               </div>
               <button type="button" onClick={() => setSheetKind(null)} aria-label="닫기" className="cp-action w-10 h-10 rounded-full text-[18px] text-ink">
