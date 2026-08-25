@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { validatePassword, PASSWORD_RULE_TEXT } from "@/lib/password";
 
 // 이메일·닉네임 중복 인라인 확인 (2026-08-18) — 입력 후 500ms 디바운스로
 // /api/auth/check-availability 조회. 최종 판정은 signup API 409(정본) — 폼 확인은 UX 보조.
@@ -63,6 +64,7 @@ function ReviewerSignup() {
   // 계정 정보
   const [email, setEmail] = useState(sp.get("email") ?? "");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState(""); // 비밀번호 확인 (2026-08-18 — 2회 기입)
   const [nickname, setNickname] = useState(sp.get("nick") ?? "");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
@@ -122,8 +124,14 @@ function ReviewerSignup() {
         setErr("이메일과 비밀번호를 입력해주세요");
         return;
       }
-      if (password.length < 6) {
-        setErr("비밀번호는 6자 이상이어야 해요");
+      // 비밀번호 정책 (2026-08-18) — 영문·숫자·특수문자 필수 (정본 src/lib/password.ts)
+      const pwRuleErr = validatePassword(password);
+      if (pwRuleErr) {
+        setErr(pwRuleErr);
+        return;
+      }
+      if (password !== password2) {
+        setErr("비밀번호가 일치하지 않아요 — 다시 확인해주세요");
         return;
       }
     }
@@ -311,13 +319,43 @@ function ReviewerSignup() {
               {emailStatus === "ok" && <p className="mt-1 text-[12px] text-successStrong">사용할 수 있는 이메일이에요.</p>}
             </div>
             {!socialProvider && (
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                placeholder="비밀번호 (6자 이상)"
-                className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]"
-              />
+              <>
+                <div>
+                  <input
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    type="password"
+                    placeholder="비밀번호"
+                    className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[16px] ${
+                      password && validatePassword(password) ? "border-error" : "border-hairline focus:border-brand"
+                    }`}
+                  />
+                  <p
+                    className={`mt-1 text-[12px] ${
+                      !password ? "text-muted" : validatePassword(password) ? "text-error" : "text-successStrong"
+                    }`}
+                  >
+                    {password ? validatePassword(password) ?? "사용할 수 있는 비밀번호예요." : PASSWORD_RULE_TEXT}
+                  </p>
+                </div>
+                <div>
+                  <input
+                    value={password2}
+                    onChange={(e) => setPassword2(e.target.value)}
+                    type="password"
+                    placeholder="비밀번호 확인"
+                    className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[16px] ${
+                      password2 && password !== password2 ? "border-error" : "border-hairline focus:border-brand"
+                    }`}
+                  />
+                  {password2 && password !== password2 && (
+                    <p className="mt-1 text-[12px] text-error">비밀번호가 일치하지 않아요.</p>
+                  )}
+                  {password2 && password === password2 && !validatePassword(password) && (
+                    <p className="mt-1 text-[12px] text-successStrong">비밀번호가 일치해요.</p>
+                  )}
+                </div>
+              </>
             )}
             <div>
               <input
