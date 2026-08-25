@@ -1,7 +1,37 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+
+// 이메일·닉네임 중복 인라인 확인 (2026-08-18) — 입력 후 500ms 디바운스로
+// /api/auth/check-availability 조회. 최종 판정은 signup API 409(정본) — 폼 확인은 UX 보조.
+type DupStatus = "idle" | "checking" | "ok" | "taken";
+function useAvailability(field: "email" | "nickname", value: string, enabled: boolean): DupStatus {
+  const [status, setStatus] = useState<DupStatus>("idle");
+  useEffect(() => {
+    if (!enabled) {
+      setStatus("idle");
+      return;
+    }
+    setStatus("checking");
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/auth/check-availability", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ field, value: value.trim() }),
+        });
+        if (!res.ok) throw new Error();
+        const j = await res.json();
+        setStatus(j.available ? "ok" : "taken");
+      } catch {
+        setStatus("idle"); // 조회 실패 — 서버 최종 검증(409)에 위임
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [field, value, enabled]);
+  return status;
+}
 
 // 체험자 가입 (2026-07-23 개편)
 //  step 0: 시작 — 간편로그인(네이버·카카오) 또는 이메일 가입
@@ -38,6 +68,11 @@ function ReviewerSignup() {
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // 중복 인라인 확인 — 이메일은 형식이 갖춰졌을 때, 닉네임은 2자 이상일 때 조회
+  const emailValid = /\S+@\S+\.\S+/.test(email.trim());
+  const emailStatus = useAvailability("email", email, step === 2 && emailValid);
+  const nickStatus = useAvailability("nickname", nickname, step === 2 && nickname.trim().length >= 2);
 
   async function sendOtp() {
     setLoading(true);
@@ -91,6 +126,14 @@ function ReviewerSignup() {
         setErr("비밀번호는 6자 이상이어야 해요");
         return;
       }
+    }
+    if (email.trim() && emailStatus === "taken") {
+      setErr("이미 가입된 이메일이에요 — 로그인하거나 다른 이메일을 사용해주세요");
+      return;
+    }
+    if (nickStatus === "taken") {
+      setErr("이미 사용 중인 닉네임이에요 — 다른 닉네임을 입력해주세요");
+      return;
     }
     if (!agreeTerms || !agreePrivacy) {
       setErr("이용약관과 개인정보 수집·이용에 동의해주세요");
@@ -252,13 +295,21 @@ function ReviewerSignup() {
               : "이메일과 닉네임만 있으면 바로 시작할 수 있어요."}
           </p>
           <div className="mt-8 space-y-3">
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              placeholder={socialProvider ? "이메일 (선택 — 소셜 계정 이메일 사용)" : "이메일"}
-              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]"
-            />
+            <div>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder={socialProvider ? "이메일 (선택 — 소셜 계정 이메일 사용)" : "이메일"}
+                className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[16px] ${
+                  emailStatus === "taken" ? "border-error" : "border-hairline focus:border-brand"
+                }`}
+              />
+              {emailStatus === "taken" && (
+                <p className="mt-1 text-[12px] text-error">이미 가입된 이메일이에요 — 로그인하거나 다른 이메일을 사용해주세요.</p>
+              )}
+              {emailStatus === "ok" && <p className="mt-1 text-[12px] text-successStrong">사용할 수 있는 이메일이에요.</p>}
+            </div>
             {!socialProvider && (
               <input
                 value={password}
@@ -268,12 +319,20 @@ function ReviewerSignup() {
                 className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]"
               />
             )}
-            <input
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="닉네임"
-              className="w-full h-12 px-4 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px]"
-            />
+            <div>
+              <input
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="닉네임"
+                className={`w-full h-12 px-4 rounded-md border focus:outline-none text-[16px] ${
+                  nickStatus === "taken" ? "border-error" : "border-hairline focus:border-brand"
+                }`}
+              />
+              {nickStatus === "taken" && (
+                <p className="mt-1 text-[12px] text-error">이미 사용 중인 닉네임이에요 — 다른 닉네임을 입력해주세요.</p>
+              )}
+              {nickStatus === "ok" && <p className="mt-1 text-[12px] text-successStrong">사용할 수 있는 닉네임이에요.</p>}
+            </div>
 
             {/* 필수 동의 — 약관/개인정보 (개인정보보호법상 명시적 동의) */}
             <div className="pt-2 space-y-2.5">
