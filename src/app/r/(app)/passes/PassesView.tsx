@@ -85,14 +85,17 @@ export default function PassesView({
   items,
   showDelivery,
   unread,
+  initialTab = "issued",
 }: {
   items: VisitPassItem[];
   // 배송형 세그먼트 노출 여부 (2026-07-12 분리 — 배송 패스는 방문형 대카테고리에 섞지 않는다)
   showDelivery: boolean;
   unread: number;
+  // 딥링크 초기 탭 (2026-08-18 — 마이 [작성한 리뷰] = ?tab=review)
+  initialTab?: "issued" | "review";
 }) {
   const [segment, setSegment] = useState<"visit" | "delivery">("visit");
-  const [tab, setTab] = useState<"issued" | "review">("issued");
+  const [tab, setTab] = useState<"issued" | "review">(initialTab);
   const [chip, setChip] = useState("all");
 
   // 배송형은 방문형과 별개 세그먼트 (2026-07-12) — 카드·칩·빈 상태 카피가 각각의 방식 기준
