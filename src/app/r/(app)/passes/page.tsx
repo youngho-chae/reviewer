@@ -16,10 +16,10 @@ export const dynamic = "force-dynamic";
 export default async function MyPasses({
   searchParams,
 }: {
-  searchParams: Promise<{ pending?: string; just_issued?: string }>;
+  searchParams: Promise<{ pending?: string; just_issued?: string; tab?: string }>;
 }) {
   const me = await getCurrentReviewer();
-  const { pending, just_issued: justIssued } = await searchParams;
+  const { pending, just_issued: justIssued, tab } = await searchParams;
   const db = await getDBAsync();
   // 쿠키 stopgap — 발급 세션에서만 보존되는 본인 시점 데이터
   const recent = await readRecentPasses();
@@ -129,6 +129,8 @@ export default async function MyPasses({
         // 배송형 세그먼트 (2026-07-12 분리) — 플래그 on 또는 과거 배송 패스 보유 시 노출
         showDelivery={DELIVERY_ENABLED || items.some((it) => it.isDelivery)}
         unread={unread}
+        // 딥링크 (2026-08-18 — 마이 [작성한 리뷰] → ?tab=review)
+        initialTab={tab === "review" ? "review" : "issued"}
       />
     </div>
   );

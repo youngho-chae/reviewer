@@ -1,29 +1,26 @@
 import Link from "next/link";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { getCurrentReviewer } from "@/lib/server-helpers";
-import GradeBadge from "@/components/GradeBadge";
 import LogoutButton from "@/components/LogoutButton";
+import Icon, { type IconName } from "@/components/Icon";
+import ChannelIcons from "@/components/ChannelIcons";
+import WinWinBadge from "@/components/WinWinBadge";
 import { getDBAsync } from "@/lib/db";
 import { effectiveChannelState } from "@/lib/sns-cookie";
 import { pointBalance } from "@/lib/points";
+import { SUPPORT_MULTIPLIER } from "@/lib/grade";
+import { CHANNEL_ORDER } from "@/lib/channels";
 import { SBUI, sbNum } from "@/lib/storyboard";
 import ProfileAvatar from "./ProfileAvatar";
-import WinWinBadge from "@/components/WinWinBadge";
 
 export const dynamic = "force-dynamic";
 
-const ch_label: any = {
-  naver_blog: "네이버 블로그",
-  instagram: "인스타그램",
-  tiktok: "틱톡",
-};
-const ch_metric: any = {
-  naver_blog: "평균방문자", // blog-analyzer visitor_trend.current (표기 확정 2026-07-28)
-  instagram: "팔로워",
-  tiktok: "팔로워",
-};
-const ALL_CH = ["naver_blog", "instagram", "tiktok"];
-
+// 체험자 마이 (2026-08-18 와이어프레임 개편 — 구 2026-08-05 카드 병합판 대체)
+//  · 헤더 = "마이" + 검색·벨 · 프로필 플랫(아바타+닉네임+[수정] → /r/me/edit — 사진 변경도 수정 화면)
+//  · 스탯 바(sunken) = 완료 리뷰 | 누적 혜택
+//  · 등급 카드(퍼플 아웃라인) = "{등급}등급으로 지원금 n% 받고 있어요" + 우상단 [채널 관리]
+//    + 연동된 채널(배지) / 연동 가능한 채널(배지) 2열 — 미연동 "연동 필요"·완료 "연동 모두 완료"
+//  · 메뉴 = 플랫 아이콘 행 (사장님 마이 v2 문법) · 로그아웃 아웃라인 풀폭 + 회원 탈퇴 텍스트
 export default async function Me() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
@@ -34,185 +31,143 @@ export default async function Me() {
     .filter((p) => p.reviewerId === me.id && p.supportApplied)
     .reduce((s, p) => s + (p.supportApplied || 0), 0);
   const unread = db.notifications.filter((n) => n.role === "reviewer" && n.userId === me.id && !n.read).length;
-  // 체험 포인트 잔액 — append-only 원장 합산 (2026-07-12 레뷰 벤치마크, src/lib/points.ts)
   const points = pointBalance(db, me.id);
+
+  const linked = CHANNEL_ORDER.filter((ch) => eff.sns.some((s) => s.kind === ch));
+  const unlinked = CHANNEL_ORDER.filter((ch) => !linked.includes(ch));
+  const supportPct = Math.round((SUPPORT_MULTIPLIER[eff.grade] ?? 0) * 100);
+
+  const MENU: { icon: IconName; label: string; href: string; external?: boolean; sub?: string; dot?: boolean }[] = [
+    { icon: "trophy", label: "내 등급 / 등급별 혜택", href: "/r/grade" },
+    { icon: "ticket", label: "내 체험권", href: "/r/passes" },
+    { icon: "heart", label: "관심 목록", href: "/r/interests" },
+    { icon: "clipboard", label: "작성한 리뷰", href: "/r/passes?tab=review" },
+    // 체험 포인트 — 배송형 리뷰 승인 적립·출금 경로 (P5 — 와이어프레임 외이지만 실사용 경로 유지)
+    ...(DELIVERY_ENABLED
+      ? [{ icon: "gift" as IconName, label: "체험 포인트", href: "/r/me/points", sub: sbNum(SBUI.pointBalance, `${points.toLocaleString()}P`) }]
+      : []),
+    { icon: "bell", label: "알림함", href: "/r/notifications", dot: unread > 0 },
+    { icon: "chat", label: "고객센터/문의", href: "mailto:help@catchrank.co.kr?subject=[CATCHPASS] 체험자 문의", external: true },
+    { icon: "list", label: "약관", href: "/legal/terms" },
+  ];
 
   return (
     <div className="pb-24 bg-canvas">
-      {/* Sub-nav */}
+      {/* 헤더 — "마이" + 검색·알림 (탐색·체험권과 동일 문법) */}
       <div className="sticky top-0 z-10 bg-canvas">
-        <div className="h-13 px-5 flex items-center">
-          <h1 className="text-[21px] font-semibold text-ink tracking-[-0.011em]">MY</h1>
+        <div className="h-[52px] px-5 flex items-center justify-between">
+          <h1 className="text-[20px] font-bold text-ink tracking-title">마이</h1>
+          <div className="flex items-center gap-1">
+            <Link href="/r/search" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="검색">
+              <Icon name="search" variant="border" size={22} />
+            </Link>
+            <Link href="/r/notifications" className="cp-action relative w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="알림">
+              <Icon name="bell" variant={unread > 0 ? "bold" : "border"} size={22} />
+              {unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />}
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* 프로필 카드 (2026-08-05 개편) — 구 parchment 히어로(중앙 정렬·과대 여백)와 스탯
-          스트립을 한 카드로 병합. 이메일·리뷰 점수(qualityScore — deprecated) 표기 제거,
-          아바타는 사진 업로드로 꾸미기 (ProfileAvatar — 미설정 시 첫 글자) */}
-      <section className="px-5 pt-2 pb-2">
-        <div className="rounded-lg border border-hairline bg-canvas p-4">
-          <div className="flex items-center gap-3.5">
-            <ProfileAvatar image={me.profileImage} initial={me.nickname.slice(0, 1)} />
-            <div className="flex-1 min-w-0">
-              <h1 className="text-[17px] font-bold tracking-title text-ink truncate flex items-center gap-1.5">
-                {me.nickname}
-                {me.winWinBadge && <WinWinBadge size={17} />}
-              </h1>
-              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                <Link href="/r/grade" className="cp-action inline-flex items-center gap-1.5 px-2.5 py-1 bg-canvas rounded-pill border border-hairline">
-                  <GradeBadge grade={eff.grade} size="sm" />
-                  <span className="text-[13px] text-ink">{eff.grade}등급</span>
-                  <span className="text-[12px] text-brand">자세히 →</span>
-                </Link>
-                {/* 상생 리뷰어 뱃지는 닉네임 옆 아이콘으로 이동 (2026-08-07 — 인스타 인증 배지 스타일) */}
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 pt-3.5 border-t border-hairlineSoft grid grid-cols-2 text-center text-ink">
-            <div>
-              <div className="text-[18px] font-bold tabular-nums leading-none">{completed}</div>
-              <div className="text-[12px] text-muted mt-1.5">완료 리뷰</div>
-            </div>
-            <div className="border-l border-hairlineSoft">
-              <div className="text-[16px] font-bold tabular-nums leading-none">{totalSupport.toLocaleString()}원</div>
-              <div className="text-[12px] text-muted mt-1.5">누적 혜택</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 체험 포인트 — 배송형 리뷰 승인 적립·출금 (2026-07-12 레뷰 벤치마크) */}
-      {DELIVERY_ENABLED && (
-      <section className="px-5 py-2">
+      {/* 프로필 — 플랫 (사진 변경은 회원 정보 수정 화면에서) */}
+      <div className="px-5 pt-2 flex items-center gap-4">
+        <ProfileAvatar image={me.profileImage} initial={me.nickname.slice(0, 1)} />
+        <h2 className="flex-1 min-w-0 text-[18px] font-bold text-ink tracking-title truncate flex items-center gap-1.5">
+          {me.nickname}
+          {me.winWinBadge && <WinWinBadge size={17} />}
+        </h2>
         <Link
-          href="/r/me/points"
-          className="cp-action rounded-lg border border-hairline bg-canvas px-5 py-4 flex items-center justify-between"
+          href="/r/me/edit"
+          className="cp-action shrink-0 inline-flex items-center h-9 px-4 rounded-pill border border-hairline bg-canvas text-[13px] font-semibold text-ink"
         >
+          수정
+        </Link>
+      </div>
+
+      {/* 스탯 바 — 완료 리뷰 | 누적 혜택 */}
+      <div className="mx-5 mt-4 rounded-md bg-sunken px-4 py-3.5 grid grid-cols-[1fr_auto_1.2fr] items-center">
+        <div className="flex items-baseline justify-between pr-4">
+          <span className="text-[13px] text-muted">완료 리뷰</span>
+          <span className="text-[16px] font-bold text-ink tabular-nums">{completed}</span>
+        </div>
+        <span className="w-px h-5 bg-borderStrong/50" aria-hidden />
+        <div className="flex items-baseline justify-between pl-4">
+          <span className="text-[13px] text-muted">누적 혜택</span>
+          <span className="text-[16px] font-bold text-ink tabular-nums">{sbNum(SBUI.support, `${totalSupport.toLocaleString()}원`)}</span>
+        </div>
+      </div>
+
+      {/* 등급 카드 — 등급·배율 + 연동/미연동 채널 2열 */}
+      <div className="mx-5 mt-3 rounded-lg border-[1.5px] border-brand bg-canvas p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-[17px] text-ink leading-[1.45]">
+            <b className="text-brand">{eff.grade}등급</b>으로
+            <br />
+            지원금 <b className="text-[#FF6B00]">{supportPct}%</b> 받고 있어요
+          </div>
+          <Link href="/r/me/channels" className="cp-action shrink-0 inline-flex items-center gap-0.5 text-[13px] text-ink2 font-medium mt-0.5">
+            채널 관리 <Icon name="chevron-right" variant="border" size={14} />
+          </Link>
+        </div>
+        <div className="mt-3.5 pt-3.5 border-t border-hairlineSoft grid grid-cols-2 gap-3">
           <div>
-            <div className="text-[12px] text-muted">체험 포인트</div>
-            <div className="mt-1 text-[20px] font-bold text-ink tabular-nums leading-none">
-              {sbNum(SBUI.pointBalance, `${points.toLocaleString()}P`)}
+            <div className="text-[13px] text-ink">
+              연동된 채널 <b className="tabular-nums">{linked.length}</b>
+            </div>
+            <div className="mt-2 min-h-[22px]">
+              {linked.length > 0 ? <ChannelIcons channels={linked} /> : <span className="text-[13px] text-mutedSoft">연동 필요</span>}
             </div>
           </div>
-          <span className="text-[13px] font-semibold text-brand">내역 · 출금 →</span>
-        </Link>
-      </section>
-      )}
-
-      {/* Light tile — connected channels (관리·본인 인증은 /r/me/channels — 2026-07-10) */}
-      <section className="bg-canvas px-6 py-12">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase">연동된 채널</h2>
-          <Link href="/r/me/channels" className="cp-action text-[13px] font-semibold text-brand">
-            채널 관리 →
-          </Link>
-        </div>
-        <div className="rounded-lg border border-hairline overflow-hidden">
-          {ALL_CH.map((k, i) => {
-            const linked = eff.sns.find((s) => s.kind === k);
-            return (
-              <Link
-                href="/r/me/channels"
-                key={k}
-                className={`cp-action px-5 py-4 flex items-center justify-between ${i < ALL_CH.length - 1 ? "border-b border-hairlineSoft" : ""}`}
-              >
-                <div>
-                  <div className="text-[15px] text-ink flex items-center gap-2">
-                    {ch_label[k]}
-                    {linked &&
-                      (linked.verified ? (
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-pill text-[10px] font-semibold ${linked.verifiedVia === "oauth" ? "bg-successSoft text-successStrong" : "bg-brandSoft text-brand"}`}>
-                          ✓ {linked.verifiedVia === "oauth" ? "본인 인증" : "데모 인증"}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-sunken text-muted text-[10px] font-semibold">미인증</span>
-                      ))}
-                  </div>
-                  <div className="text-[13px] text-muted mt-0.5">
-                    {linked ? `${ch_metric[k]} ${linked.influence.toLocaleString()}명` : "연동 안 됨"}
-                  </div>
-                </div>
-                {linked ? (
-                  <span className="text-[13px] text-brand">연동됨</span>
-                ) : (
-                  <span className="text-[13px] text-brand font-semibold">연동하기 →</span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Parchment tile — menu */}
-      <section className="bg-parchment px-6 py-12">
-        <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-4">내 활동</h2>
-        <div className="rounded-lg border border-hairline overflow-hidden bg-canvas mb-8">
-          <Link href="/r/grade" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
-            <span className="text-[15px] text-ink flex items-center gap-2">
-              <GradeBadge grade={eff.grade} size="sm" />
-              내 등급 / 등급별 혜택
-            </span>
-            <span className="text-brand text-[15px]">→</span>
-          </Link>
-          <Link href="/r/passes" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
-            <span className="text-[15px] text-ink">내 체험권 (사용 가능 / 신청 내역)</span>
-            <span className="text-brand text-[15px]">→</span>
-          </Link>
-          <Link href="/r/interests" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
-            <span className="text-[15px] text-ink">관심 목록</span>
-            <span className="text-brand text-[15px]">→</span>
-          </Link>
-          <Link href="/r/rewards" className="flex items-center justify-between px-5 py-4">
-            <span className="text-[15px] text-ink">친구 초대 / 받은 보상</span>
-            <span className="text-brand text-[15px]">→</span>
-          </Link>
-        </div>
-
-        <h2 className="text-[12px] tracking-[0.18em] text-muted uppercase mb-4">설정</h2>
-        <div className="rounded-lg border border-hairline overflow-hidden bg-canvas">
-          <Link href="/r/passes" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
-            <span className="text-[15px] text-ink">이용한 매장 / 작성한 리뷰</span>
-            <span className="text-brand text-[15px]">→</span>
-          </Link>
-          <Link href="/r/notifications" className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft">
-            <span className="text-[15px] text-ink flex items-center gap-2">
-              알림함
-              {unread > 0 && <span className="text-[11px] text-brand">{unread}건</span>}
-            </span>
-            <span className="text-brand text-[15px]">→</span>
-          </Link>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-hairlineSoft text-muted">
-            <span className="text-[15px]">리뷰어 프로필 공개 설정</span>
-            <span className="text-[12px]">준비 중</span>
+          <div>
+            <div className="text-[13px] text-ink">
+              연동 가능한 채널 <b className="tabular-nums">{unlinked.length}</b>
+            </div>
+            <div className="mt-2 min-h-[22px]">
+              {unlinked.length > 0 ? (
+                <ChannelIcons channels={unlinked} />
+              ) : (
+                <span className="text-[13px] text-mutedSoft">연동 모두 완료</span>
+              )}
+            </div>
           </div>
-          <a
-            href="mailto:help@catchrank.co.kr?subject=[CATCHPASS] 체험자 문의"
-            className="cp-action flex items-center justify-between px-5 py-4"
-          >
-            <span className="text-[15px] text-ink">고객센터</span>
-            <span className="text-brand text-[15px]">→</span>
-          </a>
         </div>
-        <p className="mt-3 text-[12px] text-muted leading-[1.5]">
-          SNS 채널 연동·해제는 <Link href="/r/me/channels" className="text-brand font-semibold">채널 관리</Link>에서 직접 할 수 있어요.
-        </p>
+      </div>
 
-        {/* 법적 고지 — 가입 전에도 접근 가능한 /legal 문서로 연결 */}
-        <div className="mt-6 flex items-center gap-4 text-[12px]">
-          <Link href="/legal/terms" className="text-muted underline">이용약관</Link>
-          <Link href="/legal/privacy" className="text-muted underline">개인정보처리방침</Link>
-        </div>
+      {/* 메뉴 — 플랫 아이콘 행 */}
+      <div className="px-5 mt-4 divide-y divide-hairlineSoft">
+        {MENU.map((m) =>
+          m.external ? (
+            <a key={m.label} href={m.href} className="cp-action flex items-center gap-3.5 py-4">
+              <Icon name={m.icon} variant="border" size={22} className="shrink-0 text-ink" />
+              <span className="flex-1 text-[15px] font-medium text-ink">{m.label}</span>
+              <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
+            </a>
+          ) : (
+            <Link key={m.label} href={m.href} className="cp-action flex items-center gap-3.5 py-4">
+              <span className="relative shrink-0">
+                <Icon name={m.icon} variant="border" size={22} className="text-ink" />
+                {m.dot && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-error" />}
+              </span>
+              <span className="flex-1 text-[15px] font-medium text-ink">{m.label}</span>
+              {m.sub && <span className="shrink-0 text-[14px] font-bold text-ink tabular-nums">{m.sub}</span>}
+              <Icon name="chevron-right" variant="border" size={16} className="shrink-0 text-mutedSoft" />
+            </Link>
+          ),
+        )}
+      </div>
 
-        <div className="mt-8">
-          <LogoutButton />
-        </div>
-        <div className="mt-6">
-          {/* 탈퇴 = 전용 화면 (2026-08-18 개편 — 구 인라인 확인 박스 폐기) */}
-          <Link href="/r/me/delete" className="cp-action text-[13px] text-muted underline">
-            회원 탈퇴
-          </Link>
-        </div>
-      </section>
+      <div className="px-5 mt-6">
+        <LogoutButton />
+      </div>
+      <div className="px-5 mt-5 flex items-center gap-4">
+        {/* 탈퇴 = 전용 화면 (2026-08-18) · 개인정보처리방침 = 법적 상시 링크 */}
+        <Link href="/r/me/delete" className="cp-action text-[13px] text-muted underline">
+          회원 탈퇴
+        </Link>
+        <Link href="/legal/privacy" className="text-[12px] text-muted underline">
+          개인정보처리방침
+        </Link>
+      </div>
     </div>
   );
 }
