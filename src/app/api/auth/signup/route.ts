@@ -80,6 +80,13 @@ export async function POST(req: NextRequest) {
     if (db.reviewers.some((r) => r.email === email)) {
       return NextResponse.json({ error: "이미 가입된 이메일입니다" }, { status: 409 });
     }
+    // 닉네임 중복 검증 (2026-08-18) — 앞뒤 공백 정리 후 대소문자 무시 비교.
+    // 닉네임은 리뷰·초대 등에서 계정을 대표하는 표시명이라 풀 전체에서 유일해야 한다.
+    const nickname = String(body.nickname || "").trim() || email.split("@")[0];
+    const nickLower = nickname.toLowerCase();
+    if (db.reviewers.some((r) => (r.nickname || "").trim().toLowerCase() === nickLower)) {
+      return NextResponse.json({ error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+    }
 
     const sns: SnsAccount[] = (body.sns || []).filter((s) => s.url).map((s) => ({
       kind: s.kind,
@@ -95,7 +102,7 @@ export async function POST(req: NextRequest) {
       phone,
       phoneVerifiedAt: Date.now(),
       ...(socialLink ? { social: socialLink } : {}),
-      nickname: body.nickname || email.split("@")[0],
+      nickname,
       sns,
       grade,
       channelGrades,
