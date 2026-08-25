@@ -7,6 +7,7 @@ import { createSession } from "@/lib/auth";
 import { channelGradesFromSns, bestGrade } from "@/lib/grade";
 import { normalizePhone, readPhoneProof, clearPhoneProof } from "@/lib/phone-verify";
 import { readSocialSignupProof, clearSocialSignupProof } from "@/lib/social-login";
+import { validatePassword } from "@/lib/password";
 import { Owner, Reviewer, SnsAccount, SnsKind, Store } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -74,7 +75,9 @@ export async function POST(req: NextRequest) {
       email = email || proof.email.toLowerCase() || `${proof.provider}_${proof.sid.slice(-10)}@social.catchpass.local`;
     } else {
       if (!email || !password) return NextResponse.json({ error: "이메일/비밀번호를 입력해주세요" }, { status: 400 });
-      if (password.length < 6) return NextResponse.json({ error: "비밀번호는 6자 이상이어야 합니다" }, { status: 400 });
+      // 비밀번호 정책 (2026-08-18) — 영문·숫자·특수문자 필수 포함 (정본 src/lib/password.ts)
+      const pwErr = validatePassword(password);
+      if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
       passwordHash = bcrypt.hashSync(password, 8);
     }
     if (db.reviewers.some((r) => r.email === email)) {
@@ -120,7 +123,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, grade });
   } else {
     if (!email || !password) return NextResponse.json({ error: "이메일/비밀번호를 입력해주세요" }, { status: 400 });
-    if (password.length < 6) return NextResponse.json({ error: "비밀번호는 6자 이상이어야 합니다" }, { status: 400 });
+    const pwErr = validatePassword(password);
+    if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
     if (db.owners.some((o) => o.email === email)) {
       return NextResponse.json({ error: "이미 가입된 이메일입니다" }, { status: 409 });
     }
