@@ -31,7 +31,7 @@ interface OwnerSignup {
   email: string;
   password: string;
   // 매장·사업자 정보는 가입에서 제외 (2026-08-18 2차 개편) — 사업자등록번호·상호는
-  // 가입 직후 인증 대기 화면에서 제출(/api/owner/biz-info), 매장은 캠페인 생성의
+  // 가입 직후 인증 대기 화면에서 진위확인·즉시 승인(/api/owner/biz-verify), 매장은 캠페인 생성의
   // [URL로 매장정보 불러오기]로 등록. 수기 인증 절차(확정 정책 9)는 그대로 유지.
   phone?: string; // 휴대폰 인증 (2026-08-18 가입 개편 — 필수, 증빙 쿠키 대조)
   agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
