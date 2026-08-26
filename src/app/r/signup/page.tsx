@@ -8,7 +8,6 @@ import {
   EmailDupField,
   PasswordPair,
   PhoneVerifyField,
-  ReferralField,
   AgreeGroup,
   AGREE_INIT,
   FIELD_LABEL,
@@ -45,7 +44,8 @@ function ReviewerSignup() {
   const [nickname, setNickname] = useState(sp.get("nick") ?? "");
   const [nickStatus, setNickStatus] = useState<"idle" | "checking" | "ok" | "taken">("idle");
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
-  const [referral, setReferral] = useState(sp.get("invite")?.trim() ?? "");
+  // 추천인 코드 입력은 제외 (2026-08-18 2차) — 초대 링크(?invite) 경유 시에만 웰컴 박스 연결
+  const inviteToken = sp.get("invite")?.trim() || null;
   const [agree, setAgree] = useState<AgreeState>(AGREE_INIT);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,9 +107,9 @@ function ReviewerSignup() {
       setLoading(false);
       return;
     }
-    // 가입 완료 — 추천인 코드가 있으면 웰컴 박스, 아니면 채널 연동 유도
-    if (referral) {
-      router.push(`/welcome/box?token=${encodeURIComponent(referral)}`);
+    // 가입 완료 — 초대 링크 경유면 웰컴 박스, 아니면 채널 연동 유도
+    if (inviteToken) {
+      router.push(`/welcome/box?token=${encodeURIComponent(inviteToken)}`);
     } else {
       router.push("/r/me/channels?welcome=1");
     }
@@ -209,8 +209,6 @@ function ReviewerSignup() {
         </div>
 
         <PhoneVerifyField role="reviewer" verifiedPhone={verifiedPhone} onVerified={setVerifiedPhone} />
-
-        <ReferralField code={referral} onChange={setReferral} />
 
         <AgreeGroup value={agree} onChange={setAgree} />
 
