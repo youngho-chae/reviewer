@@ -98,6 +98,8 @@ export interface Owner {
   // 휴대폰 인증 (2026-08-18 가입 개편 — 가입 시 인증 필수, 구버전 계정은 미보유)
   phone?: string;
   phoneVerifiedAt?: number;
+  // 계정 성격 (2026-08-18 진위확인 개편) — 사장님(직접 운영) | 마케터(대행 관리), 기본 사장님
+  operatorType?: "owner" | "marketer";
   marketingAgreedAt?: number; // [선택] 광고성 정보 수신·마케팅 활용 동의 시각
   inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
   // ── 사업자 인증 (확정 정책 9 — 수기 인증) ──

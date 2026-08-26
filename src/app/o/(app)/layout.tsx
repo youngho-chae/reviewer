@@ -38,11 +38,12 @@ export default async function OwnerAppLayout({ children }: { children: React.Rea
             </>
           ) : (
             <>
+              {/* 2026-08-18 진위확인 개편 — 국세청 조회로 즉시 승인 (구 수기 2~3일 안내 폐기) */}
               <h1 className="mt-4 text-[20px] font-bold text-ink tracking-title">사업자 정보를 등록해주세요</h1>
               <p className="mt-3 text-[14px] text-ink2 leading-[1.6]">
-                상호와 사업자등록번호를 제출하면 운영팀이 확인해요.
+                사업자등록번호가 확인되면 <b>즉시 인증이 완료</b>되고
                 <br />
-                영업일 기준 <b>2~3일 이내</b> 인증 완료를 안내드려요.
+                바로 사장님 기능을 이용할 수 있어요.
               </p>
               <BizInfoForm />
             </>
