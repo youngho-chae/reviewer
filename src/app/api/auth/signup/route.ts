@@ -23,6 +23,8 @@ interface ReviewerSignup {
   social?: boolean;
   sns?: { kind: SnsKind; url: string; influence: number }[];
   agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
+  agreeAge?: boolean; // 만 14세 이상 확인 (필수 — 2026-08-18 가입 개편)
+  agreeMarketing?: boolean; // [선택] 광고성 정보 수신·마케팅 활용 동의
 }
 interface OwnerSignup {
   role: "owner";
@@ -32,7 +34,10 @@ interface OwnerSignup {
   category: string;
   area: string;
   bizNumber?: string; // 사업자등록번호 10자리 (확정 정책 9 — 필수, 수기 인증 대상)
+  phone?: string; // 휴대폰 인증 (2026-08-18 가입 개편 — 필수, 증빙 쿠키 대조)
   agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
+  agreeAge?: boolean; // 만 14세 이상 확인 (필수)
+  agreeMarketing?: boolean; // [선택] 광고성 정보 수신·마케팅 활용 동의
 }
 
 export async function POST(req: NextRequest) {
@@ -44,6 +49,10 @@ export async function POST(req: NextRequest) {
   // 이용약관·개인정보 수집 동의 — 법적 필수 (개인정보보호법)
   if (!body.agreeTerms) {
     return NextResponse.json({ error: "이용약관과 개인정보 수집·이용에 동의해주세요" }, { status: 400 });
+  }
+  // 만 14세 이상 확인 (2026-08-18 가입 개편 — 개인정보보호법 §22의2 아동 동의 특례)
+  if (!body.agreeAge) {
+    return NextResponse.json({ error: "만 14세 이상만 가입할 수 있어요" }, { status: 400 });
   }
 
   if (body.role === "reviewer") {
@@ -111,6 +120,7 @@ export async function POST(req: NextRequest) {
       channelGrades,
       createdAt: Date.now(),
       termsAgreedAt: Date.now(),
+      ...(body.agreeMarketing ? { marketingAgreedAt: Date.now() } : {}),
       completedReviews: 0,
       qualityScore: 0,
       noShowCount: 0,
@@ -134,6 +144,16 @@ export async function POST(req: NextRequest) {
     if (bizNumber.length !== 10) {
       return NextResponse.json({ error: "사업자등록번호 10자리를 입력해주세요" }, { status: 400 });
     }
+    // 휴대폰 인증 (2026-08-18 가입 개편 — 사장님도 필수, 증빙 쿠키 대조·중복 409)
+    const ownerPhone = normalizePhone(body.phone);
+    if (!ownerPhone) return NextResponse.json({ error: "휴대폰 번호를 확인해주세요" }, { status: 400 });
+    const ownerProof = await readPhoneProof();
+    if (ownerProof !== ownerPhone) {
+      return NextResponse.json({ error: "휴대폰 인증을 완료해주세요" }, { status: 403 });
+    }
+    if (db.owners.some((o) => o.phone === ownerPhone)) {
+      return NextResponse.json({ error: "이미 가입된 휴대폰 번호예요 — 로그인해주세요" }, { status: 409 });
+    }
     const owner: Owner = {
       id: rid("ow"),
       email,
@@ -144,6 +164,9 @@ export async function POST(req: NextRequest) {
       plan: "Free",
       createdAt: Date.now(),
       termsAgreedAt: Date.now(),
+      ...(body.agreeMarketing ? { marketingAgreedAt: Date.now() } : {}),
+      phone: ownerPhone,
+      phoneVerifiedAt: Date.now(),
       bizNumber,
       bizStatus: "pending",
     };
@@ -161,6 +184,7 @@ export async function POST(req: NextRequest) {
     };
     db.stores.push(store);
     await saveDBAsync();
+    await clearPhoneProof();
     await createSession({ userId: owner.id, role: "owner" });
     return NextResponse.json({ ok: true });
   }
