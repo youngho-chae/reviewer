@@ -4,16 +4,19 @@ import { normalizePhone, issueOtp, smsConfigured, sendSmsViaSolapi, OTP_TTL_MIN 
 
 export const runtime = "nodejs";
 
-// 가입 인증번호 발송 (2026-07-23) — 휴대폰 번호 = 체험자 PK.
-// 이미 가입된 번호는 발송 전에 알려 재가입 시도를 로그인으로 유도한다.
+// 가입 인증번호 발송 (2026-07-23 · 2026-08-18 role 확장) — 체험자는 휴대폰 번호 = PK,
+// 사장님도 가입 시 인증 필수(가입 개편). role별 풀에서 기가입 번호를 발송 전에 걸러
+// 재가입 시도를 로그인으로 유도한다.
 // SMS 키 미설정 시 데모 모드 — 응답에 코드를 포함해 화면 배너로 노출(실발송 없음 명시).
 export async function POST(req: NextRequest) {
-  const { phone: raw } = await req.json();
+  const { phone: raw, role } = await req.json();
   const phone = normalizePhone(raw);
   if (!phone) return NextResponse.json({ error: "휴대폰 번호를 확인해주세요 (01로 시작하는 10~11자리)" }, { status: 400 });
 
   const db = await getDBAsync();
-  if (db.reviewers.some((r) => r.phone === phone)) {
+  const taken =
+    role === "owner" ? db.owners.some((o) => o.phone === phone) : db.reviewers.some((r) => r.phone === phone);
+  if (taken) {
     return NextResponse.json({ error: "이미 가입된 휴대폰 번호예요 — 로그인해주세요" }, { status: 409 });
   }
 

@@ -67,6 +67,7 @@ export interface Reviewer {
   channelGrades?: Partial<Record<SnsKind, Grade>>;
   createdAt: number;
   termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
+  marketingAgreedAt?: number; // [선택] 광고성 정보 수신·마케팅 활용 동의 시각 (2026-08-18)
   completedReviews: number;
   // @deprecated 재평가 설계(2026-07-08)에서 리뷰 품질 요소가 제외되어 미사용 확정.
   // 제거하지 않고 유지만 한다 (데이터정책서 §qualityScore 참조).
@@ -94,6 +95,10 @@ export interface Owner {
   plan: "Free" | "Basic" | "Standard" | "Premium";
   createdAt: number;
   termsAgreedAt?: number; // 이용약관·개인정보 수집 동의 시각 (가입 시 필수)
+  // 휴대폰 인증 (2026-08-18 가입 개편 — 가입 시 인증 필수, 구버전 계정은 미보유)
+  phone?: string;
+  phoneVerifiedAt?: number;
+  marketingAgreedAt?: number; // [선택] 광고성 정보 수신·마케팅 활용 동의 시각
   inviteStats?: InviteStats; // 사장님도 OR/OO 매트릭스로 추천 발신 가능
   // ── 사업자 인증 (확정 정책 9 — 수기 인증) ──
   // undefined = 인증 제도 도입 전 가입한 구버전 계정 → verified로 간주(폴백).
