@@ -8,7 +8,7 @@ import { channelGradesFromSns, bestGrade } from "@/lib/grade";
 import { normalizePhone, readPhoneProof, clearPhoneProof } from "@/lib/phone-verify";
 import { readSocialSignupProof, clearSocialSignupProof } from "@/lib/social-login";
 import { validatePassword } from "@/lib/password";
-import { Owner, Reviewer, SnsAccount, SnsKind, Store } from "@/lib/types";
+import { Owner, Reviewer, SnsAccount, SnsKind } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -30,10 +30,9 @@ interface OwnerSignup {
   role: "owner";
   email: string;
   password: string;
-  storeName: string;
-  category: string;
-  area: string;
-  bizNumber?: string; // 사업자등록번호 10자리 (확정 정책 9 — 필수, 수기 인증 대상)
+  // 매장·사업자 정보는 가입에서 제외 (2026-08-18 2차 개편) — 사업자등록번호·상호는
+  // 가입 직후 인증 대기 화면에서 제출(/api/owner/biz-info), 매장은 캠페인 생성의
+  // [URL로 매장정보 불러오기]로 등록. 수기 인증 절차(확정 정책 9)는 그대로 유지.
   phone?: string; // 휴대폰 인증 (2026-08-18 가입 개편 — 필수, 증빙 쿠키 대조)
   agreeTerms?: boolean; // 이용약관 + 개인정보 수집·이용 동의 (필수)
   agreeAge?: boolean; // 만 14세 이상 확인 (필수)
@@ -138,12 +137,6 @@ export async function POST(req: NextRequest) {
     if (db.owners.some((o) => o.email === email)) {
       return NextResponse.json({ error: "이미 가입된 이메일입니다" }, { status: 409 });
     }
-    // 사업자 인증 (확정 정책 9) — 가입 시 사업자등록번호 필수(형식 검증),
-    // pending으로 시작해 운영팀 수기 확인(영업일 2~3일) 후 verified.
-    const bizNumber = String(body.bizNumber || "").replace(/\D/g, "");
-    if (bizNumber.length !== 10) {
-      return NextResponse.json({ error: "사업자등록번호 10자리를 입력해주세요" }, { status: 400 });
-    }
     // 휴대폰 인증 (2026-08-18 가입 개편 — 사장님도 필수, 증빙 쿠키 대조·중복 409)
     const ownerPhone = normalizePhone(body.phone);
     if (!ownerPhone) return NextResponse.json({ error: "휴대폰 번호를 확인해주세요" }, { status: 400 });
@@ -154,35 +147,25 @@ export async function POST(req: NextRequest) {
     if (db.owners.some((o) => o.phone === ownerPhone)) {
       return NextResponse.json({ error: "이미 가입된 휴대폰 번호예요 — 로그인해주세요" }, { status: 409 });
     }
+    // 사업자 인증 (확정 정책 9 — 절차 유지, 제출 시점만 이동): bizStatus pending으로 시작,
+    // 상호·사업자등록번호는 인증 대기 화면에서 제출 → 운영팀 수기 확인 후 verified.
+    // 매장(Store)도 가입 시 만들지 않는다 — 캠페인 생성의 URL 불러오기로 등록 (2026-08-18).
     const owner: Owner = {
       id: rid("ow"),
       email,
       passwordHash: bcrypt.hashSync(password, 8),
-      storeName: body.storeName,
-      category: body.category,
-      area: body.area,
+      storeName: "",
+      category: "",
+      area: "",
       plan: "Free",
       createdAt: Date.now(),
       termsAgreedAt: Date.now(),
       ...(body.agreeMarketing ? { marketingAgreedAt: Date.now() } : {}),
       phone: ownerPhone,
       phoneVerifiedAt: Date.now(),
-      bizNumber,
       bizStatus: "pending",
     };
     db.owners.push(owner);
-    const store: Store = {
-      id: rid("st"),
-      ownerId: owner.id,
-      name: body.storeName,
-      category: body.category,
-      area: body.area,
-      coverEmoji: "🏪",
-      rating: 0,
-      reviewCount: 0,
-      hours: "11:00 - 21:00",
-    };
-    db.stores.push(store);
     await saveDBAsync();
     await clearPhoneProof();
     await createSession({ userId: owner.id, role: "owner" });
