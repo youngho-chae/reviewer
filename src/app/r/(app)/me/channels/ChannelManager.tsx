@@ -521,19 +521,14 @@ export default function ChannelManager({
             <h2 className="text-[17px] font-bold text-ink tracking-title">
               {CHANNEL_LABEL[confirmKind]} 연결을 해제할까요?
             </h2>
+            {/* 카피 확정 2026-08-18 (2차) — 원문주의 */}
             <p className="mt-3 text-[14px] text-ink2 leading-[1.65]">
-              해제하면 이 채널 캠페인에 새로 참여할 수 없고,
-              <br />
-              마이페이지 표기 등급이 남은 채널 중 가장 높은
-              <br />
-              등급으로 바뀔 수 있어요.
-              <br />
-              진행 중인 체험권과 이력은 그대로 유지돼요.
+              해제하면 이 채널의 캠페인에 새로 참여할 수 없고, 대표 등급이 연결된 다른 채널의 등급으로 변경될 수 있어요.
             </p>
-            {/* 재산정 안내 (2026-08-18) — 해제 후 재연동은 활동 기록·평가 지수가 이어지지 않는다 */}
+            <p className="mt-2.5 text-[14px] text-ink2 leading-[1.65]">진행 중인 체험권과 체험 이력은 그대로 유지돼요.</p>
             <div className="mt-3 rounded-md bg-warningSoft px-3.5 py-3 text-[13px] text-ink2 leading-[1.6] text-left">
-              <b className="text-ink">다시 연동해도 기존 활동 기록과 평가 지수는 이어지지 않아요</b> — 이 채널의 등급은
-              첫 달부터 새로 산정돼요.
+              다만 <b className="text-ink">활동 점수와 등급 평가 데이터는 초기화</b>되며, 다시 연결해도 복구되지 않아요. 등급은 첫
+              달부터 새로 산정돼요.
             </div>
             {err && <div className="mt-3 text-[12px] text-error">{err}</div>}
             <div className="mt-6 grid grid-cols-2 gap-2">
