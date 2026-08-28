@@ -44,7 +44,7 @@ export default async function AdminMembers() {
                   <div className="min-w-0">
                     <div className="text-[14px] font-semibold text-ink truncate">
                       {rv.nickname}
-                      {rv.winWinBadge && <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] text-brand font-semibold align-middle"><WinWinBadge size={13} /> 상생</span>}
+                      {rv.winWinBadge && <WinWinBadge size={18} className="ml-1.5 align-middle" />}
                     </div>
                     {/* [2026-07-31 §3-3] 운영상 개별 건 구분을 위해 관리자 화면은 가입자 식별정보(이메일·휴대폰)를 노출한다 */}
                     <div className="text-[11px] text-muted truncate tabular-nums">

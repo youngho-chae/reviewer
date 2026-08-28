@@ -178,9 +178,8 @@ export default async function ReviewerGrade() {
           {/* ③ 상생 리뷰어 뱃지 */}
           <div className="rounded-lg border border-hairline bg-canvas p-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-brandSoft text-brand text-[12px] font-semibold">
-                <WinWinBadge size={14} /> 상생 리뷰어
-              </span>
+              {/* winwin.png = 텍스트 포함 pill 일체형 (2026-08-18) */}
+              <WinWinBadge size={28} />
               <span
                 className={`shrink-0 text-[11px] px-2 py-1 rounded-pill font-semibold ${
                   me.winWinBadge ? "bg-successSoft text-successStrong" : "bg-sunken text-muted"
