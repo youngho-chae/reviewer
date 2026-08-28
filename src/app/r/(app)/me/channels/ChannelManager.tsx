@@ -530,6 +530,11 @@ export default function ChannelManager({
               <br />
               진행 중인 체험권과 이력은 그대로 유지돼요.
             </p>
+            {/* 재산정 안내 (2026-08-18) — 해제 후 재연동은 활동 기록·평가 지수가 이어지지 않는다 */}
+            <div className="mt-3 rounded-md bg-warningSoft px-3.5 py-3 text-[13px] text-ink2 leading-[1.6] text-left">
+              <b className="text-ink">다시 연동해도 기존 활동 기록과 평가 지수는 이어지지 않아요</b> — 이 채널의 등급은
+              첫 달부터 새로 산정돼요.
+            </div>
             {err && <div className="mt-3 text-[12px] text-error">{err}</div>}
             <div className="mt-6 grid grid-cols-2 gap-2">
               <button

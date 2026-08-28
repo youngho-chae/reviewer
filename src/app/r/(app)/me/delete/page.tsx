@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
-import { pointBalance } from "@/lib/points";
 import Icon from "@/components/Icon";
 import WinWinBadge from "@/components/WinWinBadge";
 import DeleteConfirmBar from "@/components/DeleteConfirmBar";
@@ -11,14 +10,16 @@ export const dynamic = "force-dynamic";
 // 체험자 회원 탈퇴 (2026-08-18 — 사장님 /o/me/delete와 동일 패턴) — 구 인라인 확인 박스 폐기:
 // 내 등급 카드 → 확인 3항목(보유 포인트·완료 리뷰·진행 중인 체험권) → 미사용 혜택 소멸 안내 →
 // 재가입 안내 → 법령 고지 불릿 → 동의 체크 게이트 + 2버튼. 수치는 전부 실측(P4).
-// 탈퇴 시 진행 중인 체험권은 취소·모집 슬롯 즉시 복구 (account API), 잔여 포인트·미사용 혜택 소멸.
+// 탈퇴 시 진행 중인 체험권은 취소·모집 슬롯 즉시 복구 (account API), 미사용 혜택 소멸.
+// 2026-08-18: 포인트 표기 전면 제거 (혜택/포인트 = Out of scope — UI 비노출, 배송 플래그와 별개).
 export default async function DeleteAccountPage() {
   const me = await getCurrentReviewer();
   const db = await getDBAsync();
   const now = Date.now();
 
   const myPasses = db.passes.filter((p) => p.reviewerId === me.id);
-  const points = pointBalance(db, me.id);
+  // 지금까지 받은 혜택 = 적용 지원금 누계 (마이 스탯 바와 동일 산정 — 2026-08-18 포인트 표기 제거)
+  const totalSupport = myPasses.filter((p) => p.supportApplied).reduce((s, p) => s + (p.supportApplied || 0), 0);
   const completedReviews = myPasses.filter((p) => p.status === "completed").length;
   const activePasses = myPasses.filter((p) => p.status === "active").length;
   const unusedRewards = (db.rewards ?? []).filter(
@@ -61,11 +62,10 @@ export default async function DeleteAccountPage() {
             [
               {
                 no: 1,
-                label: "보유 포인트",
-                // 출금(P5)을 두고 탈퇴하면 소멸 — 잔액이 있으면 출금 후 탈퇴 유도
-                sub: "탈퇴하면 출금하지 않은 포인트도 소멸돼요",
-                subCls: points > 0 ? "text-error" : "text-muted",
-                value: `${points.toLocaleString()}P`,
+                label: "지금까지 받은 혜택",
+                sub: "체험으로 받은 할인 혜택 누계예요",
+                subCls: "text-muted",
+                value: `${totalSupport.toLocaleString()}원`,
               },
               {
                 no: 2,
@@ -115,7 +115,7 @@ export default async function DeleteAccountPage() {
         </Link>
 
         <div className="mt-3 rounded-md bg-brandSoft px-4 py-3 text-[13px] font-semibold text-brand leading-[1.5]">
-          ⓘ 탈퇴 후 재가입해도 등급·포인트·활동 기록은 복구되지 않아요.
+          ⓘ 탈퇴 후 재가입해도 등급·활동 기록은 복구되지 않아요.
         </div>
 
         <ul className="mt-5 space-y-1.5 text-[13px] text-ink2 leading-[1.55]">
