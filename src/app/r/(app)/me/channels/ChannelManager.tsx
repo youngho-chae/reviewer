@@ -83,12 +83,10 @@ export default function ChannelManager({
   rows,
   connected,
   error,
-  overallGrade,
 }: {
   rows: ChannelRow[];
   connected: string | null;
   error: string | null;
-  overallGrade: Grade;
 }) {
   const router = useRouter();
   const [sheetKind, setSheetKind] = useState<SnsKind | null>(null); // 연결 시트 열린 채널
@@ -314,48 +312,47 @@ export default function ChannelManager({
         )}
       </div>
 
-      {/* 채널 리스트 — 레퍼런스형 행 (원형 아이콘 + "{채널} 연결하기 ›" + 안내) */}
+      {/* 채널 리스트 (2026-08-18 와이어프레임) — 아이콘 블록 + 채널명/우측 액션 + 지표·URL 서브 */}
       <div>
-        {rows.map((row, i) => (
-          <div key={row.kind} className={`px-5 py-7 ${i < rows.length - 1 ? "border-b border-hairlineSoft" : ""}`}>
-            <button type="button" onClick={() => openSheet(row)} className="cp-action w-full flex items-center gap-4 text-left">
-              {/* 브랜드 아이콘 (2026-08-18 — 구 원형 이니셜 "블/인/틱" 타일 대체) */}
-              <Image src={CHANNEL_ICON_SRC[row.kind]} alt={CHANNEL_LABEL[row.kind]} width={48} height={48} className="shrink-0 rounded-[12px]" />
-              <span className="flex-1 min-w-0">
-                <span className="flex items-center gap-2">
-                  <span className="text-[17px] font-bold text-ink tracking-title">
-                    {CHANNEL_LABEL[row.kind]} {row.connected ? "" : "연결하기"}
-                  </span>
-                  {row.connected ? <VerifyChip verified={row.verified} via={row.verifiedVia} /> : <span className="text-[15px] text-muted">›</span>}
-                </span>
-                <span className="block mt-1 text-[13px] text-muted truncate">
-                  {row.connected
-                    ? `${row.accountName ? `${row.accountName} · ` : ""}${METRIC[row.kind]} ${row.influence.toLocaleString()}명${row.grade ? ` · ${row.grade}등급` : ""}`
-                    : `${CHANNEL_LABEL[row.kind]}을 연결하고 더 많은 캠페인을 체험해보세요.`}
-                </span>
-              </span>
-            </button>
-
-            {/* 연결된 채널 — 관리 액션 (재인증·해제) */}
-            {row.connected && (
-              <div className="mt-3 pl-16 flex gap-3 text-[13px]">
-                <button type="button" onClick={() => openSheet(row)} className="cp-action font-semibold text-brand">
-                  {row.verified ? "다시 인증" : "본인 인증하기"}
-                </button>
-                <button type="button" onClick={() => setConfirmKind(row.kind)} className="cp-action font-semibold text-muted">
+        {rows.map((row) => (
+          <div key={row.kind} className="px-5 py-6 border-b border-hairlineSoft">
+            <Image src={CHANNEL_ICON_SRC[row.kind]} alt={CHANNEL_LABEL[row.kind]} width={48} height={48} className="rounded-[12px]" />
+            <div className="mt-3 flex items-center justify-between gap-3">
+              {/* 이름 영역 탭 = 연결/재인증 시트 (연결 상태의 지표 갱신 진입 유지) */}
+              <button type="button" onClick={() => openSheet(row)} className="cp-action min-w-0 flex items-center gap-2 text-left">
+                <span className="text-[17px] font-bold text-ink tracking-title truncate">{CHANNEL_LABEL[row.kind]}</span>
+                {row.connected && !row.verified && <VerifyChip verified={row.verified} via={row.verifiedVia} />}
+              </button>
+              {row.connected ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmKind(row.kind)}
+                  className="cp-action shrink-0 h-10 px-4 rounded-lg border border-hairline bg-canvas text-[14px] font-semibold text-ink"
+                >
                   연결 해제
                 </button>
-              </div>
+              ) : (
+                <button type="button" onClick={() => openSheet(row)} className="cp-action shrink-0 inline-flex items-center gap-1 text-[15px] font-semibold text-brand">
+                  연동하기 <span aria-hidden>→</span>
+                </button>
+              )}
+            </div>
+            {row.connected ? (
+              <>
+                <div className="mt-1.5 text-[13px] text-ink2">
+                  {METRIC[row.kind]} <span className="tabular-nums">{row.influence.toLocaleString()}명</span>
+                  {row.grade && <b className="ml-1.5 text-ink">{row.grade}등급</b>}
+                </div>
+                {row.url && <div className="mt-1 text-[13px] text-mutedSoft truncate">{row.url}</div>}
+              </>
+            ) : (
+              <p className="mt-1.5 text-[13px] text-muted leading-[1.5]">
+                {CHANNEL_LABEL[row.kind]} 연결하고 더 많은 캠페인을 체험해보세요.
+              </p>
             )}
           </div>
         ))}
       </div>
-
-      <p className="px-5 pt-4 text-[12px] text-muted leading-[1.55]">
-        등급은 <span className="font-semibold text-ink2">채널별로 각각 평가</span>돼요. 마이페이지에는 연결 채널 중
-        가장 높은 등급(현재 <span className="font-semibold text-ink">{overallGrade}</span>)이 표기되며, 연결·해제 시
-        다시 계산돼요.
-      </p>
 
       {/* 연결 바텀시트 (2026-07-25 소개글 인증코드 개편) */}
       {sheetRow && (
