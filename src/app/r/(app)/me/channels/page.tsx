@@ -38,20 +38,27 @@ export default async function ChannelsPage({
     // 하단 시작 CTA(연결 1개 이상)와 겹치지 않게 여유 패딩
     <div className="pb-44 bg-canvas min-h-[100dvh]">
       <div className="sticky top-0 z-10 bg-canvas">
-        <div className="h-[52px] px-3 flex items-center gap-1">
-          <Link href="/r/me" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="MY로">
+        <div className="h-[52px] px-3 grid grid-cols-[40px_1fr_40px] items-center">
+          <Link href="/r/me" className="cp-action w-10 h-10 rounded-full flex items-center justify-center text-ink" aria-label="마이로">
             <Icon name="chevron-left" variant="border" size={22} />
           </Link>
+          <h1 className="text-[16px] font-bold text-ink tracking-title text-center">채널 관리</h1>
+          <span />
         </div>
       </div>
 
-      {/* 타이틀 (2026-07-23 시안 — 레퍼런스: 미디어 연결) */}
-      <div className="px-5 pb-6">
-        <h1 className="text-[24px] font-bold text-ink tracking-title">SNS 채널 연결</h1>
-        <p className="mt-4 text-[16px] text-ink leading-[1.5]">
-          {me.nickname}님, <b>SNS를 연결</b>해주세요.
+      {/* 타이틀·안내 (2026-08-18 와이어프레임 — 등급 평가 원칙을 상단으로) */}
+      <div className="px-5 pt-3 pb-6">
+        <h2 className="text-[22px] font-bold text-ink tracking-title leading-[1.35]">
+          SNS를 연결하고
+          <br />
+          더 많은 체험을 시작해보세요
+        </h2>
+        <p className="mt-4 text-[14px] text-ink2 leading-[1.6]">
+          등급은 채널별로 각각 평가돼요.
+          <br />
+          마이페이지에는 연결 채널 중 가장 높은 등급이 표기되며, 연결·해제 시 다시 계산돼요.
         </p>
-        <p className="mt-1.5 text-[14px] text-muted leading-[1.5]">지금 연결하고 더 많은 체험과 우리 동네 발견을 시작해 볼까요?</p>
       </div>
 
       {/* 가입 직후 온보딩 (2026-07-23) — 이메일·네이버·카카오 어느 경로로 가입해도 여기로 유도 */}
@@ -67,7 +74,7 @@ export default async function ChannelsPage({
           </p>
         </div>
       )}
-      <ChannelManager rows={rows} connected={connected ?? null} error={error ?? null} overallGrade={eff.grade} />
+      <ChannelManager rows={rows} connected={connected ?? null} error={error ?? null} />
 
       {/* 하나 이상 연결되면 시작 CTA (2026-07-23) — 온보딩을 여기서 마치고 홈으로 */}
       {rows.some((r) => r.connected) && (
