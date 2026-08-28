@@ -518,7 +518,8 @@ export default function NewCampaign() {
 
         {/* 총 모집 인원 + 플랜 사용 현황 카드 (시안 — 게이지는 홈과 동일한 잔여형) */}
         <section>
-          <div className="text-[15px] font-bold text-ink mb-2">총 모집 인원</div>
+          {/* 2026-08-18 명칭 개정 — '총 모집 인원' → '총 모집 건수' */}
+          <div className="text-[15px] font-bold text-ink mb-2">총 모집 건수</div>
           <input
             value={totalQuota}
             onChange={(e) => setTotalQuota(e.target.value.replace(/\D/g, ""))}
@@ -557,7 +558,7 @@ export default function NewCampaign() {
             {/* [확정 정책 8-3] 등급 우선 모집(부스팅) 표기는 도입하지 않는다 — 전 플랜 균등 배분 */}
             <div className="mt-3 text-[13px] font-bold text-ink">{plan} 플랜 이용중 · 등급 배분 자동</div>
             <p className="mt-1 text-[12px] text-muted leading-[1.5]">
-              총 모집 인원만 입력하시면 시스템이 전 등급에 자동 배분해요.
+              총 모집 건수만 입력하시면 시스템이 전 등급에 자동 배분해요.
               {remaining !== null && (
                 <>
                   {" "}이번 주기 잔여 <span className="text-ink font-medium">{remaining}팀</span>
@@ -1093,7 +1094,8 @@ export default function NewCampaign() {
         {/* 지원금 (방문형) / 제공 상품 정가 (배송형) — ⓘ 토글 안내 */}
         <section>
           <div className="flex items-center gap-1.5 mb-2">
-            <span className="text-[15px] font-bold text-ink">{isDelivery ? "제공 상품 정가" : "지원금"}</span>
+            {/* 2026-08-18 명칭 개정 — '지원금' → '체험 지원 금액' (생성 화면 항목명 한정) */}
+            <span className="text-[15px] font-bold text-ink">{isDelivery ? "제공 상품 정가" : "체험 지원 금액"}</span>
             <button
               type="button"
               onClick={() => setSupportInfoOpen((v) => !v)}
@@ -1183,9 +1185,9 @@ export default function NewCampaign() {
             : overLimit
               ? "월 한도 초과"
               : totalQuotaNum <= 0
-                ? "총 모집 인원 입력"
+                ? "총 모집 건수 입력"
                 : supportNum <= 0
-                  ? isDelivery ? "제공 상품 정가 입력" : "지원금 입력"
+                  ? isDelivery ? "제공 상품 정가 입력" : "체험 지원 금액 입력"
                   : !isDelivery && useCode.length !== 4
                     ? "매장 확인 번호 4자리 입력"
                     : isDelivery && !productCategory
