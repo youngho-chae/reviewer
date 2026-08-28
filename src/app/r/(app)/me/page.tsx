@@ -75,11 +75,8 @@ export default async function Me() {
         <ProfileAvatar image={me.profileImage} initial={me.nickname.slice(0, 1)} />
         <div className="flex-1 min-w-0">
           <h2 className="text-[18px] font-bold text-ink tracking-title truncate">{me.nickname}</h2>
-          {me.winWinBadge && (
-            <span className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-brandSoft text-brand text-[12px] font-semibold">
-              <WinWinBadge size={14} /> 상생 리뷰어
-            </span>
-          )}
+          {/* winwin.png = 텍스트 포함 pill 일체형 (2026-08-18) — 별도 래퍼 없이 단독 렌더 */}
+          {me.winWinBadge && <WinWinBadge size={26} className="mt-1.5" />}
         </div>
         <Link
           href="/r/me/edit"

@@ -51,7 +51,7 @@ export default async function DeleteAccountPage() {
           <div className="text-[12px] text-muted">내 등급</div>
           <div className="mt-1.5 flex items-center gap-2">
             <span className="text-[18px] font-bold text-ink tracking-title leading-none">{me.grade}등급</span>
-            {me.winWinBadge && <WinWinBadge size={17} />}
+            {me.winWinBadge && <WinWinBadge size={22} />}
           </div>
           <p className="mt-1.5 text-[12px] text-muted">탈퇴하면 지금까지 쌓은 등급과 활동 이력이 사라져요.</p>
         </div>
