@@ -1216,7 +1216,7 @@ export default function NewCampaign() {
               </button>
             </div>
             <p className="mt-3 text-[13px] text-ink2 leading-[1.6]">
-              체험자 등급에 따라 지원금이 차등 지급돼요.
+              체험자 등급에 따라 지원금이 차등 적용돼요.
               <br />
               입력한 금액은 S등급 기준이며, 나머지 등급은 아래 비율로 자동 계산돼요.
             </p>
