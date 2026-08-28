@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DELIVERY_ENABLED } from "@/lib/flags";
 import { getCurrentReviewer } from "@/lib/server-helpers";
 import LogoutButton from "@/components/LogoutButton";
+import GradeBadge, { GRADE_TEXT_CLS } from "@/components/GradeBadge";
 import Icon, { type IconName } from "@/components/Icon";
 import ChannelIcons from "@/components/ChannelIcons";
 import WinWinBadge from "@/components/WinWinBadge";
@@ -38,7 +39,7 @@ export default async function Me() {
   const supportPct = Math.round((SUPPORT_MULTIPLIER[eff.grade] ?? 0) * 100);
 
   const MENU: { icon: IconName; label: string; href: string; external?: boolean; sub?: string; dot?: boolean }[] = [
-    { icon: "trophy", label: "내 등급 / 등급별 혜택", href: "/r/grade" },
+    { icon: "trophy", label: "내 등급/등급별 혜택", href: "/r/grade" },
     { icon: "ticket", label: "내 체험권", href: "/r/passes" },
     { icon: "heart", label: "관심 목록", href: "/r/interests" },
     { icon: "clipboard", label: "작성한 리뷰", href: "/r/passes?tab=review" },
@@ -69,13 +70,17 @@ export default async function Me() {
         </div>
       </div>
 
-      {/* 프로필 — 플랫 (사진 변경은 회원 정보 수정 화면에서) */}
+      {/* 프로필 — 플랫 (사진 변경은 회원 정보 수정 화면에서) · 상생 리뷰어는 닉네임 아래 pill (2026-08-18 시안) */}
       <div className="px-5 pt-2 flex items-center gap-4">
         <ProfileAvatar image={me.profileImage} initial={me.nickname.slice(0, 1)} />
-        <h2 className="flex-1 min-w-0 text-[18px] font-bold text-ink tracking-title truncate flex items-center gap-1.5">
-          {me.nickname}
-          {me.winWinBadge && <WinWinBadge size={17} />}
-        </h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[18px] font-bold text-ink tracking-title truncate">{me.nickname}</h2>
+          {me.winWinBadge && (
+            <span className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-brandSoft text-brand text-[12px] font-semibold">
+              <WinWinBadge size={14} /> 상생 리뷰어
+            </span>
+          )}
+        </div>
         <Link
           href="/r/me/edit"
           className="cp-action shrink-0 inline-flex items-center h-9 px-4 rounded-pill border border-hairline bg-canvas text-[13px] font-semibold text-ink"
@@ -100,8 +105,13 @@ export default async function Me() {
       {/* 등급 카드 — 등급·배율 + 연동/미연동 채널 2열 */}
       <div className="mx-5 mt-3 rounded-lg border-[1.5px] border-brand bg-canvas p-4">
         <div className="flex items-start justify-between gap-2">
+          {/* 등급 표기 방침 (2026-08-18) — 등급 배지 + 등급 고유색 텍스트 */}
           <div className="text-[17px] text-ink leading-[1.45]">
-            <b className="text-brand">{eff.grade}등급</b>으로
+            <span className="inline-flex items-center gap-1.5 align-middle">
+              <GradeBadge grade={eff.grade} size="md" />
+              <b className={GRADE_TEXT_CLS[eff.grade]}>{eff.grade}등급</b>
+            </span>{" "}
+            으로
             <br />
             지원금 <b className="text-[#FF6B00]">{supportPct}%</b> 받고 있어요
           </div>
