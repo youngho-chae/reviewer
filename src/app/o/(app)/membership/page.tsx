@@ -248,10 +248,6 @@ export default async function MembershipPage() {
       <section id="manage" className="px-5 mt-6 scroll-mt-16">
         <div className="rounded-lg border border-hairline bg-canvas overflow-hidden">
           {!isFree && <BillingSwitchRow plan={me.plan} billing={billing!} />}
-          <div className="flex items-center justify-between px-4 py-4 border-b border-hairlineSoft">
-            <span className="text-[14px] font-semibold text-ink">자동 갱신 해지</span>
-            <span className="text-[11px] text-muted">결제(PG) 연동 전 — 운영팀 문의</span>
-          </div>
           {/* 멤버십 해지 (2026-08-11 임시 활성) — 유료 플랜만: 확인 모달 → Free 전환 */}
           {isFree ? (
             <div className="flex items-center justify-between px-4 py-4">
