@@ -265,8 +265,7 @@ export default async function MembershipPage() {
         {/* 각주 — 연간 상품 성격·월간 전환 정산 (시안 원문) */}
         <p className="mt-3 text-[11px] text-muted leading-[1.6]">
           연간 멤버십은 10개월분 요금으로 12개월 이용하는 상품이에요. 월간으로 변경하면 이용한 기간은 월간
-          정상요금으로 다시 계산하고 남은 금액을 돌려드려요. 플랜 요금은 결제(PG) 연동 전까지 운영팀이 확인 후
-          청구합니다. 해지·환불은{" "}
+          정상요금으로 다시 계산하고 남은 금액을 돌려드려요. 해지·환불은{" "}
           <Link href="/legal/terms" className="text-brand font-medium">이용약관 제10조</Link>를 확인해주세요.
         </p>
       </section>

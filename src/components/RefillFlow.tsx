@@ -138,7 +138,6 @@ export default function RefillFlow({
             <ul className="mt-3 space-y-1.5 text-[12px] text-ink2 leading-[1.55] list-disc pl-4">
               <li>구매하면 쿠폰으로 발급돼요 — 바로 쓰거나 쿠폰함에 보관할 수 있어요.</li>
               <li>사용하면 이번 결제 주기 모집 한도에 추가되고, 그 주기까지만 유효해요 (남은 수량 이월 불가).</li>
-              <li>요금은 결제(PG) 연동 전까지 운영팀이 확인 후 청구해요.</li>
             </ul>
             {err && <p className="mt-2 text-[12px] text-error">{err}</p>}
             <div className="mt-5 flex gap-2">
