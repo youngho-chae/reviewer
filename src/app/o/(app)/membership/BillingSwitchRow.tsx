@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
+import { openPaymentTestWindow } from "@/lib/payment";
 
 // 결제 방식 전환 행 (2026-08-10 설계안) — 연간 이용 중이면 [월간으로 변경], 월간이면
 // [연간으로 변경 · 2개월 무료]. 확인 모달 1단계 후 plan API에 billing만 전달
@@ -14,6 +15,9 @@ export default function BillingSwitchRow({ plan, billing }: { plan: string; bill
   const toYearly = billing === "monthly";
 
   async function apply() {
+    // 연간 전환 = 연간 구독 결제 발생 → 결제 테스트 모듈 (2026-08-30, 정본 src/lib/payment.ts).
+    // 월간 전환은 환급(결제 아님)이라 열지 않는다. 팝업 차단 회피 — await 이전 동기 호출.
+    if (toYearly) openPaymentTestWindow();
     setBusy(true);
     setErr(null);
     const res = await fetch("/api/owner/plan", {

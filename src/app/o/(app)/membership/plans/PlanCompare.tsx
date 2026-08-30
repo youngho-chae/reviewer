@@ -9,6 +9,7 @@ import {
   yearlyCostPerTeam,
   costBucketLabel,
 } from "@/lib/limit-refill";
+import { openPaymentTestWindow } from "@/lib/payment";
 
 // 전체 플랜 (2026-08-12 와이어프레임 개편) — 구 결제 방식 토글(월간|연간 탭) 폐기.
 //  · 카드 안에 [월간 구독|연간 구독] 라디오 2행 — 전 카드 통틀어 단일 선택(플랜+방식 조합)
@@ -60,6 +61,8 @@ export default function PlanCompare({
 
   async function subscribe() {
     if (!sel) return;
+    // 결제 테스트 모듈 (2026-08-30, 정본 src/lib/payment.ts) — 팝업 차단 회피를 위해 await 이전 동기 호출
+    openPaymentTestWindow();
     setBusy(true);
     setErr(null);
     const res = await fetch("/api/owner/plan", {
