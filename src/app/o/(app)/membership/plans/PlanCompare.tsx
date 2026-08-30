@@ -218,10 +218,6 @@ export default function PlanCompare({
 
       {err && <p className="px-5 mt-3 text-[12px] text-error">{err}</p>}
 
-      <p className="px-5 mt-4 text-[11px] text-muted leading-[1.6]">
-        플랜 요금은 결제(PG) 연동 전까지 운영팀이 확인 후 청구하며, 미납 시 플랜이 Free로 조정될 수 있어요.
-      </p>
-
       {/* 하단 고정 — 안내 + 구독 CTA (와이어프레임) */}
       <div className="fixed bottom-[var(--bottom-nav-h,72px)] left-0 right-0 mx-auto max-w-[480px] bg-canvas border-t border-hairlineSoft z-20 px-5 pt-2.5 pb-3">
         <p className="text-center text-[12px] text-ink2">연간으로 결제해도 언제든 월간으로 변경할 수 있어요.</p>
