@@ -1,6 +1,7 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { openPaymentTestWindow } from "@/lib/payment";
 
 /**
  * 모집 한도 리필권 플로우 (2026-07-31 2차 보완 — 쿠폰형, 정본 src/lib/limit-refill.ts).
@@ -56,6 +57,8 @@ export default function RefillFlow({
   // done()은 여기서 호출하지 않는다 (2026-08-05) — onDone이 부모 시트를 닫는 화면(업셀 시트)에서
   // 구매 직후 호출하면 RefillFlow가 언마운트되어 완료 모달이 사라진다. 플로우 종료 시점에 호출.
   async function buy() {
+    // 결제 테스트 모듈 (2026-08-30, 정본 src/lib/payment.ts) — 팝업 차단 회피를 위해 await 이전 동기 호출
+    openPaymentTestWindow();
     setBusy(true);
     setErr(null);
     const res = await fetch("/api/owner/limit-refill", {
