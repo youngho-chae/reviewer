@@ -30,8 +30,8 @@ export const REVIEW_DEADLINE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // 리뷰 제출 마감 시각 (2026-07-22 §8-2) — 예약형은 QR 사용 시점이 아니라 **확정 방문일** 기준
 // (방문일 말 KST + 7일 — 일정 변경 시 자동 재계산). 그 외에는 사용 처리 시점 + 7일.
-// 사용 전(usedAt 없음)이면 null.
-export function reviewDeadline(p: Pass): number | null {
+// 사용 전(usedAt 없음)이면 null. 인자는 Pick — 표시 계층(pass-display)도 같은 정본을 공유.
+export function reviewDeadline(p: Pick<Pass, "usedAt" | "reservation">): number | null {
   if (!p.usedAt) return null;
   if (p.reservation?.date) {
     return Date.parse(`${p.reservation.date}T23:59:59+09:00`) + REVIEW_DEADLINE_MS;
