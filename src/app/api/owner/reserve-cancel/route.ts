@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     body: `${store?.name ?? "매장"} ${fmtReservationLabel(pass.reservation.date, pass.reservation.time)} 예약이 취소되었습니다. ${ownerCancelledReviewerCopy(code, cleanReason)}`,
     createdAt: now,
     read: false,
-    link: `/r/passes/${pass.id}`,
+    link: "/r/passes", // 종착 상태 → 리스트 (취소 카드가 사유 문구와 함께 노출 — 링크 원칙 2026-08-30)
   });
 
   await saveDBAsync();

@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     body: `운영 정책에 따라 ${store?.name ?? "매장"} ${label} 예약이 취소되었습니다. 재신청 제한은 없어요 — 자세한 내용은 고객센터로 문의해주세요.`,
     createdAt: now,
     read: false,
-    link: `/r/passes/${pass.id}`,
+    link: "/r/passes", // 종착 상태 → 리스트 (취소 카드가 사유 문구와 함께 노출 — 링크 원칙 2026-08-30)
   });
   db.notifications.push({
     id: rid("nt"),

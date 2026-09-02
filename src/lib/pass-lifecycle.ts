@@ -4,7 +4,13 @@
 //   2) 리뷰 기한(이용 후 7일) 초과: used 상태 방치 → 노쇼 카운트 + 양측 알림 (1회)
 //   3) 만료 임박 알림: 사용 기한 6시간 전 체험자에게 리마인드 (1회)
 //   4) 리뷰 마감 임박 알림: 제출 기한 24시간 전 체험자에게 리마인드 (1회)
+//   5) 재제출 기한(반려 후 7일) 리마인드·초과 알림 (2026-08-30 신설 — 알림만, 상태 전이·
+//      노쇼 카운트 없음: 반려 방치는 무감점 정책(운영정책서 §10) 그대로)
 // 모든 처리는 멱등(플래그/상태 가드)이며, 변경 여부를 반환해 호출자가 영속화를 결정한다.
+//
+// 알림 link 원칙 (2026-08-30, 정본 docs/알림템플릿.md): 도달 시점에 존재가 보장되는 화면만 —
+// 종착 상태(만료·취소·기한 초과·검수 통과)는 리스트(/r/passes[?tab=review]), 행동 필요
+// 상태(리마인드·확정·제안·반려)는 상세(/r/passes/{id}).
 
 import { DBShape, Pass } from "./types";
 import { rid } from "./ids";
@@ -75,7 +81,7 @@ export function expirePass(db: DBShape, p: Pass, now: number = Date.now()): void
       : `${store?.name ?? "매장"} 체험권이 사용되지 않아 만료되었습니다. 모집 슬롯은 다른 체험자에게 돌아갑니다.`,
     createdAt: now,
     read: false,
-    link: `/r/passes/${p.id}`,
+    link: "/r/passes", // 종착 상태 → 리스트 (만료 카드가 체험권 탭에 노출)
   });
   db.notifications.push({
     id: rid("nt"),
@@ -118,7 +124,7 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
         body: `${store0?.name ?? "매장"} ${fmtReservationLabel(p.reservation.date, p.reservation.time)} 예약이 방문 시간까지 확정되지 않아 자동 취소되었습니다. 패널티나 재신청 제한은 없어요 — 언제든 다시 신청할 수 있어요.`,
         createdAt: now,
         read: false,
-        link: `/r/passes/${p.id}`,
+        link: "/r/passes", // 종착 상태 → 리스트 (취소 카드가 사유 문구와 함께 노출)
       });
       db.notifications.push({
         id: rid("nt"),
@@ -201,7 +207,7 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
         body: `${store?.name ?? "매장"} 리뷰 제출 기한(이용 후 7일)이 지났습니다. 반복 시 월간 등급 재평가에 감점으로 반영됩니다.`,
         createdAt: now,
         read: false,
-        link: `/r/passes/${p.id}`,
+        link: "/r/passes?tab=review", // 종착 상태 → 리뷰작성 탭 (기한 초과 칩)
       });
       db.notifications.push({
         id: rid("nt"),
@@ -215,6 +221,44 @@ export function sweepPassLifecycle(db: DBShape, now: number = Date.now()): boole
       });
       changed = true;
       continue;
+    }
+
+    // 2-1) 재제출 기한(반려 후 7일) 리마인드·초과 — 알림만 (2026-08-30 신설).
+    //      상태 전이·노쇼 카운트 없음: resubmit_expired는 표시 계층(pass-display) 그대로,
+    //      반려 방치는 재평가 분모 반영뿐 무감점(운영정책서 §10). 재제출 소진(resubmitCount≥1)
+    //      건은 기한과 무관하게 이미 종착이라 발송하지 않는다 (pass-display 판정과 동일 기준).
+    if (p.status === "rejected" && p.rejectedAt && (p.resubmitCount ?? 0) < 1) {
+      const resubmitLeft = p.rejectedAt + REVIEW_DEADLINE_MS - now;
+      const store3 = db.stores.find((s) => s.id === p.storeId);
+      if (!p.resubmitDueSoonNotified && resubmitLeft > 0 && resubmitLeft <= REVIEW_DUE_REMINDER_MS) {
+        p.resubmitDueSoonNotified = true;
+        db.notifications.push({
+          id: rid("nt"),
+          userId: p.reviewerId,
+          role: "reviewer",
+          title: "리뷰 재제출 마감 24시간 전 ⏰",
+          body: `${store3?.name ?? "매장"} 리뷰 재제출 기한이 24시간 이내로 다가왔어요. 기한이 지나면 다시 제출할 수 없어요.`,
+          createdAt: now,
+          read: false,
+          link: `/r/passes/${p.id}`, // 행동 필요 → 반려 상세(재제출 폼)
+        });
+        changed = true;
+      }
+      if (!p.resubmitOverdueNotified && resubmitLeft <= 0) {
+        p.resubmitOverdueNotified = true;
+        db.notifications.push({
+          id: rid("nt"),
+          userId: p.reviewerId,
+          role: "reviewer",
+          title: "리뷰 재제출 기한 초과",
+          // 무감점 정책 정합 — 등급 감점 문구를 넣지 않는다 (최초 기한 초과 알림과 구분)
+          body: `${store3?.name ?? "매장"} 리뷰 재제출 기한(반려 후 7일)이 지나 다시 제출할 수 없어요.`,
+          createdAt: now,
+          read: false,
+          link: "/r/passes?tab=review", // 종착 상태 → 리뷰작성 탭 (재제출 기한 초과 칩)
+        });
+        changed = true;
+      }
     }
 
     // 3-0) 예약 확정 체험권 만료 24시간 전 리마인드 (§11-3 — QR은 방문일 다음날까지 유효)

@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     title: "사장님이 다른 방문 시간을 제안했어요 📅",
     body: `${store?.name ?? "매장"}에서 ${
       cleanSlots.length > 0 ? `${fmtReservationLabel(cleanSlots[0].date, cleanSlots[0].time)}${cleanSlots.length > 1 ? ` 외 ${cleanSlots.length - 1}개` : ""} 시간을 제안했어요.` : "방문 시간 안내를 보냈어요."
-    } 체험권에서 확인하고 선택해주세요.`,
+    } 체험권에서 확인하고 선택해주세요. 방문 희망 시간까지 확정되지 않으면 자동 취소돼요.`,
     createdAt: now,
     read: false,
     link: `/r/passes/${pass.id}`,
