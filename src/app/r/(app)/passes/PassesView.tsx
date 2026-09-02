@@ -37,7 +37,7 @@ export interface VisitPassItem {
   // 유효기간 표기 (2026-07-23 시안) — 예약형 "0월 00일 (0)" / 그 외 "0월 00일 (0) 오후 0시" (12시간제)
   expiryLabel?: string;
   usedAt: number | null;
-  reviewDeadline: number | null; // used=이용 후 7일 / rejected=반려 후 7일(재제출 기한)
+  reviewDeadline: number | null; // used=reviewDeadline 정본(예약형 = 확정 방문일 +7일, 그 외 이용 후 7일) / rejected=반려 후 7일(재제출 기한)
   deadlineKind: "review" | "resubmit" | null; // 날짜 라벨 — "리뷰마감" vs "재제출 기한"
   rejectReason: string | null;
   highlight: boolean;
@@ -414,7 +414,7 @@ function PassCard({ it, tab }: { it: VisitPassItem; tab: "issued" | "review" }) 
             <StoreInfoButton it={it} />
           </div>
           <div className="mt-2.5 rounded-md bg-sunken px-3.5 py-2.5 text-[12px] text-muted leading-[1.5]">
-            리뷰 제출 기한(이용 후 7일)이 지났어요. 반복되면 월간 등급 재평가에 감점으로 반영돼요.
+            리뷰 제출 기한이 지났어요. 반복되면 월간 등급 재평가에 감점으로 반영돼요.
           </div>
         </>
       )}

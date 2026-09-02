@@ -403,7 +403,7 @@ export default async function PassDetail({ params }: { params: Promise<{ id: str
           <div className="mx-5 mt-8 rounded-md bg-sunken p-5 text-[14px] text-muted leading-[1.6]">
             {isRejected
               ? "재제출 기한(반려 후 7일)이 지났거나 재제출 횟수(1회)를 모두 사용해 다시 제출할 수 없어요."
-              : "리뷰 제출 기한(이용 후 7일)이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요."}
+              : "리뷰 제출 기한이 지나 제출할 수 없어요. 기한 초과는 등급 재평가에 감점으로 반영돼요."}
           </div>
         ) : (
           <ReviewForm passId={pass.id} storeId={pass.storeId} channel={channel} resubmit={isRejected} receipt={isReceipt} />
