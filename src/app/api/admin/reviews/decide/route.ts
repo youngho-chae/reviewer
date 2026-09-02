@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       body: `${storeName} 후기가 검수를 통과했습니다. 등급 점수에 반영됩니다.`,
       createdAt: now,
       read: false,
-      link: `/r/passes/${pass.id}`,
+      link: "/r/passes?tab=review", // 종착 상태 → 리뷰작성 탭 검수 완료 칩 (링크 원칙 2026-08-30)
     });
     db.notifications.push({
       id: rid("nt"),

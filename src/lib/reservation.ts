@@ -384,7 +384,8 @@ export function ownerCancelledReviewerCopy(code?: OwnerCancelReasonCode, cancelR
 export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string, cancelReasonCode?: OwnerCancelReasonCode): string {
   switch (via) {
     case "proposal_declined":
-      return "제안된 시간이 맞지 않아 취소했어요. 재신청 제한은 없어요.";
+      // 카피 확정 2026-08-30 — 취소 주체(본인)를 명시해 "사장님이 취소"로 오독하지 않게 한다 (원문주의)
+      return "제안된 시간이 맞지 않아 내가 취소했어요. 재신청 제한은 없어요.";
     case "owner_declined":
       // 2026-07-23 시안 — 원인(시간 조율 실패)을 구체적으로 안내 (명시 거절 전용 — 자동 취소는 분리)
       return "예약 가능한 시간이 없어 사장님이 요청을 취소했어요.";

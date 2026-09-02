@@ -366,6 +366,8 @@ export interface Pass {
   overdueHandled?: boolean; // 리뷰 기한(이용 후 7일) 초과 처리 완료
   expiringSoonNotified?: boolean; // 만료 임박 알림 발송 완료 (방문형 6h 전 · 예약 확정형 24h 전)
   reviewDueSoonNotified?: boolean; // 리뷰 마감 24시간 전 알림 발송 완료
+  resubmitDueSoonNotified?: boolean; // 재제출 마감 24시간 전 알림 발송 완료 (2026-08-30)
+  resubmitOverdueNotified?: boolean; // 재제출 기한 초과 알림 발송 완료 (2026-08-30 — 알림만, 상태 전이 없음)
   // ── 예약 관련 리마인드 플래그 (2026-07-22 §11-3, §13-B) ──
   ownerRemindNotified?: boolean; // 예약 요청 24시간 무응답 — 사장님 리마인드 발송 완료
   visitRemindNotified?: boolean; // 확정 예약 방문 전날 — 체험자 리마인드 발송 완료
