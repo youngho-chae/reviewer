@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
       isDelivery
         ? " 발송 처리를 진행해주세요."
         : reservationInfo
-          ? ` ${fmtReservationLabel(reservationInfo.date, reservationInfo.time)} 방문 희망 — 예약을 확인해주세요.`
+          ? ` ${fmtReservationLabel(reservationInfo.date, reservationInfo.time)} 방문 희망 — 예약을 확인해주세요. 방문 시간까지 확정하지 않으면 자동 취소됩니다.`
           : ""
     }`,
     createdAt: now,

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     body: `매장 사정으로 ${store?.name ?? "매장"} 예약이 확정되지 않았어요. 패널티나 재신청 제한은 없어요 — 모집 중이라면 바로 다시 신청할 수 있어요.`,
     createdAt: now,
     read: false,
-    link: `/r/passes/${pass.id}`,
+    link: "/r/passes", // 종착 상태 → 리스트 (취소 카드가 사유 문구와 함께 노출 — 링크 원칙 2026-08-30)
   });
 
   await saveDBAsync();

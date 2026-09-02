@@ -112,7 +112,12 @@ export default function ReserveSheet({
           </div>
         </div>
 
-        <p className="mt-3 text-[12px] text-muted">· 사장님 승인 후 알림과 함께 체험권 QR이 발급돼요.</p>
+        {/* 자동 취소 기한 사전 안내 (2026-08-30) — 대기/제안 화면 유의 불릿(ReservationNotes)과 동일 카피,
+            신청 시점부터 기한 존재를 고지해 R-9 사후 통보가 첫 안내가 되지 않게 한다 */}
+        <p className="mt-3 text-[12px] text-muted leading-[1.6]">
+          · 사장님 승인 후 알림과 함께 체험권 QR이 발급돼요.
+          <br />· 방문 희망 시간까지 확정되지 않으면 신청이 자동 취소돼요. 페널티 없이 다시 신청할 수 있어요.
+        </p>
         {err && <p className="mt-2 text-[12px] text-error leading-[1.5]">{err}</p>}
 
         <div className="mt-4 flex gap-2">

@@ -47,7 +47,7 @@ export function closeCampaign(db: DBShape, c: Campaign, by: "owner" | "admin", n
         body: `${store?.name ?? "매장"} 캠페인이 종료되어 확정 전 예약 요청이 취소됐어요. 페널티나 재신청 제한은 없어요.`,
         createdAt: now,
         read: false,
-        link: `/r/passes/${p.id}`,
+        link: "/r/passes", // 종착 상태 → 리스트 (취소 카드가 사유 문구와 함께 노출 — 링크 원칙 2026-08-30)
       });
       continue;
     }
