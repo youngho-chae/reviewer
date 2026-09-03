@@ -33,6 +33,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "예약이 확정되지 않은 체험권입니다 — 예약 확인 후 사용해주세요" }, { status: 400 });
   }
   const c = db.campaigns.find((x) => x.id === pass.campaignId);
+  // QR 경로 결제 금액 = 전 등급 필수 (2026-09-02 서버 강제) — 입력 주체가 사장님(/o/scan 버튼
+  // 게이트와 정합). 미전달 시 지원금 0원 확정 저장을 막는다 · 명시 입력 0원은 유효(실결제 0원).
+  // 코드 입력 경로(use-by-code)의 "영수증만 필수·미입력 = 지원금 한도 폴백"은 의도된 차이 —
+  // 입력 주체가 체험자라 마찰을 줄인다 (2026-09-02 디자인 질의 회신로 정책 명문화).
+  if (paidAmount === undefined || paidAmount === null || paidAmount === "") {
+    return NextResponse.json({ error: "결제 금액을 입력해주세요." }, { status: 400 });
+  }
   const paid = Math.max(0, Number(paidAmount) || 0);
   let support: number;
   if (pass.receiptReview) {
