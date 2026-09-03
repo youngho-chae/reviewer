@@ -610,6 +610,46 @@ export function runSeed(db: DBShape) {
   };
   db.reviewers.push(reviewerC);
 
+  // 등급별 QA 로그인 계정 (2026-09-03) — demoa=A / demos=S, 비밀번호 demo1234.
+  // 임의 등급은 sns influence로 산출한다 (등급 정합 규칙 — grade 필드와 sns 재계산이
+  // 반드시 일치해야 채널 연동/해제 쿠키 경로에서 표기가 흔들리지 않는다).
+  // naver_blog 가중 ×1.2: 120,000→144,000(A밴드) · 600,000→720,000(S밴드 [50만,500만)).
+  // createdAt=now — 직전월 가입 이전이 아니므로 월간 재평가 스윕이 스킵(빈 이력 방지).
+  // 딸림 데이터 없음(패스·알림 0건 QA 시작 상태 — 발급은 직접).
+  const qaGradeAccounts: [string, string, number, number, number][] = [
+    // [이메일, 닉네임, influence, 완료 리뷰, 품질 점수]
+    ["demoa@reviewer.com", "데모A리뷰어", 120000, 12, 90],
+    ["demos@reviewer.com", "데모S리뷰어", 600000, 30, 95],
+  ];
+  qaGradeAccounts.forEach(([email, nickname, influence, completedReviews, qualityScore], i) => {
+    const sns = [
+      {
+        kind: "naver_blog" as SnsKind,
+        url: `https://blog.naver.com/${email.split("@")[0]}`,
+        influence,
+        verified: true,
+        verifiedAt: now,
+        verifiedVia: "demo" as const,
+      },
+    ];
+    const channelGrades = channelGradesFromSns(sns);
+    db.reviewers.push({
+      id: detId("rv", email),
+      email,
+      passwordHash: hash("demo1234"),
+      phone: i === 0 ? "01044445555" : "01055556666",
+      phoneVerifiedAt: now,
+      nickname: STORYBOARD ? SB.nickname : nickname,
+      sns,
+      channelGrades,
+      grade: bestGrade(Object.values(channelGrades)),
+      createdAt: now,
+      completedReviews,
+      qualityScore,
+      noShowCount: 0,
+    });
+  });
+
   // ──────────────────────────────────────────────
   // QA 데모용 패스 시드 — demo@reviewer.com 시점에서
   // 모든 PassStatus 케이스가 표시되도록 다양한 상태를 생성.
