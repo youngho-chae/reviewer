@@ -48,7 +48,7 @@ function persist(db: DBShape) {
 // 운영 환경에서 KV/디스크에 남아있던 옛 시드를 자동 정리.
 // 스토리보드 브랜치(design/storyboard-schema)는 시드 내용이 다르므로 별도 버전(1000+).
 // 데모 계정 상생 리뷰어 지정(winWinBadge — 2026-08-07)을 반영하여 1029로 bump.
-const SEED_VERSION = 1029;
+const SEED_VERSION = 1030;
 
 function ensureSeeded(db: DBShape) {
   // [realtest 2000계열 — 비파괴 원칙 (2026-08-07 사고의 교훈)] 실사용 데이터가 담기는
