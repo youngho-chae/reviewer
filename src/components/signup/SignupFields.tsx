@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Icon from "@/components/Icon";
-import { validatePassword, PASSWORD_RULE_TEXT } from "@/lib/password";
+import { validatePassword, PASSWORD_RULE_TEXT, validateOwnerPassword, OWNER_PASSWORD_RULE_TEXT } from "@/lib/password";
 
 // 회원가입 공용 필드 (2026-08-18 와이어프레임 개편) — 체험자/사장님 가입 폼이 공유.
 //  · EmailDupField  : 이메일 + [중복 확인] 버튼 (role별 풀 — check-availability)
@@ -11,7 +11,7 @@ import { validatePassword, PASSWORD_RULE_TEXT } from "@/lib/password";
 //  · AgreeGroup     : 전체 동의 + [필수] 만 14세/이용약관/개인정보 + [선택] 마케팅
 
 export const FIELD_LABEL = "text-[14px] font-bold text-ink";
-const INPUT = "w-full h-12 px-4 rounded-md border focus:outline-none text-[16px]";
+export const INPUT = "w-full h-12 px-4 rounded-md border focus:outline-none text-[16px]";
 const SIDE_BTN =
   "cp-action shrink-0 h-12 px-4 rounded-md text-[14px] font-bold disabled:bg-sunken disabled:text-mutedSoft";
 
@@ -89,15 +89,20 @@ export function PasswordPair({
   pw2,
   onPw,
   onPw2,
+  role = "reviewer",
 }: {
   pw: string;
   pw2: string;
   onPw: (v: string) => void;
   onPw2: (v: string) => void;
+  // 역할별 규칙 (정본 src/lib/password.ts) — 사장님 = 대·소문자·숫자 8~16자 (2026-09-03)
+  role?: "reviewer" | "owner";
 }) {
   const [show1, setShow1] = useState(false);
   const [show2, setShow2] = useState(false);
-  const ruleErr = pw ? validatePassword(pw) : null;
+  const validate = role === "owner" ? validateOwnerPassword : validatePassword;
+  const ruleText = role === "owner" ? OWNER_PASSWORD_RULE_TEXT : PASSWORD_RULE_TEXT;
+  const ruleErr = pw ? validate(pw) : null;
   return (
     <div>
       <div className={FIELD_LABEL}>
@@ -109,7 +114,7 @@ export function PasswordPair({
           value={pw}
           onChange={(e) => onPw(e.target.value)}
           type={show1 ? "text" : "password"}
-          placeholder={PASSWORD_RULE_TEXT}
+          placeholder={ruleText}
           className={`${INPUT} pr-12 ${pw && ruleErr ? "border-error" : "border-hairline focus:border-brand"}`}
         />
         <button
