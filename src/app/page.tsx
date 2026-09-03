@@ -59,11 +59,22 @@ export default function Landing() {
       {/* 데모 계정 — footer 톤 */}
       <div className="mt-auto pt-10">
         <div className="rounded-md bg-parchment px-4 py-4">
-          <div className="text-[13px] font-semibold text-ink mb-2">데모 계정</div>
+          {/* 시드 로그인 가능 계정 전체 (2026-09-03 리스트업) — 시드 계정 추가/변경 시 함께 갱신 */}
+          <div className="text-[13px] font-semibold text-ink mb-2">데모 계정 (비밀번호 공통 demo1234)</div>
           <div className="space-y-1 text-[13px] text-ink2">
-            <div>체험자 · <span className="font-mono text-[12px]">demo@reviewer.com</span> / demo1234</div>
-            <div>사장님 · <span className="font-mono text-[12px]">demo@store.com</span> / demo1234</div>
-            <div>관리자 · <span className="font-mono text-[12px]">admin@catchrank.co.kr</span> / demo1234</div>
+            <div className="font-semibold text-ink pt-0.5">체험자</div>
+            <div><span className="font-mono text-[12px]">demo@reviewer.com</span> · A등급 — 체험권·알림 데모 데이터 보유</div>
+            <div><span className="font-mono text-[12px]">demos@reviewer.com</span> · S등급 — 빈 시작 상태</div>
+            <div><span className="font-mono text-[12px]">demoa@reviewer.com</span> · A등급 — 빈 시작 상태</div>
+            <div><span className="font-mono text-[12px]">demo-a@reviewer.com</span> · A등급 — 보조(사장님 화면 표시용)</div>
+            <div><span className="font-mono text-[12px]">demo-c@reviewer.com</span> · C등급 — 보조(신규 유저 데모)</div>
+            <div className="font-semibold text-ink pt-1.5">사장님</div>
+            <div><span className="font-mono text-[12px]">demo@store.com</span> · Standard — 데모 매장·캠페인 전체 소유</div>
+            <div><span className="font-mono text-[12px]">demo2@store.com</span> · Premium</div>
+            <div><span className="font-mono text-[12px]">demo3@store.com</span> · Free</div>
+            <div><span className="font-mono text-[12px]">demo4@store.com</span> · Basic — 전 지역 시드 캠페인 소유</div>
+            <div className="font-semibold text-ink pt-1.5">관리자</div>
+            <div><span className="font-mono text-[12px]">admin@catchrank.co.kr</span></div>
           </div>
         </div>
       </div>
