@@ -153,13 +153,20 @@ export default function ScanPage() {
             {result.pass.status === "active" ? (
               <>
                 <div className="mt-4">
-                  <div className="text-[14px] font-semibold text-ink mb-2">실 결제 금액 입력</div>
+                  {/* 전 등급 필수 (2026-09-02 명문화) — 입력 주체가 사장님이라 실측 정확도 우선,
+                      코드 입력 경로(체험자 입력)의 "영수증만 필수·선택+지원금 폴백"과 의도된 차이 */}
+                  <div className="text-[14px] font-semibold text-ink mb-2">
+                    실 결제 금액 입력 <span className="text-error">(필수)</span>
+                  </div>
                   <input value={paidAmount} onChange={(e) => setPaidAmount(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" className="w-full h-12 px-3 rounded-md border border-hairline focus:border-brand focus:outline-none text-[16px] tabular-nums" />
                   <div className="mt-1 text-[12px] text-muted tabular-nums">
                     {result.pass.receiptReview
                       ? `적용 할인 (10%): ${receiptSupportFor(Number(paidAmount) || 0, result.campaign?.supportAmount || 0).toLocaleString()}원`
                       : `적용 지원금: ${Math.min(Number(paidAmount) || 0, result.entitledSupport ?? result.campaign?.supportAmount ?? 0).toLocaleString()}원`}
                   </div>
+                  {!result.pass.receiptReview && (
+                    <div className="mt-0.5 text-[12px] text-mutedSoft">입력한 결제 금액까지만 지원금이 적용돼요.</div>
+                  )}
                 </div>
                 <button onClick={useNow} disabled={busy || !paidAmount} className="mt-4 w-full h-[52px] rounded-md bg-brand text-white text-[16px] font-bold disabled:bg-sunken disabled:text-mutedSoft">
                   {busy ? "처리 중..." : "사용 처리"}
