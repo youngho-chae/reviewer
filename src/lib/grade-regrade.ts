@@ -120,6 +120,8 @@ export function collectMonthlyActivity(db: DBShape, reviewerId: string, month: s
         // 적용 지원금 1,000원 미만(지원금 0원 캠페인 등)은 제외 — 소액 결제 만점 어뷰징 차단 (D2)
         // 영수증 리뷰(2026-08-07)도 제외 — 할인액이 결제액의 10%로 파생되어 초과 결제율
         // r=(paid−support)/support가 항상 9(캡 1.0 만점)로 왜곡된다. F에는 포함.
+        // use-by-code 미입력 폴백(paid=support) 건은 over=0 표본으로 포함 — 리포트 §12 상생
+        // 매출과 동일한 하한 취급(초과분 0으로 과대 반영 불가, 2026-09-02 명문화).
         if (!p.receiptReview && p.paidAmount != null && p.supportApplied != null && p.supportApplied >= W_MIN_SUPPORT) {
           const over = Math.max(0, p.paidAmount - p.supportApplied) / p.supportApplied;
           act.wRatios.push(Math.min(over, 1));
