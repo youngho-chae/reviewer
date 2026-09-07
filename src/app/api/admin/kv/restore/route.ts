@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession } from "@/lib/auth";
 import { kvAvailable, kvCurrentKey, kvLoadRaw, kvSaveRaw } from "@/lib/kv";
 import type { DBShape } from "@/lib/types";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
   // 2) 복원 — seedVersion을 현재 배포 이상으로 승격해 재시드 차단
   restored.seeded = true;
   restored.seedVersion = Math.max(restored.seedVersion ?? 0, current?.seedVersion ?? 0);
+  // 감사 로그 — 복원되는 DB에 직접 적재 (전체 교체 처분의 귀속, 2026-09-07)
+  logAdminAction(restored, s, "kv_restore", "db", currentKey, `from ${source}`);
   const ok = await kvSaveRaw(currentKey, restored);
   if (!ok) return NextResponse.json({ error: "KV 저장 실패" }, { status: 500 });
 

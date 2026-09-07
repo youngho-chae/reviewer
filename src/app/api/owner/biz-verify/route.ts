@@ -25,6 +25,10 @@ export async function POST(req: NextRequest) {
   if (!name) return NextResponse.json({ error: "사업장명을 입력해주세요" }, { status: 400 });
   const biz = String(bizNumber || "").replace(/\D/g, "");
   if (biz.length !== 10) return NextResponse.json({ error: "사업자등록번호 10자리를 입력해주세요" }, { status: 400 });
+  // 중복 차단 (2026-09-07 감사) — 같은 사업자번호로 다계정 인증이 무제한 허용되던 공백
+  if (db.owners.some((o) => o.id !== me.id && o.bizNumber === biz && o.bizStatus === "verified")) {
+    return NextResponse.json({ error: "이미 다른 계정에서 인증된 사업자등록번호예요 — 고객센터로 문의해주세요" }, { status: 409 });
+  }
   const opType = operatorType === "marketer" ? "marketer" : "owner";
 
   let result;
@@ -45,6 +49,7 @@ export async function POST(req: NextRequest) {
   me.operatorType = opType;
   me.bizStatus = "verified";
   me.bizVerifiedAt = Date.now();
+  me.bizVerifiedVia = ntsConfigured() ? "nts" : "demo"; // 어드민 데모 통과 판별 근거 (2026-09-07)
   await saveDBAsync();
   return NextResponse.json({
     ok: true,

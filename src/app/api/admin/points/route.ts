@@ -3,6 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { appendPointTxn } from "@/lib/points";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  logAdminAction(db, s, decision === "paid" ? "withdrawal_paid" : "withdrawal_reject", "withdrawal", wd.id, wd.rejectReason);
   await saveDBAsync();
   return NextResponse.json({ ok: true, status: wd.status });
 }

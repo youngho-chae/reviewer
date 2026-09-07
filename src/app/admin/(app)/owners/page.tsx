@@ -1,6 +1,7 @@
 import { getCurrentAdmin } from "@/lib/server-helpers";
 import { getDBAsync } from "@/lib/db";
 import VerifyOwnerButton from "./VerifyOwnerButton";
+import RevokeOwnerButton from "./RevokeOwnerButton";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export default async function AdminOwners() {
               </div>
               <div className="mt-1 text-[12px] text-muted">
                 {o.email} · {o.category} · {o.area}
+                {(o.name || o.phone) && <> · {o.name ?? ""} {o.phone ?? ""}</>}
+                {o.operatorType === "marketer" && " · 마케터"}
               </div>
               <div className="mt-1 text-[13px] text-ink2 tabular-nums">사업자등록번호 {fmtBiz(o.bizNumber)}</div>
               <div className="mt-1 text-[11px] text-muted tabular-nums">
@@ -52,12 +55,24 @@ export default async function AdminOwners() {
         {verified.map((o) => (
           <div key={o.id} className="rounded-md border border-hairline bg-canvas px-4 py-3 flex items-center justify-between">
             <div className="min-w-0">
-              <div className="text-[14px] font-semibold text-ink truncate">{o.storeName}</div>
+              <div className="text-[14px] font-semibold text-ink truncate">{o.storeName || "(상호 미입력)"}</div>
               <div className="text-[11px] text-muted truncate">
                 {o.email} · {o.plan} 플랜 · 사업자 {fmtBiz(o.bizNumber)}
+                {(o.name || o.phone) && <> · {o.name ?? ""} {o.phone ?? ""}</>}
+                {o.operatorType === "marketer" && " · 마케터"}
               </div>
             </div>
-            <span className="text-[11px] px-2 py-0.5 rounded-pill bg-successSoft text-successStrong font-semibold shrink-0">인증됨</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* 인증 경로 (2026-09-07) — demo = NTS 키 미설정 폴백 통과 (실검증 아님) */}
+              {o.bizVerifiedVia === "demo" && (
+                <span className="text-[11px] px-2 py-0.5 rounded-pill bg-warningSoft text-warning font-semibold">데모 인증</span>
+              )}
+              {o.bizVerifiedVia === "admin" && (
+                <span className="text-[11px] px-2 py-0.5 rounded-pill bg-sunken text-muted font-semibold">수기</span>
+              )}
+              <span className="text-[11px] px-2 py-0.5 rounded-pill bg-successSoft text-successStrong font-semibold">인증됨</span>
+              <RevokeOwnerButton ownerId={o.id} />
+            </div>
           </div>
         ))}
         {verified.length === 0 && <div className="text-[13px] text-muted py-6 text-center">인증된 사장님이 없습니다.</div>}

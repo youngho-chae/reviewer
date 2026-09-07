@@ -3,6 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { closeCampaign } from "@/lib/campaign-close";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -35,8 +36,10 @@ export async function POST(req: NextRequest) {
       read: false,
       link: `/o/campaign/${c.id}`,
     });
+    logAdminAction(db, s, "campaign_close", "campaign", c.id);
     await saveDBAsync();
   } else {
+    logAdminAction(db, s, "campaign_close", "campaign", c.id);
     await saveDBAsync();
   }
   return NextResponse.json({ ok: true, ...result });
