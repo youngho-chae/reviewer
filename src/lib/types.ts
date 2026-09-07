@@ -128,6 +128,9 @@ export interface AdminUser {
   email: string;
   passwordHash: string;
   name: string;
+  // 로그인 잠금 (2026-09-07 보안 감사) — 연속 5회 실패 → 3분 잠금 (api/auth/login)
+  loginFailCount?: number;
+  loginLockUntil?: number;
 }
 
 export interface Store {
@@ -330,7 +333,9 @@ export interface Pass {
   //  - "owner_cancelled"    : 사장님이 확정된 예약을 취소 (5-3 — cancelReason 필수)
   //  - "admin_cancelled"    : 운영자 수동 취소 (13-1)
   // undefined 외 모든 경위는 패널티·12h 재신청 제한을 적용하지 않는다 (체험자 귀책 아님).
-  cancelledVia?: "proposal_declined" | "owner_declined" | "auto_unconfirmed" | "owner_cancelled" | "admin_cancelled" | "campaign_closed";
+  // account_deleted = 체험자 탈퇴에 따른 자동 취소 · owner_deleted = 사장님 탈퇴(매장 운영 중단)에 따른
+  // 자동 취소 (2026-09-07 탈퇴 정합 — 둘 다 무패널티: 12h 쿨다운 판정 !cancelledVia에 걸리지 않음)
+  cancelledVia?: "proposal_declined" | "owner_declined" | "auto_unconfirmed" | "owner_cancelled" | "admin_cancelled" | "campaign_closed" | "account_deleted" | "owner_deleted";
   // 사장님 확정 취소 사유 코드 (2026-08-04 — 4지선다+직접 입력 데이터화, 어드민 통계용.
   // 정본 라벨·정제 안내 문구: src/lib/reservation.ts OWNER_CANCEL_REASONS. custom이면
   // cancelReason에 직접 입력 원문, 그 외에는 라벨이 저장된다)
