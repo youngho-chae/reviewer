@@ -3,7 +3,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
+  { href: "/admin/dashboard", label: "홈" }, // 대기 큐 집계·감사 로그·스윕 헬스 (2026-09-07 감사 개편)
   { href: "/admin/reviews", label: "검수" },
+  { href: "/admin/passes", label: "체험권" }, // 검색·정정 도구 (2026-09-07 — 오처리 되돌리기)
   { href: "/admin/reservations", label: "예약" }, // 예약 로그·수동 취소 (2026-07-22 §13)
   { href: "/admin/members", label: "회원" },
   { href: "/admin/campaigns", label: "캠페인" },

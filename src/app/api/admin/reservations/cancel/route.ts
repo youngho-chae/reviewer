@@ -4,6 +4,7 @@ import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { restoreQuotaSlot } from "@/lib/pass-lifecycle";
 import { reservationHistory, fmtReservationLabel } from "@/lib/reservation";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     link: "/o/home",
   });
 
+  logAdminAction(db, s, "reservation_cancel", "pass", pass.id, String(reason || ""));
   await saveDBAsync();
   return NextResponse.json({ ok: true });
 }
