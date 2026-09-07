@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
   const store = db.stores.find((x) => x.id === pass.storeId);
   const storeName = store?.name ?? "매장";
   const now = Date.now();
+  // 탈퇴 회원 가드 (2026-09-07 감사) — 검수 중 탈퇴한 체험자/사장님 앞으로 포인트 원장·알림이
+  // 적재되던 고아 레코드 누수 봉합. 검수 자체는 계속 진행한다 (리뷰는 이미 게시됨 — 사장님 보호).
+  const reviewer = db.reviewers.find((r) => r.id === pass.reviewerId);
+  const ownerExists = db.owners.some((o) => o.id === pass.ownerId);
 
   if (decision === "approve") {
     pass.status = "completed";
@@ -35,12 +39,11 @@ export async function POST(req: NextRequest) {
     // 승인 시각 — 월간 등급 재평가의 완료·상생 집계 귀속 기준
     pass.completedAt = now;
     // 검수 통과 시 체험자 누적 완료 리뷰 +1 (등급 산정 반영)
-    const reviewer = db.reviewers.find((r) => r.id === pass.reviewerId);
     if (reviewer) reviewer.completedReviews += 1;
     // 배송형 체험 포인트 적립 (2026-07-12 레뷰 벤치마크) — 검수 승인이라는 실제 발생
     // 이벤트에만 적립(P4). 지급액 = pointReward × 참여 채널 등급 배율 (P1: 등급은 혜택 크기).
     const campaign = db.campaigns.find((x) => x.id === pass.campaignId);
-    if (campaign?.kind === "delivery" && (campaign.pointReward ?? 0) > 0) {
+    if (reviewer && campaign?.kind === "delivery" && (campaign.pointReward ?? 0) > 0) {
       // S+ 보너스 +10% (2026-08-06 §10.6) — 적립 시점의 계정 표기 등급 기준
       const points = pointsForGrade(campaign.pointReward as number, pass.reviewerGrade, reviewer?.grade === "S+");
       if (points > 0) {
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
         });
       }
     }
-    db.notifications.push({
+    if (reviewer) db.notifications.push({
       id: rid("nt"),
       userId: pass.reviewerId,
       role: "reviewer",
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
       read: false,
       link: "/r/passes?tab=review", // 종착 상태 → 리뷰작성 탭 검수 완료 칩 (링크 원칙 2026-08-30)
     });
-    db.notifications.push({
+    if (ownerExists) db.notifications.push({
       id: rid("nt"),
       userId: pass.ownerId,
       role: "owner",
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
     pass.rejectReason = String(reason || "").slice(0, 500) || "작성 조건 미충족";
     pass.rejectedAt = now;
     const canResubmit = (pass.resubmitCount ?? 0) < 1;
-    db.notifications.push({
+    if (reviewer) db.notifications.push({
       id: rid("nt"),
       userId: pass.reviewerId,
       role: "reviewer",
@@ -100,7 +103,7 @@ export async function POST(req: NextRequest) {
       read: false,
       link: `/r/passes/${pass.id}`,
     });
-    db.notifications.push({
+    if (ownerExists) db.notifications.push({
       id: rid("nt"),
       userId: pass.ownerId,
       role: "owner",
