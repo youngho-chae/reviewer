@@ -110,6 +110,9 @@ export interface Owner {
   bizNumber?: string; // 사업자등록번호 10자리 (형식 검증만 — 진위 확인은 운영팀 수기)
   bizStatus?: "pending" | "verified";
   bizVerifiedAt?: number;
+  // 인증 경로 (2026-09-07 감사 개편) — nts=국세청 진위확인 / demo=키 미설정 데모 폴백 /
+  // admin=운영팀 수기. 어드민이 데모 통과 계정을 구별하지 못하던 맹점의 표기 근거.
+  bizVerifiedVia?: "nts" | "demo" | "admin";
   // 대표 매장 (2026-07-31) — 새 캠페인 생성의 매장 리스트 기본 선택.
   // 미지정/소유 아님이면 첫 매장 폴백. 지정은 마이페이지 [매장 정보].
   primaryStoreId?: string;
@@ -402,7 +405,8 @@ export interface Pass {
 export type PointTxnType =
   | "earn" // 리뷰 검수 승인 적립 (+) — 실제 발생 이벤트만 (P4)
   | "withdraw" // 출금 신청 차감 (−) — 신청 즉시 차감
-  | "withdraw_refund"; // 출금 반려 복구 (+)
+  | "withdraw_refund" // 출금 반려 복구 (+)
+  | "adjust"; // 운영 정정 (±) — 검수 재개 시 승인 적립 상쇄 등 (2026-09-07, 감사 로그 동반)
 
 export interface PointTxn {
   id: string;
@@ -549,6 +553,19 @@ export interface PushSub {
   createdAt: number;
 }
 
+// 어드민 감사 로그 (2026-09-07 감사 개편) — 모든 운영 처분을 행위자에게 귀속시키는
+// append-only 이력 (정본 src/lib/admin-audit.ts). 삭제·수정하지 않는다.
+export interface AdminAction {
+  id: string;
+  at: number;
+  adminId: string;
+  adminEmail: string;
+  action: string; // 예: "review_approve" | "pass_fix_amount" | "kv_restore" | "notify_send"
+  targetType: string; // "pass" | "reviewer" | "owner" | "campaign" | "withdrawal" | "db" | "notify"
+  targetId: string;
+  detail?: string; // 사유·입력 요약 (300자 클램프)
+}
+
 export interface DBShape {
   reviewers: Reviewer[];
   owners: Owner[];
@@ -570,6 +587,8 @@ export interface DBShape {
   limitRefills?: LimitRefill[];
   // ── 웹푸시 구독 (2026-08-13 — 정본 src/lib/push.ts) ──
   pushSubs?: PushSub[];
+  // ── 어드민 감사 로그 (2026-09-07 — 정본 src/lib/admin-audit.ts) ──
+  adminActions?: AdminAction[];
   // ──
   seeded: boolean;
   seedVersion?: number; // 시드 스키마 변경 시 bump → 자동 재시드 트리거

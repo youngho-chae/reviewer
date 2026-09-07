@@ -24,10 +24,12 @@ export default async function AdminReviews() {
         (a.reviewSubmittedAt ?? 0) - (b.reviewSubmittedAt ?? 0),
     );
 
+  // 최근 7일 "처리" 집계 (2026-09-07 정정) — 구 구현은 제출 시각 기준이라 8일 전 제출건을
+  // 오늘 처리해도 안 잡혔다. 처리 시각(completedAt/rejectedAt) 기준으로 교정.
   const processedToday = db.passes.filter(
     (p) =>
-      (p.status === "completed" || p.status === "rejected") &&
-      (p.reviewSubmittedAt ?? 0) > Date.now() - 7 * 86400000,
+      ((p.status === "completed" && (p.completedAt ?? 0) > Date.now() - 7 * 86400000) ||
+        (p.status === "rejected" && (p.rejectedAt ?? 0) > Date.now() - 7 * 86400000)),
   ).length;
 
   const rows = pending.map((p) => {
@@ -73,6 +75,21 @@ export default async function AdminReviews() {
             </div>
 
             <div className="mt-2 text-[16px] font-bold text-ink">{store?.name}</div>
+            {/* 재제출 구분 (2026-09-07 감사) — 반려 이력이 있는 재제출 건은 회차·직전 사유를
+                노출한다. 재제출은 1회뿐이라 이번 반려 = 종착 반려(등급 감점 확정) — 판단 근거 제공 */}
+            {(p.resubmitCount ?? 0) > 0 && (
+              <div className="mt-1.5 rounded-md bg-warningSoft px-3 py-2">
+                <span className="text-[11px] font-bold text-warning">재제출 {p.resubmitCount}회차 — 반려 시 종착(재제출 불가·감점 확정)</span>
+                {p.rejectReason && (
+                  <div className="mt-0.5 text-[12px] text-ink2">
+                    직전 반려 사유: {p.rejectReason}
+                    {p.rejectedAt
+                      ? ` (${new Date(p.rejectedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })})`
+                      : ""}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="text-[12px] text-muted mt-0.5">
               {campaign?.title} · {p.reviewChannel ? CH_LABEL[p.reviewChannel] ?? p.reviewChannel : p.receiptReview ? "영수증 리뷰" : "채널 미상"}
               {p.reviewSubmittedAt

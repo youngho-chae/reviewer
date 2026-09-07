@@ -3,6 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { appendPointTxn, pointsForGrade } from "@/lib/points";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  logAdminAction(db, s, decision === "approve" ? "review_approve" : "review_reject", "pass", pass.id, decision === "reject" ? pass.rejectReason : undefined);
   await saveDBAsync();
   return NextResponse.json({ ok: true, status: pass.status });
 }

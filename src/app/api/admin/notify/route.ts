@@ -3,6 +3,7 @@ import { getDBAsync, saveDBAsync } from "@/lib/db";
 import { readSession } from "@/lib/auth";
 import { rid } from "@/lib/ids";
 import { sendWebPushTo } from "@/lib/push";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
     { title: t, body: b, link: l || (audience === "reviewer" ? "/r/notifications" : "/o/notifications") },
   ).catch(() => ({ sent: 0, cleaned: 0 }));
 
+  logAdminAction(db, s, "notify_send", "notify", audience, `${t} · ${targets.length}명`);
   await saveDBAsync();
   return NextResponse.json({ ok: true, sent: targets.length, pushSent: push.sent });
 }
