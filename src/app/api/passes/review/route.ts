@@ -48,6 +48,12 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  // URL 형식 서버 검증 (2026-09-07 감사) — 클라이언트(ReviewForm)와 동일 기준. 어드민 검수
+  // 화면이 이 값을 href로 렌더하므로 http(s) 외 스킴을 서버에서 차단한다. 2048자 클램프.
+  const cleanReviewUrl = String(reviewUrl).trim().slice(0, 2048);
+  if (!/^https?:\/\/\S+\.\S+/.test(cleanReviewUrl)) {
+    return NextResponse.json({ error: "올바른 리뷰 URL 형식이 아니에요 — http(s)로 시작하는 주소를 입력해주세요" }, { status: 400 });
+  }
   // 경제적 대가(광고) 표기 확인 — 클라이언트 체크만으로는 우회 가능하므로 서버가 강제.
   // 영수증 리뷰는 광고 문구 표기 대상이 아니다 (2026-08-07 — 확인 항목 자체가 없음)
   if (!isReceipt && !adNotice) {
@@ -74,7 +80,7 @@ export async function POST(req: NextRequest) {
   if (!isReceipt) pass.adNoticeConfirmed = true;
 
   if (isResubmit) pass.resubmitCount = (pass.resubmitCount ?? 0) + 1;
-  pass.reviewUrl = reviewUrl;
+  pass.reviewUrl = cleanReviewUrl;
   pass.reviewSubmittedAt = Date.now();
   pass.reviewStatus = "pending";
   pass.status = "review_submitted";

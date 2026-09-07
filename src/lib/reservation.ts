@@ -401,6 +401,12 @@ export function cancelledCopy(via: Pass["cancelledVia"], cancelReason?: string, 
     case "campaign_closed":
       // 조기 종료 (2026-07-24) — 확정 전 예약 요청만 해당. 체험자 무패널티.
       return "캠페인이 종료되어 확정 전 예약 요청이 취소됐어요. 페널티나 재신청 제한은 없어요.";
+    case "owner_deleted":
+      // 사장님 탈퇴 (2026-09-07 탈퇴 정합) — 사용 처리 주체 소멸로 자동 취소. 체험자 무패널티.
+      return "매장 운영이 중단되어 취소된 체험권이에요. 페널티나 재신청 제한은 없어요.";
+    case "account_deleted":
+      // 체험자 탈퇴 — 본인 화면에는 노출되지 않음(계정 삭제) · 어드민 표기용.
+      return "탈퇴로 자동 취소된 체험권이에요.";
     default:
       return "예약을 취소했어요. 같은 캠페인은 12시간 후 다시 신청할 수 있어요.";
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDBAsync, saveDBAsync } from "@/lib/db";
+import { readSession } from "@/lib/auth";
 import { scrapePlace } from "@/lib/naver-scraper";
 
 export const runtime = "nodejs";
@@ -41,15 +42,21 @@ function areaFromAddress(address?: string): string | undefined {
 }
 
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const token = url.searchParams.get("token") || "";
-  const required = process.env.ADMIN_REFRESH_TOKEN || "";
-  // 운영(production)에서는 토큰 미설정 시 우회가 아니라 차단한다 — 데이터 갱신은 관리자 전용.
-  if (!required && process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "ADMIN_REFRESH_TOKEN이 설정되지 않아 비활성화된 엔드포인트입니다" }, { status: 503 });
-  }
-  if (required && token !== required) {
-    return NextResponse.json({ error: "토큰이 일치하지 않습니다" }, { status: 401 });
+  // 어드민 세션 또는 토큰 (2026-09-07 보안 감사) — 구현은 세션 검사 없이 토큰만 보고,
+  // 비프로덕션에서 토큰 미설정 시 무인증으로 열려 있던 유일한 쓰기 라우트였다.
+  // 어드민 세션이면 통과, 아니면 토큰 필수(미설정 시 환경 무관 차단 — fail-closed).
+  const s = await readSession();
+  const isAdmin = !!s && s.role === "admin";
+  if (!isAdmin) {
+    const url = new URL(req.url);
+    const token = url.searchParams.get("token") || "";
+    const required = process.env.ADMIN_REFRESH_TOKEN || "";
+    if (!required) {
+      return NextResponse.json({ error: "관리자 로그인 또는 ADMIN_REFRESH_TOKEN이 필요한 엔드포인트입니다" }, { status: 503 });
+    }
+    if (token !== required) {
+      return NextResponse.json({ error: "토큰이 일치하지 않습니다" }, { status: 401 });
+    }
   }
 
   const db = await getDBAsync();

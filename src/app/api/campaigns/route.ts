@@ -99,9 +99,10 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  // 플랜+리필 한도를 초과하는 분량만큼 초대 보너스 소진
+  // 플랜+리필 한도를 초과하는 분량 — 초대 보너스 소진은 모든 검증 통과 후(생성 확정 시점)로
+  // 미룬다 (2026-09-07 감사 — 채널/사진 등 후속 400에서 보너스만 소진되던 비대칭 봉합,
+  // 매장 push를 뒤로 미룬 것과 동일 원칙)
   const overPlan = monthlyUsed + totalQuota - effectiveLimit;
-  if (overPlan > 0) consumeQuotaBonus(db, owner.id, overPlan);
 
   // 필수 주문 메뉴 — { name, price? } 형태로 정규화
   const requiredMenus: RequiredMenu[] = Array.isArray(body.requiredMenus)
@@ -260,6 +261,7 @@ export async function POST(req: NextRequest) {
     photos,
   };
   if (isNewStore) db.stores.push(store); // URL로 불러온 매장 — 생성 확정 시점 등록
+  if (overPlan > 0) consumeQuotaBonus(db, owner.id, overPlan); // 검증 전부 통과 — 이제 소진
   db.campaigns.push(c);
   await saveDBAsync();
   return NextResponse.json({ ok: true, id: c.id });

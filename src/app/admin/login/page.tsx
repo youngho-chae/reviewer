@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 
 export default function AdminLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@catchrank.co.kr");
+  // 자격증명 프리필·평문 안내 제거 (2026-09-07 보안 감사) — 데모 환경 계정 안내는 랜딩 데모 계정 리스트가 담당
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,7 +58,6 @@ export default function AdminLogin() {
           {busy ? "로그인 중..." : "로그인"}
         </button>
       </form>
-      <p className="mt-4 text-[12px] text-muted">데모 계정: admin@catchrank.co.kr / demo1234</p>
     </main>
   );
 }
