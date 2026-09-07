@@ -7,7 +7,7 @@ import { createSession } from "@/lib/auth";
 import { channelGradesFromSns, bestGrade } from "@/lib/grade";
 import { normalizePhone, readPhoneProof, clearPhoneProof } from "@/lib/phone-verify";
 import { readSocialSignupProof, clearSocialSignupProof } from "@/lib/social-login";
-import { validatePassword, validateOwnerPassword } from "@/lib/password";
+import { validatePassword } from "@/lib/password";
 import { Owner, Reviewer, SnsAccount, SnsKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -29,7 +29,7 @@ interface ReviewerSignup {
 interface OwnerSignup {
   role: "owner";
   email: string;
-  password: string; // 사장님 전용 규칙 (2026-09-03) — 대·소문자·숫자 포함 8~16자 (validateOwnerPassword)
+  password: string; // 규칙 = 전 역할 단일 정본 (2026-09-03 통일) — 대·소문자·숫자 포함 8~16자
   name?: string; // 가입자 이름 (2026-09-03 신설 — 필수)
   // 매장·사업자 정보는 가입에서 제외 (2026-08-18 2차 개편) — 사업자등록번호·상호는
   // 가입 직후 인증 대기 화면에서 진위확인·즉시 승인(/api/owner/biz-verify), 매장은 캠페인 생성의
@@ -133,8 +133,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, grade });
   } else {
     if (!email || !password) return NextResponse.json({ error: "이메일/비밀번호를 입력해주세요" }, { status: 400 });
-    // 사장님 전용 비밀번호 규칙 (2026-09-03) — 대·소문자·숫자 포함 8~16자 (정본 src/lib/password.ts)
-    const pwErr = validateOwnerPassword(password);
+    // 비밀번호 규칙 = 전 역할 단일 정본 (2026-09-03 통일 — src/lib/password.ts)
+    const pwErr = validatePassword(password);
     if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
     const ownerName = String((body as OwnerSignup).name ?? "").trim().slice(0, 30);
     if (!ownerName) return NextResponse.json({ error: "이름을 입력해주세요" }, { status: 400 });

@@ -3,7 +3,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
-import { validateOwnerPassword } from "@/lib/password";
+import { validatePassword } from "@/lib/password";
 import {
   EmailDupField,
   PasswordPair,
@@ -50,7 +50,7 @@ function OwnerSignup() {
     setErr(null);
     if (!email.trim() || !password) return setErr("필수 항목을 모두 입력해주세요");
     if (emailStatus === "taken") return setErr("이미 가입된 이메일이에요 — 다른 이메일을 사용해주세요");
-    const pwErr = validateOwnerPassword(password);
+    const pwErr = validatePassword(password);
     if (pwErr) return setErr(pwErr);
     if (password !== password2) return setErr("비밀번호가 일치하지 않아요 — 다시 확인해주세요");
     if (!name.trim()) return setErr("이름을 입력해주세요");
@@ -101,7 +101,7 @@ function OwnerSignup() {
       <div className="px-6 pt-4 space-y-7">
         <EmailDupField role="owner" email={email} onChange={setEmail} status={emailStatus} onStatus={setEmailStatus} />
 
-        <PasswordPair role="owner" pw={password} pw2={password2} onPw={setPassword} onPw2={setPassword2} />
+        <PasswordPair pw={password} pw2={password2} onPw={setPassword} onPw2={setPassword2} />
 
         {/* 이름 (2026-09-03 신설 — 가입자 이름, Owner.name) */}
         <div>
